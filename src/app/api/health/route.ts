@@ -1,22 +1,29 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/db';
+import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  let dbStatus = 'unavailable';
-
   try {
+    // Quick DB ping
     await prisma.$queryRaw`SELECT 1`;
-    dbStatus = 'connected';
+    
+    return NextResponse.json({ 
+      status: 'ok',
+      timestamp: new Date().toISOString(),
+      database: 'connected',
+      environment: process.env.NODE_ENV || 'development'
+    });
   } catch (error) {
-    // Database may be unavailable during build - that's expected
-    console.log('Health check: DB not reachable (normal during build)');
+    console.error('[Health Check] Database connection failed:', error);
+    return NextResponse.json(
+      { 
+        status: 'error',
+        timestamp: new Date().toISOString(),
+        database: 'disconnected',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      },
+      { status: 503 }
+    );
   }
-
-  return NextResponse.json({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    database: dbStatus,
-  });
 }

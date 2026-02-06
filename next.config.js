@@ -18,6 +18,8 @@ const nextConfig = {
       },
     ],
   },
+  // Ensure proper output for Railway
+  output: 'standalone',
 }
 
 module.exports = nextConfig
