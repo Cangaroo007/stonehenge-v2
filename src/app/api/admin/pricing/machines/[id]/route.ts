@@ -1,0 +1,152 @@
+import { NextResponse } from 'next/server';
+import { prisma } from '@/lib/db';
+
+// GET /api/admin/pricing/machines/[id] - Fetch single machine profile
+export async function GET(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const machine = await prisma.machineProfile.findUnique({
+      where: { id: params.id }
+    });
+
+    if (!machine) {
+      return NextResponse.json(
+        { error: 'Machine profile not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(machine);
+  } catch (error) {
+    console.error('Error fetching machine profile:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch machine profile' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT /api/admin/pricing/machines/[id] - Update machine profile
+export async function PUT(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    const data = await request.json();
+
+    // Validate required fields
+    if (data.name && typeof data.name !== 'string') {
+      return NextResponse.json(
+        { error: 'Invalid name' },
+        { status: 400 }
+      );
+    }
+
+    if (data.kerfWidthMm !== undefined && typeof data.kerfWidthMm !== 'number') {
+      return NextResponse.json(
+        { error: 'Invalid kerf width' },
+        { status: 400 }
+      );
+    }
+
+    // If this machine is being set as default, unset any existing default
+    if (data.isDefault) {
+      await prisma.machineProfile.updateMany({
+        where: { 
+          isDefault: true,
+          id: { not: params.id }
+        },
+        data: { isDefault: false }
+      });
+    }
+
+    const machine = await prisma.machineProfile.update({
+      where: { id: params.id },
+      data: {
+        name: data.name,
+        kerfWidthMm: data.kerfWidthMm,
+        maxSlabLengthMm: data.maxSlabLengthMm !== undefined ? data.maxSlabLengthMm : undefined,
+        maxSlabWidthMm: data.maxSlabWidthMm !== undefined ? data.maxSlabWidthMm : undefined,
+        isDefault: data.isDefault,
+        isActive: data.isActive !== undefined ? data.isActive : undefined,
+      }
+    });
+
+    return NextResponse.json(machine);
+  } catch (error: any) {
+    console.error('Error updating machine profile:', error);
+
+    // Handle unique constraint violation
+    if (error.code === 'P2002') {
+      return NextResponse.json(
+        { error: 'A machine with this name already exists' },
+        { status: 409 }
+      );
+    }
+
+    // Handle not found
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Machine profile not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to update machine profile' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/admin/pricing/machines/[id] - Soft delete machine profile
+export async function DELETE(
+  request: Request,
+  { params }: { params: { id: string } }
+) {
+  try {
+    // Check if this is the only active machine or the default
+    const machine = await prisma.machineProfile.findUnique({
+      where: { id: params.id }
+    });
+
+    if (!machine) {
+      return NextResponse.json(
+        { error: 'Machine profile not found' },
+        { status: 404 }
+      );
+    }
+
+    // Prevent deleting the default machine
+    if (machine.isDefault) {
+      return NextResponse.json(
+        { error: 'Cannot delete the default machine. Set another machine as default first.' },
+        { status: 400 }
+      );
+    }
+
+    // Soft delete by setting isActive to false
+    await prisma.machineProfile.update({
+      where: { id: params.id },
+      data: { isActive: false }
+    });
+
+    return NextResponse.json({ success: true });
+  } catch (error: any) {
+    console.error('Error deleting machine profile:', error);
+
+    if (error.code === 'P2025') {
+      return NextResponse.json(
+        { error: 'Machine profile not found' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: 'Failed to delete machine profile' },
+      { status: 500 }
+    );
+  }
+}

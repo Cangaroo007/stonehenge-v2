@@ -1,0 +1,83 @@
+Starting Container
+Prisma schema loaded from prisma/schema.prisma
+Datasource "db": PostgreSQL database "railway", schema "public" at "postgres.railway.internal:5432"
+
+11 migrations found in prisma/migrations
+
+
+No pending migrations to apply.
+
+> stonehenge@0.1.0 start
+> next start
+
+   ▲ Next.js 14.1.0
+   - Local:        http://localhost:8080
+
+ ⚠ Invalid next.config.js options detected: 
+ ⚠     Unrecognized key(s) in object: 'serverExternalPackages'
+ ⚠ See more info here: https://nextjs.org/docs/messages/invalid-next-config
+ ✓ Ready in 430ms
+[Get Drawings API] 📖 === REQUEST RECEIVED ===
+[Get Drawings API] Quote ID: { id: '13', quoteId: 13, isValid: true }
+[Get Drawings API] User: { userId: 1, isAuth: true }
+[Get Drawings API] Fetching drawings for quoteId: 13
+[Get Drawings API] ✅ Found drawings: 1
+[Get Drawings API] Drawings: [
+  {
+    "id": "cml2zwq750001138sxrb01brd",
+    "filename": "27 Mailia Crt Bench Top Plan V4 270126.pdf"
+  }
+]
+[Drawing URL API] 📸 === REQUEST RECEIVED ===
+[Drawing URL API] Drawing ID: cml2zwq750001138sxrb01brd
+[Drawing URL API] Generating presigned URL for drawing: {
+  drawingId: 'cml2zwq750001138sxrb01brd',
+  filename: '27 Mailia Crt Bench Top Plan V4 270126.pdf',
+  storageKey: 'drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf',
+  quoteId: 13
+}
+[R2] getDownloadUrl called for: drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf
+[R2] getR2Client() called
+[R2] Endpoint: ✅ configured
+[R2] Access Key: ✅ configured
+[R2] Secret Key: ✅ configured
+[R2] ✅ All credentials present, creating S3Client
+[R2] Client available, generating presigned URL...
+[R2] Bucket: stonehenge-drawings
+[R2] Key: drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf
+[R2] Expires in: 3600 seconds
+[R2] ✅ Presigned URL generated successfully
+[R2] URL length: 495 characters
+[Drawing URL API] ✅ Presigned URL generated successfully
+[Get Drawings API] 📖 === REQUEST RECEIVED ===
+[Get Drawings API] Quote ID: { id: '13', quoteId: 13, isValid: true }
+[Get Drawings API] User: { userId: 1, isAuth: true }
+[Get Drawings API] Fetching drawings for quoteId: 13
+[Get Drawings API] ✅ Found drawings: 1
+[Get Drawings API] Drawings: [
+  {
+    "id": "cml2zwq750001138sxrb01brd",
+    "filename": "27 Mailia Crt Bench Top Plan V4 270126.pdf"
+  }
+]
+[Drawing URL API] 📸 === REQUEST RECEIVED ===
+[Drawing URL API] Drawing ID: cml2zwq750001138sxrb01brd
+[Drawing URL API] Generating presigned URL for drawing: {
+  drawingId: 'cml2zwq750001138sxrb01brd',
+  filename: '27 Mailia Crt Bench Top Plan V4 270126.pdf',
+  storageKey: 'drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf',
+  quoteId: 13
+}
+[R2] getDownloadUrl called for: drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf
+[R2] getR2Client() called
+[R2] Endpoint: ✅ configured
+[R2] Access Key: ✅ configured
+[R2] Secret Key: ✅ configured
+[R2] ✅ All credentials present, creating S3Client
+[R2] Client available, generating presigned URL...
+[R2] Bucket: stonehenge-drawings
+[R2] Key: drawings/1/13/19e0fca1-122f-4f9a-a1e5-c93d5f70dccb.pdf
+[R2] Expires in: 3600 seconds
+[R2] ✅ Presigned URL generated successfully
+[R2] URL length: 495 characters
+[Drawing URL API] ✅ Presigned URL generated successfully

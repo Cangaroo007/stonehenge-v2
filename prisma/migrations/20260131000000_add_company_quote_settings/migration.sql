@@ -1,0 +1,18 @@
+-- AlterTable
+ALTER TABLE "companies" ADD COLUMN IF NOT EXISTS "website" TEXT,
+ADD COLUMN IF NOT EXISTS "logo_storage_key" TEXT,
+ADD COLUMN IF NOT EXISTS "primary_color" TEXT DEFAULT '#1e40af',
+ADD COLUMN IF NOT EXISTS "quote_intro_text_1" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_intro_text_2" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_intro_text_3" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_please_note" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_terms_text_1" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_terms_text_2" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_terms_text_3" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_terms_text_4" TEXT,
+ADD COLUMN IF NOT EXISTS "quote_validity_days" INTEGER DEFAULT 30,
+ADD COLUMN IF NOT EXISTS "deposit_percent" INTEGER DEFAULT 50,
+ADD COLUMN IF NOT EXISTS "terms_url" TEXT,
+ADD COLUMN IF NOT EXISTS "signature_name" TEXT,
+ADD COLUMN IF NOT EXISTS "signature_title" TEXT,
+ADD COLUMN IF NOT EXISTS "default_unit_system" TEXT DEFAULT 'METRIC';

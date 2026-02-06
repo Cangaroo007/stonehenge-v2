@@ -1,0 +1,59 @@
+{
+  "name": "stonehenge",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "lint": "next lint",
+    "db:migrate": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "seed:pricing": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed-pricing.ts",
+    "seed:pricing-settings": "npx tsx prisma/seed-pricing-settings.ts"
+  },
+  "prisma": {
+    "seed": "ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed.ts"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.39.0",
+    "@aws-sdk/client-s3": "^3.978.0",
+    "@aws-sdk/s3-request-presigner": "^3.978.0",
+    "@googlemaps/google-maps-services-js": "^3.4.0",
+    "@napi-rs/canvas": "^0.1.89",
+    "@prisma/client": "5.22.0",
+    "@react-pdf/renderer": "^3.4.0",
+    "bcryptjs": "^2.4.3",
+    "browser-image-compression": "^2.0.2",
+    "clsx": "^2.1.0",
+    "date-fns": "^3.3.1",
+    "jose": "^5.2.2",
+    "lucide-react": "^0.563.0",
+    "next": "14.1.0",
+    "pdf-lib": "^1.17.1",
+    "pdf-to-img": "^5.0.0",
+    "pdfjs-dist": "^5.4.530",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-hot-toast": "^2.4.1",
+    "react-pdf": "^10.3.0",
+    "react-signature-canvas": "^1.1.0-alpha.2",
+    "sharp": "^0.33.2",
+    "tailwind-merge": "^2.2.1",
+    "uuid": "^13.0.0",
+    "zod": "^3.22.4"
+  },
+  "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^20.11.16",
+    "@types/react": "^18.2.52",
+    "@types/react-dom": "^18.2.18",
+    "@types/uuid": "^10.0.0",
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "prisma": "5.22.0",
+    "tailwindcss": "^3.4.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.3.3"
+  }
+}
