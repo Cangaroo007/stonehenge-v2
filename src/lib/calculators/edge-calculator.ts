@@ -71,7 +71,7 @@ export class EdgeCalculator {
     let totalLinearMeters = new Decimal(0);
     let subtotal = new Decimal(0);
 
-    for (const [, group] of edgeGroups) {
+    for (const [, group] of Array.from(edgeGroups.entries())) {
       const breakdown = this.calculateGroup(group);
       byType.push(breakdown);
       totalLinearMeters = totalLinearMeters.plus(breakdown.linearMeters);
