@@ -9,3 +9,4 @@ startCommand = "DATABASE_URL=\"$DATABASE_PUBLIC_URL\" npx prisma migrate deploy 
 
 [deploy.env]
 GOOGLE_MAPS_API_KEY = "dummy_key"
+HOSTNAME = "0.0.0.0"
