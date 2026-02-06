@@ -1,5 +1,5 @@
 import React from 'react';
-import { LayoutStatsProps } from '../types';
+import { LayoutStatsProps } from './types';
 
 export const LayoutStats: React.FC<LayoutStatsProps> = ({ calculation, compact }) => {
   if (compact) {

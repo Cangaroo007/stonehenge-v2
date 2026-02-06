@@ -1,5 +1,5 @@
 import React from 'react';
-import { PiecePaletteProps } from '../types';
+import { PiecePaletteProps } from './types';
 
 export const PiecePalette: React.FC<PiecePaletteProps> = ({
   pieces,
