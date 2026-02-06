@@ -17,6 +17,7 @@ import {
   PricingContext,
   CalculationOptions,
   AppliedPricingRule,
+  JoinCalculation,
 } from './types';
 import { MaterialCalculator, createMaterialCalculator } from './material-calculator';
 import { EdgeCalculator, createEdgeCalculator } from './edge-calculator';
@@ -343,7 +344,7 @@ export class QuoteCalculator {
     };
   }
 
-  private calculateJoins() {
+  private calculateJoins(): JoinCalculation[] {
     // Implementation would go here
     return [];
   }
