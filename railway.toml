@@ -1,6 +1,9 @@
 [build]
 buildCommand = "npx prisma generate && npm run build"
 
+[build.env]
+GOOGLE_MAPS_API_KEY = "${{ GOOGLE_MAPS_API_KEY }}"
+
 [build.cache]
 paths = ["node_modules", ".next/cache"]
 
