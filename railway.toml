@@ -5,4 +5,4 @@ buildCommand = "npx prisma generate && npm run build"
 paths = ["node_modules", ".next/cache"]
 
 [deploy]
-startCommand = "DATABASE_URL=\"$DATABASE_PUBLIC_URL\" npx prisma migrate deploy && DATABASE_URL=\"$DATABASE_PUBLIC_URL\" npx prisma db seed || true && HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node_modules/.bin/next start"
+startCommand = "DATABASE_URL=\"$DATABASE_PUBLIC_URL\" npx prisma migrate deploy && DATABASE_URL=\"$DATABASE_PUBLIC_URL\" node prisma/seed-production.js && HOSTNAME=0.0.0.0 PORT=${PORT:-3000} node_modules/.bin/next start"
