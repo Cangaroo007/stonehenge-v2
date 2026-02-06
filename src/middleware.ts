@@ -10,7 +10,7 @@ const PUBLIC_API_ROUTES = [
 ];
 
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'default-secret-change-me'
+  process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-production'
 );
 
 const COOKIE_NAME = 'stonehenge-token';
