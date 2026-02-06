@@ -15,8 +15,8 @@ import {
   ServiceCalculation,
   ServiceItem,
   PieceEdgeConfig,
-} from '../types';
-import { ServiceUnitConfig } from '../../saas/subscription';
+} from './types';
+import { ServiceUnitConfig } from '../saas/subscription';
 
 // ============================================================================
 // Types

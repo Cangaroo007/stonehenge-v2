@@ -24,7 +24,7 @@ export interface SubscriptionPlan {
 
 export interface SubscriptionFeatures {
   // Core features
-  maxUsers: number;
+  maxUsers: number | 'unlimited';
   maxQuotesPerMonth: number | 'unlimited';
   maxProjects: number | 'unlimited';
   
@@ -273,13 +273,13 @@ export class FeatureGate {
   canAddUser(currentUserCount: number): boolean {
     const max = this.plan.features.maxUsers;
     if (max === 'unlimited') return true;
-    return currentUserCount < max;
+    return currentUserCount < (max as number);
   }
   
   canCreateQuote(currentMonthCount: number): boolean {
     const max = this.plan.features.maxQuotesPerMonth;
     if (max === 'unlimited') return true;
-    return currentMonthCount < max;
+    return currentMonthCount < (max as number);
   }
   
   getStorageLimitGb(): number {

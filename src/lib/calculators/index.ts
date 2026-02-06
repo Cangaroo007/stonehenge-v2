@@ -267,6 +267,7 @@ export class QuoteCalculator {
         dimensions: {
           lengthMm: piece.lengthMm,
           widthMm: piece.widthMm,
+          thicknessMm: piece.thicknessMm,
         },
         edges: {
           top: piece.edgeTop,
@@ -443,6 +444,7 @@ interface QuoteData {
     id: number;
     companyId?: number;
     clientTypeId: string | null;
+    clientTierId: string | null;
     clientTier: {
       discountMatrix: unknown;
     } | null;

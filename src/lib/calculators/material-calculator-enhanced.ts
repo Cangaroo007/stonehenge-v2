@@ -16,8 +16,8 @@ import {
   PieceMaterialCost,
   PricingContext,
   SlabEstimate,
-} from '../types';
-import { MaterialPricingStrategy, WastageConfig, CompanyPricingConfig } from '../../saas/subscription';
+} from './types';
+import { MaterialPricingStrategy, WastageConfig, CompanyPricingConfig } from '../saas/subscription';
 import { getSlabSize } from '@/lib/constants/slab-sizes';
 
 // ============================================================================
