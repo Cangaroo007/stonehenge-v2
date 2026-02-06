@@ -74,7 +74,7 @@ export async function getCurrentUser(): Promise<UserPayload | null> {
   return verifyToken(token);
 }
 
-export async function login(email: string, password: string): Promise<{ success: boolean; error?: string; role?: string }> {
+export async function login(email: string, password: string): Promise<{ success: boolean; error?: string; role?: string; token?: string }> {
   const user = await prisma.user.findUnique({
     where: { email },
   });
@@ -101,15 +101,13 @@ export async function login(email: string, password: string): Promise<{ success:
     customerId: user.customerId,
   });
 
-  await setAuthCookie(token);
-  
-  // Update last login timestamp
-  await prisma.user.update({
+  // Update last login timestamp (non-blocking, don't let it break login)
+  prisma.user.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
-  });
-  
-  return { success: true, role: user.role };
+  }).catch((e) => console.error('Failed to update lastLoginAt:', e.message));
+
+  return { success: true, role: user.role, token };
 }
 
 export async function logout(): Promise<void> {
