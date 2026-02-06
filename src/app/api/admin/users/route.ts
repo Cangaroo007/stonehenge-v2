@@ -198,10 +198,7 @@ export async function POST(request: NextRequest) {
     // Remove password hash from response
     const { passwordHash: _, ...safeUser } = newUser;
 
-    return NextResponse.json({
-      ...safeUser,
-      tempPassword: sendInvite ? tempPassword : undefined,
-    });
+    return NextResponse.json(safeUser);
   } catch (error) {
     console.error('Error creating user:', error);
     return NextResponse.json(
