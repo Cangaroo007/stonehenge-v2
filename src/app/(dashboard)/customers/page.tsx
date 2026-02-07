@@ -59,7 +59,7 @@ export default async function CustomersPage() {
                     <td className="table-cell">{customer.client_types?.name || '-'}</td>
                     <td className="table-cell">{customer.client_tiers?.name || '-'}</td>
                     <td className="table-cell">{customer._count.quotes}</td>
-                    <td className="table-cell">{formatDate(customer.createdAt)}</td>
+                    <td className="table-cell">{formatDate(customer.created_at)}</td>
                     <td className="table-cell">
                       <Link
                         href={`/customers/${customer.id}`}
