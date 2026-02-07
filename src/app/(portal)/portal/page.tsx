@@ -23,7 +23,7 @@ async function getCustomerQuotes(customerId: number) {
         },
       },
     },
-    orderBy: { createdAt: 'desc' },
+    orderBy: { created_at: 'desc' },
   });
 }
 

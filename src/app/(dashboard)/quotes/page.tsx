@@ -6,7 +6,7 @@ export const dynamic = 'force-dynamic';
 
 async function getQuotes() {
   return prisma.quotes.findMany({
-    orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
     include: { customer: true },
   });
 }

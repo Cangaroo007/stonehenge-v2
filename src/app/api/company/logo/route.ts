@@ -77,7 +77,7 @@ export async function POST(request: Request) {
       select: {
         id: true,
         logoStorageKey: true,
-        updatedAt: true,
+        updated_at: true,
       },
     });
 

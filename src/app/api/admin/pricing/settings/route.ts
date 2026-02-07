@@ -47,8 +47,8 @@ export async function GET(request: NextRequest) {
       unitSystem: settings.unitSystem,
       currency: settings.currency,
       gstRate: Number(settings.gstRate).toFixed(4),
-      createdAt: settings.createdAt.toISOString(),
-      updatedAt: settings.updatedAt.toISOString(),
+      createdAt: settings.created_at.toISOString(),
+      updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.serviceRates.map(sr => ({
         ...sr,
         rate20mm: Number(sr.rate20mm),

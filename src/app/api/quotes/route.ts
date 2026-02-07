@@ -73,7 +73,7 @@ interface QuoteCreateData {
 export async function GET() {
   try {
     const quotes = await prisma.quotes.findMany({
-      orderBy: { createdAt: 'desc' },
+      orderBy: { created_at: 'desc' },
       include: { customer: true },
     });
     return NextResponse.json(quotes);

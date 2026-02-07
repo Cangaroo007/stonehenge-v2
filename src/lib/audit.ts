@@ -247,7 +247,7 @@ export async function getEntityAuditLog(
       },
     },
     orderBy: {
-      createdAt: 'desc',
+      created_at: 'desc',
     },
     take: limit,
   });
@@ -262,7 +262,7 @@ export async function getUserAuditLog(userId: number, limit = 50) {
       userId,
     },
     orderBy: {
-      createdAt: 'desc',
+      created_at: 'desc',
     },
     take: limit,
   });
@@ -284,7 +284,7 @@ export async function getRecentAuditLogs(limit = 100) {
       },
     },
     orderBy: {
-      createdAt: 'desc',
+      created_at: 'desc',
     },
     take: limit,
   });

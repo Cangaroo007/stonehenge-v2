@@ -44,7 +44,7 @@ export async function GET() {
         defaultTaxRate: true,
         currency: true,
         defaultUnitSystem: true,
-        updatedAt: true,
+        updated_at: true,
       },
     });
 
@@ -141,7 +141,7 @@ export async function PUT(request: Request) {
         defaultTaxRate: true,
         currency: true,
         defaultUnitSystem: true,
-        updatedAt: true,
+        updated_at: true,
       },
     });
 
