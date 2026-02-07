@@ -54,7 +54,7 @@ model client_types {
 }
 
 model companies {
-  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  id                  Int       @id @default(autoincrement())
   name                String
   created_at          DateTime? @default(now()) @db.Timestamp(6)
   updated_at          DateTime? @default(now()) @db.Timestamp(6)
@@ -533,7 +533,7 @@ model user {
   last_login_at      DateTime?
   role               UserRole           @default(SALES_REP)
   customer_user_role CustomerUserRole?
-  company_id         String?            @db.Uuid
+  company_id         Int?
   audit_logs         audit_logs[]
   quote_signatures   quote_signatures[]
   quote_views        quote_views[]
