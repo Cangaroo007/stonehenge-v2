@@ -315,7 +315,7 @@ function DetailsTab({ customer }: { customer: Customer }) {
           </div>
           <div>
             <label className="text-sm font-medium text-gray-500">Default Price Book</label>
-            <p className="mt-1 text-gray-900">{customer.defaultPriceBook?.name || '—'}</p>
+            <p className="mt-1 text-gray-900">{customer.price_books?.name || '—'}</p>
           </div>
         </div>
       </div>
