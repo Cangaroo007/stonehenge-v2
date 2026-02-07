@@ -2,7 +2,7 @@ import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
 
 // QuoteChangeType is not yet in Prisma schema - define locally
-type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_CLIENT' | 'CLIENT_APPROVED' | 'CLIENT_REJECTED' | 'CLIENT_VIEWED';
+export type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_CLIENT' | 'CLIENT_APPROVED' | 'CLIENT_REJECTED' | 'CLIENT_VIEWED' | 'PRICING_RECALCULATED' | 'STATUS_CHANGED';
 
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
