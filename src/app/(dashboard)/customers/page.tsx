@@ -5,7 +5,7 @@ import { formatDate } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 async function getCustomers() {
-  return prisma.customer.findMany({
+  return prisma.customers.findMany({
     orderBy: { name: 'asc' },
     include: {
       _count: { select: { quotes: true } },

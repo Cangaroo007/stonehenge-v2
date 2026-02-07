@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const customer = await prisma.customer.findUnique({
+    const customer = await prisma.customers.findUnique({
       where: { id: parseInt(id) },
       include: {
         clientType: true,
@@ -41,7 +41,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const customer = await prisma.customer.update({
+    const customer = await prisma.customers.update({
       where: { id: parseInt(id) },
       data: {
         name: data.name,
@@ -74,7 +74,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await prisma.customer.delete({
+    await prisma.customers.delete({
       where: { id: parseInt(id) },
     });
 

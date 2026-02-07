@@ -17,7 +17,7 @@ function generateTempPassword(): string {
 
 export async function GET() {
   try {
-    const customers = await prisma.customer.findMany({
+    const customers = await prisma.customers.findMany({
       orderBy: { name: 'asc' },
       include: {
         clientType: true,
