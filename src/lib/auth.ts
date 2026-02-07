@@ -4,8 +4,12 @@ import bcrypt from 'bcryptjs';
 import prisma from './db';
 import { UserRole } from '@prisma/client';
 
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET environment variable is not set. Authentication will not work in production.');
+}
+
 const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'default-secret-change-me'
+  process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-production'
 );
 
 const COOKIE_NAME = 'stonehenge-token';

@@ -18,6 +18,8 @@ const nextConfig = {
       },
     ],
   },
+  // Remove standalone output - not compatible with next start
+  // output: 'standalone',
 }
 
 module.exports = nextConfig

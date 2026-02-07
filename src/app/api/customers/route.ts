@@ -109,7 +109,6 @@ export async function POST(request: NextRequest) {
       response.portalUser = {
         id: result.portalUser.id,
         email: result.portalUser.email,
-        tempPassword: result.tempPassword,
         role: result.portalUser.customerUserRole,
       };
     }
