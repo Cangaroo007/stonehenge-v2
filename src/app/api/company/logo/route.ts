@@ -59,9 +59,9 @@ export async function POST(request: Request) {
     await uploadToR2(storageKey, buffer, file.type);
 
     // Delete old logo if exists
-    if (company.logoStorageKey) {
+    if (company.logo_storage_key) {
       try {
-        await deleteFromR2(company.logoStorageKey);
+        await deleteFromR2(company.logo_storage_key);
       } catch (error) {
         console.error('Error deleting old logo:', error);
         // Continue even if deletion fails
@@ -72,18 +72,18 @@ export async function POST(request: Request) {
     const updatedCompany = await prisma.companies.update({
       where: { id: company.id },
       data: {
-        logoStorageKey: storageKey,
+        logo_storage_key: storageKey,
       },
       select: {
         id: true,
-        logoStorageKey: true,
+        logo_storage_key: true,
         updated_at: true,
       },
     });
 
     return NextResponse.json({
       success: true,
-      storageKey: updatedCompany.logoStorageKey,
+      storageKey: updatedCompany.logo_storage_key,
       message: 'Logo uploaded successfully',
     });
   } catch (error) {
@@ -111,13 +111,13 @@ export async function DELETE() {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
-    if (!company.logoStorageKey) {
+    if (!company.logo_storage_key) {
       return NextResponse.json({ error: 'No logo to delete' }, { status: 400 });
     }
 
     // Delete from R2
     try {
-      await deleteFromR2(company.logoStorageKey);
+      await deleteFromR2(company.logo_storage_key);
     } catch (error) {
       console.error('Error deleting logo from R2:', error);
       // Continue to update database even if R2 deletion fails
@@ -127,7 +127,7 @@ export async function DELETE() {
     await prisma.companies.update({
       where: { id: company.id },
       data: {
-        logoStorageKey: null,
+        logo_storage_key: null,
       },
     });
 

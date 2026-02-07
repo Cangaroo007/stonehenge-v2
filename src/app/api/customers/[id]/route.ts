@@ -16,7 +16,7 @@ export async function GET(
         _count: {
           select: {
             quotes: true,
-            users: true,
+            user: true,
           },
         },
       },
@@ -50,9 +50,9 @@ export async function PUT(
         phone: data.phone || null,
         address: data.address || null,
         notes: data.notes || null,
-        clientTypeId: data.clientTypeId || null,
-        clientTierId: data.clientTierId || null,
-        defaultPriceBookId: data.defaultPriceBookId || null,
+        client_type_id: data.clientTypeId || null,
+        client_tier_id: data.clientTierId || null,
+        default_price_book_id: data.defaultPriceBookId || null,
       },
       include: {
         client_types: true,

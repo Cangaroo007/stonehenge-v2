@@ -71,7 +71,7 @@ interface Quote {
     client_types?: { id: string; name: string } | null;
     client_tiers?: { id: string; name: string } | null;
   } | null;
-  priceBook?: { id: string; name: string } | null;
+  price_books?: { id: string; name: string } | null;
   rooms: QuoteRoom[];
 }
 
@@ -150,9 +150,9 @@ export default function QuoteBuilderPage() {
   // Flatten pieces from all rooms
   const flattenPieces = useCallback((quoteRooms: QuoteRoom[]): QuotePiece[] => {
     return quoteRooms.flatMap(room =>
-      quote_rooms.pieces.map(piece => ({
+      room.pieces.map(piece => ({
         ...piece,
-        quote_rooms: { id: quote_rooms.id, name: quote_rooms.name }
+        quote_rooms: { id: room.id, name: room.name }
       }))
     ).sort((a, b) => a.sortOrder - b.sortOrder);
   }, []);

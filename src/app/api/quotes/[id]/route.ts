@@ -92,19 +92,19 @@ export async function GET(
     const quote = await prisma.quotes.findUnique({
       where: { id: parseInt(id) },
       include: {
-        customer: {
+        customers: {
           include: {
             client_types: true,
             client_tiers: true,
           },
         },
         price_books: true,
-        
-        rooms: {
-          orderBy: { sortOrder: 'asc' },
+
+        quote_rooms: {
+          orderBy: { sort_order: 'asc' },
           include: {
-            pieces: {
-              orderBy: { sortOrder: 'asc' },
+            quote_pieces: {
+              orderBy: { sort_order: 'asc' },
               include: {
                 piece_features: true,
                 materials: true,
@@ -112,7 +112,7 @@ export async function GET(
             },
           },
         },
-        files: true,
+        quote_files: true,
         quote_drawing_analyses: true,
       },
     });
@@ -164,7 +164,7 @@ export async function PUT(
         data: {
           calculated_total: grandTotal,
           calculated_at: new Date(data.calculation.calculated_at),
-          calculationBreakdown: data.calculation as unknown as Prisma.InputJsonValue,
+          calculation_breakdown: data.calculation as unknown as Prisma.InputJsonValue,
           // Also update the totals on the quote
           subtotal: data.calculation.total,
           tax_amount: gst,

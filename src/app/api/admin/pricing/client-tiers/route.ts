@@ -39,14 +39,16 @@ export async function POST(request: NextRequest) {
 
     const clientTier = await prisma.client_tiers.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         priority: data.priority || 0,
         isDefault: data.isDefault || false,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
-        ...(discountMatrixData !== undefined && { discountMatrix: discountMatrixData }),
-        ...(customPriceListData !== undefined && { customPriceList: customPriceListData }),
+        updatedAt: new Date(),
+        ...(discountMatrixData !== undefined && { discount_matrix: discountMatrixData }),
+        ...(customPriceListData !== undefined && { custom_price_list: customPriceListData }),
       },
     });
 

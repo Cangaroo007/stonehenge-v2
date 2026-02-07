@@ -279,7 +279,7 @@ export default function QuoteForm({
         widthMm: p.widthMm,
         thicknessMm: p.thicknessMm,
         materialId: p.materialId,
-        piece_features: p.features.map((f) => ({
+        piece_features: p.piece_features.map((f) => ({
           id: String(f.id),
           name: f.name,
           quantity: f.quantity,
@@ -341,7 +341,7 @@ export default function QuoteForm({
     if (piece.thicknessMm === 40) thicknessMultiplier = 1.5;
 
     const materialCost = areaSqm * pricePerSqm * thicknessMultiplier;
-    const featuresCost = piece.features.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0);
+    const featuresCost = piece.piece_features.reduce((sum, f) => sum + f.unitPrice * f.quantity, 0);
 
     return {
       materialCost,
@@ -353,7 +353,7 @@ export default function QuoteForm({
   function calculateTotals() {
     let subtotal = 0;
     rooms.forEach((room) => {
-      quote_rooms.pieces.forEach((piece) => {
+      room.pieces.forEach((piece) => {
         subtotal += calculatePieceCost(piece).total;
       });
     });
@@ -483,7 +483,7 @@ export default function QuoteForm({
                   ? {
                       ...p,
                       piece_features: [
-                        ...p.features,
+                        ...p.piece_features,
                         {
                           id: `new-${Date.now()}`,
                           name: defaultFeature.name,
@@ -508,7 +508,7 @@ export default function QuoteForm({
               ...r,
               pieces: r.pieces.map((p) =>
                 p.id === pieceId
-                  ? { ...p, piece_features: p.features.filter((f) => f.id !== featureId) }
+                  ? { ...p, piece_features: p.piece_features.filter((f) => f.id !== featureId) }
                   : p
               ),
             }

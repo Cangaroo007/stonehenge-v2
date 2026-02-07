@@ -46,7 +46,7 @@ interface ExtractedPiece {
   length: number;
   width: number;
   thickness: number;
-  quote_rooms: string;
+  room: string;
   confidence: number;
   notes: string | null;
   cutouts: { type: string }[];
@@ -389,7 +389,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       let pieceIndex = 0;
 
       for (const room of analysisResult.rooms || []) {
-        for (const piece of quote_rooms.pieces || []) {
+        for (const piece of room.pieces || []) {
           const id = `extracted-${pieceIndex++}`;
           pieces.push({
             id,
@@ -398,7 +398,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
-            quote_rooms: quote_rooms.name || 'Kitchen',
+            room: room.name || 'Kitchen',
             confidence: piece.confidence || 0.5,
             notes: piece.notes || null,
             cutouts: piece.cutouts || [],
@@ -563,7 +563,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             length: p.length,
             width: p.width,
             thickness: p.thickness,
-            quote_rooms: p.room,
+            room: p.room,
             notes: p.notes,
             edgeTop: p.edgeSelections.edgeTop,
             edgeBottom: p.edgeSelections.edgeBottom,

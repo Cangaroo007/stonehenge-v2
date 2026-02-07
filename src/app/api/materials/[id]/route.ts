@@ -36,8 +36,8 @@ export async function PUT(
         name: data.name,
         collection: data.collection || null,
         description: data.description || null,
-        pricePerSqm: data.pricePerSqm,
-        isActive: data.isActive ?? true,
+        price_per_sqm: data.pricePerSqm,
+        is_active: data.isActive ?? true,
       },
     });
 

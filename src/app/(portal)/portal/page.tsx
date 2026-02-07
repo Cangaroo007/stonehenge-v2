@@ -9,17 +9,17 @@ export const dynamic = 'force-dynamic';
 
 async function getCustomerQuotes(customerId: number) {
   return prisma.quotes.findMany({
-    where: { customerId },
+    where: { customer_id: customerId },
     include: {
-      signature: {
+      quote_signatures: {
         select: {
           id: true,
-          signedAt: true,
+          signed_at: true,
         },
       },
       _count: {
         select: {
-          rooms: true,
+          quote_rooms: true,
         },
       },
     },
@@ -158,17 +158,17 @@ export default async function CustomerPortalPage() {
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
                         {getStatusLabel(quote.status)}
                       </span>
-                      {quote.signature && (
+                      {quote.quote_signatures && (
                         <svg className="inline-block ml-2 h-4 w-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                       )}
                     </td>
                     <td className="table-cell text-gray-500">
-                      {formatDate(quote.createdAt)}
+                      {formatDate(quote.created_at)}
                     </td>
                     <td className="table-cell text-gray-500">
-                      {quote._count.rooms} room{quote._count.rooms !== 1 ? 's' : ''}
+                      {quote._count.quote_rooms} room{quote._count.quote_rooms !== 1 ? 's' : ''}
                     </td>
                     <td className="table-cell text-right font-semibold text-gray-900">
                       {formatCurrency(Number(quote.total))}

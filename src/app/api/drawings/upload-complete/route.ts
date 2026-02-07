@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
       where: { id: quoteId },
       select: {
         id: true,
-        customerId: true,
+        customer_id: true,
         created_by: true,
       },
     });

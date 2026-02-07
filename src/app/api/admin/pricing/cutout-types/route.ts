@@ -30,11 +30,13 @@ export async function POST(request: NextRequest) {
 
     const cutoutType = await prisma.cutout_types.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         baseRate: data.baseRate || 0,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

@@ -13,9 +13,9 @@ export async function GET(
     const priceBook = await prisma.price_books.findUnique({
       where: { id },
       include: {
-        rules: {
+        price_book_rules: {
           include: {
-            pricingRule: true,
+            pricing_rules_engine: true,
           },
           orderBy: { sortOrder: 'asc' },
         },
@@ -45,7 +45,7 @@ export async function PUT(
     const priceBook = await prisma.$transaction(async (tx: TransactionClient) => {
       // First, delete existing rules
       await tx.price_book_rules.deleteMany({
-        where: { priceBookId: id },
+        where: { price_book_id: id },
       });
 
       // Update the price book and create new rules
@@ -59,17 +59,19 @@ export async function PUT(
           isDefault: data.isDefault || false,
           sortOrder: data.sortOrder || 0,
           isActive: data.isActive ?? true,
-          rules: data.ruleIds && data.ruleIds.length > 0 ? {
+          updatedAt: new Date(),
+          price_book_rules: data.ruleIds && data.ruleIds.length > 0 ? {
             create: data.ruleIds.map((ruleId: string, index: number) => ({
-              pricingRuleId: ruleId,
+              id: crypto.randomUUID(),
+              pricing_rule_id: ruleId,
               sortOrder: index,
             })),
           } : undefined,
         },
         include: {
-          rules: {
+          price_book_rules: {
             include: {
-              pricingRule: true,
+              pricing_rules_engine: true,
             },
           },
         },
@@ -93,7 +95,7 @@ export async function DELETE(
     // Soft delete by setting isActive to false
     await prisma.price_books.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, updatedAt: new Date() },
     });
 
     return NextResponse.json({ success: true });

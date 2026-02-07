@@ -121,7 +121,7 @@ export default function PieceForm({
   const [widthMm, setWidthMm] = useState(piece?.widthMm?.toString() || '');
   const [thicknessMm, setThicknessMm] = useState(piece?.thicknessMm || 20);
   const [materialId, setMaterialId] = useState<number | null>(piece?.materialId || null);
-  const [roomName, setRoomName] = useState(piece?.room?.name || 'Kitchen');
+  const [roomName, setRoomName] = useState(piece?.quote_rooms?.name || 'Kitchen');
   const [machineProfileId, setMachineProfileId] = useState<string | null>(
     piece?.machineProfileId || defaultMachineId || null
   );

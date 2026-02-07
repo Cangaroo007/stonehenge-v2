@@ -7,18 +7,18 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const pricingRule = await prisma.pricing_rules.findUnique({
+    const pricingRule = await prisma.pricing_rules_engine.findUnique({
       where: { id },
       include: {
         client_types: true,
         client_tiers: true,
-        edgeOverrides: {
+        pricing_rule_edges: {
           include: { edge_types: true },
         },
-        cutoutOverrides: {
+        pricing_rule_cutouts: {
           include: { cutout_types: true },
         },
-        materialOverrides: {
+        pricing_rule_materials: {
           include: { materials: true },
         },
       },
@@ -43,7 +43,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const pricingRule = await prisma.pricing_rules.update({
+    const pricingRule = await prisma.pricing_rules_engine.update({
       where: { id },
       data: {
         name: data.name,
@@ -58,6 +58,7 @@ export async function PUT(
         adjustmentValue: data.adjustmentValue || 0,
         appliesTo: data.appliesTo || 'all',
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 
@@ -76,9 +77,9 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.pricing_rules.update({
+    await prisma.pricing_rules_engine.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, updatedAt: new Date() },
     });
 
     return NextResponse.json({ success: true });

@@ -73,7 +73,7 @@ export default function RoomGrouping({
     const groups: Record<string, QuotePiece[]> = {};
 
     pieces.forEach(piece => {
-      const roomName = piece.room?.name || 'No Room Assigned';
+      const roomName = piece.quote_rooms?.name || 'No Room Assigned';
       if (!groups[roomName]) {
         groups[roomName] = [];
       }
@@ -148,17 +148,17 @@ export default function RoomGrouping({
   return (
     <div className="divide-y divide-gray-200">
       {roomGroups.map((room) => (
-        <div key={quote_rooms.name} className="bg-white">
+        <div key={room.name} className="bg-white">
           {/* Room Header */}
           <button
-            onClick={() => toggleRoom(quote_rooms.name)}
+            onClick={() => toggleRoom(room.name)}
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-2">
               {/* Expand/Collapse Icon */}
               <svg
                 className={`h-4 w-4 text-gray-500 transition-transform ${
-                  quote_rooms.isExpanded ? 'rotate-90' : ''
+                  room.isExpanded ? 'rotate-90' : ''
                 }`}
                 fill="none"
                 viewBox="0 0 24 24"
@@ -168,24 +168,24 @@ export default function RoomGrouping({
               </svg>
 
               {/* Room Name */}
-              <span className="font-medium text-gray-900">{quote_rooms.name}</span>
+              <span className="font-medium text-gray-900">{room.name}</span>
 
               {/* Piece Count */}
               <span className="text-sm text-gray-500">
-                ({quote_rooms.pieces.length} piece{quote_rooms.pieces.length !== 1 ? 's' : ''})
+                ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
               </span>
             </div>
 
             {/* Room Total */}
             <span className="text-sm font-medium text-gray-700">
-              {formatCurrency(getRoomTotal(quote_rooms.pieces))}
+              {formatCurrency(getRoomTotal(room.pieces))}
             </span>
           </button>
 
           {/* Pieces List */}
-          {quote_rooms.isExpanded && (
+          {room.isExpanded && (
             <div className="bg-gray-50 border-t border-gray-100">
-              {quote_rooms.pieces.map((piece) => (
+              {room.pieces.map((piece) => (
                 <div
                   key={piece.id}
                   onClick={() => onSelectPiece(piece.id)}

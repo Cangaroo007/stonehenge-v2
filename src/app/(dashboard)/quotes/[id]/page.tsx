@@ -272,26 +272,26 @@ export default async function QuoteDetailPage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {quote_rooms.pieces.map((piece) => {
-                    const baseCost = Number(piece.materialCost) + Number(piece.featuresCost);
-                    const discount = baseCost - Number(piece.totalCost);
+                  {room.quote_pieces.map((piece) => {
+                    const baseCost = Number(piece.material_cost) + Number(piece.features_cost);
+                    const discount = baseCost - Number(piece.total_cost);
                     return (
                     <tr key={piece.id}>
                       <td className="table-cell font-medium">
                         {piece.description || piece.name || 'Unnamed piece'}
                       </td>
                       <td className="table-cell">
-                        <DimensionsDisplay lengthMm={piece.lengthMm} widthMm={piece.widthMm} thicknessMm={piece.thicknessMm} />
+                        <DimensionsDisplay lengthMm={piece.length_mm} widthMm={piece.width_mm} thicknessMm={piece.thickness_mm} />
                         <br />
                         <span className="text-xs text-gray-500">
-                          (<AreaDisplay sqm={Number(piece.areaSqm)} />)
+                          (<AreaDisplay sqm={Number(piece.area_sqm)} />)
                         </span>
                       </td>
-                      <td className="table-cell">{piece.materialName || '-'}</td>
+                      <td className="table-cell">{piece.material_name || '-'}</td>
                       <td className="table-cell">
-                        {piece.features.length > 0 ? (
+                        {piece.piece_features.length > 0 ? (
                           <ul className="text-sm">
-                            {piece.features.map((f) => (
+                            {piece.piece_features.map((f) => (
                               <li key={f.id}>
                                 {f.quantity}× {f.name}
                               </li>
@@ -310,7 +310,7 @@ export default async function QuoteDetailPage({
                         </span>
                       </td>
                       <td className="table-cell text-right font-medium">
-                        {formatCurrency(Number(piece.totalCost))}
+                        {formatCurrency(Number(piece.total_cost))}
                       </td>
                     </tr>
                     );

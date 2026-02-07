@@ -20,8 +20,8 @@ export async function GET(
     // Type-safe cast for JSON fields per Critical Lessons Learned
     const responseData = {
       ...clientTier,
-      customPriceList: clientTier.customPriceList
-        ? (clientTier.customPriceList as unknown as TierPriceMapping[])
+      customPriceList: clientTier.custom_price_list
+        ? (clientTier.custom_price_list as unknown as TierPriceMapping[])
         : null,
     };
 
@@ -61,8 +61,9 @@ export async function PUT(
         isDefault: data.isDefault || false,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
-        ...(discountMatrixData !== undefined && { discountMatrix: discountMatrixData }),
-        ...(customPriceListData !== undefined && { customPriceList: customPriceListData }),
+        updatedAt: new Date(),
+        ...(discountMatrixData !== undefined && { discount_matrix: discountMatrixData }),
+        ...(customPriceListData !== undefined && { custom_price_list: customPriceListData }),
       },
     });
 
@@ -83,7 +84,7 @@ export async function DELETE(
     // Soft delete by setting isActive to false
     await prisma.client_tiers.update({
       where: { id },
-      data: { isActive: false },
+      data: { isActive: false, updatedAt: new Date() },
     });
 
     return NextResponse.json({ success: true });
