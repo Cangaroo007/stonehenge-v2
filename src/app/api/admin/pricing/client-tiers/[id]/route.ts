@@ -9,7 +9,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const clientTier = await prisma.clientTier.findUnique({
+    const clientTier = await prisma.client_tiers.findUnique({
       where: { id },
     });
 
@@ -52,7 +52,7 @@ export async function PUT(
       customPriceListData = data.customPriceList as unknown as Prisma.InputJsonValue;
     }
 
-    const clientTier = await prisma.clientTier.update({
+    const clientTier = await prisma.client_tiers.update({
       where: { id },
       data: {
         name: data.name,
@@ -81,7 +81,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.clientTier.update({
+    await prisma.client_tiers.update({
       where: { id },
       data: { isActive: false },
     });

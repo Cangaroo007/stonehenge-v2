@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const clientTypes = await prisma.clientType.findMany({
+    const clientTypes = await prisma.client_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
     return NextResponse.json(clientTypes);
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const clientType = await prisma.clientType.create({
+    const clientType = await prisma.client_types.create({
       data: {
         name: data.name,
         description: data.description || null,

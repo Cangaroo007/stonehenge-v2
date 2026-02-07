@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const clientType = await prisma.clientType.findUnique({
+    const clientType = await prisma.client_types.findUnique({
       where: { id },
     });
 
@@ -30,7 +30,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const clientType = await prisma.clientType.update({
+    const clientType = await prisma.client_types.update({
       where: { id },
       data: {
         name: data.name,
@@ -55,7 +55,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.clientType.update({
+    await prisma.client_types.update({
       where: { id },
       data: { isActive: false },
     });

@@ -56,8 +56,8 @@ export default async function CustomersPage() {
                   <tr key={customer.id} className="hover:bg-gray-50">
                     <td className="table-cell font-medium">{customer.name}</td>
                     <td className="table-cell">{customer.company || '-'}</td>
-                    <td className="table-cell">{customer.clientType?.name || '-'}</td>
-                    <td className="table-cell">{customer.clientTier?.name || '-'}</td>
+                    <td className="table-cell">{customer.client_types?.name || '-'}</td>
+                    <td className="table-cell">{customer.client_tiers?.name || '-'}</td>
                     <td className="table-cell">{customer._count.quotes}</td>
                     <td className="table-cell">{formatDate(customer.createdAt)}</td>
                     <td className="table-cell">

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     // Note: Tiers are universal across all client types in the current schema
     // The clientTypeId param is accepted for API consistency but doesn't filter
-    const clientTiers = await prisma.clientTier.findMany({
+    const clientTiers = await prisma.client_tiers.findMany({
       where: activeOnly ? { isActive: true } : undefined,
       orderBy: [{ sortOrder: 'asc' }, { priority: 'desc' }],
     });
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       customPriceListData = data.customPriceList as unknown as Prisma.InputJsonValue;
     }
 
-    const clientTier = await prisma.clientTier.create({
+    const clientTier = await prisma.client_tiers.create({
       data: {
         name: data.name,
         description: data.description || null,

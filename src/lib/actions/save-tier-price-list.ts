@@ -24,7 +24,7 @@ export async function saveTierPriceList(
   }
 
   // Verify the tier exists
-  const existing = await prisma.clientTier.findUnique({
+  const existing = await prisma.client_tiers.findUnique({
     where: { id: tierId },
   });
 
@@ -35,7 +35,7 @@ export async function saveTierPriceList(
   // Railway-safe double-cast pattern for Prisma JSON field
   const customPriceListData = finalMapping as unknown as Prisma.InputJsonValue;
 
-  const updatedTier = await prisma.clientTier.update({
+  const updatedTier = await prisma.client_tiers.update({
     where: { id: tierId },
     data: {
       customPriceList: customPriceListData,
