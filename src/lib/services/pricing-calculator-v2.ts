@@ -111,7 +111,7 @@ export function calculateMaterialCost(
     lengthMm: number;
     widthMm: number;
     thicknessMm: number;
-    material: {
+    materials: {
       pricePerSqm: { toNumber: () => number };
       pricePerSlab?: { toNumber: () => number } | null;
       pricePerSquareMetre?: { toNumber: () => number } | null;
@@ -235,13 +235,13 @@ export async function calculateQuotePrice(
         },
       },
       price_books: true,
-      deliveryZone: true,
+      
       rooms: {
         include: {
           pieces: {
             include: {
-              material: true,
-              features: {
+              materials: true,
+              piece_features: {
                 include: {
                   feature_pricing: true,
                 },
@@ -269,7 +269,7 @@ export async function calculateQuotePrice(
   ]);
 
   // Flatten all pieces
-  const allPieces = quote.rooms.flatMap(room => room.pieces);
+  const allPieces = quote.rooms.flatMap(room => quote_rooms.pieces);
 
   // Get slab count from latest optimization (for PER_SLAB pricing)
   let slabCount: number | undefined;

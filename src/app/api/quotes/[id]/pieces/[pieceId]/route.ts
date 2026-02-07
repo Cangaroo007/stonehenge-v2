@@ -17,9 +17,9 @@ export async function GET(
     const piece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
       include: {
-        material: true,
-        room: true,
-        features: true,
+        materials: true,
+        quote_rooms: true,
+        piece_features: true,
       },
     });
 
@@ -29,7 +29,7 @@ export async function GET(
 
     return NextResponse.json({
       ...piece,
-      room: { id: piece.room.id, name: piece.room.name },
+      quote_rooms: { id: piece.quote_rooms.id, name: piece.quote_rooms.name },
     });
   } catch (error) {
     console.error('Error fetching piece:', error);
@@ -71,7 +71,7 @@ export async function PUT(
     // Get the current piece
     const currentPiece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
-      include: { room: true },
+      include: { quote_rooms: true },
     });
 
     if (!currentPiece) {
@@ -80,7 +80,7 @@ export async function PUT(
 
     // Handle room change if needed
     let roomId = currentPiece.roomId;
-    if (roomName && roomName !== currentPiece.room.name) {
+    if (roomName && roomName !== currentPiece.quote_rooms.name) {
       // Find or create the new room
       let newRoom = await prisma.quote_rooms.findFirst({
         where: {
@@ -146,8 +146,8 @@ export async function PUT(
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
       },
       include: {
-        material: true,
-        room: true,
+        materials: true,
+        quote_rooms: true,
       },
     });
 
@@ -163,7 +163,7 @@ export async function PUT(
 
     return NextResponse.json({
       ...piece,
-      room: { id: piece.room.id, name: piece.room.name },
+      quote_rooms: { id: piece.quote_rooms.id, name: piece.quote_rooms.name },
     });
   } catch (error) {
     console.error('Error updating piece:', error);

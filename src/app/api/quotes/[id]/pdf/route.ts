@@ -16,8 +16,8 @@ async function getQuote(id: number) {
           pieces: {
             orderBy: { sortOrder: 'asc' },
             include: {
-              features: true,
-              material: true,
+              piece_features: true,
+              materials: true,
             },
           },
         },
@@ -393,7 +393,7 @@ export async function GET(
         color: lightGray,
       });
 
-      currentPage.drawText(room.name.toUpperCase(), {
+      currentPage.drawText(quote_rooms.name.toUpperCase(), {
         x: margin + 6,
         y: y - 12,
         size: 11,
@@ -402,7 +402,7 @@ export async function GET(
       });
       y -= 30;
 
-      for (const piece of room.pieces) {
+      for (const piece of quote_rooms.pieces) {
         checkNewPage(80);
 
         const pieceTotal = parseFloat(piece.totalCost.toString());

@@ -28,7 +28,7 @@ interface QuotePiece {
   edgeRight: string | null;
   cutouts: PieceCutout[];
   machineProfileId: string | null;
-  room: {
+  quote_rooms: {
     id: number;
     name: string;
   };
@@ -145,7 +145,7 @@ export default function PieceForm({
       setWidthMm(piece.widthMm.toString());
       setThicknessMm(piece.thicknessMm);
       setMaterialId(piece.materialId);
-      setRoomName(piece.room.name);
+      setRoomName(piece.quote_rooms.name);
       setMachineProfileId(piece.machineProfileId || defaultMachineId || null);
       setEdgeSelections({
         edgeTop: piece.edgeTop || null,

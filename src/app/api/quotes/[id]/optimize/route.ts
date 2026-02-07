@@ -66,7 +66,7 @@ export async function POST(
     }
 
     // Extract pieces from quote with thickness, finished edges, and edge type names
-    const pieces = quote.rooms.flatMap((room: {
+    const pieces = quote.rooms.flatMap((quote_rooms: {
       name: string;
       pieces: Array<{
         id: number;
@@ -80,11 +80,11 @@ export async function POST(
         edgeRight: string | null;
       }>
     }) =>
-      room.pieces.map((piece) => ({
+      quote_rooms.pieces.map((piece) => ({
         id: piece.id.toString(),
         width: piece.lengthMm,
         height: piece.widthMm,
-        label: `${room.name}: ${piece.name || 'Piece'}`,
+        label: `${quote_rooms.name}: ${piece.name || 'Piece'}`,
         thickness: piece.thicknessMm || 20,
         finishedEdges: {
           top: piece.edgeTop !== null,

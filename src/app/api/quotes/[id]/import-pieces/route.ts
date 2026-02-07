@@ -99,7 +99,7 @@ export async function POST(
       piecesByRoom[roomName].push(piece);
     }
 
-    const createdPieces: { id: number; name: string; room: string }[] = [];
+    const createdPieces: { id: number; name: string; quote_rooms: string }[] = [];
 
     // Process each room
     for (const [roomName, roomPieces] of Object.entries(piecesByRoom)) {
@@ -129,7 +129,7 @@ export async function POST(
 
       // Get the highest piece sort order in the room
       const maxPiece = await prisma.quote_pieces.findFirst({
-        where: { roomId: room.id },
+        where: { roomId: quote_rooms.id },
         orderBy: { sortOrder: 'desc' },
       });
 
@@ -146,7 +146,7 @@ export async function POST(
 
         const piece = await prisma.quote_pieces.create({
           data: {
-            roomId: room.id,
+            roomId: quote_rooms.id,
             name: pieceData.name,
             description: pieceData.notes || null,
             lengthMm,
@@ -169,7 +169,7 @@ export async function POST(
         createdPieces.push({
           id: piece.id,
           name: piece.name,
-          room: roomName,
+          quote_rooms: roomName,
         });
       }
     }

@@ -12,7 +12,7 @@ export async function GET(
       include: {
         client_types: true,
         client_tiers: true,
-        defaultPriceBook: true,
+        price_books: true,
         _count: {
           select: {
             quotes: true,
@@ -57,7 +57,7 @@ export async function PUT(
       include: {
         client_types: true,
         client_tiers: true,
-        defaultPriceBook: true,
+        price_books: true,
       },
     });
 

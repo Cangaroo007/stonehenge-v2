@@ -10,17 +10,17 @@ export interface FieldChange {
 
 export interface PieceDetail {
   name: string;
-  room: string;
+  quote_rooms: string;
   dimensions: string;
   thickness: number;
-  material: string | null;
+  materials: string | null;
   cost: number;
   edges: string[];
 }
 
 export interface PieceModification {
   name: string;
-  room: string;
+  quote_rooms: string;
   changes: string[];
   oldCost: number;
   newCost: number;
@@ -52,7 +52,7 @@ export interface SnapshotForDiff {
   projectName: string | null;
   projectAddress: string | null;
   customer: { id: number; name: string } | null;
-  material: { id: number; name: string } | null;
+  materials: { id: number; name: string } | null;
   rooms: Array<{
     name: string;
     pieces: Array<{
@@ -183,7 +183,7 @@ export function generateDetailedChangeSummary(
 
   // Compare pieces
   type PieceInfo = {
-    name: string; room: string; widthMm: number; lengthMm: number; thicknessMm: number;
+    name: string; quote_rooms: string; widthMm: number; lengthMm: number; thicknessMm: number;
     materialName: string | null; materialCost: number; featuresCost: number; totalCost: number;
     edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null;
   };
@@ -191,9 +191,9 @@ export function generateDetailedChangeSummary(
   const newPieces = new Map<number, PieceInfo>();
 
   for (const room of oldSnapshot.rooms) {
-    for (const piece of room.pieces) {
+    for (const piece of quote_rooms.pieces) {
       oldPieces.set(piece.id, {
-        name: piece.name, room: room.name,
+        name: piece.name, quote_rooms: quote_rooms.name,
         widthMm: piece.widthMm, lengthMm: piece.lengthMm, thicknessMm: piece.thicknessMm,
         materialName: piece.materialName,
         materialCost: piece.materialCost ?? 0,
@@ -206,9 +206,9 @@ export function generateDetailedChangeSummary(
   }
 
   for (const room of newSnapshot.rooms) {
-    for (const piece of room.pieces) {
+    for (const piece of quote_rooms.pieces) {
       newPieces.set(piece.id, {
-        name: piece.name, room: room.name,
+        name: piece.name, quote_rooms: quote_rooms.name,
         widthMm: piece.widthMm, lengthMm: piece.lengthMm, thicknessMm: piece.thicknessMm,
         materialName: piece.materialName,
         materialCost: piece.materialCost ?? 0,
@@ -228,10 +228,10 @@ export function generateDetailedChangeSummary(
     if (!oldPieces.has(id)) {
       const p = newPieces.get(id)!;
       piecesAdded.push({
-        name: p.name, room: p.room,
+        name: p.name, quote_rooms: p.room,
         dimensions: `${p.widthMm} x ${p.lengthMm}mm`,
         thickness: p.thicknessMm,
-        material: p.materialName,
+        materials: p.materialName,
         cost: p.totalCost,
         edges: formatEdges(p),
       });
@@ -243,10 +243,10 @@ export function generateDetailedChangeSummary(
     if (!newPieces.has(id)) {
       const p = oldPieces.get(id)!;
       piecesRemoved.push({
-        name: p.name, room: p.room,
+        name: p.name, quote_rooms: p.room,
         dimensions: `${p.widthMm} x ${p.lengthMm}mm`,
         thickness: p.thicknessMm,
-        material: p.materialName,
+        materials: p.materialName,
         cost: p.totalCost,
         edges: formatEdges(p),
       });
@@ -280,7 +280,7 @@ export function generateDetailedChangeSummary(
 
       if (changes.length > 0) {
         piecesModified.push({
-          name: newP.name, room: newP.room, changes,
+          name: newP.name, quote_rooms: newP.room, changes,
           oldCost: oldP.totalCost, newCost: newP.totalCost,
           costDiff: newP.totalCost - oldP.totalCost,
         });

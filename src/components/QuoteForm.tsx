@@ -63,7 +63,7 @@ interface QuotePiece {
   widthMm: number;
   thicknessMm: number;
   materialId: number | null;
-  features: PieceFeature[];
+  piece_features: PieceFeature[];
   edgeTop: string | null;
   edgeBottom: string | null;
   edgeLeft: string | null;
@@ -86,7 +86,7 @@ interface PieceData {
   widthMm: number;
   thicknessMm: number;
   materialId: number | null;
-  features: Array<{
+  piece_features: Array<{
     id: number;
     name: string;
     quantity: number;
@@ -174,7 +174,7 @@ interface QuoteFormProps {
         widthMm: number;
         thicknessMm: number;
         materialId: number | null;
-        features: Array<{
+        piece_features: Array<{
           id: number;
           name: string;
           quantity: number;
@@ -279,7 +279,7 @@ export default function QuoteForm({
         widthMm: p.widthMm,
         thicknessMm: p.thicknessMm,
         materialId: p.materialId,
-        features: p.features.map((f) => ({
+        piece_features: p.features.map((f) => ({
           id: String(f.id),
           name: f.name,
           quantity: f.quantity,
@@ -353,7 +353,7 @@ export default function QuoteForm({
   function calculateTotals() {
     let subtotal = 0;
     rooms.forEach((room) => {
-      room.pieces.forEach((piece) => {
+      quote_rooms.pieces.forEach((piece) => {
         subtotal += calculatePieceCost(piece).total;
       });
     });
@@ -431,7 +431,7 @@ export default function QuoteForm({
                   widthMm: 600,
                   thicknessMm: 20,
                   materialId: materials[0]?.id || null,
-                  features: [],
+                  piece_features: [],
                   edgeTop: null,
                   edgeBottom: null,
                   edgeLeft: null,
@@ -482,7 +482,7 @@ export default function QuoteForm({
                 p.id === pieceId
                   ? {
                       ...p,
-                      features: [
+                      piece_features: [
                         ...p.features,
                         {
                           id: `new-${Date.now()}`,
@@ -508,7 +508,7 @@ export default function QuoteForm({
               ...r,
               pieces: r.pieces.map((p) =>
                 p.id === pieceId
-                  ? { ...p, features: p.features.filter((f) => f.id !== featureId) }
+                  ? { ...p, piece_features: p.features.filter((f) => f.id !== featureId) }
                   : p
               ),
             }
@@ -532,7 +532,7 @@ export default function QuoteForm({
                 p.id === pieceId
                   ? {
                       ...p,
-                      features: p.features.map((f) =>
+                      piece_features: p.features.map((f) =>
                         f.id === featureId ? { ...f, ...updates } : f
                       ),
                     }
@@ -675,10 +675,10 @@ export default function QuoteForm({
         const pieces: ExtractedPiece[] = [];
         if (analysisData.rooms && Array.isArray(analysisData.rooms)) {
           for (const room of analysisData.rooms) {
-            for (const piece of room.pieces) {
+            for (const piece of quote_rooms.pieces) {
               const cutoutsStr = piece.cutouts?.map(c => c.type).join(', ') || '';
               pieces.push({
-                roomName: room.name,
+                roomName: quote_rooms.name,
                 description: piece.name || `Piece ${piece.pieceNumber || pieces.length + 1}`,
                 lengthMm: piece.length,
                 widthMm: piece.width,
@@ -803,7 +803,7 @@ export default function QuoteForm({
           widthMm: p.widthMm,
           thicknessMm: p.thicknessMm,
           materialId: materials[0]?.id || null,
-          features: [],
+          piece_features: [],
           edgeTop: p.edgeSelections.edgeTop,
           edgeBottom: p.edgeSelections.edgeBottom,
           edgeLeft: p.edgeSelections.edgeLeft,
@@ -909,7 +909,7 @@ export default function QuoteForm({
               edgeBottom: p.edgeBottom,
               edgeLeft: p.edgeLeft,
               edgeRight: p.edgeRight,
-              features: p.features.map((f) => ({
+              piece_features: p.features.map((f) => ({
                 name: f.name,
                 quantity: f.quantity,
                 unitPrice: f.unitPrice,
@@ -923,7 +923,7 @@ export default function QuoteForm({
         taxAmount: totals.taxAmount,
         total: totals.total,
         createdBy: userId,
-        drawingAnalysis: analysisData,
+        quote_drawing_analyses: analysisData,
       };
 
       const url = initialData ? `/api/quotes/${initialData.id}` : '/api/quotes';
@@ -1714,25 +1714,25 @@ export default function QuoteForm({
       {/* Rooms and Pieces */}
       <div className="space-y-4" ref={piecesSectionRef}>
         {rooms.map((room) => (
-          <div key={room.id} className="card">
+          <div key={quote_rooms.id} className="card">
             <div className="p-4 border-b border-gray-200 flex items-center justify-between bg-gray-50 rounded-t-xl">
               <input
                 type="text"
                 className="text-lg font-semibold bg-transparent border-none focus:outline-none focus:ring-0 p-0"
-                value={room.name}
-                onChange={(e) => updateRoomName(room.id, e.target.value)}
+                value={quote_rooms.name}
+                onChange={(e) => updateRoomName(quote_rooms.id, e.target.value)}
               />
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => addPiece(room.id)}
+                  onClick={() => addPiece(quote_rooms.id)}
                   className="btn-secondary text-sm"
                 >
                   + Add Piece
                 </button>
                 <button
                   type="button"
-                  onClick={() => removeRoom(room.id)}
+                  onClick={() => removeRoom(quote_rooms.id)}
                   className="text-red-600 hover:text-red-700 text-sm"
                 >
                   Remove Room
@@ -1741,19 +1741,19 @@ export default function QuoteForm({
             </div>
 
             <div className="p-4 space-y-4">
-              {room.pieces.length === 0 ? (
+              {quote_rooms.pieces.length === 0 ? (
                 <p className="text-gray-500 text-center py-4">
                   No pieces yet.{' '}
                   <button
                     type="button"
-                    onClick={() => addPiece(room.id)}
+                    onClick={() => addPiece(quote_rooms.id)}
                     className="text-primary-600 hover:text-primary-700"
                   >
                     Add a piece
                   </button>
                 </p>
               ) : (
-                room.pieces.map((piece) => {
+                quote_rooms.pieces.map((piece) => {
                   const costs = calculatePieceCost(piece);
                   return (
                     <div key={piece.id} className="border border-gray-200 rounded-lg p-4">
@@ -1765,7 +1765,7 @@ export default function QuoteForm({
                             className="input"
                             value={piece.description}
                             onChange={(e) =>
-                              updatePiece(room.id, piece.id, { description: e.target.value })
+                              updatePiece(quote_rooms.id, piece.id, { description: e.target.value })
                             }
                             placeholder="e.g., Island Bench"
                           />
@@ -1777,7 +1777,7 @@ export default function QuoteForm({
                             className="input"
                             value={piece.lengthMm}
                             onChange={(e) =>
-                              updatePiece(room.id, piece.id, { lengthMm: Number(e.target.value) })
+                              updatePiece(quote_rooms.id, piece.id, { lengthMm: Number(e.target.value) })
                             }
                           />
                         </div>
@@ -1788,7 +1788,7 @@ export default function QuoteForm({
                             className="input"
                             value={piece.widthMm}
                             onChange={(e) =>
-                              updatePiece(room.id, piece.id, { widthMm: Number(e.target.value) })
+                              updatePiece(quote_rooms.id, piece.id, { widthMm: Number(e.target.value) })
                             }
                           />
                         </div>
@@ -1798,7 +1798,7 @@ export default function QuoteForm({
                             className="input"
                             value={piece.thicknessMm}
                             onChange={(e) =>
-                              updatePiece(room.id, piece.id, { thicknessMm: Number(e.target.value) })
+                              updatePiece(quote_rooms.id, piece.id, { thicknessMm: Number(e.target.value) })
                             }
                           >
                             <option value={20}>20mm</option>
@@ -1812,7 +1812,7 @@ export default function QuoteForm({
                             className="input"
                             value={piece.materialId || ''}
                             onChange={(e) =>
-                              updatePiece(room.id, piece.id, {
+                              updatePiece(quote_rooms.id, piece.id, {
                                 materialId: e.target.value ? Number(e.target.value) : null,
                               })
                             }
@@ -1833,7 +1833,7 @@ export default function QuoteForm({
                           <span className="text-sm font-medium text-gray-700">Features & Cutouts</span>
                           <button
                             type="button"
-                            onClick={() => addFeature(room.id, piece.id)}
+                            onClick={() => addFeature(quote_rooms.id, piece.id)}
                             className="text-sm text-primary-600 hover:text-primary-700"
                           >
                             + Add Feature
@@ -1847,7 +1847,7 @@ export default function QuoteForm({
                                   className="input flex-1"
                                   value={feature.name}
                                   onChange={(e) =>
-                                    handleFeatureChange(room.id, piece.id, feature.id, e.target.value)
+                                    handleFeatureChange(quote_rooms.id, piece.id, feature.id, e.target.value)
                                   }
                                 >
                                   {featureOptions.map((opt) => (
@@ -1862,7 +1862,7 @@ export default function QuoteForm({
                                   value={feature.quantity}
                                   min={1}
                                   onChange={(e) =>
-                                    updateFeature(room.id, piece.id, feature.id, {
+                                    updateFeature(quote_rooms.id, piece.id, feature.id, {
                                       quantity: Number(e.target.value),
                                     })
                                   }
@@ -1872,7 +1872,7 @@ export default function QuoteForm({
                                 </span>
                                 <button
                                   type="button"
-                                  onClick={() => removeFeature(room.id, piece.id, feature.id)}
+                                  onClick={() => removeFeature(quote_rooms.id, piece.id, feature.id)}
                                   className="text-red-600 hover:text-red-700"
                                 >
                                   ×
@@ -1889,7 +1889,7 @@ export default function QuoteForm({
                           <span className="text-sm font-medium text-gray-700">Edge Polish</span>
                           <button
                             type="button"
-                            onClick={() => updatePiece(room.id, piece.id, { showEdgeSelector: !piece.showEdgeSelector })}
+                            onClick={() => updatePiece(quote_rooms.id, piece.id, { showEdgeSelector: !piece.showEdgeSelector })}
                             className="text-sm text-primary-600 hover:text-primary-700 flex items-center gap-1"
                           >
                             {piece.showEdgeSelector ? (
@@ -1936,7 +1936,7 @@ export default function QuoteForm({
                                 edgeRight: piece.edgeRight,
                               }}
                               edgeTypes={edgeTypes}
-                              onChange={(edges) => updatePiece(room.id, piece.id, {
+                              onChange={(edges) => updatePiece(quote_rooms.id, piece.id, {
                                 edgeTop: edges.edgeTop,
                                 edgeBottom: edges.edgeBottom,
                                 edgeLeft: edges.edgeLeft,
@@ -1961,7 +1961,7 @@ export default function QuoteForm({
                           <span className="font-semibold">{formatCurrency(costs.total)}</span>
                           <button
                             type="button"
-                            onClick={() => removePiece(room.id, piece.id)}
+                            onClick={() => removePiece(quote_rooms.id, piece.id)}
                             className="text-red-600 hover:text-red-700 text-sm"
                           >
                             Remove

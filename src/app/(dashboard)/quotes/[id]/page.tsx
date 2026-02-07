@@ -42,13 +42,13 @@ async function getQuote(id: number) {
           pieces: {
             orderBy: { sortOrder: 'asc' },
             include: {
-              features: true,
-              material: true,
+              piece_features: true,
+              materials: true,
             },
           },
         },
       },
-      drawingAnalysis: true,
+      quote_drawing_analyses: true,
       signature: {
         include: {
           user: {
@@ -214,10 +214,10 @@ export default async function QuoteDetailPage({
                   {analysisResults.rooms.map((room, roomIndex) => (
                     <div key={roomIndex} className="border border-gray-200 rounded-lg p-3">
                       <h5 className="text-sm font-medium text-gray-600 mb-2">
-                        {room.name} ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
+                        {quote_rooms.name} ({quote_rooms.pieces.length} piece{quote_rooms.pieces.length !== 1 ? 's' : ''})
                       </h5>
                       <div className="space-y-1">
-                        {room.pieces.map((piece, pieceIndex) => (
+                        {quote_rooms.pieces.map((piece, pieceIndex) => (
                           <div
                             key={pieceIndex}
                             className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-2"
@@ -254,9 +254,9 @@ export default async function QuoteDetailPage({
       {/* Rooms and Pieces */}
       <div className="space-y-4">
         {quote.rooms.map((room) => (
-          <div key={room.id} className="card">
+          <div key={quote_rooms.id} className="card">
             <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-              <h3 className="text-lg font-semibold">{room.name}</h3>
+              <h3 className="text-lg font-semibold">{quote_rooms.name}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -272,7 +272,7 @@ export default async function QuoteDetailPage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {room.pieces.map((piece) => {
+                  {quote_rooms.pieces.map((piece) => {
                     const baseCost = Number(piece.materialCost) + Number(piece.featuresCost);
                     const discount = baseCost - Number(piece.totalCost);
                     return (

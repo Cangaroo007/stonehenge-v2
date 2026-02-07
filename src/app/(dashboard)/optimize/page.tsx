@@ -103,13 +103,13 @@ export default function OptimizePage() {
       // Extract pieces from rooms
       const quotePieces: PieceInput[] = [];
       if (quote.rooms) {
-        quote.rooms.forEach((room: { name: string; pieces: QuotePiece[] }) => {
-          room.pieces.forEach((piece: QuotePiece) => {
+        quote.rooms.forEach((quote_rooms: { name: string; pieces: QuotePiece[] }) => {
+          quote_rooms.pieces.forEach((piece: QuotePiece) => {
             quotePieces.push({
               id: String(piece.id),
               width: String(piece.lengthMm),
               height: String(piece.widthMm),
-              label: `${room.name}: ${piece.name || 'Piece'}`,
+              label: `${quote_rooms.name}: ${piece.name || 'Piece'}`,
               thickness: String((piece as any).thicknessMm || 20),
               finishedEdges: { top: false, bottom: false, left: false, right: false },
             });

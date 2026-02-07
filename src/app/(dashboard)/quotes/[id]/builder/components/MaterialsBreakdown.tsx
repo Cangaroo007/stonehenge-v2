@@ -4,7 +4,7 @@ import { formatCurrency } from '@/lib/utils';
 
 interface MaterialsBreakdownProps {
   slabs?: Array<{
-    material: string;
+    materials: string;
     quantity: number;
     unitPrice: number;
     total: number;

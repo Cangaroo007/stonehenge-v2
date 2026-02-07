@@ -28,7 +28,7 @@ interface MaterialInput {
   pieceId: PieceId;
   lengthMm: number;
   widthMm: number;
-  material: {
+  materials: {
     id: number;
     pricePerSqm: Decimal;
     pricePerSlab?: Decimal | null;

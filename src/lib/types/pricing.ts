@@ -205,11 +205,11 @@ export interface PieceWithFeatures {
   widthMm: number;
   thicknessMm: number;
   materialId: number | null;
-  material: {
+  materials: {
     id: number;
     pricePerSqm: { toNumber: () => number };
   } | null;
-  features: {
+  piece_features: {
     id: number;
     name: string;
     quantity: number;

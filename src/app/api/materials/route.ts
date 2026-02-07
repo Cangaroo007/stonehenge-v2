@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(material, { status: 201 });
   } catch (error) {
-    console.error('Error creating material:', error);
+    console.error('Error creating materials:', error);
     return NextResponse.json({ error: 'Failed to create material' }, { status: 500 });
   }
 }

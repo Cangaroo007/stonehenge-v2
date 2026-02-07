@@ -19,7 +19,7 @@ export async function POST(
     const originalPiece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
       include: {
-        room: true,
+        quote_rooms: true,
       },
     });
 
@@ -32,14 +32,14 @@ export async function POST(
       where: { id: originalPiece.roomId },
     });
 
-    if (!room || room.quoteId !== quoteId) {
+    if (!room || quote_rooms.quoteId !== quoteId) {
       return NextResponse.json({ error: 'Piece does not belong to this quote' }, { status: 400 });
     }
 
     // Get the max sortOrder for the quote
     const maxSortOrderPiece = await prisma.quote_pieces.findFirst({
       where: {
-        room: {
+        quote_rooms: {
           quoteId,
         },
       },
@@ -70,13 +70,13 @@ export async function POST(
         sortOrder: newSortOrder,
       },
       include: {
-        room: true,
+        quote_rooms: true,
       },
     });
 
     return NextResponse.json({
       ...duplicatedPiece,
-      room: { id: duplicatedPiece.room.id, name: duplicatedPiece.room.name },
+      quote_rooms: { id: duplicatedPiece.quote_rooms.id, name: duplicatedPiece.quote_rooms.name },
     }, { status: 201 });
   } catch (error) {
     console.error('Error duplicating piece:', error);

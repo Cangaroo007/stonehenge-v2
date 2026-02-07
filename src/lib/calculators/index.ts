@@ -166,14 +166,14 @@ export class QuoteCalculator {
             client_tiers: true,
           },
         },
-        deliveryZone: true,
+        
         price_books: true,
         rooms: {
           include: {
             pieces: {
               include: {
-                material: true,
-                features: true,
+                materials: true,
+                piece_features: true,
               },
             },
           },
@@ -232,11 +232,11 @@ export class QuoteCalculator {
     }
 
     const pieces = this.quoteData.rooms.flatMap(room =>
-      room.pieces.map(piece => ({
+      quote_rooms.pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
         lengthMm: piece.lengthMm,
         widthMm: piece.widthMm,
-        material: piece.material,
+        materials: piece.material,
         overrideMaterialCost: piece.overrideMaterialCost,
       }))
     );
@@ -261,7 +261,7 @@ export class QuoteCalculator {
     }
 
     const pieces = this.quoteData.rooms.flatMap(room =>
-      room.pieces.map(piece => ({
+      quote_rooms.pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
         thicknessMm: piece.thicknessMm,
         dimensions: {
@@ -459,14 +459,14 @@ interface QuoteData {
       edgeBottom: string | null;
       edgeLeft: string | null;
       edgeRight: string | null;
-      material: {
+      materials: {
         id: number;
         pricePerSqm: Decimal;
         pricePerSlab: Decimal | null;
         pricePerSquareMetre: Decimal | null;
       } | null;
       overrideMaterialCost: Decimal | null;
-      features: unknown[];
+      piece_features: unknown[];
     }>;
   }>;
 }

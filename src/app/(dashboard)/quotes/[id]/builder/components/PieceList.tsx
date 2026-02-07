@@ -40,7 +40,7 @@ interface QuotePiece {
   cutouts: any[];
   sortOrder: number;
   totalCost: number;
-  room: {
+  quote_rooms: {
     id: number;
     name: string;
   };
@@ -439,7 +439,7 @@ export default function PieceList({
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
-                  {piece.room.name}
+                  {piece.quote_rooms.name}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap text-sm">

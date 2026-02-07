@@ -44,7 +44,7 @@ export async function POST(
         overrideReason: body.reason || null
       },
       include: {
-        room: {
+        quote_rooms: {
           include: {
             quote: {
               select: {
@@ -53,7 +53,7 @@ export async function POST(
             }
           }
         },
-        material: true
+        materials: true
       }
     });
     
@@ -64,7 +64,7 @@ export async function POST(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.room.quote.quoteNumber,
+        quoteNumber: piece.quote_rooms.quote.quoteNumber,
         pieceName: piece.name,
         overrideMaterialCost: body.overrideMaterialCost,
         overrideFeaturesCost: body.overrideFeaturesCost,
@@ -124,7 +124,7 @@ export async function DELETE(
         overrideReason: null
       },
       include: {
-        room: {
+        quote_rooms: {
           include: {
             quote: {
               select: {
@@ -143,7 +143,7 @@ export async function DELETE(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.room.quote.quoteNumber,
+        quoteNumber: piece.quote_rooms.quote.quoteNumber,
         pieceName: piece.name
       }
     });

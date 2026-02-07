@@ -22,7 +22,7 @@ export async function GET() {
       include: {
         client_types: true,
         client_tiers: true,
-        defaultPriceBook: true,
+        price_books: true,
       },
     });
     return NextResponse.json(customers);
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
         include: {
           client_types: true,
           client_tiers: true,
-          defaultPriceBook: true,
+          price_books: true,
         },
       });
 

@@ -25,8 +25,8 @@ async function getQuote(id: number, customerId: number) {
           pieces: {
             orderBy: { sortOrder: 'asc' },
             include: {
-              features: true,
-              material: true,
+              piece_features: true,
+              materials: true,
             },
           },
         },
@@ -147,9 +147,9 @@ export default async function CustomerQuoteDetailPage({
       {/* Rooms and Pieces */}
       <div className="space-y-4">
         {quote.rooms.map((room) => (
-          <div key={room.id} className="bg-white rounded-lg shadow overflow-hidden">
+          <div key={quote_rooms.id} className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-lg font-semibold">{room.name}</h3>
+              <h3 className="text-lg font-semibold">{quote_rooms.name}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -163,7 +163,7 @@ export default async function CustomerQuoteDetailPage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {room.pieces.map((piece) => (
+                  {quote_rooms.pieces.map((piece) => (
                     <tr key={piece.id}>
                       <td className="table-cell font-medium">
                         {piece.description || 'Unnamed piece'}

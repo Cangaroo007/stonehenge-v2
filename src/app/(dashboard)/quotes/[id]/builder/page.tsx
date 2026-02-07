@@ -44,7 +44,7 @@ interface QuotePiece {
   sortOrder: number;
   totalCost: number;
   machineProfileId: string | null;
-  room: {
+  quote_rooms: {
     id: number;
     name: string;
   };
@@ -150,9 +150,9 @@ export default function QuoteBuilderPage() {
   // Flatten pieces from all rooms
   const flattenPieces = useCallback((quoteRooms: QuoteRoom[]): QuotePiece[] => {
     return quoteRooms.flatMap(room =>
-      room.pieces.map(piece => ({
+      quote_rooms.pieces.map(piece => ({
         ...piece,
-        room: { id: room.id, name: room.name }
+        quote_rooms: { id: quote_rooms.id, name: quote_rooms.name }
       }))
     ).sort((a, b) => a.sortOrder - b.sortOrder);
   }, []);

@@ -18,7 +18,7 @@ export interface QuoteSnapshot {
   } | null;
   
   // Material info (if there's a common material)
-  material: {
+  materials: {
     id: number;
     name: string;
     pricePerSqm: number;
@@ -43,7 +43,7 @@ export interface QuoteSnapshot {
       edgeLeft: string | null;
       edgeRight: string | null;
       cutouts: unknown;
-      features: Array<{
+      piece_features: Array<{
         id: number;
         name: string;
         quantity: number;
@@ -108,8 +108,8 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
           pieces: {
             orderBy: { sortOrder: 'asc' },
             include: {
-              features: true,
-              material: true,
+              piece_features: true,
+              materials: true,
             },
           },
         },
@@ -148,13 +148,13 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
       phone: quote.customer.phone,
     } : null,
     
-    material: commonMaterial,
+    materials: commonMaterial,
     
     rooms: quote.rooms.map((room) => ({
-      id: room.id,
-      name: room.name,
-      sortOrder: room.sortOrder,
-      pieces: room.pieces.map((piece) => ({
+      id: quote_rooms.id,
+      name: quote_rooms.name,
+      sortOrder: quote_rooms.sortOrder,
+      pieces: quote_rooms.pieces.map((piece) => ({
         id: piece.id,
         name: piece.name,
         widthMm: piece.widthMm,
@@ -171,7 +171,7 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
         edgeLeft: piece.edgeLeft,
         edgeRight: piece.edgeRight,
         cutouts: piece.cutouts,
-        features: piece.features.map((f) => ({
+        piece_features: piece.features.map((f) => ({
           id: f.id,
           name: f.name,
           quantity: f.quantity,
@@ -372,9 +372,9 @@ export interface FieldChange {
 
 export interface ChangeSummary {
   fieldChanges: FieldChange[];
-  piecesAdded: Array<{ name: string; room: string; dimensions: string }>;
-  piecesRemoved: Array<{ name: string; room: string; dimensions: string }>;
-  piecesModified: Array<{ name: string; room: string; changes: string[] }>;
+  piecesAdded: Array<{ name: string; quote_rooms: string; dimensions: string }>;
+  piecesRemoved: Array<{ name: string; quote_rooms: string; dimensions: string }>;
+  piecesModified: Array<{ name: string; quote_rooms: string; changes: string[] }>;
   description: string;
 }
 
@@ -466,14 +466,14 @@ export function generateDetailedChangeSummary(
   }
 
   // Compare pieces
-  const oldPieces = new Map<number, { name: string; room: string; widthMm: number; lengthMm: number; thicknessMm: number; materialName: string | null; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>();
-  const newPieces = new Map<number, { name: string; room: string; widthMm: number; lengthMm: number; thicknessMm: number; materialName: string | null; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>();
+  const oldPieces = new Map<number, { name: string; quote_rooms: string; widthMm: number; lengthMm: number; thicknessMm: number; materialName: string | null; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>();
+  const newPieces = new Map<number, { name: string; quote_rooms: string; widthMm: number; lengthMm: number; thicknessMm: number; materialName: string | null; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>();
 
   for (const room of oldSnapshot.rooms) {
-    for (const piece of room.pieces) {
+    for (const piece of quote_rooms.pieces) {
       oldPieces.set(piece.id, {
         name: piece.name,
-        room: room.name,
+        quote_rooms: quote_rooms.name,
         widthMm: piece.widthMm,
         lengthMm: piece.lengthMm,
         thicknessMm: piece.thicknessMm,
@@ -487,10 +487,10 @@ export function generateDetailedChangeSummary(
   }
 
   for (const room of newSnapshot.rooms) {
-    for (const piece of room.pieces) {
+    for (const piece of quote_rooms.pieces) {
       newPieces.set(piece.id, {
         name: piece.name,
-        room: room.name,
+        quote_rooms: quote_rooms.name,
         widthMm: piece.widthMm,
         lengthMm: piece.lengthMm,
         thicknessMm: piece.thicknessMm,
@@ -512,7 +512,7 @@ export function generateDetailedChangeSummary(
       const p = newPieces.get(id)!;
       piecesAdded.push({
         name: p.name,
-        room: p.room,
+        quote_rooms: p.room,
         dimensions: `${p.widthMm} × ${p.lengthMm}mm`,
       });
     }
@@ -524,7 +524,7 @@ export function generateDetailedChangeSummary(
       const p = oldPieces.get(id)!;
       piecesRemoved.push({
         name: p.name,
-        room: p.room,
+        quote_rooms: p.room,
         dimensions: `${p.widthMm} × ${p.lengthMm}mm`,
       });
     }
@@ -553,7 +553,7 @@ export function generateDetailedChangeSummary(
       if (oldP.edgeRight !== newP.edgeRight) changes.push(`Right edge: ${oldP.edgeRight ?? 'none'} → ${newP.edgeRight ?? 'none'}`);
 
       if (changes.length > 0) {
-        piecesModified.push({ name: newP.name, room: newP.room, changes });
+        piecesModified.push({ name: newP.name, quote_rooms: newP.room, changes });
       }
     }
   }
@@ -728,10 +728,10 @@ export async function rollbackToVersion(
         // Recreate rooms with pieces from snapshot
         rooms: {
           create: snapshot.rooms.map((room) => ({
-            name: room.name,
-            sortOrder: room.sortOrder,
+            name: quote_rooms.name,
+            sortOrder: quote_rooms.sortOrder,
             pieces: {
-              create: room.pieces.map((piece) => ({
+              create: quote_rooms.pieces.map((piece) => ({
                 name: piece.name,
                 description: piece.name,
                 widthMm: piece.widthMm,
@@ -748,7 +748,7 @@ export async function rollbackToVersion(
                 edgeBottom: piece.edgeBottom,
                 edgeLeft: piece.edgeLeft,
                 edgeRight: piece.edgeRight,
-                features: {
+                piece_features: {
                   create: piece.features.map((f) => ({
                     name: f.name,
                     quantity: f.quantity,

@@ -19,7 +19,7 @@ interface Customer {
   createdAt: string;
   client_types: { name: string } | null;
   client_tiers: { name: string } | null;
-  defaultPriceBook: { name: string } | null;
+  price_books: { name: string } | null;
   _count: {
     quotes: number;
     users: number;

@@ -59,8 +59,8 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
         // Extract pieces from rooms
         const quotePieces: PieceInput[] = [];
         if (quote.rooms) {
-          quote.rooms.forEach((room: any) => {
-            room.pieces.forEach((piece: any) => {
+          quote.rooms.forEach((quote_rooms: any) => {
+            quote_rooms.pieces.forEach((piece: any) => {
               quotePieces.push({
                 id: String(piece.id),
                 width: String(piece.lengthMm),
@@ -236,7 +236,7 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
               length: placement.width,
               width: placement.height,
               thickness: thickness,
-              room: `Slab ${slabNumber}`,
+              quote_rooms: `Slab ${slabNumber}`,
               notes: placement.rotated ? 'Rotated 90°' : undefined,
               edgeTop: null,
               edgeBottom: null,

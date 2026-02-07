@@ -22,7 +22,7 @@ export async function GET(
         pieces: {
           orderBy: { sortOrder: 'asc' },
           include: {
-            material: true,
+            materials: true,
           },
         },
       },
@@ -30,9 +30,9 @@ export async function GET(
 
     // Flatten pieces with room info
     const pieces = rooms.flatMap(room =>
-      room.pieces.map(piece => ({
+      quote_rooms.pieces.map(piece => ({
         ...piece,
-        room: { id: room.id, name: room.name },
+        quote_rooms: { id: quote_rooms.id, name: quote_rooms.name },
       }))
     );
 
@@ -106,7 +106,7 @@ export async function POST(
 
     // Get the highest piece sort order in the room
     const maxPiece = await prisma.quote_pieces.findFirst({
-      where: { roomId: room.id },
+      where: { roomId: quote_rooms.id },
       orderBy: { sortOrder: 'desc' },
     });
 
@@ -127,7 +127,7 @@ export async function POST(
     // Create the piece
     const piece = await prisma.quote_pieces.create({
       data: {
-        roomId: room.id,
+        roomId: quote_rooms.id,
         name,
         description: description || null,
         lengthMm,
@@ -146,14 +146,14 @@ export async function POST(
         edgeRight: edgeRight || null,
       },
       include: {
-        material: true,
-        room: true,
+        materials: true,
+        quote_rooms: true,
       },
     });
 
     return NextResponse.json({
       ...piece,
-      room: { id: room.id, name: room.name },
+      quote_rooms: { id: quote_rooms.id, name: quote_rooms.name },
     });
   } catch (error) {
     console.error('Error creating piece:', error);

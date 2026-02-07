@@ -18,7 +18,7 @@ interface QuotePiece {
   edgeRight: string | null;
   sortOrder: number;
   totalCost: number;
-  room: {
+  quote_rooms: {
     id: number;
     name: string;
   };
@@ -148,17 +148,17 @@ export default function RoomGrouping({
   return (
     <div className="divide-y divide-gray-200">
       {roomGroups.map((room) => (
-        <div key={room.name} className="bg-white">
+        <div key={quote_rooms.name} className="bg-white">
           {/* Room Header */}
           <button
-            onClick={() => toggleRoom(room.name)}
+            onClick={() => toggleRoom(quote_rooms.name)}
             className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-2">
               {/* Expand/Collapse Icon */}
               <svg
                 className={`h-4 w-4 text-gray-500 transition-transform ${
-                  room.isExpanded ? 'rotate-90' : ''
+                  quote_rooms.isExpanded ? 'rotate-90' : ''
                 }`}
                 fill="none"
                 viewBox="0 0 24 24"
@@ -168,24 +168,24 @@ export default function RoomGrouping({
               </svg>
 
               {/* Room Name */}
-              <span className="font-medium text-gray-900">{room.name}</span>
+              <span className="font-medium text-gray-900">{quote_rooms.name}</span>
 
               {/* Piece Count */}
               <span className="text-sm text-gray-500">
-                ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
+                ({quote_rooms.pieces.length} piece{quote_rooms.pieces.length !== 1 ? 's' : ''})
               </span>
             </div>
 
             {/* Room Total */}
             <span className="text-sm font-medium text-gray-700">
-              {formatCurrency(getRoomTotal(room.pieces))}
+              {formatCurrency(getRoomTotal(quote_rooms.pieces))}
             </span>
           </button>
 
           {/* Pieces List */}
-          {room.isExpanded && (
+          {quote_rooms.isExpanded && (
             <div className="bg-gray-50 border-t border-gray-100">
-              {room.pieces.map((piece) => (
+              {quote_rooms.pieces.map((piece) => (
                 <div
                   key={piece.id}
                   onClick={() => onSelectPiece(piece.id)}

@@ -26,7 +26,7 @@ interface PieceData {
   edgeBottom: string | null;
   edgeLeft: string | null;
   edgeRight: string | null;
-  features: FeatureData[];
+  piece_features: FeatureData[];
 }
 
 interface FeatureData {
@@ -99,21 +99,21 @@ export async function GET(
           },
         },
         price_books: true,
-        deliveryZone: true,
+        
         rooms: {
           orderBy: { sortOrder: 'asc' },
           include: {
             pieces: {
               orderBy: { sortOrder: 'asc' },
               include: {
-                features: true,
-                material: true,
+                piece_features: true,
+                materials: true,
               },
             },
           },
         },
         files: true,
-        drawingAnalysis: true,
+        quote_drawing_analyses: true,
       },
     });
 
@@ -273,11 +273,11 @@ export async function PUT(
           templatingCost: data.templatingCost,
           overrideTemplatingCost: data.overrideTemplatingCost,
           rooms: {
-            create: data.rooms.map((room: RoomData) => ({
-              name: room.name,
-              sortOrder: room.sortOrder,
+            create: data.rooms.map((quote_rooms: RoomData) => ({
+              name: quote_rooms.name,
+              sortOrder: quote_rooms.sortOrder,
               pieces: {
-                create: room.pieces.map((piece: PieceData) => ({
+                create: quote_rooms.pieces.map((piece: PieceData) => ({
                   description: piece.description,
                   lengthMm: piece.lengthMm,
                   widthMm: piece.widthMm,
@@ -293,7 +293,7 @@ export async function PUT(
                   edgeBottom: piece.edgeBottom,
                   edgeLeft: piece.edgeLeft,
                   edgeRight: piece.edgeRight,
-                  features: {
+                  piece_features: {
                     create: piece.features.map((feature: FeatureData) => ({
                       name: feature.name,
                       quantity: feature.quantity,
@@ -307,7 +307,7 @@ export async function PUT(
           },
         },
         include: {
-          drawingAnalysis: true,
+          quote_drawing_analyses: true,
         },
       });
 

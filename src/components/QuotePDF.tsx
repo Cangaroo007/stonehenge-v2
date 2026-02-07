@@ -43,7 +43,7 @@ interface QuoteData {
       materialCost: { toString(): string } | number;
       featuresCost: { toString(): string } | number;
       totalCost: { toString(): string } | number;
-      features: Array<{
+      piece_features: Array<{
         id: number;
         name: string;
         quantity: number;
@@ -414,9 +414,9 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
         </Text>
 
         {quote.rooms.map((room) => (
-          <View key={room.id} style={styles.roomSection}>
-            <Text style={styles.roomName}>{room.name.toUpperCase()}</Text>
-            {room.pieces.map((piece) => (
+          <View key={quote_rooms.id} style={styles.roomSection}>
+            <Text style={styles.roomName}>{quote_rooms.name.toUpperCase()}</Text>
+            {quote_rooms.pieces.map((piece) => (
               <View key={piece.id} style={styles.pieceRow}>
                 <Text style={styles.pieceDescription}>
                   {piece.description || 'Stone piece'}

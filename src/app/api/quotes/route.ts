@@ -26,7 +26,7 @@ interface PieceData {
   edgeBottom: string | null;
   edgeLeft: string | null;
   edgeRight: string | null;
-  features: FeatureData[];
+  piece_features: FeatureData[];
 }
 
 interface FeatureData {
@@ -113,11 +113,11 @@ export async function POST(request: NextRequest) {
         templatingCost: data.templatingCost,
         overrideTemplatingCost: data.overrideTemplatingCost,
         rooms: {
-          create: data.rooms.map((room: RoomData) => ({
-            name: room.name,
-            sortOrder: room.sortOrder,
+          create: data.rooms.map((quote_rooms: RoomData) => ({
+            name: quote_rooms.name,
+            sortOrder: quote_rooms.sortOrder,
             pieces: {
-              create: room.pieces.map((piece: PieceData) => ({
+              create: quote_rooms.pieces.map((piece: PieceData) => ({
                 description: piece.description,
                 lengthMm: piece.lengthMm,
                 widthMm: piece.widthMm,
@@ -133,7 +133,7 @@ export async function POST(request: NextRequest) {
                 edgeBottom: piece.edgeBottom,
                 edgeLeft: piece.edgeLeft,
                 edgeRight: piece.edgeRight,
-                features: {
+                piece_features: {
                   create: piece.features.map((feature: FeatureData) => ({
                     name: feature.name,
                     quantity: feature.quantity,
@@ -147,7 +147,7 @@ export async function POST(request: NextRequest) {
         },
         // Create drawing analysis if provided
         ...(data.drawingAnalysis && {
-          drawingAnalysis: {
+          quote_drawing_analyses: {
             create: {
               filename: data.drawingAnalysis.filename,
               analyzedAt: new Date(data.drawingAnalysis.analyzedAt),

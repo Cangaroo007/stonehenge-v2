@@ -17,7 +17,7 @@ export async function GET(
 
     return NextResponse.json(material);
   } catch (error) {
-    console.error('Error fetching material:', error);
+    console.error('Error fetching materials:', error);
     return NextResponse.json({ error: 'Failed to fetch material' }, { status: 500 });
   }
 }
@@ -43,7 +43,7 @@ export async function PUT(
 
     return NextResponse.json(material);
   } catch (error) {
-    console.error('Error updating material:', error);
+    console.error('Error updating materials:', error);
     return NextResponse.json({ error: 'Failed to update material' }, { status: 500 });
   }
 }
@@ -60,7 +60,7 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting material:', error);
+    console.error('Error deleting materials:', error);
     return NextResponse.json({ error: 'Failed to delete material' }, { status: 500 });
   }
 }

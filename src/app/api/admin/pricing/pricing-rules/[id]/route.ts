@@ -19,7 +19,7 @@ export async function GET(
           include: { cutout_types: true },
         },
         materialOverrides: {
-          include: { material: true },
+          include: { materials: true },
         },
       },
     });

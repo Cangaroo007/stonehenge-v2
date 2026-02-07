@@ -18,7 +18,7 @@ export interface SubscriptionPlan {
   name: string;
   monthlyPrice: Decimal;
   annualPrice: Decimal;
-  features: SubscriptionFeatures;
+  piece_features: SubscriptionFeatures;
   limits: SubscriptionLimits;
 }
 
@@ -62,7 +62,7 @@ export const SAAS_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     name: 'Starter',
     monthlyPrice: new Decimal(79),
     annualPrice: new Decimal(790),
-    features: {
+    piece_features: {
       maxUsers: 3,
       maxQuotesPerMonth: 50,
       maxProjects: 10,
@@ -90,7 +90,7 @@ export const SAAS_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     name: 'Professional',
     monthlyPrice: new Decimal(199),
     annualPrice: new Decimal(1990),
-    features: {
+    piece_features: {
       maxUsers: 10,
       maxQuotesPerMonth: 200,
       maxProjects: 'unlimited',
@@ -118,7 +118,7 @@ export const SAAS_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     name: 'Enterprise',
     monthlyPrice: new Decimal(499),
     annualPrice: new Decimal(4990),
-    features: {
+    piece_features: {
       maxUsers: 'unlimited' as any,
       maxQuotesPerMonth: 'unlimited',
       maxProjects: 'unlimited',
@@ -146,7 +146,7 @@ export const SAAS_PLANS: Record<SubscriptionTier, SubscriptionPlan> = {
     name: 'White Label',
     monthlyPrice: new Decimal(999),
     annualPrice: new Decimal(9990),
-    features: {
+    piece_features: {
       maxUsers: 'unlimited' as any,
       maxQuotesPerMonth: 'unlimited',
       maxProjects: 'unlimited',
