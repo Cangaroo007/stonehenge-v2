@@ -135,6 +135,7 @@ export async function POST(
         wastePercent: result.wastePercent,
         placements: result.placements as object,
         laminationSummary: result.laminationSummary as object || null,
+        updatedAt: new Date(),
       } as any,
     });
 
