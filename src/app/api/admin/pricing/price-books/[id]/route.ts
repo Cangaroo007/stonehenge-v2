@@ -10,7 +10,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const priceBook = await prisma.priceBook.findUnique({
+    const priceBook = await prisma.price_books.findUnique({
       where: { id },
       include: {
         rules: {
@@ -91,7 +91,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.priceBook.update({
+    await prisma.price_books.update({
       where: { id },
       data: { isActive: false },
     });

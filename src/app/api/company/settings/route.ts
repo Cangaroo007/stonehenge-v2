@@ -14,7 +14,7 @@ export async function GET() {
     }
 
     // Get the first company (single-tenant for now)
-    const company = await prisma.company.findFirst({
+    const company = await prisma.companies.findFirst({
       select: {
         id: true,
         name: true,
@@ -78,14 +78,14 @@ export async function PUT(request: Request) {
     const body = await request.json();
 
     // Get the first company
-    const company = await prisma.company.findFirst();
+    const company = await prisma.companies.findFirst();
 
     if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
     }
 
     // Update company settings
-    const updatedCompany = await prisma.company.update({
+    const updatedCompany = await prisma.companies.update({
       where: { id: company.id },
       data: {
         name: body.name,

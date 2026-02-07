@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const pricingRules = await prisma.pricingRule.findMany({
+    const pricingRules = await prisma.pricing_rules.findMany({
       orderBy: [{ priority: 'desc' }, { name: 'asc' }],
       include: {
         clientType: true,
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const pricingRule = await prisma.pricingRule.create({
+    const pricingRule = await prisma.pricing_rules.create({
       data: {
         name: data.name,
         description: data.description || null,

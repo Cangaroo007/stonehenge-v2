@@ -25,7 +25,7 @@ export async function GET(
     }
 
     // Get drawing from database
-    const drawing = await prisma.drawing.findUnique({
+    const drawing = await prisma.drawings.findUnique({
       where: { id: drawingId },
       select: {
         storageKey: true,

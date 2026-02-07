@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const pricingRule = await prisma.pricingRule.findUnique({
+    const pricingRule = await prisma.pricing_rules.findUnique({
       where: { id },
       include: {
         clientType: true,
@@ -43,7 +43,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const pricingRule = await prisma.pricingRule.update({
+    const pricingRule = await prisma.pricing_rules.update({
       where: { id },
       data: {
         name: data.name,
@@ -76,7 +76,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.pricingRule.update({
+    await prisma.pricing_rules.update({
       where: { id },
       data: { isActive: false },
     });

@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
     // For now, use a hardcoded org ID - in a real multi-tenant system this would come from the session
     const organisationId = 'default-org';
     
-    let settings = await prisma.pricingSettings.findUnique({
+    let settings = await prisma.pricing_settings.findUnique({
       where: { organisationId },
       include: {
         serviceRates: {
@@ -123,7 +123,7 @@ export async function PUT(request: NextRequest) {
     }
     
     // Check if settings already exist
-    const existingSettings = await prisma.pricingSettings.findUnique({
+    const existingSettings = await prisma.pricing_settings.findUnique({
       where: { organisationId }
     });
     
@@ -131,7 +131,7 @@ export async function PUT(request: NextRequest) {
     
     if (existingSettings) {
       // Update existing settings
-      settings = await prisma.pricingSettings.update({
+      settings = await prisma.pricing_settings.update({
         where: { organisationId },
         data: {
           materialPricingBasis: body.materialPricingBasis,
@@ -145,7 +145,7 @@ export async function PUT(request: NextRequest) {
       });
     } else {
       // Create new settings
-      settings = await prisma.pricingSettings.create({
+      settings = await prisma.pricing_settings.create({
         data: {
           organisationId,
           materialPricingBasis: body.materialPricingBasis || 'PER_SLAB',

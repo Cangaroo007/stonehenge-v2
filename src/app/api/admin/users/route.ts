@@ -35,7 +35,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all users with their customer info and permissions
-    const users = await prisma.user.findMany({
+    const users = await prisma.users.findMany({
       where,
       include: {
         customer: {
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { email },
     });
 
@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
     const passwordHash = await hashPassword(tempPassword);
 
     // Create user
-    const newUser = await prisma.user.create({
+    const newUser = await prisma.users.create({
       data: {
         email,
         name,
@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
 
     // Create custom permissions if role is CUSTOM
     if (role === UserRole.CUSTOM && permissions && Array.isArray(permissions)) {
-      await prisma.userPermission.createMany({
+      await prisma.user_permissions.createMany({
         data: permissions.map((permission: Permission) => ({
           userId: newUser.id,
           permission,

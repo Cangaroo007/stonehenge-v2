@@ -67,7 +67,7 @@ export async function generateAndStoreThumbnail(
 
     await uploadToR2(thumbnailKey, thumbnail, 'image/png');
 
-    await prisma.drawing.update({
+    await prisma.drawings.update({
       where: { id: drawingId },
       data: { thumbnailKey },
     });

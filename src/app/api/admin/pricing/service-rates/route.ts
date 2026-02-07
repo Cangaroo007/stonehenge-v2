@@ -7,7 +7,7 @@ export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
     
-    const rates = await prisma.serviceRate.findMany({
+    const rates = await prisma.service_rates.findMany({
       include: { pricingSettings: true },
       orderBy: { serviceType: 'asc' }
     });
@@ -37,7 +37,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const rate = await prisma.serviceRate.create({
+    const rate = await prisma.service_rates.create({
       data: {
         pricingSettingsId: body.pricingSettingsId,
         serviceType: body.serviceType,

@@ -52,7 +52,7 @@ export async function GET(
     }
 
     // Get view history
-    const views = await prisma.quoteView.findMany({
+    const views = await prisma.quote_views.findMany({
       where: { quoteId },
       include: {
         user: {

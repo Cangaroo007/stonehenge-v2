@@ -21,7 +21,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const drawing = await prisma.drawing.findUnique({
+    const drawing = await prisma.drawings.findUnique({
       where: { id },
       include: {
         quote: {

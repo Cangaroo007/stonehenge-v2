@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
       request.nextUrl.searchParams.get('dryRun') === 'true';
 
     // Find all PDF drawings without thumbnails
-    const drawings = await prisma.drawing.findMany({
+    const drawings = await prisma.drawings.findMany({
       where: {
         mimeType: 'application/pdf',
         thumbnailKey: null,

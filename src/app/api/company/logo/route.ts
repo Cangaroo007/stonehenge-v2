@@ -41,7 +41,7 @@ export async function POST(request: Request) {
     }
 
     // Get the company
-    const company = await prisma.company.findFirst();
+    const company = await prisma.companies.findFirst();
 
     if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
@@ -69,7 +69,7 @@ export async function POST(request: Request) {
     }
 
     // Update company with new logo storage key
-    const updatedCompany = await prisma.company.update({
+    const updatedCompany = await prisma.companies.update({
       where: { id: company.id },
       data: {
         logoStorageKey: storageKey,
@@ -105,7 +105,7 @@ export async function DELETE() {
     }
 
     // Get the company
-    const company = await prisma.company.findFirst();
+    const company = await prisma.companies.findFirst();
 
     if (!company) {
       return NextResponse.json({ error: 'Company not found' }, { status: 404 });
@@ -124,7 +124,7 @@ export async function DELETE() {
     }
 
     // Update company to remove logo
-    await prisma.company.update({
+    await prisma.companies.update({
       where: { id: company.id },
       data: {
         logoStorageKey: null,

@@ -89,7 +89,7 @@ export async function POST(
     const quoteVersion = `v${new Date(quote.updatedAt).getTime()}`;
 
     // Create signature record with legal compliance data
-    const signature = await prisma.quoteSignature.create({
+    const signature = await prisma.quote_signatures.create({
       data: {
         quoteId,
         userId: currentUser.id,

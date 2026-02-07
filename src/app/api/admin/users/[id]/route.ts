@@ -32,7 +32,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
       include: {
         customer: {
@@ -97,7 +97,7 @@ export async function PUT(
     }
 
     // Get existing user
-    const existingUser = await prisma.user.findUnique({
+    const existingUser = await prisma.users.findUnique({
       where: { id: userId },
       include: { permissions: true },
     });
@@ -140,7 +140,7 @@ export async function PUT(
     }
 
     // Update user
-    const updatedUser = await prisma.user.update({
+    const updatedUser = await prisma.users.update({
       where: { id: userId },
       data: updateData,
       include: {
@@ -157,13 +157,13 @@ export async function PUT(
     // Update custom permissions if role is CUSTOM
     if (role === UserRole.CUSTOM && permissions && Array.isArray(permissions)) {
       // Delete existing permissions
-      await prisma.userPermission.deleteMany({
+      await prisma.user_permissions.deleteMany({
         where: { userId },
       });
 
       // Create new permissions
       if (permissions.length > 0) {
-        await prisma.userPermission.createMany({
+        await prisma.user_permissions.createMany({
           data: permissions.map((permission: Permission) => ({
             userId,
             permission,
@@ -240,7 +240,7 @@ export async function DELETE(
       );
     }
 
-    const user = await prisma.user.findUnique({
+    const user = await prisma.users.findUnique({
       where: { id: userId },
     });
 
@@ -249,7 +249,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting isActive to false instead of actual deletion
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
       data: { isActive: false },
     });

@@ -12,7 +12,7 @@ export async function GET(
 
     const { id } = await params;
 
-    const rate = await prisma.serviceRate.findUnique({
+    const rate = await prisma.service_rates.findUnique({
       where: { id },
       include: { pricingSettings: true }
     });
@@ -46,7 +46,7 @@ export async function PUT(
     const { id } = await params;
     const body = await request.json();
 
-    const rate = await prisma.serviceRate.update({
+    const rate = await prisma.service_rates.update({
       where: { id },
       data: {
         ...(body.name !== undefined && { name: body.name }),
@@ -79,7 +79,7 @@ export async function DELETE(
 
     const { id } = await params;
 
-    await prisma.serviceRate.delete({
+    await prisma.service_rates.delete({
       where: { id }
     });
 

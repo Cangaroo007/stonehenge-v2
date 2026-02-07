@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Check if email already exists (if creating portal user)
     if (data.createPortalUser && data.email) {
-      const existingUser = await prisma.user.findUnique({
+      const existingUser = await prisma.users.findUnique({
         where: { email: data.email },
       });
       if (existingUser) {

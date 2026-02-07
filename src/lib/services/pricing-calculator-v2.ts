@@ -73,7 +73,7 @@ export interface ServiceBreakdown {
  * Returns org-level pricing settings or sensible defaults.
  */
 export async function loadPricingContext(organisationId: string): Promise<PricingContext> {
-  const settings = await prisma.pricingSettings.findUnique({
+  const settings = await prisma.pricing_settings.findUnique({
     where: { organisationId },
   });
 
@@ -265,7 +265,7 @@ export async function calculateQuotePrice(
   const [edgeTypes, cutoutTypes, serviceRates] = await Promise.all([
     prisma.edgeType.findMany({ where: { isActive: true } }),
     prisma.cutoutType.findMany({ where: { isActive: true } }),
-    prisma.serviceRate.findMany({ where: { isActive: true } }),
+    prisma.service_rates.findMany({ where: { isActive: true } }),
   ]);
 
   // Flatten all pieces
@@ -409,7 +409,7 @@ export async function calculateQuotePrice(
   // Fetch price book info
   let priceBookInfo: { id: string; name: string } | null = null;
   if (priceBookId) {
-    const priceBook = await prisma.priceBook.findUnique({
+    const priceBook = await prisma.price_books.findUnique({
       where: { id: priceBookId },
       select: { id: true, name: true },
     });
@@ -718,7 +718,7 @@ async function getApplicableRules(
   if (clientTypeId) conditions.push({ clientTypeId });
   if (clientTierId) conditions.push({ clientTierId });
 
-  const rules = await prisma.pricingRule.findMany({
+  const rules = await prisma.pricing_rules.findMany({
     where: {
       isActive: true,
       OR: conditions,

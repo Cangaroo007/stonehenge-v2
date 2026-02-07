@@ -108,7 +108,7 @@ export async function trackQuoteView(
 ): Promise<void> {
   try {
     // Create quote view record
-    await prisma.quoteView.create({
+    await prisma.quote_views.create({
       data: {
         quoteId,
         userId,
@@ -180,7 +180,7 @@ export async function trackLogin(
 ): Promise<void> {
   try {
     // Update last login time
-    await prisma.user.update({
+    await prisma.users.update({
       where: { id: userId },
       data: {
         lastLoginAt: new Date(),

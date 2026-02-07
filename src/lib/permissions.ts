@@ -141,7 +141,7 @@ export async function hasPermissionAsync(
   userId: number,
   permission: Permission
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     include: {
       permissions: true,
@@ -189,7 +189,7 @@ export async function hasAllPermissions(
  * Get all permissions for a user
  */
 export async function getUserPermissions(userId: number): Promise<Permission[]> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
     include: {
       permissions: true,
@@ -219,7 +219,7 @@ export async function canAccessQuote(
   userId: number,
   quoteId: number
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
   });
 
@@ -260,7 +260,7 @@ export async function canAccessCustomer(
   userId: number,
   customerId: number
 ): Promise<boolean> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { id: userId },
   });
 

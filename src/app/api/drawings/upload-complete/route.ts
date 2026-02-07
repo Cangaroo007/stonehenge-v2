@@ -159,7 +159,7 @@ export async function POST(request: NextRequest) {
     console.log('[Unified Upload] Creating database record...');
     const dbStartTime = Date.now();
     
-    const drawing = await prisma.drawing.create({
+    const drawing = await prisma.drawings.create({
       data: {
         filename: file.name,
         storageKey,

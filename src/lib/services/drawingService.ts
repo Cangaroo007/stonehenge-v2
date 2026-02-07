@@ -17,13 +17,13 @@ export interface CreateDrawingInput {
 export async function createDrawing(input: CreateDrawingInput) {
   // If this is marked as primary, unset any existing primary for this quote
   if (input.isPrimary) {
-    await prisma.drawing.updateMany({
+    await prisma.drawings.updateMany({
       where: { quoteId: input.quoteId, isPrimary: true },
       data: { isPrimary: false },
     });
   }
 
-  return prisma.drawing.create({
+  return prisma.drawings.create({
     data: {
       filename: input.filename,
       storageKey: input.storageKey,
@@ -41,14 +41,14 @@ export async function createDrawing(input: CreateDrawingInput) {
 }
 
 export async function getDrawingsForQuote(quoteId: number) {
-  return prisma.drawing.findMany({
+  return prisma.drawings.findMany({
     where: { quoteId },
     orderBy: [{ isPrimary: 'desc' }, { uploadedAt: 'desc' }],
   });
 }
 
 export async function getDrawingsForCustomer(customerId: number) {
-  return prisma.drawing.findMany({
+  return prisma.drawings.findMany({
     where: { customerId },
     orderBy: { uploadedAt: 'desc' },
     include: {
@@ -64,27 +64,27 @@ export async function getDrawingsForCustomer(customerId: number) {
 }
 
 export async function getPrimaryDrawing(quoteId: number) {
-  return prisma.drawing.findFirst({
+  return prisma.drawings.findFirst({
     where: { quoteId, isPrimary: true },
   });
 }
 
 export async function setDrawingAsPrimary(drawingId: string, quoteId: number) {
   // Unset existing primary
-  await prisma.drawing.updateMany({
+  await prisma.drawings.updateMany({
     where: { quoteId, isPrimary: true },
     data: { isPrimary: false },
   });
 
   // Set new primary
-  return prisma.drawing.update({
+  return prisma.drawings.update({
     where: { id: drawingId },
     data: { isPrimary: true },
   });
 }
 
 export async function deleteDrawing(drawingId: string) {
-  const drawing = await prisma.drawing.findUnique({
+  const drawing = await prisma.drawings.findUnique({
     where: { id: drawingId },
     select: { storageKey: true },
   });
@@ -97,13 +97,13 @@ export async function deleteDrawing(drawingId: string) {
   await deleteFromR2(drawing.storageKey);
 
   // Delete from database
-  return prisma.drawing.delete({
+  return prisma.drawings.delete({
     where: { id: drawingId },
   });
 }
 
 export async function updateDrawingNotes(drawingId: string, notes: string) {
-  return prisma.drawing.update({
+  return prisma.drawings.update({
     where: { id: drawingId },
     data: { notes },
   });
@@ -113,7 +113,7 @@ export async function updateDrawingAnalysis(
   drawingId: string,
   analysisData: Record<string, unknown>
 ) {
-  return prisma.drawing.update({
+  return prisma.drawings.update({
     where: { id: drawingId },
     data: {
       analysisData: analysisData as unknown as Prisma.InputJsonValue,
@@ -122,7 +122,7 @@ export async function updateDrawingAnalysis(
 }
 
 export async function getDrawingById(drawingId: string) {
-  return prisma.drawing.findUnique({
+  return prisma.drawings.findUnique({
     where: { id: drawingId },
     include: {
       quote: {

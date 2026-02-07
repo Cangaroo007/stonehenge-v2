@@ -195,7 +195,7 @@ export class QuoteCalculator {
     const [edgeTypes, cutoutTypes, serviceRates] = await Promise.all([
       prisma.edgeType.findMany({ where: { isActive: true } }),
       prisma.cutoutType.findMany({ where: { isActive: true } }),
-      prisma.serviceRate.findMany({ where: { isActive: true } }),
+      prisma.service_rates.findMany({ where: { isActive: true } }),
     ]);
 
     this.edgeTypes = edgeTypes as EdgeTypeData[];
@@ -204,7 +204,7 @@ export class QuoteCalculator {
   }
 
   private async loadPricingContext(organisationId: string): Promise<PricingContext> {
-    const settings = await prisma.pricingSettings.findUnique({
+    const settings = await prisma.pricing_settings.findUnique({
       where: { organisationId },
     });
 
@@ -359,7 +359,7 @@ export class QuoteCalculator {
     }
 
     // Load rules from database
-    const rules = await prisma.pricingRule.findMany({
+    const rules = await prisma.pricing_rules.findMany({
       where: {
         isActive: true,
         OR: [

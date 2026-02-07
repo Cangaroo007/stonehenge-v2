@@ -75,7 +75,7 @@ export async function getCurrentUser(): Promise<UserPayload | null> {
 }
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string; role?: string }> {
-  const user = await prisma.user.findUnique({
+  const user = await prisma.users.findUnique({
     where: { email },
   });
 
@@ -104,7 +104,7 @@ export async function login(email: string, password: string): Promise<{ success:
   await setAuthCookie(token);
   
   // Update last login timestamp
-  await prisma.user.update({
+  await prisma.users.update({
     where: { id: user.id },
     data: { lastLoginAt: new Date() },
   });
@@ -136,7 +136,7 @@ export async function requireAuth(
   }
   
   // Get full user details including companyId
-  const fullUser = await prisma.user.findUnique({
+  const fullUser = await prisma.users.findUnique({
     where: { id: user.id },
     select: {
       id: true,
