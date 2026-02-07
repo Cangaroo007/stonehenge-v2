@@ -27,9 +27,25 @@ export async function GET(
       return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
     }
 
+    const p = piece as any;
     return NextResponse.json({
       ...piece,
       quote_rooms: { id: piece.quote_rooms.id, name: piece.quote_rooms.name },
+      // camelCase aliases for client components
+      lengthMm: p.length_mm,
+      widthMm: p.width_mm,
+      thicknessMm: p.thickness_mm,
+      materialId: p.material_id,
+      materialName: p.material_name,
+      edgeTop: p.edge_top,
+      edgeBottom: p.edge_bottom,
+      edgeLeft: p.edge_left,
+      edgeRight: p.edge_right,
+      sortOrder: p.sort_order,
+      totalCost: Number(p.total_cost || 0),
+      areaSqm: Number(p.area_sqm || 0),
+      materialCost: Number(p.material_cost || 0),
+      featuresCost: Number(p.features_cost || 0),
     });
   } catch (error) {
     console.error('Error fetching piece:', error);
@@ -161,9 +177,25 @@ export async function PUT(
       });
     }
 
+    const pu = piece as any;
     return NextResponse.json({
       ...piece,
       quote_rooms: { id: piece.quote_rooms.id, name: piece.quote_rooms.name },
+      // camelCase aliases for client components
+      lengthMm: pu.length_mm,
+      widthMm: pu.width_mm,
+      thicknessMm: pu.thickness_mm,
+      materialId: pu.material_id,
+      materialName: pu.material_name,
+      edgeTop: pu.edge_top,
+      edgeBottom: pu.edge_bottom,
+      edgeLeft: pu.edge_left,
+      edgeRight: pu.edge_right,
+      sortOrder: pu.sort_order,
+      totalCost: Number(pu.total_cost || 0),
+      areaSqm: Number(pu.area_sqm || 0),
+      materialCost: Number(pu.material_cost || 0),
+      featuresCost: Number(pu.features_cost || 0),
     });
   } catch (error) {
     console.error('Error updating piece:', error);

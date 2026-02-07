@@ -6,7 +6,16 @@ export async function GET() {
     const materials = await prisma.materials.findMany({
       orderBy: [{ collection: 'asc' }, { name: 'asc' }],
     });
-    return NextResponse.json(materials);
+    // Add camelCase aliases for client components
+    const transformed = materials.map((m: any) => ({
+      ...m,
+      pricePerSqm: Number(m.price_per_sqm || 0),
+      pricePerSlab: m.price_per_slab ? Number(m.price_per_slab) : null,
+      isActive: m.is_active,
+      slabLengthMm: m.slab_length_mm,
+      slabWidthMm: m.slab_width_mm,
+    }));
+    return NextResponse.json(transformed);
   } catch (error) {
     console.error('Error fetching materials:', error);
     return NextResponse.json({ error: 'Failed to fetch materials' }, { status: 500 });

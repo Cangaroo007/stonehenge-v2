@@ -28,11 +28,26 @@ export async function GET(
       },
     });
 
-    // Flatten pieces with room info
+    // Flatten pieces with room info, adding camelCase aliases
     const pieces = rooms.flatMap(room =>
-      room.quote_pieces.map(piece => ({
+      room.quote_pieces.map((piece: any) => ({
         ...piece,
         quote_rooms: { id: room.id, name: room.name },
+        // camelCase aliases for client components
+        lengthMm: piece.length_mm,
+        widthMm: piece.width_mm,
+        thicknessMm: piece.thickness_mm,
+        materialId: piece.material_id,
+        materialName: piece.material_name,
+        edgeTop: piece.edge_top,
+        edgeBottom: piece.edge_bottom,
+        edgeLeft: piece.edge_left,
+        edgeRight: piece.edge_right,
+        sortOrder: piece.sort_order,
+        totalCost: Number(piece.total_cost || 0),
+        areaSqm: Number(piece.area_sqm || 0),
+        materialCost: Number(piece.material_cost || 0),
+        featuresCost: Number(piece.features_cost || 0),
       }))
     );
 
@@ -151,9 +166,25 @@ export async function POST(
       },
     });
 
+    const pieceAny = piece as any;
     return NextResponse.json({
       ...piece,
       quote_rooms: { id: room.id, name: room.name },
+      // camelCase aliases for client components
+      lengthMm: pieceAny.length_mm,
+      widthMm: pieceAny.width_mm,
+      thicknessMm: pieceAny.thickness_mm,
+      materialId: pieceAny.material_id,
+      materialName: pieceAny.material_name,
+      edgeTop: pieceAny.edge_top,
+      edgeBottom: pieceAny.edge_bottom,
+      edgeLeft: pieceAny.edge_left,
+      edgeRight: pieceAny.edge_right,
+      sortOrder: pieceAny.sort_order,
+      totalCost: Number(pieceAny.total_cost || 0),
+      areaSqm: Number(pieceAny.area_sqm || 0),
+      materialCost: Number(pieceAny.material_cost || 0),
+      featuresCost: Number(pieceAny.features_cost || 0),
     });
   } catch (error) {
     console.error('Error creating piece:', error);
