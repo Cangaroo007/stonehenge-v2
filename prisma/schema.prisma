@@ -1,5 +1,3 @@
-// Prisma Schema for Stone Henge MVP
-
 generator client {
   provider = "prisma-client-js"
 }
@@ -9,85 +7,566 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// ============================================
-// COMPANY / ORGANIZATION (Multi-Tenancy)
-// ============================================
+model audit_logs {
+  id          Int      @id @default(autoincrement())
+  user_id     Int?
+  action      String
+  entity_type String
+  entity_id   String
+  changes     Json?
+  ip_address  String?
+  user_agent  String?
+  created_at  DateTime @default(now())
+  user        user?   @relation(fields: [user_id], references: [id])
 
-model Company {
-  id                Int       @id @default(autoincrement())
-  name              String
-  abn               String?
-  address           String    // Physical workshop address
-  phone             String?
-  fax               String?
-  email             String?
-  website           String?
-  
-  // Workshop location for distance calculations
-  workshopAddress   String    @map("workshop_address") // Used for Google Maps calculations
-  
-  // Branding
-  logoUrl           String?   @map("logo_url")
-  logoStorageKey    String?   @map("logo_storage_key") // R2 storage key for logo
-  primaryColor      String    @default("#1e40af") @map("primary_color")
-  
-  // Quote Template Text
-  quoteIntroText1   String?   @map("quote_intro_text_1") @db.Text
-  quoteIntroText2   String?   @map("quote_intro_text_2") @db.Text
-  quoteIntroText3   String?   @map("quote_intro_text_3") @db.Text
-  quotePleaseNote   String?   @map("quote_please_note") @db.Text
-  quoteTermsText1   String?   @map("quote_terms_text_1") @db.Text
-  quoteTermsText2   String?   @map("quote_terms_text_2") @db.Text
-  quoteTermsText3   String?   @map("quote_terms_text_3") @db.Text
-  quoteTermsText4   String?   @map("quote_terms_text_4") @db.Text
-  
-  // Quote Settings
-  quoteValidityDays Int       @default(30) @map("quote_validity_days")
-  depositPercent    Int       @default(50) @map("deposit_percent")
-  termsUrl          String?   @map("terms_url")
-  
-  // Signature
-  signatureName     String?   @map("signature_name")
-  signatureTitle    String?   @map("signature_title")
-  
-  // Settings
-  defaultTaxRate    Decimal   @default(10) @map("default_tax_rate") @db.Decimal(5, 2)
-  currency          String    @default("AUD")
-  defaultUnitSystem String    @default("METRIC") @map("default_unit_system")
-  
-  isActive          Boolean   @default(true) @map("is_active")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
-  
-  // Relations
-  users             User[]
-  deliveryZones     DeliveryZone[]
-  templatingRates   TemplatingRate[]
-  priceBooks        PriceBook[]
-  stripConfigurations StripConfiguration[]
-  
-  @@map("companies")
+  @@index([created_at])
+  @@index([entity_type, entity_id])
+  @@index([user_id])
 }
 
-// ============================================
-// USER & AUTHENTICATION
-// ============================================
+/// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
+model client_tiers {
+  id                   String                 @id
+  name                 String                 @unique
+  description          String?
+  priority             Int                    @default(0)
+  isDefault            Boolean                @default(false)
+  isActive             Boolean                @default(true)
+  sortOrder            Int                    @default(0)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  discount_matrix      Json?
+  custom_price_list    Json?
+  customers            customers[]
+  pricing_rules_engine pricing_rules_engine[]
+}
 
-enum UserRole {
-  ADMIN
-  SALES_MANAGER
-  SALES_REP
-  FABRICATOR
-  READ_ONLY
-  CUSTOM
-  CUSTOMER
+model client_types {
+  id                   String                 @id
+  name                 String                 @unique
+  description          String?
+  isActive             Boolean                @default(true)
+  sortOrder            Int                    @default(0)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  customers            customers[]
+  pricing_rules_engine pricing_rules_engine[]
+}
+
+model companies {
+  id                  String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String
+  created_at          DateTime? @default(now()) @db.Timestamp(6)
+  updated_at          DateTime? @default(now()) @db.Timestamp(6)
+  website             String?
+  logo_storage_key    String?
+  primary_color       String?   @default("#1e40af")
+  quote_intro_text_1  String?
+  quote_intro_text_2  String?
+  quote_intro_text_3  String?
+  quote_please_note   String?
+  quote_terms_text_1  String?
+  quote_terms_text_2  String?
+  quote_terms_text_3  String?
+  quote_terms_text_4  String?
+  quote_validity_days Int?      @default(30)
+  deposit_percent     Int?      @default(50)
+  terms_url           String?
+  signature_name      String?
+  signature_title     String?
+  default_unit_system String?   @default("METRIC")
+  user                user[]
+}
+
+model customers {
+  id                    Int                    @id @default(autoincrement())
+  name                  String
+  company               String?
+  email                 String?
+  phone                 String?
+  address               String?
+  notes                 String?
+  created_at            DateTime               @default(now())
+  updated_at            DateTime
+  client_tier_id        String?
+  client_type_id        String?
+  default_price_book_id String?
+  client_tiers          client_tiers?          @relation(fields: [client_tier_id], references: [id])
+  client_types          client_types?          @relation(fields: [client_type_id], references: [id])
+  price_books           price_books?           @relation(fields: [default_price_book_id], references: [id])
+  drawings              drawings[]
+  pricing_rules_engine  pricing_rules_engine[]
+  quotes                quotes[]
+  user                  user[]
+}
+
+model cutout_rates {
+  id                  String             @id
+  pricing_settings_id String
+  cutout_type         CutoutRateCategory
+  name                String
+  description         String?
+  rate                Decimal            @db.Decimal(10, 2)
+  isActive            Boolean            @default(true)
+  created_at          DateTime           @default(now())
+  updated_at          DateTime
+  pricing_settings    pricing_settings   @relation(fields: [pricing_settings_id], references: [id], onDelete: Cascade)
+
+  @@unique([pricing_settings_id, cutout_type])
+}
+
+model cutout_types {
+  id                   String                 @id
+  name                 String                 @unique
+  description          String?
+  baseRate             Decimal                @db.Decimal(10, 2)
+  isActive             Boolean                @default(true)
+  sortOrder            Int                    @default(0)
+  createdAt            DateTime               @default(now())
+  updatedAt            DateTime
+  pricing_rule_cutouts pricing_rule_cutouts[]
+}
+
+model drawings {
+  id           String    @id
+  filename     String
+  storageKey   String
+  mimeType     String
+  fileSize     Int
+  uploadedAt   DateTime  @default(now())
+  quoteId      Int
+  customerId   Int
+  analysisData Json?
+  isPrimary    Boolean   @default(false)
+  notes        String?
+  thumbnailKey String?
+  customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quotes       quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([customerId])
+  @@index([quoteId])
+}
+
+model edge_types {
+  id                 String               @id
+  name               String               @unique
+  description        String?
+  category           String               @default("polish")
+  baseRate           Decimal              @db.Decimal(10, 2)
+  isActive           Boolean              @default(true)
+  sortOrder          Int                  @default(0)
+  createdAt          DateTime             @default(now())
+  updatedAt          DateTime
+  code               String?              @unique
+  rate20mm           Decimal?             @db.Decimal(10, 2)
+  rate40mm           Decimal?             @db.Decimal(10, 2)
+  minimumCharge      Decimal?             @db.Decimal(10, 2)
+  minimumLength      Decimal?             @db.Decimal(10, 2)
+  isCurved           Boolean              @default(false)
+  pricing_rule_edges pricing_rule_edges[]
+}
+
+model machine_profiles {
+  id                 String   @id
+  name               String   @unique
+  kerf_width_mm      Int      @default(8)
+  max_slab_length_mm Int?
+  max_slab_width_mm  Int?
+  is_default         Boolean  @default(false)
+  is_active          Boolean  @default(true)
+  created_at         DateTime @default(now())
+  updated_at         DateTime
+}
+
+model materials {
+  id                     Int                      @id @default(autoincrement())
+  name                   String
+  collection             String?
+  description            String?
+  price_per_sqm          Decimal                  @db.Decimal(10, 2)
+  is_active              Boolean                  @default(true)
+  created_at             DateTime                 @default(now())
+  updated_at             DateTime
+  price_per_slab         Decimal?                 @db.Decimal(10, 2)
+  price_per_square_metre Decimal?                 @db.Decimal(10, 2)
+  slab_length_mm         Int?
+  slab_width_mm          Int?
+  pricing_rule_materials pricing_rule_materials[]
+  quote_pieces           quote_pieces[]
+}
+
+model piece_features {
+  id              Int            @id @default(autoincrement())
+  piece_id        Int
+  pricing_rule_id Int?
+  name            String
+  quantity        Int            @default(1)
+  unit_price      Decimal        @db.Decimal(10, 2)
+  total_price     Decimal        @db.Decimal(10, 2)
+  quote_pieces    quote_pieces   @relation(fields: [piece_id], references: [id], onDelete: Cascade)
+  pricing_rules   pricing_rules? @relation(fields: [pricing_rule_id], references: [id])
+}
+
+model price_book_rules {
+  id                   String               @id
+  price_book_id        String
+  pricing_rule_id      String
+  sortOrder            Int                  @default(0)
+  price_books          price_books          @relation(fields: [price_book_id], references: [id], onDelete: Cascade)
+  pricing_rules_engine pricing_rules_engine @relation(fields: [pricing_rule_id], references: [id], onDelete: Cascade)
+
+  @@unique([price_book_id, pricing_rule_id])
+}
+
+model price_books {
+  id               String             @id
+  name             String             @unique
+  description      String?
+  category         String             @default("general")
+  defaultThickness Int                @default(20)
+  isActive         Boolean            @default(true)
+  isDefault        Boolean            @default(false)
+  sortOrder        Int                @default(0)
+  createdAt        DateTime           @default(now())
+  updatedAt        DateTime
+  customers        customers[]
+  price_book_rules price_book_rules[]
+  quotes           quotes[]
+}
+
+model pricing_rule_cutouts {
+  id                   String               @id
+  pricingRuleId        String
+  cutoutTypeId         String
+  customRate           Decimal?             @db.Decimal(10, 2)
+  adjustmentType       String?
+  adjustmentValue      Decimal?             @db.Decimal(10, 4)
+  cutout_types         cutout_types         @relation(fields: [cutoutTypeId], references: [id])
+  pricing_rules_engine pricing_rules_engine @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([pricingRuleId, cutoutTypeId])
+}
+
+model pricing_rule_edges {
+  id                   String               @id
+  pricingRuleId        String
+  edgeTypeId           String
+  customRate           Decimal?             @db.Decimal(10, 2)
+  adjustmentType       String?
+  adjustmentValue      Decimal?             @db.Decimal(10, 4)
+  edge_types           edge_types           @relation(fields: [edgeTypeId], references: [id])
+  pricing_rules_engine pricing_rules_engine @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([pricingRuleId, edgeTypeId])
+}
+
+model pricing_rule_materials {
+  id                   String               @id
+  pricingRuleId        String
+  materialId           Int
+  customRate           Decimal?             @db.Decimal(10, 2)
+  adjustmentType       String?
+  adjustmentValue      Decimal?             @db.Decimal(10, 4)
+  materials            materials            @relation(fields: [materialId], references: [id])
+  pricing_rules_engine pricing_rules_engine @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
+
+  @@unique([pricingRuleId, materialId])
+}
+
+model pricing_rules {
+  id             Int              @id @default(autoincrement())
+  category       String
+  name           String
+  description    String?
+  price          Decimal          @db.Decimal(10, 2)
+  price_type     String
+  is_active      Boolean          @default(true)
+  created_at     DateTime         @default(now())
+  updated_at     DateTime
+  piece_features piece_features[]
+}
+
+model pricing_rules_engine {
+  id                     String                   @id
+  name                   String
+  description            String?
+  priority               Int                      @default(0)
+  clientTypeId           String?
+  clientTierId           String?
+  customerId             Int?
+  minQuoteValue          Decimal?                 @db.Decimal(10, 2)
+  maxQuoteValue          Decimal?                 @db.Decimal(10, 2)
+  thicknessValue         Int?
+  adjustmentType         String
+  adjustmentValue        Decimal                  @db.Decimal(10, 4)
+  appliesTo              String
+  isActive               Boolean                  @default(true)
+  createdAt              DateTime                 @default(now())
+  updatedAt              DateTime
+  price_book_rules       price_book_rules[]
+  pricing_rule_cutouts   pricing_rule_cutouts[]
+  pricing_rule_edges     pricing_rule_edges[]
+  pricing_rule_materials pricing_rule_materials[]
+  client_tiers           client_tiers?            @relation(fields: [clientTierId], references: [id])
+  client_types           client_types?            @relation(fields: [clientTypeId], references: [id])
+  customers              customers?               @relation(fields: [customerId], references: [id])
+}
+
+model pricing_settings {
+  id                     String               @id
+  organisation_id        String               @unique
+  material_pricing_basis MaterialPricingBasis @default(PER_SLAB)
+  cutting_unit           ServiceUnit          @default(LINEAR_METRE)
+  polishing_unit         ServiceUnit          @default(LINEAR_METRE)
+  installation_unit      ServiceUnit          @default(SQUARE_METRE)
+  unit_system            UnitSystem           @default(METRIC)
+  currency               String               @default("AUD")
+  gst_rate               Decimal              @default(0.10) @db.Decimal(5, 4)
+  created_at             DateTime             @default(now())
+  updated_at             DateTime
+  cutout_rates           cutout_rates[]
+  service_rates          service_rates[]
+}
+
+model quote_drawing_analyses {
+  id              Int      @id @default(autoincrement())
+  quote_id        Int      @unique
+  filename        String
+  analyzed_at     DateTime @default(now())
+  drawing_type    String
+  raw_results     Json
+  metadata        Json?
+  imported_pieces String[]
+  quotes          quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+}
+
+model quote_files {
+  id            Int      @id @default(autoincrement())
+  quote_id      Int
+  filename      String
+  original_name String
+  file_path     String
+  file_type     String?
+  file_size     Int?
+  uploaded_at   DateTime @default(now())
+  analysis_json Json?
+  quotes        quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+}
+
+model quote_pieces {
+  id             Int              @id @default(autoincrement())
+  room_id        Int
+  material_id    Int?
+  material_name  String?
+  description    String?
+  length_mm      Int
+  width_mm       Int
+  thickness_mm   Int
+  area_sqm       Decimal          @db.Decimal(10, 4)
+  material_cost  Decimal          @default(0) @db.Decimal(10, 2)
+  features_cost  Decimal          @default(0) @db.Decimal(10, 2)
+  total_cost     Decimal          @default(0) @db.Decimal(10, 2)
+  sort_order     Int              @default(0)
+  cutouts        Json             @default("[]")
+  edge_bottom    String?
+  edge_left      String?
+  edge_right     String?
+  edge_top       String?
+  name           String           @default("Piece")
+  piece_features piece_features[]
+  materials      materials?       @relation(fields: [material_id], references: [id])
+  quote_rooms    quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+}
+
+model quote_rooms {
+  id           Int            @id @default(autoincrement())
+  quote_id     Int
+  name         String
+  sort_order   Int            @default(0)
+  quote_pieces quote_pieces[]
+  quotes       quotes         @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+}
+
+model quote_signatures {
+  id               Int      @id @default(autoincrement())
+  quote_id         Int      @unique
+  signer_name      String
+  signer_email     String
+  signer_title     String?
+  user_id          Int?
+  signature_type   String
+  signature_data   String
+  signed_at        DateTime @default(now())
+  ip_address       String
+  user_agent       String
+  document_hash    String
+  document_version String
+  signed_pdf_path  String?
+  quotes           quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  user             user?   @relation(fields: [user_id], references: [id])
+}
+
+model quote_views {
+  id         Int      @id @default(autoincrement())
+  quote_id   Int
+  user_id    Int?
+  viewed_at  DateTime @default(now())
+  ip_address String?
+  user_agent String?
+  quotes     quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  user       user?   @relation(fields: [user_id], references: [id])
+
+  @@index([quote_id])
+  @@index([user_id])
+}
+
+model quotes {
+  id                     Int                     @id @default(autoincrement())
+  quote_number           String                  @unique
+  revision               Int                     @default(1)
+  customer_id            Int?
+  project_name           String?
+  project_address        String?
+  status                 String                  @default("draft")
+  subtotal               Decimal                 @default(0) @db.Decimal(10, 2)
+  tax_rate               Decimal                 @default(10) @db.Decimal(5, 2)
+  tax_amount             Decimal                 @default(0) @db.Decimal(10, 2)
+  total                  Decimal                 @default(0) @db.Decimal(10, 2)
+  valid_until            DateTime?
+  notes                  String?
+  internal_notes         String?
+  created_by             Int?
+  created_at             DateTime                @default(now())
+  updated_at             DateTime
+  price_book_id          String?
+  calculated_at          DateTime?
+  calculated_total       Decimal?                @db.Decimal(10, 2)
+  calculation_breakdown  Json?
+  drawings               drawings[]
+  quote_drawing_analyses quote_drawing_analyses?
+  quote_files            quote_files[]
+  quote_rooms            quote_rooms[]
+  quote_signatures       quote_signatures?
+  quote_views            quote_views[]
+  user                   user?                   @relation(fields: [created_by], references: [id])
+  customers              customers?              @relation(fields: [customer_id], references: [id])
+  price_books            price_books?            @relation(fields: [price_book_id], references: [id])
+  slab_optimizations     slab_optimizations[]
+}
+
+model service_rates {
+  id                  String           @id
+  pricing_settings_id String
+  serviceType         ServiceType
+  name                String
+  description         String?
+  rate20mm            Decimal          @db.Decimal(10, 2)
+  rate40mm            Decimal          @db.Decimal(10, 2)
+  minimumCharge       Decimal?         @db.Decimal(10, 2)
+  isActive            Boolean          @default(true)
+  created_at          DateTime         @default(now())
+  updated_at          DateTime
+  pricing_settings    pricing_settings @relation(fields: [pricing_settings_id], references: [id], onDelete: Cascade)
+
+  @@unique([pricing_settings_id, serviceType])
+}
+
+model settings {
+  id         Int      @id @default(autoincrement())
+  key        String   @unique
+  value      String
+  updated_at DateTime
+}
+
+model slab_optimizations {
+  id                String   @id
+  quoteId           Int?
+  slabWidth         Int      @default(3000)
+  slabHeight        Int      @default(1400)
+  kerfWidth         Int      @default(3)
+  totalSlabs        Int
+  totalWaste        Decimal  @db.Decimal(10, 2)
+  wastePercent      Decimal  @db.Decimal(5, 2)
+  placements        Json
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime
+  laminationSummary Json?
+  quotes            quotes?  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  @@index([quoteId])
+}
+
+model thickness_options {
+  id         String   @id
+  name       String   @unique
+  value      Int
+  multiplier Decimal  @default(1.00) @db.Decimal(5, 2)
+  isDefault  Boolean  @default(false)
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime
+}
+
+model user_permissions {
+  id         Int        @id @default(autoincrement())
+  user_id    Int
+  permission Permission
+  created_at DateTime   @default(now())
+  user       user       @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, permission])
+}
+
+model user {
+  id                 Int                @id @default(autoincrement())
+  email              String             @unique
+  password_hash      String
+  name               String?
+  created_at         DateTime           @default(now())
+  updated_at         DateTime
+  customer_id        Int?
+  invited_at         DateTime?
+  invited_by         Int?
+  is_active          Boolean            @default(true)
+  last_active_at     DateTime?
+  last_login_at      DateTime?
+  role               UserRole           @default(SALES_REP)
+  customer_user_role CustomerUserRole?
+  company_id         String?            @db.Uuid
+  audit_logs         audit_logs[]
+  quote_signatures   quote_signatures[]
+  quote_views        quote_views[]
+  quotes             quotes[]
+  user_permissions   user_permissions[]
+  companies          companies?         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  customers          customers?         @relation(fields: [customer_id], references: [id])
+
+  @@map("users")
 }
 
 enum CustomerUserRole {
-  CUSTOMER_ADMIN    // Full access: view, sign, upload, manage users
-  CUSTOMER_APPROVER // View quotes + sign/accept
-  CUSTOMER_VIEWER   // View only (read-only)
-  CUSTOM            // Select specific permissions
+  CUSTOMER_ADMIN
+  CUSTOMER_APPROVER
+  CUSTOMER_VIEWER
+  CUSTOM
+}
+
+enum CutoutRateCategory {
+  HOTPLATE
+  GPO
+  TAP_HOLE
+  DROP_IN_SINK
+  UNDERMOUNT_SINK
+  FLUSH_COOKTOP
+  BASIN
+  DRAINER_GROOVES
+  OTHER
+}
+
+enum MaterialPricingBasis {
+  PER_SLAB
+  PER_SQUARE_METRE
 }
 
 enum Permission {
@@ -112,450 +591,26 @@ enum Permission {
   EXPORT_DATA
   MANAGE_SETTINGS
   VIEW_AUDIT_LOGS
-  
-  // Customer portal permissions
   UPLOAD_FILES
   MANAGE_CUSTOMER_USERS
   DOWNLOAD_QUOTES
   VIEW_PROJECT_UPDATES
 }
 
-model User {
-  id           Int       @id @default(autoincrement())
-  email        String    @unique
-  passwordHash String    @map("password_hash")
-  name         String?
-  role         UserRole  @default(SALES_REP)
-  isActive     Boolean   @default(true) @map("is_active")
-
-  // Company (Multi-tenancy)
-  companyId    Int?      @map("company_id")
-  company      Company?  @relation(fields: [companyId], references: [id])
-
-  // Customer linking (for customer users)
-  customerId       Int?                  @map("customer_id")
-  customer         Customer?             @relation(fields: [customerId], references: [id])
-  customerUserRole CustomerUserRole?     @map("customer_user_role") // Role within customer portal
-
-  // Invitation tracking
-  invitedBy    Int?      @map("invited_by")
-  invitedAt    DateTime? @map("invited_at")
-
-  // Last activity
-  lastLoginAt  DateTime? @map("last_login_at")
-  lastActiveAt DateTime? @map("last_active_at")
-
-  createdAt    DateTime  @default(now()) @map("created_at")
-  updatedAt    DateTime  @updatedAt @map("updated_at")
-
-  quotes       Quote[]
-  permissions  UserPermission[]
-  auditLogs    AuditLog[]
-  quoteViews   QuoteView[]
-  signatures   QuoteSignature[] @relation("QuoteSignatures")
-  quoteOverrides Quote[] @relation("QuoteOverrides")
-  quoteVersions QuoteVersion[]  // Add reverse relation for QuoteVersion
-
-  @@map("users")
+enum RateUnit {
+  LINEAR_METER
+  SQUARE_METER
+  FIXED
+  PER_KM
 }
 
-// Custom permissions for CUSTOM role users
-model UserPermission {
-  id         Int        @id @default(autoincrement())
-  userId     Int        @map("user_id")
-  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permission Permission
-  createdAt  DateTime   @default(now()) @map("created_at")
-  
-  @@unique([userId, permission])
-  @@map("user_permissions")
-}
-
-// Track quote views (especially by customers)
-model QuoteView {
-  id         Int      @id @default(autoincrement())
-  quoteId    Int      @map("quote_id")
-  quote      Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  userId     Int?     @map("user_id")
-  user       User?    @relation(fields: [userId], references: [id])
-  viewedAt   DateTime @default(now()) @map("viewed_at")
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent") @db.Text
-  
-  @@index([quoteId])
-  @@index([userId])
-  @@map("quote_views")
-}
-
-// E-signature records for legal compliance (Australia)
-model QuoteSignature {
-  id              Int      @id @default(autoincrement())
-  quoteId         Int      @unique @map("quote_id")
-  quote           Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  
-  // Signer information
-  signerName      String   @map("signer_name")
-  signerEmail     String   @map("signer_email")
-  signerTitle     String?  @map("signer_title")
-  userId          Int?     @map("user_id")
-  user            User?    @relation("QuoteSignatures", fields: [userId], references: [id])
-  
-  // Signature data
-  signatureType   String   @map("signature_type") // 'typed', 'drawn'
-  signatureData   String   @map("signature_data") @db.Text // Base64 image or typed text
-  
-  // Legal compliance tracking (Australian Electronic Transactions Act 1999)
-  signedAt        DateTime @default(now()) @map("signed_at")
-  ipAddress       String   @map("ip_address")
-  userAgent       String   @map("user_agent") @db.Text
-  documentHash    String   @map("document_hash") // SHA-256 of PDF
-  documentVersion String   @map("document_version") // Quote revision/number
-  
-  // Audit trail
-  signedPdfPath   String?  @map("signed_pdf_path") // Path to signed PDF
-  
-  @@map("quote_signatures")
-}
-
-// Audit log for compliance and tracking
-model AuditLog {
-  id         Int      @id @default(autoincrement())
-  userId     Int?     @map("user_id")
-  user       User?    @relation(fields: [userId], references: [id])
-  action     String   // 'created', 'updated', 'deleted', 'viewed', 'signed'
-  entityType String   @map("entity_type") // 'quote', 'customer', 'user', etc.
-  entityId   String   @map("entity_id")
-  changes    Json?    // Old/new values
-  ipAddress  String?  @map("ip_address")
-  userAgent  String?  @map("user_agent") @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
-  
-  @@index([entityType, entityId])
-  @@index([userId])
-  @@index([createdAt])
-  @@map("audit_logs")
-}
-
-// ============================================
-// CUSTOMERS
-// ============================================
-
-model Customer {
-  id        Int       @id @default(autoincrement())
-  name      String
-  company   String?
-  email     String?
-  phone     String?
-  address   String?
-  notes     String?
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @updatedAt @map("updated_at")
-
-  // Pricing classification
-  clientTypeId       String?     @map("client_type_id")
-  clientType         ClientType? @relation(fields: [clientTypeId], references: [id])
-  clientTierId       String?     @map("client_tier_id")
-  clientTier         ClientTier? @relation(fields: [clientTierId], references: [id])
-  defaultPriceBookId String?     @map("default_price_book_id")
-  defaultPriceBook   PriceBook?  @relation("CustomerDefaultPriceBook", fields: [defaultPriceBookId], references: [id])
-
-  quotes       Quote[]
-  pricingRules PricingRule[]
-  users        User[]        // Customer portal users
-  drawings     Drawing[]
-
-  @@map("customers")
-}
-
-// ============================================
-// MATERIALS
-// ============================================
-
-model Material {
-  id                  Int       @id @default(autoincrement())
-  name                String
-  collection          String?
-  description         String?
-  pricePerSqm         Decimal   @map("price_per_sqm") @db.Decimal(10, 2)
-  pricePerSlab        Decimal?  @map("price_per_slab") @db.Decimal(10, 2)
-  pricePerSquareMetre Decimal?  @map("price_per_square_metre") @db.Decimal(10, 2)
-  slabLengthMm        Int?      @map("slab_length_mm")
-  slabWidthMm         Int?      @map("slab_width_mm")
-  isActive            Boolean   @default(true) @map("is_active")
-  createdAt           DateTime  @default(now()) @map("created_at")
-  updatedAt           DateTime  @updatedAt @map("updated_at")
-
-  pieces               QuotePiece[]
-  pricingRuleMaterials PricingRuleMaterial[]
-
-  @@map("materials")
-}
-
-// ============================================
-// FEATURE PRICING (Simple key-value pricing)
-// ============================================
-
-model FeaturePricing {
-  id          Int       @id @default(autoincrement())
-  category    String    // 'thickness', 'edge', 'cutout', 'feature'
-  name        String
-  description String?
-  price       Decimal   @db.Decimal(10, 2)
-  priceType   String    @map("price_type") // 'fixed', 'per_meter', 'per_sqm', 'multiplier'
-  isActive    Boolean   @default(true) @map("is_active")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-
-  pieceFeatures PieceFeature[]
-
-  @@map("pricing_rules")
-}
-
-// ============================================
-// DELIVERY & TEMPLATING
-// ============================================
-
-model DeliveryZone {
-  id            Int       @id @default(autoincrement())
-  name          String    // "Local", "Regional", "Remote"
-  maxDistanceKm Int       @map("max_distance_km") // Upper bound for this zone
-  ratePerKm     Decimal   @map("rate_per_km") @db.Decimal(10, 2)
-  baseCharge    Decimal   @map("base_charge") @db.Decimal(10, 2)
-  isActive      Boolean   @default(true) @map("is_active")
-  
-  // Multi-tenancy
-  companyId     Int       @map("company_id")
-  company       Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  createdAt     DateTime  @default(now()) @map("created_at")
-  updatedAt     DateTime  @updatedAt @map("updated_at")
-  
-  // Relations
-  quotes        Quote[]
-  
-  @@unique([companyId, name]) // Each company can have its own zones with same names
-  @@map("delivery_zones")
-}
-
-model TemplatingRate {
-  id          Int       @id @default(autoincrement())
-  name        String    @default("Standard Templating")
-  baseCharge  Decimal   @map("base_charge") @db.Decimal(10, 2) // Fixed component
-  ratePerKm   Decimal   @map("rate_per_km") @db.Decimal(10, 2) // Distance component
-  isActive    Boolean   @default(true) @map("is_active")
-  
-  // Multi-tenancy
-  companyId   Int       @map("company_id")
-  company     Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @updatedAt @map("updated_at")
-  
-  @@map("templating_rates")
-}
-
-// ============================================
-// QUOTES
-// ============================================
-
-model Quote {
-  id             Int       @id @default(autoincrement())
-  quoteNumber    String    @unique @map("quote_number")
-  revision       Int       @default(1)
-  
-  // Customer
-  customerId     Int?      @map("customer_id")
-  customer       Customer? @relation(fields: [customerId], references: [id])
-  
-  // Project details
-  projectName    String?   @map("project_name")
-  projectAddress String?   @map("project_address")
-  
-  // Status
-  status         String    @default("draft") // draft, sent, accepted, declined
-  
-  // Pricing
-  subtotal       Decimal   @default(0) @db.Decimal(10, 2)
-  taxRate        Decimal   @default(10) @map("tax_rate") @db.Decimal(5, 2)
-  taxAmount      Decimal   @default(0) @map("tax_amount") @db.Decimal(10, 2)
-  total          Decimal   @default(0) @db.Decimal(10, 2)
-
-  // Calculated pricing (from pricing calculator)
-  calculatedTotal     Decimal?  @map("calculated_total") @db.Decimal(10, 2)
-  calculatedAt        DateTime? @map("calculated_at")
-  calculationBreakdown Json?    @map("calculation_breakdown")
-  
-  // Delivery
-  deliveryAddress      String?   @map("delivery_address")
-  deliveryDistanceKm   Decimal?  @map("delivery_distance_km") @db.Decimal(10, 2)
-  deliveryZoneId       Int?      @map("delivery_zone_id")
-  deliveryZone         DeliveryZone? @relation(fields: [deliveryZoneId], references: [id])
-  deliveryCost         Decimal?  @map("delivery_cost") @db.Decimal(10, 2)
-  overrideDeliveryCost Decimal?  @map("override_delivery_cost") @db.Decimal(10, 2)
-  
-  // Templating
-  templatingRequired   Boolean   @default(false) @map("templating_required")
-  templatingDistanceKm Decimal?  @map("templating_distance_km") @db.Decimal(10, 2)
-  templatingCost       Decimal?  @map("templating_cost") @db.Decimal(10, 2)
-  overrideTemplatingCost Decimal? @map("override_templating_cost") @db.Decimal(10, 2)
-  
-  // Manual overrides (preserves calculated values for reference)
-  overrideSubtotal    Decimal?  @map("override_subtotal") @db.Decimal(10, 2)
-  overrideTotal       Decimal?  @map("override_total") @db.Decimal(10, 2)
-  overrideReason      String?   @map("override_reason")
-  overrideBy          Int?      @map("override_by")
-  overrideByUser      User?     @relation("QuoteOverrides", fields: [overrideBy], references: [id])
-  overrideAt          DateTime? @map("override_at")
-  
-  // Terms
-  validUntil     DateTime? @map("valid_until")
-  notes          String?
-  internalNotes  String?   @map("internal_notes")
-  
-  // Version tracking
-  currentVersion    Int           @default(1) @map("current_version")
-  
-  // Metadata
-  createdBy      Int?      @map("created_by")
-  createdByUser  User?     @relation(fields: [createdBy], references: [id])
-  createdAt      DateTime  @default(now()) @map("created_at")
-  updatedAt      DateTime  @updatedAt @map("updated_at")
-  
-  // Relations
-  rooms           QuoteRoom[]
-  files           QuoteFile[]
-  drawingAnalysis QuoteDrawingAnalysis?
-  optimizations   SlabOptimization[]
-  views           QuoteView[]
-  signature       QuoteSignature?
-  drawings        Drawing[]
-  versions        QuoteVersion[]  // Add reverse relation for QuoteVersion
-
-  priceBookId     String?     @map("price_book_id")
-  priceBook       PriceBook?  @relation(fields: [priceBookId], references: [id])
-
-  @@map("quotes")
-}
-
-model QuoteRoom {
-  id        Int       @id @default(autoincrement())
-  quoteId   Int       @map("quote_id")
-  quote     Quote     @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  name      String    // Kitchen, Bathroom, Ensuite, etc.
-  sortOrder Int       @default(0) @map("sort_order")
-  
-  pieces    QuotePiece[]
-
-  @@map("quote_rooms")
-}
-
-model QuotePiece {
-  id           Int       @id @default(autoincrement())
-  roomId       Int       @map("room_id")
-  room         QuoteRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
-
-  // Name/Description
-  name         String    @default("Piece") // e.g., "Kitchen Island", "Sink Run"
-  description  String?
-
-  // Material
-  materialId   Int?      @map("material_id")
-  material     Material? @relation(fields: [materialId], references: [id])
-  materialName String?   @map("material_name") // Denormalized for display
-
-  // Dimensions
-  lengthMm     Int       @map("length_mm")
-  widthMm      Int       @map("width_mm")
-  thicknessMm  Int       @map("thickness_mm")
-  areaSqm      Decimal   @map("area_sqm") @db.Decimal(10, 4)
-
-  // Edge selections (EdgeType id or null)
-  edgeTop      String?   @map("edge_top")
-  edgeBottom   String?   @map("edge_bottom")
-  edgeLeft     String?   @map("edge_left")
-  edgeRight    String?   @map("edge_right")
-
-  // Cutouts stored as JSON array
-  cutouts      Json      @default("[]")
-
-  // Pricing
-  materialCost Decimal   @default(0) @map("material_cost") @db.Decimal(10, 2)
-  featuresCost Decimal   @default(0) @map("features_cost") @db.Decimal(10, 2)
-  totalCost    Decimal   @default(0) @map("total_cost") @db.Decimal(10, 2)
-  
-  // Manual overrides (for piece-level adjustments)
-  overrideMaterialCost Decimal?  @map("override_material_cost") @db.Decimal(10, 2)
-  overrideFeaturesCost Decimal?  @map("override_features_cost") @db.Decimal(10, 2)
-  overrideTotalCost    Decimal?  @map("override_total_cost") @db.Decimal(10, 2)
-  overrideReason       String?   @map("override_reason")
-
-  sortOrder    Int       @default(0) @map("sort_order")
-
-  features     PieceFeature[]
-
-  @@map("quote_pieces")
-}
-
-model PieceFeature {
-  id               Int             @id @default(autoincrement())
-  pieceId          Int             @map("piece_id")
-  piece            QuotePiece      @relation(fields: [pieceId], references: [id], onDelete: Cascade)
-
-  featurePricingId Int?            @map("pricing_rule_id")
-  featurePricing   FeaturePricing? @relation(fields: [featurePricingId], references: [id])
-
-  name             String
-  quantity         Int             @default(1)
-  unitPrice        Decimal         @map("unit_price") @db.Decimal(10, 2)
-  totalPrice       Decimal         @map("total_price") @db.Decimal(10, 2)
-
-  @@map("piece_features")
-}
-
-// ============================================
-// FILES
-// ============================================
-
-model QuoteFile {
-  id           Int      @id @default(autoincrement())
-  quoteId      Int      @map("quote_id")
-  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  filename     String
-  originalName String   @map("original_name")
-  filePath     String   @map("file_path")
-  fileType     String?  @map("file_type")
-  fileSize     Int?     @map("file_size")
-  analysisJson Json?    @map("analysis_json")
-  uploadedAt   DateTime @default(now()) @map("uploaded_at")
-
-  @@map("quote_files")
-}
-
-// ============================================
-// DRAWING ANALYSIS
-// ============================================
-
-model QuoteDrawingAnalysis {
-  id             Int      @id @default(autoincrement())
-  quoteId        Int      @unique @map("quote_id")
-  quote          Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  filename       String
-  analyzedAt     DateTime @default(now()) @map("analyzed_at")
-  drawingType    String   @map("drawing_type") // "job_sheet", "cad_professional", etc.
-  rawResults     Json     @map("raw_results") // Full API response
-  metadata       Json?    // Extracted job number, thickness, etc.
-  importedPieces String[] @map("imported_pieces") // IDs of pieces created from this analysis
-
-  @@map("quote_drawing_analyses")
-}
-
-// ============================================
-// PRICING CONFIGURATION (Org-level settings)
-// ============================================
-
-enum MaterialPricingBasis {
-  PER_SLAB
-  PER_SQUARE_METRE
+enum ServiceType {
+  CUTTING
+  POLISHING
+  INSTALLATION
+  WATERFALL_END
+  TEMPLATING
+  DELIVERY
 }
 
 enum ServiceUnit {
@@ -571,559 +626,12 @@ enum UnitSystem {
   IMPERIAL
 }
 
-model PricingSettings {
-  id                    String   @id @default(cuid())
-  organisationId        String   @unique @map("organisation_id")
-
-  materialPricingBasis  MaterialPricingBasis @default(PER_SLAB) @map("material_pricing_basis")
-  cuttingUnit           ServiceUnit @default(LINEAR_METRE) @map("cutting_unit")
-  polishingUnit         ServiceUnit @default(LINEAR_METRE) @map("polishing_unit")
-  installationUnit      ServiceUnit @default(SQUARE_METRE) @map("installation_unit")
-  unitSystem            UnitSystem @default(METRIC) @map("unit_system")
-  currency              String @default("AUD")
-  gstRate               Decimal @default(0.10) @map("gst_rate") @db.Decimal(5, 4)
-
-  createdAt             DateTime @default(now()) @map("created_at")
-  updatedAt             DateTime @updatedAt @map("updated_at")
-
-  serviceRates          ServiceRate[]
-  cutoutRates           CutoutRate[]
-
-  @@map("pricing_settings")
-}
-
-// ============================================
-// PRICING ENTITIES
-// ============================================
-
-// Service rate types
-enum ServiceType {
-  CUTTING        // Full perimeter calculation
-  POLISHING      // Finished edges only (base rate, profiles add extra)
-  INSTALLATION   // Square meter calculation
-  WATERFALL_END  // Fixed per item
-  TEMPLATING     // Templating service
-  DELIVERY       // Delivery service
-}
-
-model ServiceRate {
-  id                String   @id @default(cuid())
-  pricingSettingsId String   @map("pricing_settings_id")
-  pricingSettings   PricingSettings @relation(fields: [pricingSettingsId], references: [id], onDelete: Cascade)
-
-  serviceType       ServiceType
-  name              String      // Display name
-  description       String?
-
-  // Thickness-specific rates
-  rate20mm          Decimal     @db.Decimal(10, 2)
-  rate40mm          Decimal     @db.Decimal(10, 2)
-
-  // Minimum charge support
-  minimumCharge     Decimal?    @db.Decimal(10, 2)
-
-  isActive          Boolean     @default(true)
-  createdAt         DateTime    @default(now()) @map("created_at")
-  updatedAt         DateTime    @updatedAt @map("updated_at")
-
-  @@unique([pricingSettingsId, serviceType])
-  @@map("service_rates")
-}
-
-// ============================================
-// CUTOUT RATES (Org-level cutout pricing)
-// ============================================
-
-enum CutoutRateCategory {
-  HOTPLATE
-  GPO
-  TAP_HOLE
-  DROP_IN_SINK
-  UNDERMOUNT_SINK
-  FLUSH_COOKTOP
-  BASIN
-  DRAINER_GROOVES
-  OTHER
-}
-
-model CutoutRate {
-  id                String   @id @default(cuid())
-  pricingSettingsId String   @map("pricing_settings_id")
-  pricingSettings   PricingSettings @relation(fields: [pricingSettingsId], references: [id], onDelete: Cascade)
-
-  cutoutType        CutoutRateCategory @map("cutout_type")
-  name              String
-  description       String?
-  rate              Decimal  @db.Decimal(10, 2)
-  isActive          Boolean  @default(true)
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-
-  @@unique([pricingSettingsId, cutoutType])
-  @@map("cutout_rates")
-}
-
-model EdgeType {
-  id          String   @id @default(cuid())
-  name        String   @unique  // "Pencil Round", "Bullnose", etc.
-  code        String?  @unique  // Short code: "PR", "BN", "OG", etc.
-  description String?
-  category    String   @default("polish")  // "polish", "waterfall", "apron"
-  
-  // Legacy field (kept for backward compatibility)
-  baseRate    Decimal  @db.Decimal(10, 2)  // $ per linear meter
-  
-  // Thickness-specific rates (ADDITIONAL to base polishing rate from ServiceRate)
-  rate20mm    Decimal? @db.Decimal(10, 2)  // Extra charge for 20mm
-  rate40mm    Decimal? @db.Decimal(10, 2)  // Extra charge for 40mm+
-  
-  // Minimum charge support (for premium edges like curved)
-  minimumCharge Decimal? @db.Decimal(10, 2)
-  minimumLength Decimal? @db.Decimal(10, 2)  // In meters, e.g., 1.0
-  
-  // Curved edge flag (special handling, premium pricing)
-  isCurved    Boolean  @default(false)
-  
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  pricingRuleEdges PricingRuleEdge[]
-
-  @@map("edge_types")
-}
-
-enum CutoutCategory {
-  STANDARD         // Hotplate, GPO, Tap, Drop-in Sink
-  UNDERMOUNT_SINK  // Undermount sink
-  FLUSH_COOKTOP    // Flush mount cooktop
-  DRAINER_GROOVE   // Drainer grooves
-}
-
-model CutoutType {
-  id          String          @id @default(cuid())
-  name        String          @unique  // "Undermount Sink", "Tap Hole", etc.
-  code        String?         @unique  // Short code: "HP", "UMS", etc.
-  description String?
-  category    CutoutCategory  @default(STANDARD)
-  
-  baseRate    Decimal         @db.Decimal(10, 2)  // $ per cutout (fixed price)
-  
-  // Minimum support (for future use)
-  minimumCharge Decimal?      @db.Decimal(10, 2)
-  
-  isActive    Boolean         @default(true)
-  sortOrder   Int             @default(0)
-  createdAt   DateTime        @default(now())
-  updatedAt   DateTime        @updatedAt
-
-  pricingRuleCutouts PricingRuleCutout[]
-
-  @@map("cutout_types")
-}
-
-model ThicknessOption {
-  id          String   @id @default(cuid())
-  name        String   @unique  // "20mm", "40mm"
-  value       Int      // 20, 40 (actual mm)
-  multiplier  Decimal  @db.Decimal(5, 2) @default(1.00)  // 1.0 for 20mm, 1.3 for 40mm
-  isDefault   Boolean  @default(false)
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-
-  @@map("thickness_options")
-}
-
-model ClientType {
-  id          String     @id @default(cuid())
-  name        String     @unique  // "Cabinet Maker", "Builder", etc.
-  description String?
-  isActive    Boolean    @default(true)
-  sortOrder   Int        @default(0)
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  customers   Customer[]
-  pricingRules PricingRule[]
-
-  @@map("client_types")
-}
-
-model ClientTier {
-  id          String     @id @default(cuid())
-  name        String     @unique  // "Tier 1", "Tier 2", "Tier 3"
-  description String?
-  priority    Int        @default(0)  // Higher = better pricing, used for rule matching
-  isDefault   Boolean    @default(false)
-  isActive    Boolean    @default(true)
-  sortOrder   Int        @default(0)
-  
-  // Discount Matrix (JSON structure)
-  discountMatrix Json?    @map("discount_matrix")
-  
-  // Custom Price List (JSON structure) - Tier-specific pricing overrides
-  customPriceList Json?   @map("custom_price_list")
-  
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
-  customers    Customer[]
-  pricingRules PricingRule[]
-
-  @@map("client_tiers")
-}
-
-// ============================================
-// PRICING RULES ENGINE
-// ============================================
-
-model PricingRule {
-  id              String   @id @default(cuid())
-  name            String   // "Tier 1 Cabinet Maker Discount"
-  description     String?
-  priority        Int      @default(0)  // Higher priority wins when multiple rules match
-
-  // === CONDITIONS (IF) ===
-  // All non-null conditions must match (AND logic)
-  clientTypeId    String?  // IF client type matches
-  clientType      ClientType? @relation(fields: [clientTypeId], references: [id])
-  clientTierId    String?  // IF client tier matches
-  clientTier      ClientTier? @relation(fields: [clientTierId], references: [id])
-  customerId      Int?     // IF specific customer (highest priority)
-  customer        Customer? @relation(fields: [customerId], references: [id])
-  minQuoteValue   Decimal? @db.Decimal(10, 2)  // IF quote total >= this
-  maxQuoteValue   Decimal? @db.Decimal(10, 2)  // IF quote total <= this
-  thicknessValue  Int?     // IF thickness matches (20 or 40)
-
-  // === OUTCOME (THEN) ===
-  adjustmentType  String   // "percentage" or "fixed_amount"
-  adjustmentValue Decimal  @db.Decimal(10, 4)  // -15.00 for 15% off, or -5.00 for $5 off
-  appliesTo       String   // "all", "materials", "edges", "cutouts"
-
-  // === SPECIFIC OVERRIDES ===
-  // These allow setting specific rates for individual items
-  edgeOverrides     PricingRuleEdge[]
-  cutoutOverrides   PricingRuleCutout[]
-  materialOverrides PricingRuleMaterial[]
-
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-
-  priceBookRules    PriceBookRule[]
-
-  @@map("pricing_rules_engine")
-}
-
-model PricingRuleEdge {
-  id              String      @id @default(cuid())
-  pricingRuleId   String
-  pricingRule     PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
-  edgeTypeId      String
-  edgeType        EdgeType    @relation(fields: [edgeTypeId], references: [id])
-
-  // Either set a custom flat rate OR an adjustment
-  customRate      Decimal?    @db.Decimal(10, 2)  // $30/lm instead of base rate
-  adjustmentType  String?     // "percentage" or "fixed_amount"
-  adjustmentValue Decimal?    @db.Decimal(10, 4)  // -10.00 for 10% off
-
-  @@unique([pricingRuleId, edgeTypeId])
-  @@map("pricing_rule_edges")
-}
-
-model PricingRuleCutout {
-  id              String      @id @default(cuid())
-  pricingRuleId   String
-  pricingRule     PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
-  cutoutTypeId    String
-  cutoutType      CutoutType  @relation(fields: [cutoutTypeId], references: [id])
-
-  // Either set a custom flat rate OR an adjustment
-  customRate      Decimal?    @db.Decimal(10, 2)  // $180 instead of $220
-  adjustmentType  String?     // "percentage" or "fixed_amount"
-  adjustmentValue Decimal?    @db.Decimal(10, 4)
-
-  @@unique([pricingRuleId, cutoutTypeId])
-  @@map("pricing_rule_cutouts")
-}
-
-model PricingRuleMaterial {
-  id              String      @id @default(cuid())
-  pricingRuleId   String
-  pricingRule     PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
-  materialId      Int
-  material        Material    @relation(fields: [materialId], references: [id])
-
-  // Either set a custom flat rate OR an adjustment
-  customRate      Decimal?    @db.Decimal(10, 2)  // $120/m² instead of $140
-  adjustmentType  String?     // "percentage" or "fixed_amount"
-  adjustmentValue Decimal?    @db.Decimal(10, 4)
-
-  @@unique([pricingRuleId, materialId])
-  @@map("pricing_rule_materials")
-}
-
-// ============================================
-// PRICE BOOKS
-// ============================================
-
-model PriceBook {
-  id                  String          @id @default(cuid())
-  name                String          @unique
-  description         String?
-  category            String          @default("general")
-  defaultThickness    Int             @default(20)
-  
-  // Multi-tenancy
-  companyId           Int?            @map("company_id")
-  company             Company?        @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  rules               PriceBookRule[]
-  quotes              Quote[]
-  defaultForCustomers Customer[]      @relation("CustomerDefaultPriceBook")
-  isActive            Boolean         @default(true)
-  isDefault           Boolean         @default(false)
-  sortOrder           Int             @default(0)
-  createdAt           DateTime        @default(now())
-  updatedAt           DateTime        @updatedAt
-
-  @@map("price_books")
-}
-
-model PriceBookRule {
-  id            String      @id @default(cuid())
-  priceBookId   String      @map("price_book_id")
-  priceBook     PriceBook   @relation(fields: [priceBookId], references: [id], onDelete: Cascade)
-  pricingRuleId String      @map("pricing_rule_id")
-  pricingRule   PricingRule @relation(fields: [pricingRuleId], references: [id], onDelete: Cascade)
-  sortOrder     Int         @default(0)
-
-  @@unique([priceBookId, pricingRuleId])
-  @@map("price_book_rules")
-}
-
-// ============================================
-// SETTINGS (Key-Value store for app config)
-// ============================================
-
-model Setting {
-  id        Int      @id @default(autoincrement())
-  key       String   @unique
-  value     String
-  updatedAt DateTime @updatedAt @map("updated_at")
-
-  @@map("settings")
-}
-
-// ============================================
-// SLAB OPTIMIZATION
-// ============================================
-
-model SlabOptimization {
-  id            String   @id @default(cuid())
-
-  // Optional link to quote (null for standalone optimizations)
-  quoteId       Int?
-  quote         Quote?   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-
-  // Slab configuration
-  slabWidth     Int      @default(3000)  // mm
-  slabHeight    Int      @default(1400)  // mm
-  kerfWidth     Int      @default(3)     // mm (saw blade width)
-
-  // Results
-  totalSlabs    Int
-  totalWaste    Decimal  @db.Decimal(10, 2)  // square mm
-  wastePercent  Decimal  @db.Decimal(5, 2)   // percentage
-
-  // Placements stored as JSON array
-  placements    Json     // Array of Placement objects
-  
-  // Lamination summary (40mm+ pieces)
-  laminationSummary Json?  // LaminationSummary object (totalStrips, totalStripArea, stripsByParent)
-
-  // Metadata
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
-
-  @@index([quoteId])
-  @@map("slab_optimizations")
-}
-
-// ============================================
-// DRAWINGS (R2 Storage References)
-// ============================================
-
-model Drawing {
-  id           String   @id @default(cuid())
-  filename     String   // Original filename
-  storageKey   String   // R2 object key (path in bucket)
-  mimeType     String   // image/jpeg, image/png, application/pdf
-  fileSize     Int      // Size in bytes
-
-  // Timestamps
-  uploadedAt   DateTime @default(now())
-
-  // Relations
-  quote        Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  quoteId      Int
-  customer     Customer @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  customerId   Int
-
-  // AI Analysis data (pieces detected, dimensions, etc.)
-  analysisData Json?
-
-  // Server-generated thumbnail (R2 storage key for PNG thumbnail)
-  thumbnailKey String?
-
-  // Is this the primary/main drawing for the quote?
-  isPrimary    Boolean  @default(false)
-
-  // Optional notes/description
-  notes        String?
-
-  @@index([quoteId])
-  @@index([customerId])
-  @@map("drawings")
-}
-
-// ============================================
-// QUOTE VERSION HISTORY
-// ============================================
-
-enum QuoteChangeType {
-  CREATED              // Initial creation
-  UPDATED              // General update
-  PIECES_ADDED         // New pieces added
-  PIECES_REMOVED       // Pieces deleted
-  PIECES_MODIFIED      // Piece dimensions/features changed
-  PRICING_RECALCULATED // Pricing was recalculated
-  PRICING_OVERRIDE     // Manual price override applied
-  DELIVERY_CHANGED     // Delivery/templating updated
-  STATUS_CHANGED       // Status transition (draft→sent, etc.)
-  SENT_TO_CLIENT       // Quote emailed to client
-  CLIENT_VIEWED        // Client opened the quote
-  CLIENT_APPROVED      // Client accepted/signed
-  CLIENT_REJECTED      // Client declined
-  REVISION_REQUESTED   // Client requested changes
-  ROLLED_BACK          // Restored from previous version
-  IMPORTED_FROM_AI     // Pieces imported from AI analysis
-}
-
-model QuoteVersion {
-  id              Int           @id @default(autoincrement())
-  
-  // Link to parent quote
-  quoteId         Int           @map("quote_id")
-  quote           Quote         @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  
-  // Version number (per quote, starts at 1)
-  version         Int
-  
-  // Complete snapshot of quote state at this version
-  // Includes: rooms, pieces, features, pricing, delivery, etc.
-  snapshotData    Json          @map("snapshot_data")
-  
-  // What triggered this version
-  changeType      QuoteChangeType @map("change_type")
-  changeReason    String?       @map("change_reason") // Optional user-provided reason
-  changeSummary   String?       @map("change_summary") // Auto-generated summary of changes
-  
-  // What specifically changed (for diff display)
-  // Format: { field: { old: value, new: value }, ... }
-  changes         Json?
-  
-  // Who made the change
-  changedByUserId Int           @map("changed_by_user_id")
-  changedByUser   User          @relation(fields: [changedByUserId], references: [id])
-  changedAt       DateTime      @default(now()) @map("changed_at")
-  
-  // If this version was created by rolling back
-  rolledBackFromVersion Int?    @map("rolled_back_from_version")
-  
-  // Pricing snapshot at this version
-  subtotal        Decimal       @db.Decimal(10, 2)
-  taxAmount       Decimal       @map("tax_amount") @db.Decimal(10, 2)
-  totalAmount     Decimal       @map("total_amount") @db.Decimal(10, 2)
-  
-  // Piece count for quick reference
-  pieceCount      Int           @default(0) @map("piece_count")
-  
-  @@unique([quoteId, version])
-  @@index([quoteId])
-  @@index([changedByUserId])
-  @@index([changedAt])
-  @@map("quote_versions")
-}
-
-// ============================================
-// STRIP CUTTING CONFIGURATION
-// ============================================
-
-enum StripUsageType {
-  EDGE_LAMINATION      // Simple 40mm edge buildup
-  WATERFALL_STANDARD   // Standard waterfall (around 300mm)
-  WATERFALL_EXTENDED   // Extended waterfall (custom height)
-  APRON                // Front apron piece
-  CUSTOM               // User-defined
-}
-
-model StripConfiguration {
-  id                    Int       @id @default(autoincrement())
-  companyId             Int       @map("company_id")
-  company               Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
-  
-  // Display
-  name                  String    // "Standard 40mm Edge", "60mm Waterfall", etc.
-  description           String?   // Optional notes about usage
-  
-  // Target appearance
-  finalThickness        Int       @map("final_thickness")  // Target edge appearance in mm (40, 60, 80)
-  
-  // Cut dimensions (in mm)
-  primaryStripWidth     Int?      @map("primary_strip_width")      // Main visible piece width (null if single piece cut)
-  laminationStripWidth  Int       @map("lamination_strip_width")   // Lamination strip width (typically 40mm)
-  kerfAllowance         Int       @default(8) @map("kerf_allowance")  // Blade loss in mm
-  
-  // Computed: totalMaterialWidth = (primaryStripWidth ?? 0) + laminationStripWidth + kerfAllowance
-  totalMaterialWidth    Int       @map("total_material_width")  // Total slab material needed
-  
-  // Usage context
-  usageType             StripUsageType @map("usage_type")
-  
-  // For slab optimizer - which edge types use this strip config
-  applicableEdgeTypes   String[]  @map("applicable_edge_types")  // Array of edge type codes, e.g., ["40MM_PENCIL", "40MM_BULLNOSE"]
-  
-  // Status
-  isDefault             Boolean   @default(false) @map("is_default")  // Default for this usage type
-  isActive              Boolean   @default(true) @map("is_active")
-  sortOrder             Int       @default(0) @map("sort_order")
-  
-  // Timestamps
-  createdAt             DateTime  @default(now()) @map("created_at")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
-  
-  @@unique([companyId, name])
-  @@index([companyId, usageType])
-  @@index([companyId, isActive])
-  @@map("strip_configurations")
-}
-
-// ============================================
-// MACHINE PROFILES (Fabrication constraints)
-// ============================================
-
-model MachineProfile {
-  id                String   @id @default(cuid())
-  name              String   @unique // "GMM Bridge Saw", "CNC Router", etc.
-  kerfWidthMm       Int      @default(8) @map("kerf_width_mm") // Blade width in mm
-  maxSlabLengthMm   Int?     @map("max_slab_length_mm") // Optional max slab length
-  maxSlabWidthMm    Int?     @map("max_slab_width_mm")  // Optional max slab width
-  isDefault         Boolean  @default(false) @map("is_default")
-  isActive          Boolean  @default(true) @map("is_active")
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
-  
-  @@map("machine_profiles")
+enum UserRole {
+  ADMIN
+  SALES_MANAGER
+  SALES_REP
+  FABRICATOR
+  READ_ONLY
+  CUSTOM
+  CUSTOMER
 }
