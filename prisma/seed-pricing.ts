@@ -15,7 +15,7 @@ async function seedPricingEntities() {
   ]
 
   for (const edge of edgeTypes) {
-    await prisma.edgeType.upsert({
+    await prisma.edge_types.upsert({
       where: { name: edge.name },
       update: edge,
       create: edge,
@@ -34,7 +34,7 @@ async function seedPricingEntities() {
   ]
 
   for (const cutout of cutoutTypes) {
-    await prisma.cutoutType.upsert({
+    await prisma.cutout_types.upsert({
       where: { name: cutout.name },
       update: cutout,
       create: cutout,
@@ -49,7 +49,7 @@ async function seedPricingEntities() {
   ]
 
   for (const thickness of thicknessOptions) {
-    await prisma.thicknessOption.upsert({
+    await prisma.thickness_options.upsert({
       where: { name: thickness.name },
       update: thickness,
       create: thickness,
@@ -66,7 +66,7 @@ async function seedPricingEntities() {
   ]
 
   for (const clientType of clientTypes) {
-    await prisma.clientType.upsert({
+    await prisma.client_types.upsert({
       where: { name: clientType.name },
       update: clientType,
       create: clientType,
@@ -82,7 +82,7 @@ async function seedPricingEntities() {
   ]
 
   for (const tier of clientTiers) {
-    await prisma.clientTier.upsert({
+    await prisma.client_tiers.upsert({
       where: { name: tier.name },
       update: tier,
       create: tier,
@@ -97,10 +97,10 @@ async function seedPricingRules() {
   console.log('Seeding pricing rules...')
 
   // Get references
-  const cabinetMaker = await prisma.clientType.findUnique({ where: { name: 'Cabinet Maker' } })
-  const tier1 = await prisma.clientTier.findUnique({ where: { name: 'Tier 1' } })
-  const tier2 = await prisma.clientTier.findUnique({ where: { name: 'Tier 2' } })
-  const pencilRound = await prisma.edgeType.findUnique({ where: { name: 'Pencil Round' } })
+  const cabinetMaker = await prisma.client_types.findUnique({ where: { name: 'Cabinet Maker' } })
+  const tier1 = await prisma.client_tiers.findUnique({ where: { name: 'Tier 1' } })
+  const tier2 = await prisma.client_tiers.findUnique({ where: { name: 'Tier 2' } })
+  const pencilRound = await prisma.edge_types.findUnique({ where: { name: 'Pencil Round' } })
 
   if (!cabinetMaker || !tier1 || !tier2) {
     console.log('⚠️ Skipping pricing rules - base entities not found')
@@ -108,7 +108,7 @@ async function seedPricingRules() {
   }
 
   // Rule 1: Tier 1 gets 15% off everything
-  await prisma.pricingRule.upsert({
+  await prisma.pricing_rules.upsert({
     where: { id: 'rule-tier1-discount' },
     update: {},
     create: {
@@ -124,7 +124,7 @@ async function seedPricingRules() {
   })
 
   // Rule 2: Tier 2 gets 10% off materials only
-  await prisma.pricingRule.upsert({
+  await prisma.pricing_rules.upsert({
     where: { id: 'rule-tier2-materials' },
     update: {},
     create: {
@@ -141,7 +141,7 @@ async function seedPricingRules() {
 
   // Rule 3: Cabinet Makers get special edge pricing
   if (pencilRound) {
-    const cmRule = await prisma.pricingRule.upsert({
+    const cmRule = await prisma.pricing_rules.upsert({
       where: { id: 'rule-cm-edges' },
       update: {},
       create: {
@@ -157,7 +157,7 @@ async function seedPricingRules() {
     })
 
     // Add specific edge override: Pencil Round at $30/lm instead of $35
-    await prisma.pricingRuleEdge.upsert({
+    await prisma.pricing_rulesEdge.upsert({
       where: {
         pricingRuleId_edgeTypeId: {
           pricingRuleId: cmRule.id,
@@ -174,7 +174,7 @@ async function seedPricingRules() {
   }
 
   // Rule 4: Large quotes get additional discount
-  await prisma.pricingRule.upsert({
+  await prisma.pricing_rules.upsert({
     where: { id: 'rule-large-quote' },
     update: {},
     create: {
@@ -196,13 +196,13 @@ async function seedPriceBooks() {
   console.log('Seeding price books...')
 
   // Get pricing rules to link to price books
-  const tier1Rule = await prisma.pricingRule.findUnique({ where: { id: 'rule-tier1-discount' } })
-  const tier2Rule = await prisma.pricingRule.findUnique({ where: { id: 'rule-tier2-materials' } })
-  const cmEdgeRule = await prisma.pricingRule.findUnique({ where: { id: 'rule-cm-edges' } })
-  const largeQuoteRule = await prisma.pricingRule.findUnique({ where: { id: 'rule-large-quote' } })
+  const tier1Rule = await prisma.pricing_rules.findUnique({ where: { id: 'rule-tier1-discount' } })
+  const tier2Rule = await prisma.pricing_rules.findUnique({ where: { id: 'rule-tier2-materials' } })
+  const cmEdgeRule = await prisma.pricing_rules.findUnique({ where: { id: 'rule-cm-edges' } })
+  const largeQuoteRule = await prisma.pricing_rules.findUnique({ where: { id: 'rule-large-quote' } })
 
   // Create default price book (no rules - base pricing)
-  const defaultBook = await prisma.priceBook.upsert({
+  const defaultBook = await prisma.price_books.upsert({
     where: { name: 'Standard Pricing' },
     update: {},
     create: {
@@ -216,7 +216,7 @@ async function seedPriceBooks() {
   })
 
   // Create Tier 1 price book
-  const tier1Book = await prisma.priceBook.upsert({
+  const tier1Book = await prisma.price_books.upsert({
     where: { name: 'Tier 1 Partner Pricing' },
     update: {},
     create: {
@@ -229,7 +229,7 @@ async function seedPriceBooks() {
   })
 
   // Create Cabinet Maker price book
-  const cmBook = await prisma.priceBook.upsert({
+  const cmBook = await prisma.price_books.upsert({
     where: { name: 'Cabinet Maker Pricing' },
     update: {},
     create: {
@@ -243,7 +243,7 @@ async function seedPriceBooks() {
 
   // Link rules to price books
   if (tier1Rule) {
-    await prisma.priceBookRule.upsert({
+    await prisma.price_booksRule.upsert({
       where: {
         priceBookId_pricingRuleId: {
           priceBookId: tier1Book.id,
@@ -261,7 +261,7 @@ async function seedPriceBooks() {
 
   if (largeQuoteRule) {
     // Add large quote rule to Tier 1 book (can stack)
-    await prisma.priceBookRule.upsert({
+    await prisma.price_booksRule.upsert({
       where: {
         priceBookId_pricingRuleId: {
           priceBookId: tier1Book.id,
@@ -278,7 +278,7 @@ async function seedPriceBooks() {
   }
 
   if (cmEdgeRule) {
-    await prisma.priceBookRule.upsert({
+    await prisma.price_booksRule.upsert({
       where: {
         priceBookId_pricingRuleId: {
           priceBookId: cmBook.id,
@@ -296,7 +296,7 @@ async function seedPriceBooks() {
 
   if (tier2Rule) {
     // Cabinet makers also get Tier 2 material discount
-    await prisma.priceBookRule.upsert({
+    await prisma.price_booksRule.upsert({
       where: {
         priceBookId_pricingRuleId: {
           priceBookId: cmBook.id,

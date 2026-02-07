@@ -80,14 +80,12 @@ async function seedEdgeTypes() {
   ] as const;
 
   for (const edgeType of edgeTypes) {
-    // Use name for lookup since it's guaranteed to exist
-    const existing = await prisma.edgeType.findUnique({
+    const existing = await prisma.edge_types.findUnique({
       where: { name: edgeType.name }
     });
 
     if (existing) {
-      // Update existing edge type
-      await prisma.edgeType.update({
+      await prisma.edge_types.update({
         where: { name: edgeType.name },
         data: {
           code: edgeType.code,
@@ -106,7 +104,7 @@ async function seedEdgeTypes() {
       console.log(`  ✅ Updated: ${edgeType.name} (${edgeType.code})`);
     } else {
       // Create new edge type
-      await prisma.edgeType.create({
+      await prisma.edge_types.create({
         data: edgeType
       });
       console.log(`  ✅ Created: ${edgeType.name} (${edgeType.code})`);

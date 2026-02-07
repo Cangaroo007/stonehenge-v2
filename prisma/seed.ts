@@ -81,7 +81,7 @@ async function main() {
   ];
 
   for (const pricing of featurePricing) {
-    await prisma.featurePricing.upsert({
+    await prisma.feature_pricing.upsert({
       where: { id: featurePricing.indexOf(pricing) + 1 },
       update: pricing,
       create: pricing,
@@ -104,7 +104,7 @@ async function main() {
   ];
 
   for (const edgeType of edgeTypes) {
-    await prisma.edgeType.upsert({
+    await prisma.edge_types.upsert({
       where: { name: edgeType.name },
       update: edgeType,
       create: edgeType,
@@ -125,7 +125,7 @@ async function main() {
   ];
 
   for (const cutoutType of cutoutTypes) {
-    await prisma.cutoutType.upsert({
+    await prisma.cutout_types.upsert({
       where: { name: cutoutType.name },
       update: cutoutType,
       create: cutoutType,
@@ -142,7 +142,7 @@ async function main() {
   ];
 
   for (const thickness of thicknessOptions) {
-    await prisma.thicknessOption.upsert({
+    await prisma.thickness_options.upsert({
       where: { name: thickness.name },
       update: thickness,
       create: thickness,
@@ -161,7 +161,7 @@ async function main() {
   ];
 
   for (const clientType of clientTypes) {
-    await prisma.clientType.upsert({
+    await prisma.client_types.upsert({
       where: { name: clientType.name },
       update: clientType,
       create: clientType,
@@ -179,7 +179,7 @@ async function main() {
   ];
 
   for (const tier of clientTiers) {
-    await prisma.clientTier.upsert({
+    await prisma.client_tiers.upsert({
       where: { name: tier.name },
       update: tier,
       create: tier,
@@ -193,17 +193,17 @@ async function main() {
   console.log('Seeding pricing rules...');
 
   // Get tier IDs
-  const tier1 = await prisma.clientTier.findFirst({ where: { name: 'Tier 1' } });
-  const tier2 = await prisma.clientTier.findFirst({ where: { name: 'Tier 2' } });
-  const tier3 = await prisma.clientTier.findFirst({ where: { name: 'Tier 3' } });
+  const tier1 = await prisma.client_tiers.findFirst({ where: { name: 'Tier 1' } });
+  const tier2 = await prisma.client_tiers.findFirst({ where: { name: 'Tier 2' } });
+  const tier3 = await prisma.client_tiers.findFirst({ where: { name: 'Tier 3' } });
 
   // Get type IDs
-  const cabinetMaker = await prisma.clientType.findFirst({ where: { name: 'Cabinet Maker' } });
-  const builder = await prisma.clientType.findFirst({ where: { name: 'Builder' } });
+  const cabinetMaker = await prisma.client_types.findFirst({ where: { name: 'Cabinet Maker' } });
+  const builder = await prisma.client_types.findFirst({ where: { name: 'Builder' } });
 
   // Tier 1 - Premium Partners (15% off materials, 10% off edges)
   if (tier1) {
-    await prisma.pricingRule.upsert({
+    await prisma.pricing_rules.upsert({
       where: { id: 'rule-tier1-materials' },
       update: {},
       create: {
@@ -219,7 +219,7 @@ async function main() {
       },
     });
 
-    await prisma.pricingRule.upsert({
+    await prisma.pricing_rules.upsert({
       where: { id: 'rule-tier1-edges' },
       update: {},
       create: {
@@ -238,7 +238,7 @@ async function main() {
 
   // Tier 2 - Regular Clients (10% off materials)
   if (tier2) {
-    await prisma.pricingRule.upsert({
+    await prisma.pricing_rules.upsert({
       where: { id: 'rule-tier2-materials' },
       update: {},
       create: {
@@ -257,7 +257,7 @@ async function main() {
 
   // Cabinet Maker Type Discount (5% off all)
   if (cabinetMaker) {
-    await prisma.pricingRule.upsert({
+    await prisma.pricing_rules.upsert({
       where: { id: 'rule-cabinetmaker-all' },
       update: {},
       create: {
@@ -276,7 +276,7 @@ async function main() {
 
   // Builder Type Discount (5% off all)
   if (builder) {
-    await prisma.pricingRule.upsert({
+    await prisma.pricing_rules.upsert({
       where: { id: 'rule-builder-all' },
       update: {},
       create: {
@@ -294,7 +294,7 @@ async function main() {
   }
 
   // Volume Discount ($10,000+)
-  await prisma.pricingRule.upsert({
+  await prisma.pricing_rules.upsert({
     where: { id: 'rule-volume-10k' },
     update: {},
     create: {
@@ -317,7 +317,7 @@ async function main() {
   // ============================================
   console.log('Seeding default price book...');
 
-  await prisma.priceBook.upsert({
+  await prisma.price_books.upsert({
     where: { name: 'Retail Price List' },
     update: {},
     create: {
@@ -379,7 +379,7 @@ async function main() {
   const tier3Id = tier3?.id;
   const builderId = builder?.id;
   const cabinetMakerId = cabinetMaker?.id;
-  const directConsumer = await prisma.clientType.findFirst({ where: { name: 'Direct Consumer' } });
+  const directConsumer = await prisma.client_types.findFirst({ where: { name: 'Direct Consumer' } });
   const directConsumerId = directConsumer?.id;
 
   // Update Gem Life - Tier 1 Builder
