@@ -35,12 +35,12 @@ async function getQuote(id: number) {
   return prisma.quotes.findUnique({
     where: { id },
     include: {
-      customer: true,
-      rooms: {
-        orderBy: { sortOrder: 'asc' },
+      customers: true,
+      quote_rooms: {
+        orderBy: { sort_order: 'asc' },
         include: {
-          pieces: {
-            orderBy: { sortOrder: 'asc' },
+          quote_pieces: {
+            orderBy: { sort_order: 'asc' },
             include: {
               piece_features: true,
               materials: true,
@@ -49,7 +49,7 @@ async function getQuote(id: number) {
         },
       },
       quote_drawing_analyses: true,
-      signature: {
+      quote_signatures: {
         include: {
           user: {
             select: {
@@ -77,7 +77,7 @@ export default async function QuoteDetailPage({
   }
 
   // Parse drawing analysis results if available
-  const analysisResults = quote.drawingAnalysis?.rawResults as RawResults | null;
+  const analysisResults = quote.quote_drawing_analyses?.raw_results as RawResults | null;
 
   return (
     <div className="space-y-6">
@@ -108,9 +108,9 @@ export default async function QuoteDetailPage({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div>
             <p className="text-sm text-gray-500">Customer</p>
-            <p className="font-medium">{quote.customer?.name || '-'}</p>
-            {quote.customer?.company && (
-              <p className="text-sm text-gray-500">{quote.customer.company}</p>
+            <p className="font-medium">{quote.customers?.name || '-'}</p>
+            {quote.customers?.company && (
+              <p className="text-sm text-gray-500">{quote.customers.company}</p>
             )}
           </div>
           <div>
@@ -119,7 +119,7 @@ export default async function QuoteDetailPage({
           </div>
           <div>
             <p className="text-sm text-gray-500">Created</p>
-            <p className="font-medium">{formatDate(quote.createdAt)}</p>
+            <p className="font-medium">{formatDate(quote.created_at)}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Valid Until</p>
@@ -135,17 +135,17 @@ export default async function QuoteDetailPage({
       <QuoteSignatureSection
         quoteId={quote.id}
         quoteNumber={quote.quote_number}
-        customerName={quote.customer?.company || quote.customer?.name || 'Customer'}
+        customerName={quote.customers?.company || quote.customers?.name || 'Customer'}
         totalAmount={formatCurrency(Number(quote.total))}
         status={quote.status}
-        signature={quote.signature ? {
-          ...quote.signature,
-          signedAt: quote.signature.signedAt.toISOString(),
+        signature={quote.quote_signatures ? {
+          ...quote.quote_signatures,
+          signedAt: quote.quote_signatures.signed_at.toISOString(),
         } : null}
       />
 
       {/* Drawing Analysis Section */}
-      {quote.drawingAnalysis && (
+      {quote.quote_drawing_analyses && (
         <div className="card">
           <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
             <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export default async function QuoteDetailPage({
               <h3 className="text-lg font-semibold">Drawing Analysis</h3>
             </div>
             <span className="text-sm text-gray-500">
-              Analyzed {formatDate(quote.drawingAnalysis.analyzedAt)}
+              Analyzed {formatDate(quote.quote_drawing_analyses.analyzed_at)}
             </span>
           </div>
           <div className="p-6">
@@ -163,14 +163,14 @@ export default async function QuoteDetailPage({
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
               <div>
                 <span className="text-xs text-gray-500 block">Filename</span>
-                <span className="font-medium text-gray-900 truncate block" title={quote.drawingAnalysis.filename}>
-                  {quote.drawingAnalysis.filename}
+                <span className="font-medium text-gray-900 truncate block" title={quote.quote_drawing_analyses.filename}>
+                  {quote.quote_drawing_analyses.filename}
                 </span>
               </div>
               <div>
                 <span className="text-xs text-gray-500 block">Drawing Type</span>
                 <span className="font-medium text-gray-900">
-                  {quote.drawingAnalysis.drawingType.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                  {quote.quote_drawing_analyses.drawing_type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
                 </span>
               </div>
               {analysisResults?.metadata?.jobNumber && (
@@ -214,10 +214,10 @@ export default async function QuoteDetailPage({
                   {analysisResults.rooms.map((room, roomIndex) => (
                     <div key={roomIndex} className="border border-gray-200 rounded-lg p-3">
                       <h5 className="text-sm font-medium text-gray-600 mb-2">
-                        {quote_rooms.name} ({quote_rooms.pieces.length} piece{quote_rooms.pieces.length !== 1 ? 's' : ''})
+                        {room.name} ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
                       </h5>
                       <div className="space-y-1">
-                        {quote_rooms.pieces.map((piece, pieceIndex) => (
+                        {room.pieces.map((piece, pieceIndex) => (
                           <div
                             key={pieceIndex}
                             className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-2"
@@ -253,10 +253,10 @@ export default async function QuoteDetailPage({
 
       {/* Rooms and Pieces */}
       <div className="space-y-4">
-        {quote.rooms.map((room) => (
-          <div key={quote_rooms.id} className="card">
+        {quote.quote_rooms.map((room) => (
+          <div key={room.id} className="card">
             <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-              <h3 className="text-lg font-semibold">{quote_rooms.name}</h3>
+              <h3 className="text-lg font-semibold">{room.name}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
