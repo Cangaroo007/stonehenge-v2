@@ -1,4 +1,4 @@
-import { PrismaClient, CutoutCategory } from '@prisma/client';
+import { PrismaClient, CutoutRateCategory } from '@prisma/client';
 const prisma = new PrismaClient();
 
 async function seedCutoutTypes() {
@@ -10,7 +10,7 @@ async function seedCutoutTypes() {
       name: 'Hotplate Cutout',
       code: 'HP',
       description: 'Standard hotplate cutout',
-      category: CutoutCategory.STANDARD,
+      category: CutoutRateCategory.STANDARD,
       baseRate: 65.00,
       minimumCharge: null,
       sortOrder: 1,
@@ -20,7 +20,7 @@ async function seedCutoutTypes() {
       name: 'GPO (Power Outlet)',
       code: 'GPO',
       description: 'General power outlet cutout',
-      category: CutoutCategory.STANDARD,
+      category: CutoutRateCategory.STANDARD,
       baseRate: 65.00,
       minimumCharge: null,
       sortOrder: 2,
@@ -30,7 +30,7 @@ async function seedCutoutTypes() {
       name: 'Tap Hole',
       code: 'TAP',
       description: 'Tap hole cutout',
-      category: CutoutCategory.STANDARD,
+      category: CutoutRateCategory.STANDARD,
       baseRate: 65.00,
       minimumCharge: null,
       sortOrder: 3,
@@ -40,7 +40,7 @@ async function seedCutoutTypes() {
       name: 'Drop-in Sink',
       code: 'DIS',
       description: 'Drop-in sink cutout',
-      category: CutoutCategory.STANDARD,
+      category: CutoutRateCategory.STANDARD,
       baseRate: 65.00,
       minimumCharge: null,
       sortOrder: 4,
@@ -52,7 +52,7 @@ async function seedCutoutTypes() {
       name: 'Undermount Sink',
       code: 'UMS',
       description: 'Undermount sink cutout',
-      category: CutoutCategory.UNDERMOUNT_SINK,
+      category: CutoutRateCategory.UNDERMOUNT_SINK,
       baseRate: 300.00,
       minimumCharge: null,
       sortOrder: 5,
@@ -64,7 +64,7 @@ async function seedCutoutTypes() {
       name: 'Flush Mount Cooktop',
       code: 'FMC',
       description: 'Flush mount cooktop cutout',
-      category: CutoutCategory.FLUSH_COOKTOP,
+      category: CutoutRateCategory.FLUSH_COOKTOP,
       baseRate: 450.00,
       minimumCharge: null,
       sortOrder: 6,
@@ -76,7 +76,7 @@ async function seedCutoutTypes() {
       name: 'Drainer Groove',
       code: 'DRG',
       description: 'Drainer groove',
-      category: CutoutCategory.DRAINER_GROOVE,
+      category: CutoutRateCategory.DRAINER_GROOVE,
       baseRate: 150.00,
       minimumCharge: null,
       sortOrder: 7,
