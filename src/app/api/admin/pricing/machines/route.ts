@@ -4,7 +4,7 @@ import { prisma } from '@/lib/db';
 // GET /api/admin/pricing/machines - Fetch all machine profiles
 export async function GET() {
   try {
-    const machines = await prisma.machineProfile.findMany({
+    const machines = await prisma.machine_profiles.findMany({
       orderBy: [
         { isDefault: 'desc' },
         { name: 'asc' }
@@ -42,13 +42,13 @@ export async function POST(request: Request) {
 
     // If this machine is set as default, unset any existing default
     if (data.isDefault) {
-      await prisma.machineProfile.updateMany({
+      await prisma.machine_profiles.updateMany({
         where: { isDefault: true },
         data: { isDefault: false }
       });
     }
 
-    const machine = await prisma.machineProfile.create({
+    const machine = await prisma.machine_profiles.create({
       data: {
         name: data.name,
         kerfWidthMm: data.kerfWidthMm,

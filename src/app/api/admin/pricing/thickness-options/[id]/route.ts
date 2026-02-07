@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const thicknessOption = await prisma.thicknessOption.findUnique({
+    const thicknessOption = await prisma.thickness_options.findUnique({
       where: { id },
     });
 
@@ -30,7 +30,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const thicknessOption = await prisma.thicknessOption.update({
+    const thicknessOption = await prisma.thickness_options.update({
       where: { id },
       data: {
         name: data.name,
@@ -57,7 +57,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.thicknessOption.update({
+    await prisma.thickness_options.update({
       where: { id },
       data: { isActive: false },
     });

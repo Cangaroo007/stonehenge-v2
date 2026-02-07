@@ -51,7 +51,7 @@ interface AuditLogData {
  */
 export async function createAuditLog(data: AuditLogData): Promise<void> {
   try {
-    await prisma.auditLog.create({
+    await prisma.audit_logs.create({
       data: {
         userId: data.userId,
         action: data.action,
@@ -81,7 +81,7 @@ export async function logActivity(data: {
   userAgent?: string;
 }): Promise<void> {
   try {
-    await prisma.auditLog.create({
+    await prisma.audit_logs.create({
       data: {
         userId: data.userId,
         action: data.action as AuditAction,
@@ -232,7 +232,7 @@ export async function getEntityAuditLog(
   entityId: string,
   limit = 50
 ) {
-  return prisma.auditLog.findMany({
+  return prisma.audit_logs.findMany({
     where: {
       entityType,
       entityId,
@@ -257,7 +257,7 @@ export async function getEntityAuditLog(
  * Get audit log for a user
  */
 export async function getUserAuditLog(userId: number, limit = 50) {
-  return prisma.auditLog.findMany({
+  return prisma.audit_logs.findMany({
     where: {
       userId,
     },
@@ -272,7 +272,7 @@ export async function getUserAuditLog(userId: number, limit = 50) {
  * Get recent audit logs (for admin dashboard)
  */
 export async function getRecentAuditLogs(limit = 100) {
-  return prisma.auditLog.findMany({
+  return prisma.audit_logs.findMany({
     include: {
       user: {
         select: {

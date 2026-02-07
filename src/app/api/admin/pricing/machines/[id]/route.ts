@@ -7,7 +7,7 @@ export async function GET(
   { params }: { params: { id: string } }
 ) {
   try {
-    const machine = await prisma.machineProfile.findUnique({
+    const machine = await prisma.machine_profiles.findUnique({
       where: { id: params.id }
     });
 
@@ -53,7 +53,7 @@ export async function PUT(
 
     // If this machine is being set as default, unset any existing default
     if (data.isDefault) {
-      await prisma.machineProfile.updateMany({
+      await prisma.machine_profiles.updateMany({
         where: { 
           isDefault: true,
           id: { not: params.id }
@@ -62,7 +62,7 @@ export async function PUT(
       });
     }
 
-    const machine = await prisma.machineProfile.update({
+    const machine = await prisma.machine_profiles.update({
       where: { id: params.id },
       data: {
         name: data.name,
@@ -108,7 +108,7 @@ export async function DELETE(
 ) {
   try {
     // Check if this is the only active machine or the default
-    const machine = await prisma.machineProfile.findUnique({
+    const machine = await prisma.machine_profiles.findUnique({
       where: { id: params.id }
     });
 
@@ -128,7 +128,7 @@ export async function DELETE(
     }
 
     // Soft delete by setting isActive to false
-    await prisma.machineProfile.update({
+    await prisma.machine_profiles.update({
       where: { id: params.id },
       data: { isActive: false }
     });

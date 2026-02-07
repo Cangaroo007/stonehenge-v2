@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const thicknessOptions = await prisma.thicknessOption.findMany({
+    const thicknessOptions = await prisma.thickness_options.findMany({
       orderBy: [{ sortOrder: 'asc' }, { value: 'asc' }],
     });
     return NextResponse.json(thicknessOptions);
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const thicknessOption = await prisma.thicknessOption.create({
+    const thicknessOption = await prisma.thickness_options.create({
       data: {
         name: data.name,
         value: data.value,

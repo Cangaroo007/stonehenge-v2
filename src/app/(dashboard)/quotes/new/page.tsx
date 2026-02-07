@@ -15,8 +15,8 @@ async function getData() {
       },
     }),
     prisma.materials.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
-    prisma.featurePricing.findMany({ where: { isActive: true }, orderBy: { category: 'asc' } }),
-    prisma.edgeType.findMany({
+    prisma.feature_pricing.findMany({ where: { isActive: true }, orderBy: { category: 'asc' } }),
+    prisma.edge_types.findMany({
       where: { isActive: { not: false } }, // Include true and null (treat null as active)
       orderBy: { sortOrder: 'asc' },
     }),

@@ -613,7 +613,7 @@ export async function createQuoteVersion(
 
   // Create version record and update quote in transaction
   await prisma.$transaction([
-    prisma.quoteVersion.create({
+    prisma.quote_versions.create({
       data: {
         quoteId,
         version: newVersionNumber,
@@ -650,7 +650,7 @@ export async function createInitialVersion(
     (sum, r) => sum + r.pieces.length, 0
   );
 
-  await prisma.quoteVersion.create({
+  await prisma.quote_versions.create({
     data: {
       quoteId,
       version: 1,
@@ -676,7 +676,7 @@ export async function rollbackToVersion(
   reason?: string
 ): Promise<void> {
   // Get the target version's snapshot
-  const targetVersionRecord = await prisma.quoteVersion.findUnique({
+  const targetVersionRecord = await prisma.quote_versions.findUnique({
     where: {
       quoteId_version: {
         quoteId,

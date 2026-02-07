@@ -263,8 +263,8 @@ export async function calculateQuotePrice(
 
   // Get pricing data
   const [edgeTypes, cutoutTypes, serviceRates] = await Promise.all([
-    prisma.edgeType.findMany({ where: { isActive: true } }),
-    prisma.cutoutType.findMany({ where: { isActive: true } }),
+    prisma.edge_types.findMany({ where: { isActive: true } }),
+    prisma.cutout_types.findMany({ where: { isActive: true } }),
     prisma.service_rates.findMany({ where: { isActive: true } }),
   ]);
 
@@ -274,7 +274,7 @@ export async function calculateQuotePrice(
   // Get slab count from latest optimization (for PER_SLAB pricing)
   let slabCount: number | undefined;
   if (pricingContext.materialPricingBasis === 'PER_SLAB') {
-    const optimization = await prisma.slabOptimization.findFirst({
+    const optimization = await prisma.slab_optimizations.findFirst({
       where: { quoteId: quoteIdNum },
       orderBy: { createdAt: 'desc' },
       select: { totalSlabs: true },
