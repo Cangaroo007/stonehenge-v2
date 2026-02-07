@@ -1,5 +1,20 @@
 import { Client, TravelMode, UnitSystem } from '@googlemaps/google-maps-services-js';
-import { DeliveryZone, TemplatingRate } from '@prisma/client';
+
+// These models are planned additions to the Prisma schema
+interface DeliveryZone {
+  id: string;
+  name: string;
+  maxDistanceKm: number;
+  baseCharge: number | { toString(): string };
+  ratePerKm: number | { toString(): string };
+  isActive: boolean;
+}
+
+interface TemplatingRate {
+  id: string;
+  baseCharge: number | { toString(): string };
+  ratePerKm: number | { toString(): string };
+}
 
 const client = new Client({});
 

@@ -130,7 +130,7 @@ export class QuoteCalculator {
       appliedRules,
       subtotal: this.round(subtotal),
       discount: this.round(discount),
-      taxRate,
+      tax_rate: taxRate,
       tax_amount: this.round(taxAmount),
       total: this.round(total),
       currency: this.pricingContext.currency,
@@ -199,7 +199,7 @@ export class QuoteCalculator {
     ]);
 
     this.edgeTypes = edgeTypes as EdgeTypeData[];
-    this.cutoutTypes = cutoutTypes as CutoutTypeData[];
+    this.cutoutTypes = cutoutTypes as unknown as CutoutTypeData[];
     this.service_rates = serviceRates as ServiceRateData[];
   }
 
@@ -218,7 +218,7 @@ export class QuoteCalculator {
       clientTypeId: customer?.clientTypeId || undefined,
       clientTierId: customer?.clientTierId || undefined,
       customerId: customer?.id?.toString(),
-      price_book_id: this.quoteData?.price_book_id || undefined,
+      priceBookId: this.quoteData?.price_book_id || undefined,
     };
   }
 

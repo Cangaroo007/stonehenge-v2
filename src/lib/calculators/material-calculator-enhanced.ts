@@ -268,7 +268,7 @@ export class EnhancedMaterialCalculator {
       }
     }
 
-    const pricePerSqm = pieces[0]?.material?.pricePerSqm ?? new Decimal(0);
+    const pricePerSqm = pieces[0]?.materials?.pricePerSqm ?? new Decimal(0);
     const totalValue = totalRemnantAreaSqm.times(pricePerSqm);
 
     return {

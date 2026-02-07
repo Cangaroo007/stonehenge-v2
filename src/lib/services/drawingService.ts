@@ -25,6 +25,7 @@ export async function createDrawing(input: CreateDrawingInput) {
 
   return prisma.drawings.create({
     data: {
+      id: crypto.randomUUID(),
       filename: input.filename,
       storageKey: input.storageKey,
       mimeType: input.mimeType,

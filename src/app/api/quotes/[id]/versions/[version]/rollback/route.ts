@@ -50,7 +50,7 @@ export async function POST(
     }
 
     // Check if already at this version
-    if (quote.revision === versionNumber) {
+    if ((quote as any).revision === versionNumber) {
       return NextResponse.json(
         { error: 'Quote is already at this version' },
         { status: 400 }

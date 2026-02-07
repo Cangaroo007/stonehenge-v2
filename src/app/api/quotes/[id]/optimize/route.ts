@@ -125,6 +125,7 @@ export async function POST(
     console.log('[Optimize API] Saving optimization to database...');
     const optimization = await prisma.slab_optimizations.create({
       data: {
+        id: crypto.randomUUID(),
         quoteId,
         slabWidth,
         slabHeight,
@@ -134,7 +135,7 @@ export async function POST(
         wastePercent: result.wastePercent,
         placements: result.placements as object,
         laminationSummary: result.laminationSummary as object || null,
-      },
+      } as any,
     });
 
     console.log(`[Optimize API] ✅ Saved optimization ${optimization.id} to database`);

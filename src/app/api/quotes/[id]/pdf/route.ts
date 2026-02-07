@@ -53,13 +53,14 @@ export async function GET(
     // Fetch company settings from database (with fallbacks to env vars)
     const companyData = await prisma.companies.findFirst();
     
+    const companyAny = companyData as any;
     const company = {
       name: companyData?.name || process.env.COMPANY_NAME || 'Northcoast Stone Pty Ltd',
-      abn: companyData?.abn || process.env.COMPANY_ABN || '57 120 880 355',
-      address: companyData?.address || process.env.COMPANY_ADDRESS || '20 Hitech Drive, KUNDA PARK Queensland 4556, Australia',
-      phone: companyData?.phone || process.env.COMPANY_PHONE || '0754767636',
-      fax: companyData?.fax || process.env.COMPANY_FAX || '0754768636',
-      email: companyData?.email || process.env.COMPANY_EMAIL || 'admin@northcoaststone.com.au',
+      abn: companyAny?.abn || process.env.COMPANY_ABN || '57 120 880 355',
+      address: companyAny?.address || process.env.COMPANY_ADDRESS || '20 Hitech Drive, KUNDA PARK Queensland 4556, Australia',
+      phone: companyAny?.phone || process.env.COMPANY_PHONE || '0754767636',
+      fax: companyAny?.fax || process.env.COMPANY_FAX || '0754768636',
+      email: companyAny?.email || process.env.COMPANY_EMAIL || 'admin@northcoaststone.com.au',
     };
 
     // Quote template settings (with defaults)

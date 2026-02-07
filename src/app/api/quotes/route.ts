@@ -148,7 +148,7 @@ export async function POST(request: NextRequest) {
             },
           },
         }),
-      },
+      } as any,
     });
 
     // Create initial version for version history

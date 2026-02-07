@@ -45,7 +45,7 @@ export async function GET(
     const hasAccess = 
       canViewAll || 
       quote.created_by === currentUser.id || 
-      (currentUser.customer_id && quote.customer_id === currentUser.customer_id);
+      (currentUser.customerId && quote.customer_id === currentUser.customerId);
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
