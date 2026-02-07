@@ -121,7 +121,7 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    return NextResponse.json(quote);
+    return NextResponse.json(transformQuoteForClient(quote));
   } catch (error) {
     console.error('Error fetching quote:', error);
     return NextResponse.json({ error: 'Failed to fetch quote' }, { status: 500 });
@@ -317,6 +317,43 @@ export async function PUT(
     console.error('Error updating quote:', error);
     return NextResponse.json({ error: 'Failed to update quote' }, { status: 500 });
   }
+}
+
+// ============================================================================
+// Response Transforms - convert Prisma snake_case to client camelCase
+// ============================================================================
+
+function transformPieceForClient(piece: any) {
+  return {
+    ...piece,
+    lengthMm: piece.length_mm,
+    widthMm: piece.width_mm,
+    thicknessMm: piece.thickness_mm,
+    materialId: piece.material_id,
+    materialName: piece.material_name,
+    edgeTop: piece.edge_top,
+    edgeBottom: piece.edge_bottom,
+    edgeLeft: piece.edge_left,
+    edgeRight: piece.edge_right,
+    sortOrder: piece.sort_order,
+    totalCost: Number(piece.total_cost || 0),
+    areaSqm: Number(piece.area_sqm || 0),
+    materialCost: Number(piece.material_cost || 0),
+    featuresCost: Number(piece.features_cost || 0),
+  };
+}
+
+function transformQuoteForClient(quote: any) {
+  return {
+    ...quote,
+    // Add camelCase aliases for relations
+    customer: quote.customers || null,
+    rooms: (quote.quote_rooms || []).map((room: any) => ({
+      ...room,
+      sortOrder: room.sort_order,
+      pieces: (room.quote_pieces || []).map((piece: any) => transformPieceForClient(piece)),
+    })),
+  };
 }
 
 export async function DELETE(

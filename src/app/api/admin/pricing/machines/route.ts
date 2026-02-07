@@ -10,7 +10,16 @@ export async function GET() {
         { name: 'asc' }
       ]
     });
-    return NextResponse.json(machines);
+    // Add camelCase aliases for client components
+    const transformed = machines.map((m: any) => ({
+      ...m,
+      kerfWidthMm: m.kerf_width_mm,
+      maxSlabLengthMm: m.max_slab_length_mm,
+      maxSlabWidthMm: m.max_slab_width_mm,
+      isDefault: m.is_default,
+      isActive: m.is_active,
+    }));
+    return NextResponse.json(transformed);
   } catch (error) {
     console.error('Error fetching machine profiles:', error);
     return NextResponse.json(

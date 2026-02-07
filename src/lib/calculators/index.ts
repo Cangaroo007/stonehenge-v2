@@ -208,15 +208,15 @@ export class QuoteCalculator {
       where: { organisation_id: organisationId },
     });
 
-    const customer = this.quoteData?.customer;
+    const customer = this.quoteData?.customers;
 
     return {
       organisationId,
       materialPricingBasis: (settings?.material_pricing_basis as any) || 'PER_SLAB',
       currency: settings?.currency || 'AUD',
       tax_rate: new Decimal(settings?.gst_rate || 0.10),
-      clientTypeId: customer?.clientTypeId || undefined,
-      clientTierId: customer?.clientTierId || undefined,
+      clientTypeId: customer?.client_type_id || undefined,
+      clientTierId: customer?.client_tier_id || undefined,
       customerId: customer?.id?.toString(),
       priceBookId: this.quoteData?.price_book_id || undefined,
     };
@@ -231,12 +231,17 @@ export class QuoteCalculator {
       throw new Error('Data not loaded');
     }
 
-    const pieces = this.quoteData.rooms.flatMap(room =>
-      room.pieces.map(piece => ({
+    const pieces = this.quoteData.quote_rooms.flatMap(room =>
+      room.quote_pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
-        lengthMm: piece.lengthMm,
-        widthMm: piece.widthMm,
-        materials: piece.materials,
+        lengthMm: piece.length_mm,
+        widthMm: piece.width_mm,
+        materials: piece.materials ? {
+          id: piece.materials.id,
+          pricePerSqm: piece.materials.price_per_sqm,
+          pricePerSlab: piece.materials.price_per_slab,
+          pricePerSquareMetre: piece.materials.price_per_square_metre,
+        } : null,
         overrideMaterialCost: piece.overrideMaterialCost,
       }))
     );
@@ -260,20 +265,20 @@ export class QuoteCalculator {
       throw new Error('Data not loaded');
     }
 
-    const pieces = this.quoteData.rooms.flatMap(room =>
-      room.pieces.map(piece => ({
+    const pieces = this.quoteData.quote_rooms.flatMap(room =>
+      room.quote_pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
-        thicknessMm: piece.thicknessMm,
+        thicknessMm: piece.thickness_mm,
         dimensions: {
-          lengthMm: piece.lengthMm,
-          widthMm: piece.widthMm,
-          thicknessMm: piece.thicknessMm,
+          lengthMm: piece.length_mm,
+          widthMm: piece.width_mm,
+          thicknessMm: piece.thickness_mm,
         },
         edges: {
-          top: piece.edgeTop,
-          bottom: piece.edgeBottom,
-          left: piece.edgeLeft,
-          right: piece.edgeRight,
+          top: piece.edge_top,
+          bottom: piece.edge_bottom,
+          left: piece.edge_left,
+          right: piece.edge_right,
         },
       }))
     );
@@ -386,7 +391,7 @@ export class QuoteCalculator {
   // ============================================================================
 
   private extractFabricationDiscount(): number {
-    const tier = this.quoteData?.customer?.client_tiers;
+    const tier = this.quoteData?.customers?.client_tiers;
     if (!tier?.discount_matrix) return 0;
 
     const matrix = tier.discount_matrix as Record<string, unknown>;
@@ -440,30 +445,30 @@ interface QuoteData {
   overrideTemplatingCost: Decimal | null;
   price_book_id: string | null;
   price_books: { id: string; name: string } | null;
-  customer: {
+  customers: {
     id: number;
-    companyId?: number;
-    clientTypeId: string | null;
-    clientTierId: string | null;
+    company_id?: number;
+    client_type_id: string | null;
+    client_tier_id: string | null;
     client_tiers: {
       discount_matrix: unknown;
     } | null;
   } | null;
-  rooms: Array<{
-    pieces: Array<{
+  quote_rooms: Array<{
+    quote_pieces: Array<{
       id: number;
-      lengthMm: number;
-      widthMm: number;
-      thicknessMm: number;
-      edgeTop: string | null;
-      edgeBottom: string | null;
-      edgeLeft: string | null;
-      edgeRight: string | null;
+      length_mm: number;
+      width_mm: number;
+      thickness_mm: number;
+      edge_top: string | null;
+      edge_bottom: string | null;
+      edge_left: string | null;
+      edge_right: string | null;
       materials: {
         id: number;
-        pricePerSqm: Decimal;
-        pricePerSlab: Decimal | null;
-        pricePerSquareMetre: Decimal | null;
+        price_per_sqm: Decimal;
+        price_per_slab: Decimal | null;
+        price_per_square_metre: Decimal | null;
       } | null;
       overrideMaterialCost: Decimal | null;
       piece_features: unknown[];

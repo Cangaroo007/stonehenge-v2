@@ -18,7 +18,15 @@ export async function GET(
       );
     }
 
-    return NextResponse.json(machine);
+    const m = machine as any;
+    return NextResponse.json({
+      ...machine,
+      kerfWidthMm: m.kerf_width_mm,
+      maxSlabLengthMm: m.max_slab_length_mm,
+      maxSlabWidthMm: m.max_slab_width_mm,
+      isDefault: m.is_default,
+      isActive: m.is_active,
+    });
   } catch (error) {
     console.error('Error fetching machine profile:', error);
     return NextResponse.json(
@@ -75,7 +83,15 @@ export async function PUT(
       }
     });
 
-    return NextResponse.json(machine);
+    const mu = machine as any;
+    return NextResponse.json({
+      ...machine,
+      kerfWidthMm: mu.kerf_width_mm,
+      maxSlabLengthMm: mu.max_slab_length_mm,
+      maxSlabWidthMm: mu.max_slab_width_mm,
+      isDefault: mu.is_default,
+      isActive: mu.is_active,
+    });
   } catch (error: any) {
     console.error('Error updating machine profile:', error);
 
