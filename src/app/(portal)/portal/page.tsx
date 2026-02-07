@@ -149,10 +149,10 @@ export default async function CustomerPortalPage() {
                 {quotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-gray-50">
                     <td className="table-cell font-medium text-primary-600">
-                      {quote.quoteNumber}
+                      {quote.quote_number}
                     </td>
                     <td className="table-cell">
-                      {quote.projectName || 'Unnamed Project'}
+                      {quote.project_name || 'Unnamed Project'}
                     </td>
                     <td className="table-cell">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>

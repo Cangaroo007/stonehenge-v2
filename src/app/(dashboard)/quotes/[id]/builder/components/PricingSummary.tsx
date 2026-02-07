@@ -581,9 +581,9 @@ export default function PricingSummary({
           </div>
 
           {/* Calculated At Timestamp */}
-          {calculation?.calculatedAt && (
+          {calculation?.calculated_at && (
             <p className="text-xs text-gray-400 text-right pt-2">
-              Last calculated: {new Date(calculation.calculatedAt).toLocaleTimeString()}
+              Last calculated: {new Date(calculation.calculated_at).toLocaleTimeString()}
             </p>
           )}
 

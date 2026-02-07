@@ -64,7 +64,7 @@ export async function POST(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.quote_rooms.quote.quoteNumber,
+        quoteNumber: piece.quote_rooms.quote.quote_number,
         pieceName: piece.name,
         overrideMaterialCost: body.overrideMaterialCost,
         overrideFeaturesCost: body.overrideFeaturesCost,
@@ -143,7 +143,7 @@ export async function DELETE(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.quote_rooms.quote.quoteNumber,
+        quoteNumber: piece.quote_rooms.quote.quote_number,
         pieceName: piece.name
       }
     });

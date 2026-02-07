@@ -29,7 +29,7 @@ export default function QuoteHeader({ quote, onBack, saving, hasUnsavedChanges }
         <div className="flex-1">
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-xl font-bold text-gray-900">
-              Quote Builder: {quote.quoteNumber}
+              Quote Builder: {quote.quote_number}
             </h1>
             <span
               className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
@@ -66,7 +66,7 @@ export default function QuoteHeader({ quote, onBack, saving, hasUnsavedChanges }
             )}
           </div>
           <div className="mt-1 flex items-center gap-4 text-sm text-gray-600">
-            {quote.projectName && <span>{quote.projectName}</span>}
+            {quote.project_name && <span>{quote.project_name}</span>}
             {quote.customer && (
               <span className="flex items-center gap-1">
                 <svg

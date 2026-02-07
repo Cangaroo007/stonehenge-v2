@@ -163,7 +163,7 @@ export async function PUT(
         where: { id: quoteId },
         data: {
           calculatedTotal: grandTotal,
-          calculatedAt: new Date(data.calculation.calculatedAt),
+          calculatedAt: new Date(data.calculation.calculated_at),
           calculationBreakdown: data.calculation as unknown as Prisma.InputJsonValue,
           // Also update the totals on the quote
           subtotal: data.calculation.total,
@@ -254,12 +254,12 @@ export async function PUT(
         where: { id: quoteId },
         data: {
           customerId: data.customerId,
-          projectName: data.projectName,
-          projectAddress: data.projectAddress,
+          projectName: data.project_name,
+          projectAddress: data.project_address,
           status: data.status,
           subtotal: data.subtotal,
-          taxRate: data.taxRate,
-          taxAmount: data.taxAmount,
+          taxRate: data.tax_rate,
+          taxAmount: data.tax_amount,
           total: data.total,
           notes: data.notes,
           // Delivery & Templating

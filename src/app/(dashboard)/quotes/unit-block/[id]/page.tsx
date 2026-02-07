@@ -106,7 +106,7 @@ export default function UnitBlockDetailPage() {
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
                     <span className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">{index + 1}</span>
-                    <div><p className="font-medium text-gray-900">{quote.quoteNumber}</p><p className="text-sm text-gray-500">{quote.projectName || 'Unnamed Unit'}</p></div>
+                    <div><p className="font-medium text-gray-900">{quote.quote_number}</p><p className="text-sm text-gray-500">{quote.project_name || 'Unnamed Unit'}</p></div>
                   </div>
                   <div className="text-right"><p className="font-medium">{formatCurrency(Number(quote.total))}</p><p className="text-sm text-gray-500">{pieceCount} pieces • {areaSqm.toFixed(2)} m²</p></div>
                 </div>

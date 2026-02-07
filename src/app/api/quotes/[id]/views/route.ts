@@ -44,7 +44,7 @@ export async function GET(
     // Check access
     const hasAccess = 
       canViewAll || 
-      quote.createdBy === currentUser.id || 
+      quote.created_by === currentUser.id || 
       (currentUser.customerId && quote.customerId === currentUser.customerId);
 
     if (!hasAccess) {

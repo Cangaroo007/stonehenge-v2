@@ -80,9 +80,9 @@ export async function GET(
 
     // Parse decimal values
     const subtotal = parseFloat(quote.subtotal.toString());
-    const taxAmount = parseFloat(quote.taxAmount.toString());
+    const taxAmount = parseFloat(quote.tax_amount.toString());
     const total = parseFloat(quote.total.toString());
-    const taxRate = parseFloat(quote.taxRate.toString());
+    const taxRate = parseFloat(quote.tax_rate.toString());
 
     // Create PDF document
     const pdfDoc = await PDFDocument.create();
@@ -197,7 +197,7 @@ export async function GET(
     y -= 25;
 
     // Quote Title
-    const quoteTitle = `Quote - ${quote.quoteNumber} - ${quote.projectName || 'Untitled Project'}`;
+    const quoteTitle = `Quote - ${quote.quote_number} - ${quote.project_name || 'Untitled Project'}`;
     page1.drawText(quoteTitle, {
       x: margin,
       y,
@@ -355,7 +355,7 @@ export async function GET(
     y = pageHeight - margin;
 
     // Breakdown title
-    currentPage.drawText(`${quote.projectName || 'Project'} Breakdown`, {
+    currentPage.drawText(`${quote.project_name || 'Project'} Breakdown`, {
       x: margin,
       y: y - 14,
       size: 14,
@@ -530,7 +530,7 @@ export async function GET(
     return new Response(pdfBuffer, {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `inline; filename="${quote.quoteNumber}.pdf"`,
+        'Content-Disposition': `inline; filename="${quote.quote_number}.pdf"`,
       },
     });
   } catch (error) {

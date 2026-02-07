@@ -292,9 +292,9 @@ function formatDate(date: Date): string {
 // Named export function for use with pdf() - returns JSX element
 export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
   const subtotal = typeof quote.subtotal === 'number' ? quote.subtotal : parseFloat(quote.subtotal.toString());
-  const taxAmount = typeof quote.taxAmount === 'number' ? quote.taxAmount : parseFloat(quote.taxAmount.toString());
+  const taxAmount = typeof quote.tax_amount === 'number' ? quote.tax_amount : parseFloat(quote.tax_amount.toString());
   const total = typeof quote.total === 'number' ? quote.total : parseFloat(quote.total.toString());
-  const taxRate = typeof quote.taxRate === 'number' ? quote.taxRate : parseFloat(quote.taxRate.toString());
+  const taxRate = typeof quote.tax_rate === 'number' ? quote.tax_rate : parseFloat(quote.tax_rate.toString());
 
   return (
     <Document>
@@ -316,7 +316,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
         <View style={styles.quoteTitle}>
           <View style={styles.quoteTitleLeft}>
             <Text style={styles.quoteTitleText}>
-              Quote - {quote.quoteNumber} - {quote.projectName || 'Untitled Project'}
+              Quote - {quote.quote_number} - {quote.project_name || 'Untitled Project'}
             </Text>
             <Text style={styles.revisionText}>Revision {quote.revision}</Text>
           </View>
@@ -410,7 +410,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
       {/* Page 2 - Breakdown */}
       <Page size="A4" style={styles.page}>
         <Text style={styles.breakdownTitle}>
-          {quote.projectName || 'Project'} Breakdown
+          {quote.project_name || 'Project'} Breakdown
         </Text>
 
         {quote.rooms.map((room) => (

@@ -51,9 +51,9 @@ export default async function QuotesPage() {
               ) : (
                 quotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-gray-50">
-                    <td className="table-cell font-medium">{quote.quoteNumber}</td>
+                    <td className="table-cell font-medium">{quote.quote_number}</td>
                     <td className="table-cell">{quote.customers?.name || '-'}</td>
-                    <td className="table-cell">{quote.projectName || '-'}</td>
+                    <td className="table-cell">{quote.project_name || '-'}</td>
                     <td className="table-cell font-medium">{formatCurrency(Number(quote.total))}</td>
                     <td className="table-cell">
                       <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
@@ -61,7 +61,7 @@ export default async function QuotesPage() {
                       </span>
                     </td>
                     <td className="table-cell">{formatDate(quote.createdAt)}</td>
-                    <td className="table-cell">{quote.validUntil ? formatDate(quote.validUntil) : '-'}</td>
+                    <td className="table-cell">{quote.valid_until ? formatDate(quote.valid_until) : '-'}</td>
                     <td className="table-cell">
                       <div className="flex gap-2">
                         <Link

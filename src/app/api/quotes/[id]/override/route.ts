@@ -81,10 +81,10 @@ export async function POST(
       success: true,
       quote: {
         id: quote.id,
-        quoteNumber: quote.quoteNumber,
+        quoteNumber: quote.quote_number,
         subtotal: Number(quote.subtotal),
         total: Number(quote.total),
-        calculatedTotal: quote.calculatedTotal ? Number(quote.calculatedTotal) : null,
+        calculatedTotal: quote.calculated_total ? Number(quote.calculated_total) : null,
         overrideSubtotal: quote.overrideSubtotal ? Number(quote.overrideSubtotal) : null,
         overrideTotal: quote.overrideTotal ? Number(quote.overrideTotal) : null,
         overrideDeliveryCost: quote.overrideDeliveryCost ? Number(quote.overrideDeliveryCost) : null,
@@ -139,7 +139,7 @@ export async function DELETE(
       entity: 'QUOTE',
       entityId: quoteId.toString(),
       details: {
-        quoteNumber: quote.quoteNumber
+        quoteNumber: quote.quote_number
       }
     });
     

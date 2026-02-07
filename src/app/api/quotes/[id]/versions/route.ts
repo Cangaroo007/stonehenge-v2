@@ -50,7 +50,7 @@ export async function GET(
     return NextResponse.json({
       quote: {
         id: quote.id,
-        quoteNumber: quote.quoteNumber,
+        quoteNumber: quote.quote_number,
         currentVersion: quote.currentVersion,
       },
       versions: versions.map((v) => ({
@@ -63,7 +63,7 @@ export async function GET(
         changedAt: v.changedAt,
         rolledBackFromVersion: v.rolledBackFromVersion,
         subtotal: v.subtotal,
-        taxAmount: v.taxAmount,
+        taxAmount: v.tax_amount,
         totalAmount: v.totalAmount,
         pieceCount: v.pieceCount,
         isCurrent: v.version === quote.currentVersion,

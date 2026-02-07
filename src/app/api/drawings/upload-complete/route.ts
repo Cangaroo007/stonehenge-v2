@@ -132,7 +132,7 @@ export async function POST(request: NextRequest) {
     console.log('[Unified Upload] ✅ Quote verified:', {
       quoteId: quote.id,
       customerId: quote.customerId,
-      createdBy: quote.createdBy,
+      createdBy: quote.created_by,
     });
 
     // STEP 6: Generate storage key

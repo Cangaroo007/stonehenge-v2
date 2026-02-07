@@ -113,7 +113,7 @@ export class QuoteCalculator {
     ]);
 
     const discount = this.calculateDiscount(subtotal, appliedRules);
-    const taxRate = new Decimal(this.quoteData.taxRate);
+    const taxRate = new Decimal(this.quoteData.tax_rate);
     const taxAmount = subtotal.minus(discount).times(taxRate).dividedBy(100);
     const total = subtotal.minus(discount).plus(taxAmount);
 
@@ -218,7 +218,7 @@ export class QuoteCalculator {
       clientTypeId: customer?.clientTypeId || undefined,
       clientTierId: customer?.clientTierId || undefined,
       customerId: customer?.id?.toString(),
-      priceBookId: this.quoteData?.priceBookId || undefined,
+      priceBookId: this.quoteData?.price_book_id || undefined,
     };
   }
 

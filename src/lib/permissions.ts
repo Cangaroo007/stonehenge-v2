@@ -245,7 +245,7 @@ export async function canAccessQuote(
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
     });
-    return quote?.createdBy === userId;
+    return quote?.created_by === userId;
   }
 
   return false;

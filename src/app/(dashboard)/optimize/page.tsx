@@ -262,7 +262,7 @@ export default function OptimizePage() {
 
     const csv = generateCutListCSV(result, parseInt(slabWidth) || 3000, parseInt(slabHeight) || 1400);
     const selectedQuote = quotes.find(q => String(q.id) === selectedQuoteId);
-    const quoteLabel = selectedQuote ? selectedQuote.quoteNumber : 'standalone';
+    const quoteLabel = selectedQuote ? selectedQuote.quote_number : 'standalone';
     const filename = `cut-list-${quoteLabel}-${new Date().toISOString().split('T')[0]}.csv`;
     downloadCSV(csv, filename);
   };
@@ -298,8 +298,8 @@ export default function OptimizePage() {
                   <option value="">-- Select a Quote --</option>
                   {quotes.map((quote) => (
                     <option key={quote.id} value={quote.id}>
-                      {quote.quoteNumber} - {quote.customer?.company || quote.customer?.name || 'No customer'}
-                      {quote.projectName ? ` (${quote.projectName})` : ''}
+                      {quote.quote_number} - {quote.customer?.company || quote.customer?.name || 'No customer'}
+                      {quote.project_name ? ` (${quote.project_name})` : ''}
                     </option>
                   ))}
                 </select>

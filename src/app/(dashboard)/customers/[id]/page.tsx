@@ -475,7 +475,7 @@ function QuotesTab({ quotes, customerId }: { quotes: Quote[]; customerId: number
             <tbody className="bg-white divide-y divide-gray-200">
               {quotes.map((quote) => (
                 <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="table-cell font-medium">{quote.quoteNumber}</td>
+                  <td className="table-cell font-medium">{quote.quote_number}</td>
                   <td className="table-cell">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                       quote.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :

@@ -46,7 +46,7 @@ export async function GET(
 
     const hasAccess =
       canViewAll ||
-      drawing.quote.createdBy === currentUser.id ||
+      drawing.quote.created_by === currentUser.id ||
       (currentUser.customerId && drawing.quote.customerId === currentUser.customerId);
 
     if (!hasAccess) {

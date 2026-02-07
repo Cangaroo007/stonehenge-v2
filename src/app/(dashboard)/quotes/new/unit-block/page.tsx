@@ -224,10 +224,10 @@ export default function NewUnitBlockPage() {
                       <input type="checkbox" checked={isSelected} onChange={() => {}} className="h-5 w-5 text-blue-600 rounded" />
                       <div className="flex-1">
                         <div className="flex items-center gap-3">
-                          <span className="font-medium text-gray-900">{quote.quoteNumber}</span>
+                          <span className="font-medium text-gray-900">{quote.quote_number}</span>
                           <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${quote.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' : quote.status === 'SENT' ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-800'}`}>{quote.status}</span>
                         </div>
-                        <p className="text-sm text-gray-500">{quote.projectName || 'Unnamed Project'}</p>
+                        <p className="text-sm text-gray-500">{quote.project_name || 'Unnamed Project'}</p>
                       </div>
                       <div className="text-right text-sm">
                         <p className="font-medium">{pieceCount} pieces</p>
@@ -283,7 +283,7 @@ export default function NewUnitBlockPage() {
             <div className="space-y-2">
               {availableQuotes.filter(q => selectedQuoteIds.includes(q.id)).map(quote => (
                 <div key={quote.id} className="flex justify-between items-center py-2 border-b border-gray-100 last:border-0">
-                  <div><p className="font-medium">{quote.quoteNumber}</p><p className="text-sm text-gray-500">{quote.projectName || 'Unnamed Project'}</p></div>
+                  <div><p className="font-medium">{quote.quote_number}</p><p className="text-sm text-gray-500">{quote.project_name || 'Unnamed Project'}</p></div>
                   <p className="font-medium">{formatCurrency(Number(quote.total))}</p>
                 </div>
               ))}

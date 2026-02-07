@@ -380,7 +380,7 @@ export async function calculateQuotePrice(
     templatingBreakdown.finalCost;
 
   // Get applicable pricing rules
-  const priceBookId = options?.priceBookId || quote.priceBookId;
+  const priceBookId = options?.price_book_id || quote.price_book_id;
   const rules = await getApplicableRules(
     quote.customer?.clientTypeId || null,
     quote.customer?.clientTierId || null,

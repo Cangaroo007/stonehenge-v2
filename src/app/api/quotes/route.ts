@@ -90,18 +90,18 @@ export async function POST(request: NextRequest) {
     // Create the quote with rooms and pieces
     const quote = await prisma.quotes.create({
       data: {
-        quoteNumber: data.quoteNumber,
+        quoteNumber: data.quote_number,
         customerId: data.customerId,
-        projectName: data.projectName,
-        projectAddress: data.projectAddress,
+        projectName: data.project_name,
+        projectAddress: data.project_address,
         status: data.status || 'draft',
         subtotal: data.subtotal,
-        taxRate: data.taxRate,
-        taxAmount: data.taxAmount,
+        taxRate: data.tax_rate,
+        taxAmount: data.tax_amount,
         total: data.total,
         notes: data.notes,
         validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        createdBy: data.createdBy,
+        createdBy: data.created_by,
         // Delivery & Templating
         deliveryAddress: data.deliveryAddress,
         deliveryDistanceKm: data.deliveryDistanceKm,
@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
     // Create initial version for version history
     try {
       const authResult = await requireAuth();
-      const userId = 'error' in authResult ? (data.createdBy ?? 1) : authResult.user.id;
+      const userId = 'error' in authResult ? (data.created_by ?? 1) : authResult.user.id;
       await createInitialVersion(quote.id, userId);
     } catch (versionError) {
       console.error('Error creating initial version (non-blocking):', versionError);

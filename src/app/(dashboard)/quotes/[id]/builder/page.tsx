@@ -700,7 +700,7 @@ const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
           {/* Delivery & Templating Card */}
           <DeliveryTemplatingCard
             quoteId={quoteId}
-            initialProjectAddress={quote.projectName}
+            initialProjectAddress={quote.project_name}
             onUpdate={triggerRecalculate}
           />
 

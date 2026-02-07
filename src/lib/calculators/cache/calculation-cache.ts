@@ -29,7 +29,7 @@ export class CalculationCache {
     }
 
     // Check if expired
-    const age = Date.now() - cached.calculatedAt.getTime();
+    const age = Date.now() - cached.calculated_at.getTime();
     if (age > this.ttlMs) {
       this.cache.delete(key);
       return null;

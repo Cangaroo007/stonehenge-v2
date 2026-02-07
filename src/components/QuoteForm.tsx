@@ -249,14 +249,14 @@ export default function QuoteForm({
     }
     return null;
   });
-  const [projectName, setProjectName] = useState(initialData?.projectName || '');
-  const [projectAddress, setProjectAddress] = useState(initialData?.projectAddress || '');
+  const [projectName, setProjectName] = useState(initialData?.project_name || '');
+  const [projectAddress, setProjectAddress] = useState(initialData?.project_address || '');
   const [notes, setNotes] = useState(initialData?.notes || '');
   
   // Delivery & Templating state
   const [deliveryExpanded, setDeliveryExpanded] = useState(false);
   const [deliveryData, setDeliveryData] = useState({
-    deliveryAddress: initialData?.projectAddress || '',
+    deliveryAddress: initialData?.project_address || '',
     deliveryDistanceKm: null as number | null,
     deliveryZoneId: null as number | null,
     deliveryCost: null as number | null,
@@ -871,7 +871,7 @@ export default function QuoteForm({
     setSaving(true);
     try {
       const payload = {
-        quoteNumber: initialData?.quoteNumber || nextQuoteNumber,
+        quoteNumber: initialData?.quote_number || nextQuoteNumber,
         customerId,
         projectName,
         projectAddress,
@@ -920,7 +920,7 @@ export default function QuoteForm({
         })),
         subtotal: totals.subtotal,
         taxRate,
-        taxAmount: totals.taxAmount,
+        taxAmount: totals.tax_amount,
         total: totals.total,
         createdBy: userId,
         quote_drawing_analyses: analysisData,
@@ -1042,7 +1042,7 @@ export default function QuoteForm({
             <input
               type="text"
               className="input bg-gray-50"
-              value={initialData?.quoteNumber || nextQuoteNumber}
+              value={initialData?.quote_number || nextQuoteNumber}
               disabled
             />
           </div>
@@ -2048,7 +2048,7 @@ export default function QuoteForm({
             </div>
             <div className="flex justify-between gap-8">
               <span className="text-gray-600">GST ({taxRate}%):</span>
-              <span className="font-medium">{formatCurrency(totals.taxAmount)}</span>
+              <span className="font-medium">{formatCurrency(totals.tax_amount)}</span>
             </div>
             <div className="flex justify-between gap-8 text-lg">
               <span className="font-semibold">Total:</span>

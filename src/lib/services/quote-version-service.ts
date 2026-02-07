@@ -136,7 +136,7 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   }
 
   return {
-    quoteNumber: quote.quoteNumber,
+    quoteNumber: quote.quote_number,
     status: quote.status,
     client_types: quote.customer?.client_types?.name ?? null,
     client_tiers: quote.customer?.client_tiers?.name ?? null,
@@ -183,10 +183,10 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     
     pricing: {
       subtotal: Number(quote.subtotal),
-      taxRate: Number(quote.taxRate),
-      taxAmount: Number(quote.taxAmount),
+      taxRate: Number(quote.tax_rate),
+      taxAmount: Number(quote.tax_amount),
       total: Number(quote.total),
-      calculatedTotal: quote.calculatedTotal ? Number(quote.calculatedTotal) : null,
+      calculatedTotal: quote.calculated_total ? Number(quote.calculated_total) : null,
       deliveryCost: quote.deliveryCost ? Number(quote.deliveryCost) : null,
       templatingCost: quote.templatingCost ? Number(quote.templatingCost) : null,
       overrides: {
@@ -206,10 +206,10 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     },
     
     notes: quote.notes,
-    internalNotes: quote.internalNotes,
-    validUntil: quote.validUntil?.toISOString() ?? null,
-    projectName: quote.projectName,
-    projectAddress: quote.projectAddress,
+    internalNotes: quote.internal_notes,
+    validUntil: quote.valid_until?.toISOString() ?? null,
+    projectName: quote.project_name,
+    projectAddress: quote.project_address,
   };
 }
 
@@ -625,7 +625,7 @@ export async function createQuoteVersion(
         changedByUserId: userId,
         rolledBackFromVersion,
         subtotal: currentSnapshot.pricing.subtotal,
-        taxAmount: currentSnapshot.pricing.taxAmount,
+        taxAmount: currentSnapshot.pricing.tax_amount,
         totalAmount: currentSnapshot.pricing.total,
         pieceCount,
       },
@@ -659,7 +659,7 @@ export async function createInitialVersion(
       changeSummary: 'Quote created',
       changedByUserId: userId,
       subtotal: snapshot.pricing.subtotal,
-      taxAmount: snapshot.pricing.taxAmount,
+      taxAmount: snapshot.pricing.tax_amount,
       totalAmount: snapshot.pricing.total,
       pieceCount,
     },
@@ -705,14 +705,14 @@ export async function rollbackToVersion(
       data: {
         status: snapshot.status,
         notes: snapshot.notes,
-        internalNotes: snapshot.internalNotes,
-        projectName: snapshot.projectName,
-        projectAddress: snapshot.projectAddress,
+        internalNotes: snapshot.internal_notes,
+        projectName: snapshot.project_name,
+        projectAddress: snapshot.project_address,
         subtotal: snapshot.pricing.subtotal,
-        taxRate: snapshot.pricing.taxRate,
-        taxAmount: snapshot.pricing.taxAmount,
+        taxRate: snapshot.pricing.tax_rate,
+        taxAmount: snapshot.pricing.tax_amount,
         total: snapshot.pricing.total,
-        calculatedTotal: snapshot.pricing.calculatedTotal,
+        calculatedTotal: snapshot.pricing.calculated_total,
         overrideSubtotal: snapshot.pricing.overrides.overrideSubtotal,
         overrideTotal: snapshot.pricing.overrides.overrideTotal,
         overrideDeliveryCost: snapshot.pricing.overrides.overrideDeliveryCost,
@@ -724,7 +724,7 @@ export async function rollbackToVersion(
         templatingDistanceKm: snapshot.delivery.templatingDistanceKm,
         deliveryCost: snapshot.pricing.deliveryCost,
         templatingCost: snapshot.pricing.templatingCost,
-        validUntil: snapshot.validUntil ? new Date(snapshot.validUntil) : null,
+        validUntil: snapshot.valid_until ? new Date(snapshot.valid_until) : null,
         // Recreate rooms with pieces from snapshot
         rooms: {
           create: snapshot.rooms.map((room) => ({

@@ -23,7 +23,7 @@ async function getData() {
     prisma.quotes.findFirst({ orderBy: { quoteNumber: 'desc' } }),
   ]);
 
-  const nextQuoteNumber = generateQuoteNumber(lastQuote?.quoteNumber || null);
+  const nextQuoteNumber = generateQuoteNumber(lastQuote?.quote_number || null);
 
   // Serialize Prisma Decimal types to JSON-safe values
   const serialized = JSON.parse(JSON.stringify({ customers, materials, pricingRules, edgeTypes }));

@@ -73,12 +73,12 @@ export async function POST(
 
     // Generate document hash (hash of quote details for verification)
     const documentContent = JSON.stringify({
-      quoteNumber: quote.quoteNumber,
+      quoteNumber: quote.quote_number,
       customerId: quote.customerId,
       total: quote.total.toString(),
       subtotal: quote.subtotal.toString(),
-      taxAmount: quote.taxAmount.toString(),
-      taxRate: quote.taxRate.toString(),
+      taxAmount: quote.tax_amount.toString(),
+      taxRate: quote.tax_rate.toString(),
     });
     const documentHash = crypto
       .createHash('sha256')
@@ -132,7 +132,7 @@ export async function POST(
     // This would integrate with your email service (SendGrid, AWS SES, etc.)
     // await sendSignatureConfirmationEmail({
     //   to: signerEmail,
-    //   quoteNumber: quote.quoteNumber,
+    //   quoteNumber: quote.quote_number,
     //   customerName: quote.customer?.name,
     //   totalAmount: quote.total,
     //   signedAt: timestamp,

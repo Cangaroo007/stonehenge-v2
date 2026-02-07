@@ -86,12 +86,12 @@ export default async function CustomerQuoteDetailPage({
         <div className="flex items-center justify-between mb-4">
           <div>
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-bold text-gray-900">{quote.quoteNumber}</h1>
+              <h1 className="text-2xl font-bold text-gray-900">{quote.quote_number}</h1>
               <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(quote.status)}`}>
                 {getStatusLabel(quote.status)}
               </span>
             </div>
-            <p className="text-gray-500 mt-1">{quote.projectName}</p>
+            <p className="text-gray-500 mt-1">{quote.project_name}</p>
           </div>
           {canDownload && (
             <Link href={`/api/quotes/${quote.id}/pdf`} target="_blank" className="btn-secondary">
@@ -104,7 +104,7 @@ export default async function CustomerQuoteDetailPage({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6 pt-6 border-t">
           <div>
             <p className="text-sm text-gray-500">Project Address</p>
-            <p className="font-medium">{quote.projectAddress || '-'}</p>
+            <p className="font-medium">{quote.project_address || '-'}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Created</p>
@@ -112,7 +112,7 @@ export default async function CustomerQuoteDetailPage({
           </div>
           <div>
             <p className="text-sm text-gray-500">Valid Until</p>
-            <p className="font-medium">{quote.validUntil ? formatDate(quote.validUntil) : '-'}</p>
+            <p className="font-medium">{quote.valid_until ? formatDate(quote.valid_until) : '-'}</p>
           </div>
         </div>
       </div>
@@ -124,7 +124,7 @@ export default async function CustomerQuoteDetailPage({
       {canApprove ? (
         <QuoteSignatureSection
           quoteId={quote.id}
-          quoteNumber={quote.quoteNumber}
+          quoteNumber={quote.quote_number}
           customerName={quote.customer?.company || quote.customer?.name || 'Customer'}
           totalAmount={formatCurrency(Number(quote.total))}
           status={quote.status}
@@ -218,8 +218,8 @@ export default async function CustomerQuoteDetailPage({
               <span className="font-medium">{formatCurrency(Number(quote.subtotal))}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-600">GST ({Number(quote.taxRate)}%):</span>
-              <span className="font-medium">{formatCurrency(Number(quote.taxAmount))}</span>
+              <span className="text-gray-600">GST ({Number(quote.tax_rate)}%):</span>
+              <span className="font-medium">{formatCurrency(Number(quote.tax_amount))}</span>
             </div>
             <div className="flex justify-between text-lg border-t pt-2">
               <span className="font-semibold">Total:</span>
