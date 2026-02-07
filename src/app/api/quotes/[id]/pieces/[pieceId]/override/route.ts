@@ -48,7 +48,7 @@ export async function POST(
           include: {
             quote: {
               select: {
-                quoteNumber: true
+                quote_number: true
               }
             }
           }
@@ -64,7 +64,7 @@ export async function POST(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.quote_rooms.quote.quote_number,
+        quote_number: piece.quote_rooms.quote.quote_number,
         pieceName: piece.name,
         overrideMaterialCost: body.overrideMaterialCost,
         overrideFeaturesCost: body.overrideFeaturesCost,
@@ -128,7 +128,7 @@ export async function DELETE(
           include: {
             quote: {
               select: {
-                quoteNumber: true
+                quote_number: true
               }
             }
           }
@@ -143,7 +143,7 @@ export async function DELETE(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quoteNumber: piece.quote_rooms.quote.quote_number,
+        quote_number: piece.quote_rooms.quote.quote_number,
         pieceName: piece.name
       }
     });

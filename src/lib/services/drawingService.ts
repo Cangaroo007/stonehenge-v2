@@ -55,7 +55,7 @@ export async function getDrawingsForCustomer(customerId: number) {
       quote: {
         select: {
           id: true,
-          quoteNumber: true,
+          quote_number: true,
           status: true,
         },
       },
@@ -128,7 +128,7 @@ export async function getDrawingById(drawingId: string) {
       quote: {
         select: {
           id: true,
-          quoteNumber: true,
+          quote_number: true,
           status: true,
           customerId: true,
         },

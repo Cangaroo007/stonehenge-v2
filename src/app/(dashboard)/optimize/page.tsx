@@ -22,8 +22,8 @@ interface PieceInput {
 
 interface Quote {
   id: number;
-  quoteNumber: string;
-  projectName: string | null;
+  quote_number: string;
+  project_name: string | null;
   customer: {
     name: string;
     company: string | null;

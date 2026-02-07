@@ -6,7 +6,7 @@ import toast from 'react-hot-toast';
 
 interface SignatureModalProps {
   quoteId: number;
-  quoteNumber: string;
+  quote_number: string;
   customerName: string;
   totalAmount: string;
   onClose: () => void;

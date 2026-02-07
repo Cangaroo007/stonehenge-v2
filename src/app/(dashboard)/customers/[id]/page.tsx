@@ -41,7 +41,7 @@ interface CustomerUser {
 
 interface Quote {
   id: number;
-  quoteNumber: string;
+  quote_number: string;
   status: string;
   totalPrice: number;
   createdAt: string;

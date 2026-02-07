@@ -19,7 +19,7 @@ interface QuoteSignature {
 
 interface QuoteSignatureSectionProps {
   quoteId: number;
-  quoteNumber: string;
+  quote_number: string;
   customerName: string;
   totalAmount: string;
   status: string;

@@ -15,8 +15,8 @@ interface Customer {
 
 interface Quote {
   id: number;
-  quoteNumber: string;
-  projectName: string | null;
+  quote_number: string;
+  project_name: string | null;
   status: string;
   total: number;
   subtotal: number;

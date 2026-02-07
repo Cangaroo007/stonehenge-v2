@@ -131,10 +131,10 @@ export class QuoteCalculator {
       subtotal: this.round(subtotal),
       discount: this.round(discount),
       taxRate,
-      taxAmount: this.round(taxAmount),
+      tax_amount: this.round(taxAmount),
       total: this.round(total),
       currency: this.pricingContext.currency,
-      calculatedAt: new Date(),
+      calculated_at: new Date(),
       pricingContext: this.pricingContext,
     };
 
@@ -214,11 +214,11 @@ export class QuoteCalculator {
       organisationId,
       materialPricingBasis: (settings?.materialPricingBasis as any) || 'PER_SLAB',
       currency: settings?.currency || 'AUD',
-      taxRate: new Decimal(settings?.gstRate || 0.10),
+      tax_rate: new Decimal(settings?.gstRate || 0.10),
       clientTypeId: customer?.clientTypeId || undefined,
       clientTierId: customer?.clientTierId || undefined,
       customerId: customer?.id?.toString(),
-      priceBookId: this.quoteData?.price_book_id || undefined,
+      price_book_id: this.quoteData?.price_book_id || undefined,
     };
   }
 
@@ -425,9 +425,9 @@ export class QuoteCalculator {
 
 interface QuoteData {
   id: number;
-  quoteNumber: string;
+  quote_number: string;
   currentVersion: number;
-  taxRate: Decimal;
+  tax_rate: Decimal;
   deliveryAddress: string | null;
   deliveryDistanceKm: Decimal | null;
   deliveryZoneId: number | null;
@@ -438,7 +438,7 @@ interface QuoteData {
   templatingDistanceKm: Decimal | null;
   templatingCost: Decimal | null;
   overrideTemplatingCost: Decimal | null;
-  priceBookId: string | null;
+  price_book_id: string | null;
   price_books: { id: string; name: string } | null;
   customer: {
     id: number;

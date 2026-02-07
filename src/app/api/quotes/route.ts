@@ -45,17 +45,17 @@ interface DrawingAnalysisData {
 }
 
 interface QuoteCreateData {
-  quoteNumber: string;
+  quote_number: string;
   customerId: number | null;
-  projectName: string | null;
-  projectAddress: string | null;
+  project_name: string | null;
+  project_address: string | null;
   status?: string;
   subtotal: number;
-  taxRate: number;
-  taxAmount: number;
+  tax_rate: number;
+  tax_amount: number;
   total: number;
   notes: string | null;
-  createdBy: number | null;
+  created_by: number | null;
   rooms: RoomData[];
   drawingAnalysis?: DrawingAnalysisData | null;
   // Delivery & Templating
@@ -90,18 +90,18 @@ export async function POST(request: NextRequest) {
     // Create the quote with rooms and pieces
     const quote = await prisma.quotes.create({
       data: {
-        quoteNumber: data.quote_number,
+        quote_number: data.quote_number,
         customerId: data.customerId,
-        projectName: data.project_name,
-        projectAddress: data.project_address,
+        project_name: data.project_name,
+        project_address: data.project_address,
         status: data.status || 'draft',
         subtotal: data.subtotal,
-        taxRate: data.tax_rate,
-        taxAmount: data.tax_amount,
+        tax_rate: data.tax_rate,
+        tax_amount: data.tax_amount,
         total: data.total,
         notes: data.notes,
-        validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
-        createdBy: data.created_by,
+        valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
+        created_by: data.created_by,
         // Delivery & Templating
         deliveryAddress: data.deliveryAddress,
         deliveryDistanceKm: data.deliveryDistanceKm,

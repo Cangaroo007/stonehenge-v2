@@ -450,7 +450,7 @@ export async function calculateQuotePrice(
     appliedRules,
     discounts: [],
     price_books: priceBookInfo,
-    calculatedAt: new Date(),
+    calculated_at: new Date(),
     pricingContext,
   };
 }
@@ -707,7 +707,7 @@ async function getApplicableRules(
   clientTypeId: string | null,
   clientTierId: string | null,
   customerId: number | null,
-  priceBookId: string | null,
+  price_book_id: string | null,
   quoteTotal: number
 ): Promise<PricingRuleWithOverrides[]> {
   const conditions: Array<Record<string, unknown>> = [

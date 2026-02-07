@@ -211,13 +211,13 @@ export interface QuoteCalculation {
   // Totals
   subtotal: Decimal;
   discount: Decimal;
-  taxRate: Decimal;
-  taxAmount: Decimal;
+  tax_rate: Decimal;
+  tax_amount: Decimal;
   total: Decimal;
   
   // Metadata
   currency: string;
-  calculatedAt: Date;
+  calculated_at: Date;
   pricingContext: PricingContext;
 }
 
@@ -238,7 +238,7 @@ export interface PricingContext {
   organisationId: string;
   materialPricingBasis: MaterialPricingBasis;
   currency: string;
-  taxRate: Decimal;
+  tax_rate: Decimal;
   
   // Client classification
   clientTypeId?: string;

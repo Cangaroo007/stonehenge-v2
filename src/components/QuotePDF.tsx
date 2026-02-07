@@ -10,18 +10,18 @@ import { format } from 'date-fns';
 // Types
 interface QuoteData {
   id: number;
-  quoteNumber: string;
+  quote_number: string;
   revision: number;
-  projectName: string | null;
-  projectAddress: string | null;
+  project_name: string | null;
+  project_address: string | null;
   status: string;
   subtotal: { toString(): string } | number;
-  taxRate: { toString(): string } | number;
-  taxAmount: { toString(): string } | number;
+  tax_rate: { toString(): string } | number;
+  tax_amount: { toString(): string } | number;
   total: { toString(): string } | number;
   notes: string | null;
   createdAt: Date;
-  validUntil: Date | null;
+  valid_until: Date | null;
   customer: {
     name: string;
     company: string | null;

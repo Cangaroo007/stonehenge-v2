@@ -53,7 +53,7 @@ interface CalculationData {
   appliedRules: unknown[];
   discounts: unknown[];
   price_books: { id: string; name: string } | null;
-  calculatedAt: string;
+  calculated_at: string;
 }
 
 interface QuoteUpdateData {
@@ -162,12 +162,12 @@ export async function PUT(
       const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: {
-          calculatedTotal: grandTotal,
-          calculatedAt: new Date(data.calculation.calculated_at),
+          calculated_total: grandTotal,
+          calculated_at: new Date(data.calculation.calculated_at),
           calculationBreakdown: data.calculation as unknown as Prisma.InputJsonValue,
           // Also update the totals on the quote
           subtotal: data.calculation.total,
-          taxAmount: gst,
+          tax_amount: gst,
           total: grandTotal,
         },
         include: {
@@ -254,12 +254,12 @@ export async function PUT(
         where: { id: quoteId },
         data: {
           customerId: data.customerId,
-          projectName: data.project_name,
-          projectAddress: data.project_address,
+          project_name: data.project_name,
+          project_address: data.project_address,
           status: data.status,
           subtotal: data.subtotal,
-          taxRate: data.tax_rate,
-          taxAmount: data.tax_amount,
+          tax_rate: data.tax_rate,
+          tax_amount: data.tax_amount,
           total: data.total,
           notes: data.notes,
           // Delivery & Templating

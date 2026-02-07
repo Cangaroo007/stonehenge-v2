@@ -11,7 +11,7 @@ interface Drawing {
   uploadedAt: string;
   quote: {
     id: number;
-    quoteNumber: string;
+    quote_number: string;
     status: string;
   };
 }

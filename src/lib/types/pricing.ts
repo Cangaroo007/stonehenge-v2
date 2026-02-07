@@ -108,7 +108,7 @@ export interface CalculationResult {
   appliedRules: AppliedRule[];
   discounts: DiscountBreakdown[];
   price_books: { id: string; name: string } | null;
-  calculatedAt: Date;
+  calculated_at: Date;
 }
 
 // ============================================
@@ -183,7 +183,7 @@ export interface PiecePricingBreakdown {
 export interface QuoteWithDetails {
   id: number;
   customerId: number | null;
-  priceBookId: string | null;
+  price_book_id: string | null;
   customer: {
     id: number;
     clientTypeId: string | null;

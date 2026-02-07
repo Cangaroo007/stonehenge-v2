@@ -40,7 +40,7 @@ import type { PricingOptions } from '@/lib/types/pricing';
  *   appliedRules: [...],
  *   discounts: [...],
  *   price_books: { id, name } | null,
- *   calculatedAt: Date
+ *   calculated_at: Date
  * }
  */
 export async function POST(
@@ -65,7 +65,7 @@ export async function POST(
       const body = await request.json();
       if (body) {
         options = {
-          priceBookId: body.price_book_id,
+          price_book_id: body.price_book_id,
           customerId: body.customerId,
           forceRecalculate: body.forceRecalculate,
         };

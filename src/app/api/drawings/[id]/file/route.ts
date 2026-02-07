@@ -28,7 +28,7 @@ export async function GET(
           select: {
             id: true,
             customerId: true,
-            createdBy: true,
+            created_by: true,
           },
         },
       },

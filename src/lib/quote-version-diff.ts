@@ -49,8 +49,8 @@ export interface SnapshotForDiff {
   client_types: string | null;
   client_tiers: string | null;
   notes: string | null;
-  projectName: string | null;
-  projectAddress: string | null;
+  project_name: string | null;
+  project_address: string | null;
   customer: { id: number; name: string } | null;
   materials: { id: number; name: string } | null;
   rooms: Array<{
@@ -74,7 +74,7 @@ export interface SnapshotForDiff {
   }>;
   pricing: {
     subtotal: number;
-    taxAmount: number;
+    tax_amount: number;
     total: number;
     deliveryCost: number | null;
     templatingCost: number | null;

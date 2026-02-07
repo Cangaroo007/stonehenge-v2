@@ -4,7 +4,7 @@ import { Prisma, QuoteChangeType } from '@prisma/client';
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
   // Quote header info
-  quoteNumber: string;
+  quote_number: string;
   status: string;
   client_types: string | null;
   client_tiers: string | null;
@@ -56,10 +56,10 @@ export interface QuoteSnapshot {
   // Pricing breakdown
   pricing: {
     subtotal: number;
-    taxRate: number;
-    taxAmount: number;
+    tax_rate: number;
+    tax_amount: number;
     total: number;
-    calculatedTotal: number | null;
+    calculated_total: number | null;
     deliveryCost: number | null;
     templatingCost: number | null;
     
@@ -83,10 +83,10 @@ export interface QuoteSnapshot {
   
   // Metadata
   notes: string | null;
-  internalNotes: string | null;
-  validUntil: string | null;
-  projectName: string | null;
-  projectAddress: string | null;
+  internal_notes: string | null;
+  valid_until: string | null;
+  project_name: string | null;
+  project_address: string | null;
 }
 
 /**
@@ -136,7 +136,7 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   }
 
   return {
-    quoteNumber: quote.quote_number,
+    quote_number: quote.quote_number,
     status: quote.status,
     client_types: quote.customer?.client_types?.name ?? null,
     client_tiers: quote.customer?.client_tiers?.name ?? null,
@@ -183,10 +183,10 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     
     pricing: {
       subtotal: Number(quote.subtotal),
-      taxRate: Number(quote.tax_rate),
-      taxAmount: Number(quote.tax_amount),
+      tax_rate: Number(quote.tax_rate),
+      tax_amount: Number(quote.tax_amount),
       total: Number(quote.total),
-      calculatedTotal: quote.calculated_total ? Number(quote.calculated_total) : null,
+      calculated_total: quote.calculated_total ? Number(quote.calculated_total) : null,
       deliveryCost: quote.deliveryCost ? Number(quote.deliveryCost) : null,
       templatingCost: quote.templatingCost ? Number(quote.templatingCost) : null,
       overrides: {
@@ -206,10 +206,10 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     },
     
     notes: quote.notes,
-    internalNotes: quote.internal_notes,
-    validUntil: quote.valid_until?.toISOString() ?? null,
-    projectName: quote.project_name,
-    projectAddress: quote.project_address,
+    internal_notes: quote.internal_notes,
+    valid_until: quote.valid_until?.toISOString() ?? null,
+    project_name: quote.project_name,
+    project_address: quote.project_address,
   };
 }
 
@@ -625,7 +625,7 @@ export async function createQuoteVersion(
         changedByUserId: userId,
         rolledBackFromVersion,
         subtotal: currentSnapshot.pricing.subtotal,
-        taxAmount: currentSnapshot.pricing.tax_amount,
+        tax_amount: currentSnapshot.pricing.tax_amount,
         totalAmount: currentSnapshot.pricing.total,
         pieceCount,
       },
@@ -659,7 +659,7 @@ export async function createInitialVersion(
       changeSummary: 'Quote created',
       changedByUserId: userId,
       subtotal: snapshot.pricing.subtotal,
-      taxAmount: snapshot.pricing.tax_amount,
+      tax_amount: snapshot.pricing.tax_amount,
       totalAmount: snapshot.pricing.total,
       pieceCount,
     },
@@ -705,14 +705,14 @@ export async function rollbackToVersion(
       data: {
         status: snapshot.status,
         notes: snapshot.notes,
-        internalNotes: snapshot.internal_notes,
-        projectName: snapshot.project_name,
-        projectAddress: snapshot.project_address,
+        internal_notes: snapshot.internal_notes,
+        project_name: snapshot.project_name,
+        project_address: snapshot.project_address,
         subtotal: snapshot.pricing.subtotal,
-        taxRate: snapshot.pricing.tax_rate,
-        taxAmount: snapshot.pricing.tax_amount,
+        tax_rate: snapshot.pricing.tax_rate,
+        tax_amount: snapshot.pricing.tax_amount,
         total: snapshot.pricing.total,
-        calculatedTotal: snapshot.pricing.calculated_total,
+        calculated_total: snapshot.pricing.calculated_total,
         overrideSubtotal: snapshot.pricing.overrides.overrideSubtotal,
         overrideTotal: snapshot.pricing.overrides.overrideTotal,
         overrideDeliveryCost: snapshot.pricing.overrides.overrideDeliveryCost,
@@ -724,7 +724,7 @@ export async function rollbackToVersion(
         templatingDistanceKm: snapshot.delivery.templatingDistanceKm,
         deliveryCost: snapshot.pricing.deliveryCost,
         templatingCost: snapshot.pricing.templatingCost,
-        validUntil: snapshot.valid_until ? new Date(snapshot.valid_until) : null,
+        valid_until: snapshot.valid_until ? new Date(snapshot.valid_until) : null,
         // Recreate rooms with pieces from snapshot
         rooms: {
           create: snapshot.rooms.map((room) => ({

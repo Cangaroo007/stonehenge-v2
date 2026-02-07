@@ -159,10 +159,10 @@ interface QuoteFormProps {
   userId?: number;
   initialData?: {
     id: number;
-    quoteNumber: string;
+    quote_number: string;
     customerId: number | null;
-    projectName: string | null;
-    projectAddress: string | null;
+    project_name: string | null;
+    project_address: string | null;
     notes: string | null;
     rooms: Array<{
       id: number;
@@ -871,7 +871,7 @@ export default function QuoteForm({
     setSaving(true);
     try {
       const payload = {
-        quoteNumber: initialData?.quote_number || nextQuoteNumber,
+        quote_number: initialData?.quote_number || nextQuoteNumber,
         customerId,
         projectName,
         projectAddress,
@@ -920,9 +920,9 @@ export default function QuoteForm({
         })),
         subtotal: totals.subtotal,
         taxRate,
-        taxAmount: totals.tax_amount,
+        tax_amount: totals.tax_amount,
         total: totals.total,
-        createdBy: userId,
+        created_by: userId,
         quote_drawing_analyses: analysisData,
       };
 

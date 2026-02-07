@@ -239,7 +239,7 @@ export interface PricingOptions {
   roundToNearest: 'CENT' | 'DOLLAR' | 'FIVE_DOLLARS';
   
   // Tax
-  taxRate: Decimal;
+  tax_rate: Decimal;
   taxInclusive: boolean;  // If true, display prices include tax
   
   // Display
@@ -360,7 +360,7 @@ export function getDefaultCompanyPricingConfig(companyId: string): CompanyPricin
       minimumQuoteValue: new Decimal(0),
       minimumPieceCharge: new Decimal(0),
       roundToNearest: 'CENT',
-      taxRate: new Decimal(10),
+      tax_rate: new Decimal(10),
       taxInclusive: false,
       showBreakdownToCustomer: true,
       showWastageInQuote: false,

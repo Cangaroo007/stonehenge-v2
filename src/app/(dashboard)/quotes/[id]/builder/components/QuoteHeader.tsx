@@ -4,8 +4,8 @@ import { getStatusColor, getStatusLabel } from '@/lib/utils';
 
 interface Quote {
   id: number;
-  quoteNumber: string;
-  projectName: string | null;
+  quote_number: string;
+  project_name: string | null;
   status: string;
   customer: {
     id: number;
