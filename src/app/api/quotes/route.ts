@@ -74,7 +74,7 @@ export async function GET() {
   try {
     const quotes = await prisma.quotes.findMany({
       orderBy: { created_at: 'desc' },
-      include: { customer: true },
+      include: { customers: true },
     });
     return NextResponse.json(quotes);
   } catch (error) {

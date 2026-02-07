@@ -20,7 +20,7 @@ async function getStats() {
     prisma.quotes.findMany({
       take: 5,
       orderBy: { created_at: 'desc' },
-      include: { customer: true },
+      include: { customers: true },
     }),
   ]);
 
@@ -102,7 +102,7 @@ export default async function DashboardPage() {
                 stats.recentQuotes.map((quote) => (
                   <tr key={quote.id} className="hover:bg-gray-50">
                     <td className="table-cell font-medium">{quote.quoteNumber}</td>
-                    <td className="table-cell">{quote.customer?.name || '-'}</td>
+                    <td className="table-cell">{quote.customers?.name || '-'}</td>
                     <td className="table-cell">{quote.projectName || '-'}</td>
                     <td className="table-cell">{formatCurrency(Number(quote.total))}</td>
                     <td className="table-cell">
