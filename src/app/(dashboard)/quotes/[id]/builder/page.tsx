@@ -68,8 +68,8 @@ interface Quote {
     id: number;
     name: string;
     company: string | null;
-    clientType?: { id: string; name: string } | null;
-    clientTier?: { id: string; name: string } | null;
+    client_types?: { id: string; name: string } | null;
+    client_tiers?: { id: string; name: string } | null;
   } | null;
   priceBook?: { id: string; name: string } | null;
   rooms: QuoteRoom[];

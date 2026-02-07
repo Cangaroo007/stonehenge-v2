@@ -223,7 +223,7 @@ export function compareSnapshots(
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
   // Compare top-level fields
-  const topLevelFields = ['status', 'clientType', 'clientTier', 'notes', 'projectName', 'projectAddress'] as const;
+  const topLevelFields = ['status', 'client_types', 'client_tiers', 'notes', 'projectName', 'projectAddress'] as const;
   for (const field of topLevelFields) {
     if (oldSnapshot[field] !== newSnapshot[field]) {
       changes[field] = { old: oldSnapshot[field], new: newSnapshot[field] };
@@ -393,8 +393,8 @@ export function generateDetailedChangeSummary(
   // Compare top-level fields
   const fieldMap: Array<{ key: keyof QuoteSnapshot; label: string }> = [
     { key: 'status', label: 'Status' },
-    { key: 'clientType', label: 'Client Type' },
-    { key: 'clientTier', label: 'Client Tier' },
+    { key: 'client_types', label: 'Client Type' },
+    { key: 'client_tiers', label: 'Client Tier' },
     { key: 'notes', label: 'Notes' },
     { key: 'projectName', label: 'Project Name' },
     { key: 'projectAddress', label: 'Project Address' },

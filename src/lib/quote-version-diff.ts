@@ -107,10 +107,10 @@ export function generateDetailedChangeSummary(
   const piecesModified: PieceModification[] = [];
 
   // Compare top-level fields
-  const fieldMap: Array<{ key: keyof Pick<SnapshotForDiff, 'status' | 'clientType' | 'clientTier' | 'notes' | 'projectName' | 'projectAddress'>; label: string }> = [
+  const fieldMap: Array<{ key: keyof Pick<SnapshotForDiff, 'status' | 'client_types' | 'client_tiers' | 'notes' | 'projectName' | 'projectAddress'>; label: string }> = [
     { key: 'status', label: 'Status' },
-    { key: 'clientType', label: 'Client Type' },
-    { key: 'clientTier', label: 'Client Tier' },
+    { key: 'client_types', label: 'Client Type' },
+    { key: 'client_tiers', label: 'Client Tier' },
     { key: 'notes', label: 'Notes' },
     { key: 'projectName', label: 'Project Name' },
     { key: 'projectAddress', label: 'Project Address' },

@@ -307,7 +307,7 @@ export async function calculateQuotePrice(
   for (const ct of cutoutTypes) {
     cutoutTypeMap.set(ct.id, ct);
   }
-  const fabricationDiscountPct = extractFabricationDiscount(quote.customer?.clientTier);
+  const fabricationDiscountPct = extractFabricationDiscount(quote.customer?.client_tiers);
 
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
   for (const piece of allPieces) {
@@ -960,8 +960,8 @@ function findCutoutByName(
  * The discountMatrix JSON is expected to contain a fabricationDiscount field (as a percentage, e.g. 10 for 10%).
  */
 function extractFabricationDiscount(client_tiers: { discountMatrix: unknown } | null | undefined): number {
-  if (!clientTier?.discountMatrix) return 0;
-  const matrix = clientTier.discountMatrix as unknown as Record<string, unknown>;
+  if (!client_tiers?.discountMatrix) return 0;
+  const matrix = client_tiers.discountMatrix as unknown as Record<string, unknown>;
   const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? matrix.discount ?? 0;
   return typeof discount === 'number' ? discount : 0;
 }

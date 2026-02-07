@@ -14,8 +14,8 @@ interface Customer {
   id: number;
   name: string;
   company: string | null;
-  clientTier?: { id: number; name: string } | null;
-  clientType?: { id: number; name: string } | null;
+  client_tiers?: { id: number; name: string } | null;
+  client_types?: { id: number; name: string } | null;
 }
 
 interface Material {

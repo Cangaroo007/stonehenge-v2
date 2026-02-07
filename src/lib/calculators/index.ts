@@ -386,7 +386,7 @@ export class QuoteCalculator {
   // ============================================================================
 
   private extractFabricationDiscount(): number {
-    const tier = this.quoteData?.customer?.clientTier;
+    const tier = this.quoteData?.customer?.client_tiers;
     if (!tier?.discountMatrix) return 0;
 
     const matrix = tier.discountMatrix as Record<string, unknown>;
