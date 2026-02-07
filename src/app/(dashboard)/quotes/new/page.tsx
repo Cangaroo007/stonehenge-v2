@@ -10,8 +10,8 @@ async function getData() {
     prisma.customers.findMany({
       orderBy: { name: 'asc' },
       include: {
-        clientTier: true,
-        clientType: true,
+        client_tiers: true,
+        client_types: true,
       },
     }),
     prisma.materials.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),

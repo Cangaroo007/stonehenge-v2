@@ -230,11 +230,11 @@ export async function calculateQuotePrice(
     include: {
       customer: {
         include: {
-          clientType: true,
-          clientTier: true,
+          client_types: true,
+          client_tiers: true,
         },
       },
-      priceBook: true,
+      price_books: true,
       deliveryZone: true,
       rooms: {
         include: {
@@ -243,7 +243,7 @@ export async function calculateQuotePrice(
               material: true,
               features: {
                 include: {
-                  featurePricing: true,
+                  feature_pricing: true,
                 },
               },
             },
@@ -449,7 +449,7 @@ export async function calculateQuotePrice(
     },
     appliedRules,
     discounts: [],
-    priceBook: priceBookInfo,
+    price_books: priceBookInfo,
     calculatedAt: new Date(),
     pricingContext,
   };
@@ -617,7 +617,7 @@ function calculateCutoutCostV2(
 function calculateServiceCosts(
   pieces: Array<{ lengthMm: number; widthMm: number; thicknessMm: number; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>,
   totalEdgeLinearMeters: number,
-  serviceRates: Array<{
+  service_rates: Array<{
     serviceType: string;
     name: string;
     rate20mm: { toNumber: () => number };
@@ -724,7 +724,7 @@ async function getApplicableRules(
       OR: conditions,
     },
     include: {
-      clientTier: true,
+      client_tiers: true,
       edgeOverrides: true,
       cutoutOverrides: true,
       materialOverrides: true,
@@ -758,7 +758,7 @@ function calculatePiecePricing(
     edgeRight: string | null;
     cutouts: unknown;
   },
-  serviceRates: Array<{
+  service_rates: Array<{
     serviceType: string;
     rate20mm: { toNumber: () => number };
     rate40mm: { toNumber: () => number };
@@ -959,7 +959,7 @@ function findCutoutByName(
  * Extract fabrication discount percentage from a client tier's discount matrix.
  * The discountMatrix JSON is expected to contain a fabricationDiscount field (as a percentage, e.g. 10 for 10%).
  */
-function extractFabricationDiscount(clientTier: { discountMatrix: unknown } | null | undefined): number {
+function extractFabricationDiscount(client_tiers: { discountMatrix: unknown } | null | undefined): number {
   if (!clientTier?.discountMatrix) return 0;
   const matrix = clientTier.discountMatrix as unknown as Record<string, unknown>;
   const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? matrix.discount ?? 0;

@@ -17,8 +17,8 @@ interface Customer {
   address: string | null;
   notes: string | null;
   createdAt: string;
-  clientType: { name: string } | null;
-  clientTier: { name: string } | null;
+  client_types: { name: string } | null;
+  client_tiers: { name: string } | null;
   defaultPriceBook: { name: string } | null;
   _count: {
     quotes: number;

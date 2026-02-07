@@ -6,8 +6,8 @@ export interface QuoteSnapshot {
   // Quote header info
   quoteNumber: string;
   status: string;
-  clientType: string | null;
-  clientTier: string | null;
+  client_types: string | null;
+  client_tiers: string | null;
   
   // Customer info
   customer: {
@@ -98,8 +98,8 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     include: {
       customer: {
         include: {
-          clientType: true,
-          clientTier: true,
+          client_types: true,
+          client_tiers: true,
         },
       },
       rooms: {
@@ -138,8 +138,8 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   return {
     quoteNumber: quote.quoteNumber,
     status: quote.status,
-    clientType: quote.customer?.clientType?.name ?? null,
-    clientTier: quote.customer?.clientTier?.name ?? null,
+    client_types: quote.customer?.clientType?.name ?? null,
+    client_tiers: quote.customer?.clientTier?.name ?? null,
     
     customer: quote.customer ? {
       id: quote.customer.id,

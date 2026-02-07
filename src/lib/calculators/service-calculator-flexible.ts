@@ -51,7 +51,7 @@ interface PieceInput {
 
 interface ServiceCalculationOptions {
   serviceUnits: ServiceUnitConfig;
-  serviceRates: ServiceRate[];
+  service_rates: ServiceRate[];
   fabricationDiscountPercent?: number;
   taxRate?: Decimal;
 }
@@ -513,7 +513,7 @@ export class FlexibleServiceCalculator {
 
 export function createServiceCalculator(
   serviceUnits: ServiceUnitConfig,
-  serviceRates: ServiceRate[],
+  service_rates: ServiceRate[],
   options?: { fabricationDiscountPercent?: number }
 ): FlexibleServiceCalculator {
   return new FlexibleServiceCalculator({

@@ -20,8 +20,8 @@ export async function GET() {
     const customers = await prisma.customers.findMany({
       orderBy: { name: 'asc' },
       include: {
-        clientType: true,
-        clientTier: true,
+        client_types: true,
+        client_tiers: true,
         defaultPriceBook: true,
       },
     });
@@ -73,8 +73,8 @@ export async function POST(request: NextRequest) {
           defaultPriceBookId: data.defaultPriceBookId || null,
         },
         include: {
-          clientType: true,
-          clientTier: true,
+          client_types: true,
+          client_tiers: true,
           defaultPriceBook: true,
         },
       });

@@ -10,8 +10,8 @@ export async function GET(
     const pricingRule = await prisma.pricing_rules.findUnique({
       where: { id },
       include: {
-        clientType: true,
-        clientTier: true,
+        client_types: true,
+        client_tiers: true,
         edgeOverrides: {
           include: { edge_types: true },
         },

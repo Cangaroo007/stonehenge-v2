@@ -46,8 +46,8 @@ export interface ChangeSummary {
 // Minimal snapshot shape needed for diffing (mirrors QuoteSnapshot from the service)
 export interface SnapshotForDiff {
   status: string;
-  clientType: string | null;
-  clientTier: string | null;
+  client_types: string | null;
+  client_tiers: string | null;
   notes: string | null;
   projectName: string | null;
   projectAddress: string | null;

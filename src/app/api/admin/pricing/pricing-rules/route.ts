@@ -6,8 +6,8 @@ export async function GET() {
     const pricingRules = await prisma.pricing_rules.findMany({
       orderBy: [{ priority: 'desc' }, { name: 'asc' }],
       include: {
-        clientType: true,
-        clientTier: true,
+        client_types: true,
+        client_tiers: true,
       },
     });
     return NextResponse.json(pricingRules);

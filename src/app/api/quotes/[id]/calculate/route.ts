@@ -39,7 +39,7 @@ import type { PricingOptions } from '@/lib/types/pricing';
  *   },
  *   appliedRules: [...],
  *   discounts: [...],
- *   priceBook: { id, name } | null,
+ *   price_books: { id, name } | null,
  *   calculatedAt: Date
  * }
  */

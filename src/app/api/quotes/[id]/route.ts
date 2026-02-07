@@ -52,7 +52,7 @@ interface CalculationData {
   breakdown: Record<string, unknown>;
   appliedRules: unknown[];
   discounts: unknown[];
-  priceBook: { id: string; name: string } | null;
+  price_books: { id: string; name: string } | null;
   calculatedAt: string;
 }
 
@@ -94,11 +94,11 @@ export async function GET(
       include: {
         customer: {
           include: {
-            clientType: true,
-            clientTier: true,
+            client_types: true,
+            client_tiers: true,
           },
         },
-        priceBook: true,
+        price_books: true,
         deliveryZone: true,
         rooms: {
           orderBy: { sortOrder: 'asc' },
@@ -173,11 +173,11 @@ export async function PUT(
         include: {
           customer: {
             include: {
-              clientType: true,
-              clientTier: true,
+              client_types: true,
+              client_tiers: true,
             },
           },
-          priceBook: true,
+          price_books: true,
         },
       });
 
@@ -201,11 +201,11 @@ export async function PUT(
         include: {
           customer: {
             include: {
-              clientType: true,
-              clientTier: true,
+              client_types: true,
+              client_tiers: true,
             },
           },
-          priceBook: true,
+          price_books: true,
         },
       });
 

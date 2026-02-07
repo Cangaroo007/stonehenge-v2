@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     let settings = await prisma.pricing_settings.findUnique({
       where: { organisationId },
       include: {
-        serviceRates: {
+        service_rates: {
           orderBy: { serviceType: 'asc' }
         },
         cutoutRates: {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
       gstRate: Number(settings.gstRate).toFixed(4),
       createdAt: settings.createdAt.toISOString(),
       updatedAt: settings.updatedAt.toISOString(),
-      serviceRates: settings.serviceRates.map(sr => ({
+      service_rates: settings.serviceRates.map(sr => ({
         ...sr,
         rate20mm: Number(sr.rate20mm),
         rate40mm: Number(sr.rate40mm),

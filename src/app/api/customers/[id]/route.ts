@@ -10,8 +10,8 @@ export async function GET(
     const customer = await prisma.customers.findUnique({
       where: { id: parseInt(id) },
       include: {
-        clientType: true,
-        clientTier: true,
+        client_types: true,
+        client_tiers: true,
         defaultPriceBook: true,
         _count: {
           select: {
@@ -55,8 +55,8 @@ export async function PUT(
         defaultPriceBookId: data.defaultPriceBookId || null,
       },
       include: {
-        clientType: true,
-        clientTier: true,
+        client_types: true,
+        client_tiers: true,
         defaultPriceBook: true,
       },
     });

@@ -37,7 +37,7 @@ export class QuoteCalculator {
   private pricingContext: PricingContext | null = null;
   private edgeTypes: EdgeTypeData[] = [];
   private cutoutTypes: CutoutTypeData[] = [];
-  private serviceRates: ServiceRateData[] = [];
+  private service_rates: ServiceRateData[] = [];
 
   private constructor(
     quoteId: QuoteId,
@@ -162,12 +162,12 @@ export class QuoteCalculator {
       include: {
         customer: {
           include: {
-            clientType: true,
-            clientTier: true,
+            client_types: true,
+            client_tiers: true,
           },
         },
         deliveryZone: true,
-        priceBook: true,
+        price_books: true,
         rooms: {
           include: {
             pieces: {
@@ -439,13 +439,13 @@ interface QuoteData {
   templatingCost: Decimal | null;
   overrideTemplatingCost: Decimal | null;
   priceBookId: string | null;
-  priceBook: { id: string; name: string } | null;
+  price_books: { id: string; name: string } | null;
   customer: {
     id: number;
     companyId?: number;
     clientTypeId: string | null;
     clientTierId: string | null;
-    clientTier: {
+    client_tiers: {
       discountMatrix: unknown;
     } | null;
   } | null;
