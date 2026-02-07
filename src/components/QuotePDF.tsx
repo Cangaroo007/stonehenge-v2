@@ -20,9 +20,9 @@ interface QuoteData {
   tax_amount: { toString(): string } | number;
   total: { toString(): string } | number;
   notes: string | null;
-  createdAt: Date;
+  created_at: Date;
   valid_until: Date | null;
-  customer: {
+  customers: {
     name: string;
     company: string | null;
     email: string | null;
@@ -35,19 +35,19 @@ interface QuoteData {
     pieces: Array<{
       id: number;
       description: string | null;
-      lengthMm: number;
-      widthMm: number;
-      thicknessMm: number;
-      areaSqm: { toString(): string } | number;
-      materialName: string | null;
-      materialCost: { toString(): string } | number;
-      featuresCost: { toString(): string } | number;
-      totalCost: { toString(): string } | number;
+      length_mm: number;
+      width_mm: number;
+      thickness_mm: number;
+      area_sqm: { toString(): string } | number;
+      material_name: string | null;
+      material_cost: { toString(): string } | number;
+      features_cost: { toString(): string } | number;
+      total_cost: { toString(): string } | number;
       piece_features: Array<{
         id: number;
         name: string;
         quantity: number;
-        totalPrice: { toString(): string } | number;
+        total_price: { toString(): string } | number;
       }>;
     }>;
   }>;
@@ -321,7 +321,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
             <Text style={styles.revisionText}>Revision {quote.revision}</Text>
           </View>
           <View style={styles.quoteTitleRight}>
-            <Text style={styles.dateText}>Date: {formatDate(quote.createdAt)}</Text>
+            <Text style={styles.dateText}>Date: {formatDate(quote.created_at)}</Text>
           </View>
         </View>
 
@@ -329,8 +329,8 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
         <View style={styles.customerSection}>
           <Text style={styles.customerLabel}>For:</Text>
           <Text style={styles.customerName}>
-            {quote.customer?.name || 'No customer specified'}
-            {quote.customer?.company ? ` - ${quote.customer.company}` : ''}
+            {quote.customers?.name || 'No customer specified'}
+            {quote.customers?.company ? ` - ${quote.customers.company}` : ''}
           </Text>
         </View>
 
@@ -414,27 +414,27 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
         </Text>
 
         {quote.rooms.map((room) => (
-          <View key={quote_rooms.id} style={styles.roomSection}>
-            <Text style={styles.roomName}>{quote_rooms.name.toUpperCase()}</Text>
-            {quote_rooms.pieces.map((piece) => (
+          <View key={room.id} style={styles.roomSection}>
+            <Text style={styles.roomName}>{room.name.toUpperCase()}</Text>
+            {room.pieces.map((piece) => (
               <View key={piece.id} style={styles.pieceRow}>
                 <Text style={styles.pieceDescription}>
                   {piece.description || 'Stone piece'}
                 </Text>
                 <Text style={styles.pieceDimensions}>
-                  {piece.lengthMm} x {piece.widthMm} x {piece.thicknessMm}mm
-                  {' '}({typeof piece.areaSqm === 'number' 
-                    ? piece.areaSqm.toFixed(2) 
-                    : parseFloat(piece.areaSqm.toString()).toFixed(2)} m2)
+                  {piece.length_mm} x {piece.width_mm} x {piece.thickness_mm}mm
+                  {' '}({typeof piece.area_sqm === 'number'
+                    ? piece.area_sqm.toFixed(2)
+                    : parseFloat(piece.area_sqm.toString()).toFixed(2)} m2)
                 </Text>
-                {piece.materialName && (
+                {piece.material_name && (
                   <Text style={styles.pieceMaterial}>
-                    Material: {piece.materialName}
+                    Material: {piece.material_name}
                   </Text>
                 )}
-                {piece.features.length > 0 && (
+                {piece.piece_features.length > 0 && (
                   <View>
-                    {piece.features.map((feature) => (
+                    {piece.piece_features.map((feature) => (
                       <Text key={feature.id} style={styles.pieceFeatures}>
                         - {feature.quantity}x {feature.name}
                       </Text>
@@ -442,7 +442,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
                   </View>
                 )}
                 <Text style={styles.pieceCost}>
-                  {formatCurrency(piece.totalCost)}
+                  {formatCurrency(piece.total_cost)}
                 </Text>
               </View>
             ))}

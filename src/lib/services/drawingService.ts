@@ -52,7 +52,7 @@ export async function getDrawingsForCustomer(customerId: number) {
     where: { customerId },
     orderBy: { uploadedAt: 'desc' },
     include: {
-      quote: {
+      quotes: {
         select: {
           id: true,
           quote_number: true,
@@ -125,15 +125,15 @@ export async function getDrawingById(drawingId: string) {
   return prisma.drawings.findUnique({
     where: { id: drawingId },
     include: {
-      quote: {
+      quotes: {
         select: {
           id: true,
           quote_number: true,
           status: true,
-          customerId: true,
+          customer_id: true,
         },
       },
-      customer: {
+      customers: {
         select: {
           id: true,
           name: true,

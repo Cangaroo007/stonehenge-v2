@@ -75,16 +75,16 @@ export async function POST(
     // If replaceExisting, delete all existing rooms and pieces for this quote
     if (replaceExisting) {
       const existingRooms = await prisma.quote_rooms.findMany({
-        where: { quoteId },
+        where: { quote_id: quoteId },
         select: { id: true },
       });
       const roomIds = existingRooms.map(r => r.id);
       if (roomIds.length > 0) {
         await prisma.quote_pieces.deleteMany({
-          where: { roomId: { in: roomIds } },
+          where: { room_id: { in: roomIds } },
         });
         await prisma.quote_rooms.deleteMany({
-          where: { quoteId },
+          where: { quote_id: quoteId },
         });
       }
     }
@@ -99,14 +99,14 @@ export async function POST(
       piecesByRoom[roomName].push(piece);
     }
 
-    const createdPieces: { id: number; name: string; quote_rooms: string }[] = [];
+    const createdPieces: { id: number; name: string; room: string }[] = [];
 
     // Process each room
     for (const [roomName, roomPieces] of Object.entries(piecesByRoom)) {
       // Find or create the room
       let room = await prisma.quote_rooms.findFirst({
         where: {
-          quoteId,
+          quote_id: quoteId,
           name: roomName,
         },
       });
@@ -114,26 +114,26 @@ export async function POST(
       if (!room) {
         // Get the highest sort order for rooms
         const maxRoom = await prisma.quote_rooms.findFirst({
-          where: { quoteId },
-          orderBy: { sortOrder: 'desc' },
+          where: { quote_id: quoteId },
+          orderBy: { sort_order: 'desc' },
         });
 
         room = await prisma.quote_rooms.create({
           data: {
-            quoteId,
+            quote_id: quoteId,
             name: roomName,
-            sortOrder: (maxRoom?.sortOrder ?? -1) + 1,
+            sort_order: (maxRoom?.sort_order ?? -1) + 1,
           },
         });
       }
 
       // Get the highest piece sort order in the room
       const maxPiece = await prisma.quote_pieces.findFirst({
-        where: { roomId: quote_rooms.id },
-        orderBy: { sortOrder: 'desc' },
+        where: { room_id: room.id },
+        orderBy: { sort_order: 'desc' },
       });
 
-      let sortOrder = (maxPiece?.sortOrder ?? -1) + 1;
+      let sortOrder = (maxPiece?.sort_order ?? -1) + 1;
 
       // Create each piece
       for (const pieceData of roomPieces) {
@@ -146,30 +146,30 @@ export async function POST(
 
         const piece = await prisma.quote_pieces.create({
           data: {
-            roomId: quote_rooms.id,
+            room_id: room.id,
             name: pieceData.name,
             description: pieceData.notes || null,
-            lengthMm,
-            widthMm,
-            thicknessMm,
-            areaSqm,
-            materialId: null,
-            materialName: pieceData.material || null,
-            materialCost: 0,
-            totalCost: 0,
-            sortOrder: sortOrder++,
+            length_mm: lengthMm,
+            width_mm: widthMm,
+            thickness_mm: thicknessMm,
+            area_sqm: areaSqm,
+            material_id: null,
+            material_name: pieceData.material || null,
+            material_cost: 0,
+            total_cost: 0,
+            sort_order: sortOrder++,
             cutouts: [],
-            edgeTop: pieceData.edgeTop || defaultEdgeId,
-            edgeBottom: pieceData.edgeBottom || null,
-            edgeLeft: pieceData.edgeLeft || defaultEdgeId,
-            edgeRight: pieceData.edgeRight || null,
+            edge_top: pieceData.edgeTop || defaultEdgeId,
+            edge_bottom: pieceData.edgeBottom || null,
+            edge_left: pieceData.edgeLeft || defaultEdgeId,
+            edge_right: pieceData.edgeRight || null,
           },
         });
 
         createdPieces.push({
           id: piece.id,
           name: piece.name,
-          quote_rooms: roomName,
+          room: roomName,
         });
       }
     }
@@ -178,10 +178,10 @@ export async function POST(
     if (sourceAnalysisId) {
       const analysisId = parseInt(sourceAnalysisId);
       if (!isNaN(analysisId)) {
-        await prisma.quote_drawing_analysis.update({
+        await prisma.quote_drawing_analyses.update({
           where: { id: analysisId },
           data: {
-            importedPieces: createdPieces.map(p => p.id.toString()),
+            imported_pieces: createdPieces.map(p => p.id.toString()),
           },
         });
       }

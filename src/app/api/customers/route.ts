@@ -71,6 +71,7 @@ export async function POST(request: NextRequest) {
           client_type_id: data.clientTypeId || null,
           client_tier_id: data.clientTierId || null,
           default_price_book_id: data.defaultPriceBookId || null,
+          updated_at: new Date(),
         },
         include: {
           client_types: true,
@@ -96,6 +97,7 @@ export async function POST(request: NextRequest) {
             customer_user_role: data.customerUserRole as CustomerUserRole || CustomerUserRole.CUSTOMER_ADMIN,
             customer_id: customer.id,
             is_active: true,
+            updated_at: new Date(),
           },
         });
       }

@@ -24,6 +24,7 @@ export async function POST(request: NextRequest) {
         description: data.description || null,
         price_per_sqm: data.pricePerSqm,
         is_active: data.isActive ?? true,
+        updated_at: new Date(),
       },
     });
 

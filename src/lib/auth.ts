@@ -75,7 +75,7 @@ export async function getCurrentUser(): Promise<UserPayload | null> {
 }
 
 export async function login(email: string, password: string): Promise<{ success: boolean; error?: string; role?: string }> {
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { email },
   });
 
@@ -84,11 +84,11 @@ export async function login(email: string, password: string): Promise<{ success:
   }
 
   // Check if user is active
-  if (!user.isActive) {
+  if (!user.is_active) {
     return { success: false, error: 'Account is deactivated' };
   }
 
-  const valid = await verifyPassword(password, user.passwordHash);
+  const valid = await verifyPassword(password, user.password_hash);
   if (!valid) {
     return { success: false, error: 'Invalid email or password' };
   }
@@ -98,15 +98,15 @@ export async function login(email: string, password: string): Promise<{ success:
     email: user.email,
     name: user.name,
     role: user.role,
-    customerId: user.customerId,
+    customerId: user.customer_id,
   });
 
   await setAuthCookie(token);
-  
+
   // Update last login timestamp
-  await prisma.users.update({
+  await prisma.user.update({
     where: { id: user.id },
-    data: { lastLoginAt: new Date() },
+    data: { last_login_at: new Date() },
   });
   
   return { success: true, role: user.role };
@@ -135,20 +135,20 @@ export async function requireAuth(
     return { error: 'Unauthorized: Invalid token', status: 401 };
   }
   
-  // Get full user details including companyId
-  const fullUser = await prisma.users.findUnique({
+  // Get full user details including company_id
+  const fullUser = await prisma.user.findUnique({
     where: { id: user.id },
     select: {
       id: true,
       email: true,
       name: true,
       role: true,
-      companyId: true,
-      customerId: true,
+      company_id: true,
+      customer_id: true,
     },
   });
 
-  if (!fullUser || !fullUser.companyId) {
+  if (!fullUser || !fullUser.company_id) {
     return { error: 'User not found or no company assigned', status: 403 };
   }
   
@@ -159,14 +159,14 @@ export async function requireAuth(
     }
   }
   
-  return { 
+  return {
     user: {
       id: fullUser.id,
       email: fullUser.email,
       name: fullUser.name,
       role: fullUser.role,
-      companyId: fullUser.companyId,
-      customerId: fullUser.customerId,
+      companyId: fullUser.company_id,
+      customerId: fullUser.customer_id,
     }
   };
 }

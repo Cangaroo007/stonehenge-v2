@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
         is_active: true,
         invited_by: currentUser.id,
         invited_at: new Date(),
+        updated_at: new Date(),
       },
       include: {
         customers: {

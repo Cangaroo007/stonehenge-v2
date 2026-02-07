@@ -121,7 +121,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (!quote.customerId) {
+    if (!quote.customer_id) {
       console.error('[Unified Upload] ❌ Quote has no customer:', quoteId);
       return NextResponse.json(
         { error: 'Quote has no customer assigned' },
@@ -131,14 +131,14 @@ export async function POST(request: NextRequest) {
 
     console.log('[Unified Upload] ✅ Quote verified:', {
       quoteId: quote.id,
-      customerId: quote.customerId,
+      customerId: quote.customer_id,
       created_by: quote.created_by,
     });
 
     // STEP 6: Generate storage key
     const fileExtension = file.name.split('.').pop() || 'bin';
     const uniqueId = uuidv4();
-    const storageKey = `drawings/${quote.customerId}/${quoteId}/${uniqueId}.${fileExtension}`;
+    const storageKey = `drawings/${quote.customer_id}/${quoteId}/${uniqueId}.${fileExtension}`;
     
     console.log('[Unified Upload] Generated storage key:', storageKey);
 
@@ -161,12 +161,13 @@ export async function POST(request: NextRequest) {
     
     const drawing = await prisma.drawings.create({
       data: {
+        id: uniqueId,
         filename: file.name,
         storageKey,
         mimeType: file.type,
         fileSize: file.size,
         quoteId,
-        customerId: quote.customerId,
+        customerId: quote.customer_id,
         isPrimary: false,
         // analysisData omitted (defaults to null in DB)
       },

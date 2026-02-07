@@ -74,18 +74,18 @@ export interface ServiceBreakdown {
  */
 export async function loadPricingContext(organisationId: string): Promise<PricingContext> {
   const settings = await prisma.pricing_settings.findUnique({
-    where: { organisationId },
+    where: { organisation_id: organisationId },
   });
 
   if (settings) {
     return {
-      organisationId: settings.organisationId,
-      materialPricingBasis: settings.materialPricingBasis,
-      cuttingUnit: settings.cuttingUnit,
-      polishingUnit: settings.polishingUnit,
-      installationUnit: settings.installationUnit,
+      organisationId: settings.organisation_id,
+      materialPricingBasis: settings.material_pricing_basis,
+      cuttingUnit: settings.cutting_unit,
+      polishingUnit: settings.polishing_unit,
+      installationUnit: settings.installation_unit,
       currency: settings.currency,
-      gstRate: Number(settings.gstRate),
+      gstRate: Number(settings.gst_rate),
     };
   }
 
@@ -108,13 +108,13 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
  */
 export function calculateMaterialCost(
   pieces: Array<{
-    lengthMm: number;
-    widthMm: number;
-    thicknessMm: number;
+    length_mm: number;
+    width_mm: number;
+    thickness_mm: number;
     materials: {
-      pricePerSqm: { toNumber: () => number };
-      pricePerSlab?: { toNumber: () => number } | null;
-      pricePerSquareMetre?: { toNumber: () => number } | null;
+      price_per_sqm: { toNumber: () => number };
+      price_per_slab?: { toNumber: () => number } | null;
+      price_per_square_metre?: { toNumber: () => number } | null;
     } | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
   }>,

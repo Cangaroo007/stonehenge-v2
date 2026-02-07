@@ -6,12 +6,12 @@ import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
-    
+
     const rates = await prisma.service_rates.findMany({
-      include: { pricingSettings: true },
+      include: { pricing_settings: true },
       orderBy: { serviceType: 'asc' }
     });
-    
+
     return NextResponse.json(rates);
   } catch (error: any) {
     console.error('Error fetching service rates:', error);
@@ -26,9 +26,9 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     await requireAuth(request, ['ADMIN']);
-    
+
     const body = await request.json();
-    
+
     // Validate required fields
     if (!body.serviceType || !body.name || !body.rate20mm || !body.rate40mm || !body.pricingSettingsId) {
       return NextResponse.json(
@@ -39,17 +39,19 @@ export async function POST(request: NextRequest) {
 
     const rate = await prisma.service_rates.create({
       data: {
-        pricingSettingsId: body.pricingSettingsId,
+        id: crypto.randomUUID(),
+        pricing_settings_id: body.pricingSettingsId,
         serviceType: body.serviceType,
         name: body.name,
         description: body.description || null,
         rate20mm: body.rate20mm,
         rate40mm: body.rate40mm,
         minimumCharge: body.minimumCharge || null,
-        isActive: body.isActive !== undefined ? body.isActive : true
+        isActive: body.isActive !== undefined ? body.isActive : true,
+        updated_at: new Date(),
       }
     });
-    
+
     return NextResponse.json(rate, { status: 201 });
   } catch (error: any) {
     console.error('Error creating service rate:', error);

@@ -171,7 +171,7 @@ export async function PUT(
           total: grandTotal,
         },
         include: {
-          customer: {
+          customers: {
             include: {
               client_types: true,
               client_tiers: true,
@@ -199,7 +199,7 @@ export async function PUT(
           status: data.status,
         },
         include: {
-          customer: {
+          customers: {
             include: {
               client_types: true,
               client_tiers: true,
@@ -223,27 +223,27 @@ export async function PUT(
     if (data.rooms) {
       // Delete existing rooms (cascade deletes pieces and features)
       await prisma.quote_rooms.deleteMany({
-        where: { quoteId },
+        where: { quote_id: quoteId },
       });
 
       // Handle drawing analysis - upsert or delete
       if (data.drawingAnalysis) {
-        await prisma.quote_drawing_analysis.upsert({
-          where: { quoteId },
+        await prisma.quote_drawing_analyses.upsert({
+          where: { quote_id: quoteId },
           create: {
-            quoteId,
+            quote_id: quoteId,
             filename: data.drawingAnalysis.filename,
-            analyzedAt: new Date(data.drawingAnalysis.analyzedAt),
-            drawingType: data.drawingAnalysis.drawingType,
-            rawResults: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
+            analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
+            drawing_type: data.drawingAnalysis.drawingType,
+            raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
             metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
-            importedPieces: [],
+            imported_pieces: [],
           },
           update: {
             filename: data.drawingAnalysis.filename,
-            analyzedAt: new Date(data.drawingAnalysis.analyzedAt),
-            drawingType: data.drawingAnalysis.drawingType,
-            rawResults: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
+            analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
+            drawing_type: data.drawingAnalysis.drawingType,
+            raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
             metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
           },
         });
@@ -253,52 +253,42 @@ export async function PUT(
       const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: {
-          customerId: data.customerId,
-          project_name: data.project_name,
-          project_address: data.project_address,
+          customer_id: data.customerId,
+          project_name: data.projectName,
+          project_address: data.projectAddress,
           status: data.status,
           subtotal: data.subtotal,
-          tax_rate: data.tax_rate,
-          tax_amount: data.tax_amount,
+          tax_rate: data.taxRate,
+          tax_amount: data.taxAmount,
           total: data.total,
           notes: data.notes,
-          // Delivery & Templating
-          deliveryAddress: data.deliveryAddress,
-          deliveryDistanceKm: data.deliveryDistanceKm,
-          deliveryZoneId: data.deliveryZoneId,
-          deliveryCost: data.deliveryCost,
-          overrideDeliveryCost: data.overrideDeliveryCost,
-          templatingRequired: data.templatingRequired,
-          templatingDistanceKm: data.templatingDistanceKm,
-          templatingCost: data.templatingCost,
-          overrideTemplatingCost: data.overrideTemplatingCost,
-          rooms: {
-            create: data.rooms.map((quote_rooms: RoomData) => ({
-              name: quote_rooms.name,
-              sortOrder: quote_rooms.sortOrder,
-              pieces: {
-                create: quote_rooms.pieces.map((piece: PieceData) => ({
+          quote_rooms: {
+            create: data.rooms.map((room: RoomData) => ({
+              name: room.name,
+              sort_order: room.sortOrder,
+              quote_pieces: {
+                create: room.pieces.map((piece: PieceData) => ({
                   description: piece.description,
-                  lengthMm: piece.lengthMm,
-                  widthMm: piece.widthMm,
-                  thicknessMm: piece.thicknessMm,
-                  materialId: piece.materialId,
-                  materialName: piece.materialName,
-                  areaSqm: piece.areaSqm,
-                  materialCost: piece.materialCost,
-                  featuresCost: piece.featuresCost,
-                  totalCost: piece.totalCost,
-                  sortOrder: piece.sortOrder,
-                  edgeTop: piece.edgeTop,
-                  edgeBottom: piece.edgeBottom,
-                  edgeLeft: piece.edgeLeft,
-                  edgeRight: piece.edgeRight,
+                  length_mm: piece.lengthMm,
+                  width_mm: piece.widthMm,
+                  thickness_mm: piece.thicknessMm,
+                  material_id: piece.materialId,
+                  material_name: piece.materialName,
+                  area_sqm: piece.areaSqm,
+                  material_cost: piece.materialCost,
+                  features_cost: piece.featuresCost,
+                  total_cost: piece.totalCost,
+                  sort_order: piece.sortOrder,
+                  edge_top: piece.edgeTop,
+                  edge_bottom: piece.edgeBottom,
+                  edge_left: piece.edgeLeft,
+                  edge_right: piece.edgeRight,
                   piece_features: {
-                    create: piece.features.map((feature: FeatureData) => ({
+                    create: piece.piece_features.map((feature: FeatureData) => ({
                       name: feature.name,
                       quantity: feature.quantity,
-                      unitPrice: feature.unitPrice,
-                      totalPrice: feature.totalPrice,
+                      unit_price: feature.unitPrice,
+                      total_price: feature.totalPrice,
                     })),
                   },
                 })),

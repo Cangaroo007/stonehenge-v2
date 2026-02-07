@@ -38,7 +38,7 @@ export async function saveTierPriceList(
   const updatedTier = await prisma.client_tiers.update({
     where: { id: tierId },
     data: {
-      customPriceList: customPriceListData,
+      custom_price_list: customPriceListData,
     },
   });
 

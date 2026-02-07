@@ -72,7 +72,7 @@ export class FlexibleServiceCalculator {
 
   constructor(options: ServiceCalculationOptions) {
     this.options = options;
-    this.rateMap = new Map(options.serviceRates.map(r => [r.serviceType, r]));
+    this.rateMap = new Map(options.service_rates.map(r => [r.serviceType, r]));
   }
 
   /**
@@ -518,7 +518,7 @@ export function createServiceCalculator(
 ): FlexibleServiceCalculator {
   return new FlexibleServiceCalculator({
     serviceUnits,
-    serviceRates,
+    service_rates,
     fabricationDiscountPercent: options?.fabricationDiscountPercent,
   });
 }
