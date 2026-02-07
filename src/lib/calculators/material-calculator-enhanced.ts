@@ -106,8 +106,8 @@ export class EnhancedMaterialCalculator {
         return this.createPieceCost(piece.pieceId, areaSqm, piece.overrideMaterialCost, true);
       }
 
-      const pricePerSqm = piece.material?.pricePerSquareMetre 
-        ?? piece.material?.pricePerSqm 
+      const pricePerSqm = piece.materials?.pricePerSquareMetre 
+        ?? piece.materials?.pricePerSqm 
         ?? new Decimal(0);
 
       const totalCost = areaSqm.times(pricePerSqm);
@@ -136,8 +136,8 @@ export class EnhancedMaterialCalculator {
         return this.createPieceCost(piece.pieceId, areaSqm, piece.overrideMaterialCost, true);
       }
 
-      const pricePerSqm = piece.material?.pricePerSquareMetre 
-        ?? piece.material?.pricePerSqm 
+      const pricePerSqm = piece.materials?.pricePerSquareMetre 
+        ?? piece.materials?.pricePerSqm 
         ?? new Decimal(0);
 
       // Apply wastage factor
@@ -179,9 +179,9 @@ export class EnhancedMaterialCalculator {
       }
 
       // For whole slab pricing, we distribute the slab cost proportionally
-      const slabPrice = piece.material?.pricePerSlab ?? new Decimal(0);
-      const pricePerSqm = piece.material?.pricePerSquareMetre 
-        ?? piece.material?.pricePerSqm 
+      const slabPrice = piece.materials?.pricePerSlab ?? new Decimal(0);
+      const pricePerSqm = piece.materials?.pricePerSquareMetre 
+        ?? piece.materials?.pricePerSqm 
         ?? new Decimal(0);
 
       // Calculate effective rate

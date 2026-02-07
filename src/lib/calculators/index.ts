@@ -200,7 +200,7 @@ export class QuoteCalculator {
 
     this.edgeTypes = edgeTypes as EdgeTypeData[];
     this.cutoutTypes = cutoutTypes as CutoutTypeData[];
-    this.serviceRates = serviceRates as ServiceRateData[];
+    this.service_rates = serviceRates as ServiceRateData[];
   }
 
   private async loadPricingContext(organisationId: string): Promise<PricingContext> {
@@ -261,7 +261,7 @@ export class QuoteCalculator {
     }
 
     const pieces = this.quoteData.rooms.flatMap(room =>
-      quote_rooms.pieces.map(piece => ({
+      room.pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
         thicknessMm: piece.thicknessMm,
         dimensions: {
@@ -359,7 +359,7 @@ export class QuoteCalculator {
     }
 
     // Load rules from database
-    const rules = await prisma.pricing_rules.findMany({
+    const rules = await prisma.pricing_rules_engine.findMany({
       where: {
         isActive: true,
         OR: [
@@ -387,9 +387,9 @@ export class QuoteCalculator {
 
   private extractFabricationDiscount(): number {
     const tier = this.quoteData?.customer?.client_tiers;
-    if (!tier?.discountMatrix) return 0;
+    if (!tier?.discount_matrix) return 0;
 
-    const matrix = tier.discountMatrix as Record<string, unknown>;
+    const matrix = tier.discount_matrix as Record<string, unknown>;
     const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? 0;
     return typeof discount === 'number' ? discount : 0;
   }
@@ -446,7 +446,7 @@ interface QuoteData {
     clientTypeId: string | null;
     clientTierId: string | null;
     client_tiers: {
-      discountMatrix: unknown;
+      discount_matrix: unknown;
     } | null;
   } | null;
   rooms: Array<{
