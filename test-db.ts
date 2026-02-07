@@ -6,7 +6,7 @@ async function main() {
   const quotes = await prisma.quotes.findMany()
   console.log("Quotes:", quotes)
   
-  const users = await prisma.users.findMany()
+  const users = await prisma.user.findMany()
   console.log("Users:", users)
 }
 
