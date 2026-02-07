@@ -96,17 +96,17 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   const quote = await prisma.quotes.findUnique({
     where: { id: quoteId },
     include: {
-      customer: {
+      customers: {
         include: {
           client_types: true,
           client_tiers: true,
         },
       },
-      rooms: {
-        orderBy: { sortOrder: 'asc' },
+      quote_rooms: {
+        orderBy: { sort_order: 'asc' },
         include: {
-          pieces: {
-            orderBy: { sortOrder: 'asc' },
+          quote_pieces: {
+            orderBy: { sort_order: 'asc' },
             include: {
               piece_features: true,
               materials: true,
@@ -123,14 +123,14 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
 
   // Get the most common material if there is one
   let commonMaterial: { id: number; name: string; pricePerSqm: number } | null = null;
-  const materials = quote.rooms.flatMap(r => r.pieces.map(p => p.material).filter(Boolean));
-  if (materials.length > 0) {
-    const firstMaterial = materials[0];
+  const allMaterials = quote.quote_rooms.flatMap(r => r.quote_pieces.map(p => p.materials).filter(Boolean));
+  if (allMaterials.length > 0) {
+    const firstMaterial = allMaterials[0];
     if (firstMaterial) {
       commonMaterial = {
         id: firstMaterial.id,
         name: firstMaterial.name,
-        pricePerSqm: Number(firstMaterial.pricePerSqm),
+        pricePerSqm: Number(firstMaterial.price_per_sqm),
       };
     }
   }
@@ -138,45 +138,45 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   return {
     quote_number: quote.quote_number,
     status: quote.status,
-    client_types: quote.customer?.client_types?.name ?? null,
-    client_tiers: quote.customer?.client_tiers?.name ?? null,
-    
-    customer: quote.customer ? {
-      id: quote.customer.id,
-      name: quote.customer.name,
-      email: quote.customer.email,
-      phone: quote.customer.phone,
+    client_types: quote.customers?.client_types?.name ?? null,
+    client_tiers: quote.customers?.client_tiers?.name ?? null,
+
+    customer: quote.customers ? {
+      id: quote.customers.id,
+      name: quote.customers.name,
+      email: quote.customers.email,
+      phone: quote.customers.phone,
     } : null,
     
     materials: commonMaterial,
     
-    rooms: quote.rooms.map((room) => ({
-      id: quote_rooms.id,
-      name: quote_rooms.name,
-      sortOrder: quote_rooms.sortOrder,
-      pieces: quote_rooms.pieces.map((piece) => ({
+    rooms: quote.quote_rooms.map((room) => ({
+      id: room.id,
+      name: room.name,
+      sortOrder: room.sort_order,
+      pieces: room.quote_pieces.map((piece) => ({
         id: piece.id,
         name: piece.name,
-        widthMm: piece.widthMm,
-        lengthMm: piece.lengthMm,
-        thicknessMm: piece.thicknessMm,
-        areaSqm: Number(piece.areaSqm),
-        materialId: piece.materialId,
-        materialName: piece.materialName,
-        materialCost: Number(piece.materialCost),
-        featuresCost: Number(piece.featuresCost),
-        totalCost: Number(piece.totalCost),
-        edgeTop: piece.edgeTop,
-        edgeBottom: piece.edgeBottom,
-        edgeLeft: piece.edgeLeft,
-        edgeRight: piece.edgeRight,
+        widthMm: piece.width_mm,
+        lengthMm: piece.length_mm,
+        thicknessMm: piece.thickness_mm,
+        areaSqm: Number(piece.area_sqm),
+        materialId: piece.material_id,
+        materialName: piece.material_name,
+        materialCost: Number(piece.material_cost),
+        featuresCost: Number(piece.features_cost),
+        totalCost: Number(piece.total_cost),
+        edgeTop: piece.edge_top,
+        edgeBottom: piece.edge_bottom,
+        edgeLeft: piece.edge_left,
+        edgeRight: piece.edge_right,
         cutouts: piece.cutouts,
-        piece_features: piece.features.map((f) => ({
+        piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,
           quantity: f.quantity,
-          unitPrice: Number(f.unitPrice),
-          totalPrice: Number(f.totalPrice),
+          unitPrice: Number(f.unit_price),
+          totalPrice: Number(f.total_price),
         })),
       })),
     })),
@@ -223,7 +223,7 @@ export function compareSnapshots(
   const changes: Record<string, { old: unknown; new: unknown }> = {};
 
   // Compare top-level fields
-  const topLevelFields = ['status', 'client_types', 'client_tiers', 'notes', 'projectName', 'projectAddress'] as const;
+  const topLevelFields = ['status', 'client_types', 'client_tiers', 'notes', 'project_name', 'project_address'] as const;
   for (const field of topLevelFields) {
     if (oldSnapshot[field] !== newSnapshot[field]) {
       changes[field] = { old: oldSnapshot[field], new: newSnapshot[field] };
@@ -239,15 +239,15 @@ export function compareSnapshots(
   }
 
   // Compare material
-  if (oldSnapshot.material?.id !== newSnapshot.material?.id) {
-    changes['material'] = { 
-      old: oldSnapshot.material?.name ?? null, 
-      new: newSnapshot.material?.name ?? null 
+  if (oldSnapshot.materials?.id !== newSnapshot.materials?.id) {
+    changes['material'] = {
+      old: oldSnapshot.materials?.name ?? null,
+      new: newSnapshot.materials?.name ?? null
     };
   }
 
   // Compare pricing
-  const pricingFields = ['subtotal', 'taxAmount', 'total'] as const;
+  const pricingFields = ['subtotal', 'tax_amount', 'total'] as const;
   for (const field of pricingFields) {
     if (oldSnapshot.pricing[field] !== newSnapshot.pricing[field]) {
       changes[`pricing.${field}`] = { 
@@ -396,8 +396,8 @@ export function generateDetailedChangeSummary(
     { key: 'client_types', label: 'Client Type' },
     { key: 'client_tiers', label: 'Client Tier' },
     { key: 'notes', label: 'Notes' },
-    { key: 'projectName', label: 'Project Name' },
-    { key: 'projectAddress', label: 'Project Address' },
+    { key: 'project_name', label: 'Project Name' },
+    { key: 'project_address', label: 'Project Address' },
   ];
 
   for (const { key, label } of fieldMap) {
@@ -417,19 +417,19 @@ export function generateDetailedChangeSummary(
   }
 
   // Compare material
-  if (oldSnapshot.material?.id !== newSnapshot.material?.id) {
+  if (oldSnapshot.materials?.id !== newSnapshot.materials?.id) {
     fieldChanges.push({
       field: 'material',
       label: 'Material',
-      oldValue: oldSnapshot.material?.name ?? '(none)',
-      newValue: newSnapshot.material?.name ?? '(none)',
+      oldValue: oldSnapshot.materials?.name ?? '(none)',
+      newValue: newSnapshot.materials?.name ?? '(none)',
     });
   }
 
   // Compare pricing
   const pricingFields: Array<{ key: keyof QuoteSnapshot['pricing']; label: string }> = [
     { key: 'subtotal', label: 'Subtotal' },
-    { key: 'taxAmount', label: 'Tax Amount' },
+    { key: 'tax_amount', label: 'Tax Amount' },
     { key: 'total', label: 'Total' },
     { key: 'deliveryCost', label: 'Delivery Cost' },
     { key: 'templatingCost', label: 'Templating Cost' },
@@ -470,10 +470,10 @@ export function generateDetailedChangeSummary(
   const newPieces = new Map<number, { name: string; quote_rooms: string; widthMm: number; lengthMm: number; thicknessMm: number; materialName: string | null; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>();
 
   for (const room of oldSnapshot.rooms) {
-    for (const piece of quote_rooms.pieces) {
+    for (const piece of room.pieces) {
       oldPieces.set(piece.id, {
         name: piece.name,
-        quote_rooms: quote_rooms.name,
+        quote_rooms: room.name,
         widthMm: piece.widthMm,
         lengthMm: piece.lengthMm,
         thicknessMm: piece.thicknessMm,
@@ -487,10 +487,10 @@ export function generateDetailedChangeSummary(
   }
 
   for (const room of newSnapshot.rooms) {
-    for (const piece of quote_rooms.pieces) {
+    for (const piece of room.pieces) {
       newPieces.set(piece.id, {
         name: piece.name,
-        quote_rooms: quote_rooms.name,
+        quote_rooms: room.name,
         widthMm: piece.widthMm,
         lengthMm: piece.lengthMm,
         thicknessMm: piece.thicknessMm,
@@ -512,7 +512,7 @@ export function generateDetailedChangeSummary(
       const p = newPieces.get(id)!;
       piecesAdded.push({
         name: p.name,
-        quote_rooms: p.room,
+        quote_rooms: p.quote_rooms,
         dimensions: `${p.widthMm} × ${p.lengthMm}mm`,
       });
     }
@@ -524,7 +524,7 @@ export function generateDetailedChangeSummary(
       const p = oldPieces.get(id)!;
       piecesRemoved.push({
         name: p.name,
-        quote_rooms: p.room,
+        quote_rooms: p.quote_rooms,
         dimensions: `${p.widthMm} × ${p.lengthMm}mm`,
       });
     }
@@ -553,7 +553,7 @@ export function generateDetailedChangeSummary(
       if (oldP.edgeRight !== newP.edgeRight) changes.push(`Right edge: ${oldP.edgeRight ?? 'none'} → ${newP.edgeRight ?? 'none'}`);
 
       if (changes.length > 0) {
-        piecesModified.push({ name: newP.name, quote_rooms: newP.room, changes });
+        piecesModified.push({ name: newP.name, quote_rooms: newP.quote_rooms, changes });
       }
     }
   }
@@ -586,14 +586,14 @@ export async function createQuoteVersion(
   // Get the quote's current version number
   const quote = await prisma.quotes.findUnique({
     where: { id: quoteId },
-    select: { currentVersion: true },
+    select: { revision: true },
   });
 
   if (!quote) {
     throw new Error(`Quote ${quoteId} not found`);
   }
 
-  const newVersionNumber = quote.currentVersion + 1;
+  const newVersionNumber = quote.revision + 1;
 
   // Calculate changes if we have a previous snapshot
   let changes: Record<string, { old: unknown; new: unknown }> | null = null;
@@ -632,7 +632,7 @@ export async function createQuoteVersion(
     }),
     prisma.quotes.update({
       where: { id: quoteId },
-      data: { currentVersion: newVersionNumber },
+      data: { revision: newVersionNumber },
     }),
   ]);
 }
@@ -697,10 +697,10 @@ export async function rollbackToVersion(
   // Restore the quote data from snapshot (full restore including rooms/pieces)
   await prisma.$transaction(async (tx) => {
     // Delete existing rooms (cascade deletes pieces and features)
-    await tx.quoteRoom.deleteMany({ where: { quoteId } });
+    await tx.quote_rooms.deleteMany({ where: { quote_id: quoteId } });
 
     // Update quote header fields
-    await tx.quote.update({
+    await tx.quotes.update({
       where: { id: quoteId },
       data: {
         status: snapshot.status,
@@ -713,47 +713,36 @@ export async function rollbackToVersion(
         tax_amount: snapshot.pricing.tax_amount,
         total: snapshot.pricing.total,
         calculated_total: snapshot.pricing.calculated_total,
-        overrideSubtotal: snapshot.pricing.overrides.overrideSubtotal,
-        overrideTotal: snapshot.pricing.overrides.overrideTotal,
-        overrideDeliveryCost: snapshot.pricing.overrides.overrideDeliveryCost,
-        overrideTemplatingCost: snapshot.pricing.overrides.overrideTemplatingCost,
-        overrideReason: snapshot.pricing.overrides.overrideReason,
-        deliveryAddress: snapshot.delivery.deliveryAddress,
-        deliveryDistanceKm: snapshot.delivery.deliveryDistanceKm,
-        templatingRequired: snapshot.delivery.templatingRequired,
-        templatingDistanceKm: snapshot.delivery.templatingDistanceKm,
-        deliveryCost: snapshot.pricing.deliveryCost,
-        templatingCost: snapshot.pricing.templatingCost,
         valid_until: snapshot.valid_until ? new Date(snapshot.valid_until) : null,
         // Recreate rooms with pieces from snapshot
-        rooms: {
+        quote_rooms: {
           create: snapshot.rooms.map((room) => ({
-            name: quote_rooms.name,
-            sortOrder: quote_rooms.sortOrder,
-            pieces: {
-              create: quote_rooms.pieces.map((piece) => ({
+            name: room.name,
+            sort_order: room.sortOrder,
+            quote_pieces: {
+              create: room.pieces.map((piece) => ({
                 name: piece.name,
                 description: piece.name,
-                widthMm: piece.widthMm,
-                lengthMm: piece.lengthMm,
-                thicknessMm: piece.thicknessMm,
-                areaSqm: piece.areaSqm,
-                materialId: piece.materialId,
-                materialName: piece.materialName,
-                materialCost: (piece as Record<string, unknown>).materialCost as number ?? 0,
-                featuresCost: (piece as Record<string, unknown>).featuresCost as number ?? 0,
-                totalCost: (piece as Record<string, unknown>).totalCost as number ?? 0,
-                sortOrder: 0,
-                edgeTop: piece.edgeTop,
-                edgeBottom: piece.edgeBottom,
-                edgeLeft: piece.edgeLeft,
-                edgeRight: piece.edgeRight,
+                width_mm: piece.widthMm,
+                length_mm: piece.lengthMm,
+                thickness_mm: piece.thicknessMm,
+                area_sqm: piece.areaSqm,
+                material_id: piece.materialId,
+                material_name: piece.materialName,
+                material_cost: (piece as Record<string, unknown>).materialCost as number ?? 0,
+                features_cost: (piece as Record<string, unknown>).featuresCost as number ?? 0,
+                total_cost: (piece as Record<string, unknown>).totalCost as number ?? 0,
+                sort_order: 0,
+                edge_top: piece.edgeTop,
+                edge_bottom: piece.edgeBottom,
+                edge_left: piece.edgeLeft,
+                edge_right: piece.edgeRight,
                 piece_features: {
-                  create: piece.features.map((f) => ({
+                  create: piece.piece_features.map((f) => ({
                     name: f.name,
                     quantity: f.quantity,
-                    unitPrice: f.unitPrice,
-                    totalPrice: f.totalPrice,
+                    unit_price: f.unitPrice,
+                    total_price: f.totalPrice,
                   })),
                 },
               })),

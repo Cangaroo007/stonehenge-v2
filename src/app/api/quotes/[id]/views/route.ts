@@ -30,9 +30,9 @@ export async function GET(
     // Get the quote to check ownership
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
-      select: { 
+      select: {
         id: true,
-        customerId: true,
+        customer_id: true,
         created_by: true,
       },
     });
@@ -45,7 +45,7 @@ export async function GET(
     const hasAccess = 
       canViewAll || 
       quote.created_by === currentUser.id || 
-      (currentUser.customerId && quote.customerId === currentUser.customerId);
+      (currentUser.customer_id && quote.customer_id === currentUser.customer_id);
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
@@ -53,7 +53,7 @@ export async function GET(
 
     // Get view history
     const views = await prisma.quote_views.findMany({
-      where: { quoteId },
+      where: { quote_id: quoteId },
       include: {
         user: {
           select: {
@@ -64,7 +64,7 @@ export async function GET(
           },
         },
       },
-      orderBy: { viewedAt: 'desc' },
+      orderBy: { viewed_at: 'desc' },
       take: 50, // Limit to last 50 views
     });
 

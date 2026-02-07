@@ -24,6 +24,9 @@ export interface Placement {
   isLaminationStrip?: boolean;
   parentPieceId?: string;
   stripPosition?: 'top' | 'bottom' | 'left' | 'right';
+  // Machine/cutting info
+  machineName?: string;
+  kerfWidthMm?: number;
 }
 
 export interface SlabResult {

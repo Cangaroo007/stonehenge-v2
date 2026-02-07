@@ -920,7 +920,7 @@ export default function QuoteForm({
         })),
         subtotal: totals.subtotal,
         taxRate,
-        tax_amount: totals.tax_amount,
+        tax_amount: totals.taxAmount,
         total: totals.total,
         created_by: userId,
         quote_drawing_analyses: analysisData,
@@ -2048,7 +2048,7 @@ export default function QuoteForm({
             </div>
             <div className="flex justify-between gap-8">
               <span className="text-gray-600">GST ({taxRate}%):</span>
-              <span className="font-medium">{formatCurrency(totals.tax_amount)}</span>
+              <span className="font-medium">{formatCurrency(totals.taxAmount)}</span>
             </div>
             <div className="flex justify-between gap-8 text-lg">
               <span className="font-semibold">Total:</span>

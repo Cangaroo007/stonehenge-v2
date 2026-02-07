@@ -102,7 +102,7 @@ const SlabCanvas: React.FC<SlabCanvasProps> = ({
 
     // Draw placed pieces
     placedPieces.forEach(piece => {
-      drawPiece(ctx, piece, toolState.selectedPieceId === piece.id);
+      drawPiece(ctx, piece, toolState.selectedPieceId === piece.pieceId);
     });
 
     // Draw measurements

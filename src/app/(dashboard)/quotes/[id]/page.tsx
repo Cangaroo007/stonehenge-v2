@@ -139,8 +139,16 @@ export default async function QuoteDetailPage({
         totalAmount={formatCurrency(Number(quote.total))}
         status={quote.status}
         signature={quote.quote_signatures ? {
-          ...quote.quote_signatures,
+          id: quote.quote_signatures.id,
+          signatureType: quote.quote_signatures.signature_type,
           signedAt: quote.quote_signatures.signed_at.toISOString(),
+          signerName: quote.quote_signatures.signer_name,
+          signerEmail: quote.quote_signatures.signer_email,
+          ipAddress: quote.quote_signatures.ip_address,
+          user: quote.quote_signatures.user ? {
+            name: quote.quote_signatures.user.name,
+            email: quote.quote_signatures.user.email,
+          } : null,
         } : null}
       />
 

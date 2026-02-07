@@ -125,7 +125,7 @@ export function calculateMaterialCost(
   let subtotal = 0;
 
   for (const piece of pieces) {
-    const areaSqm = (piece.lengthMm * piece.widthMm) / 1_000_000;
+    const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
     totalAreaM2 += areaSqm;
 
     // Check for piece-level override
@@ -136,23 +136,23 @@ export function calculateMaterialCost(
 
     if (pricingBasis === 'PER_SLAB' && slabCount !== undefined) {
       // Per-slab pricing: use slab count × price per slab
-      const slabPrice = piece.material?.pricePerSlab?.toNumber() ?? 0;
+      const slabPrice = piece.materials?.price_per_slab?.toNumber() ?? 0;
       if (slabPrice > 0 && slabCount > 0) {
         // Distribute slab cost proportionally across pieces by area
-        const totalPieceArea = (piece.lengthMm * piece.widthMm) / 1_000_000;
+        const totalPieceArea = (piece.length_mm * piece.width_mm) / 1_000_000;
         // This will be summed across all pieces, then replaced below
         subtotal += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
       } else {
         // Fallback to per-m² if no slab price set
-        const baseRate = piece.material?.pricePerSquareMetre?.toNumber()
-          ?? piece.material?.pricePerSqm.toNumber()
+        const baseRate = piece.materials?.price_per_square_metre?.toNumber()
+          ?? piece.materials?.price_per_sqm.toNumber()
           ?? 0;
         subtotal += areaSqm * baseRate;
       }
     } else {
       // Per square metre pricing
-      const baseRate = piece.material?.pricePerSquareMetre?.toNumber()
-        ?? piece.material?.pricePerSqm.toNumber()
+      const baseRate = piece.materials?.price_per_square_metre?.toNumber()
+        ?? piece.materials?.price_per_sqm.toNumber()
         ?? 0;
       subtotal += areaSqm * baseRate;
     }
@@ -161,9 +161,9 @@ export function calculateMaterialCost(
   // For PER_SLAB, recalculate subtotal as slabCount × slabPrice if available
   if (pricingBasis === 'PER_SLAB' && slabCount !== undefined && slabCount > 0) {
     // Find the slab price from the first piece with a material
-    const materialWithSlabPrice = pieces.find(p => p.material?.pricePerSlab?.toNumber());
+    const materialWithSlabPrice = pieces.find(p => p.materials?.price_per_slab?.toNumber());
     if (materialWithSlabPrice) {
-      const slabPrice = materialWithSlabPrice.material!.pricePerSlab!.toNumber();
+      const slabPrice = materialWithSlabPrice.materials!.price_per_slab!.toNumber();
       // Only override if no piece-level overrides were applied
       const hasOverrides = pieces.some(p => p.overrideMaterialCost);
       if (!hasOverrides) {
@@ -228,22 +228,22 @@ export async function calculateQuotePrice(
   const quote = await prisma.quotes.findUnique({
     where: { id: quoteIdNum },
     include: {
-      customer: {
+      customers: {
         include: {
           client_types: true,
           client_tiers: true,
         },
       },
       price_books: true,
-      
-      rooms: {
+
+      quote_rooms: {
         include: {
-          pieces: {
+          quote_pieces: {
             include: {
               materials: true,
               piece_features: {
                 include: {
-                  feature_pricing: true,
+                  pricing_rules: true,
                 },
               },
             },
@@ -269,7 +269,7 @@ export async function calculateQuotePrice(
   ]);
 
   // Flatten all pieces
-  const allPieces = quote.rooms.flatMap(room => quote_rooms.pieces);
+  const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
   // Get slab count from latest optimization (for PER_SLAB pricing)
   let slabCount: number | undefined;
@@ -307,7 +307,7 @@ export async function calculateQuotePrice(
   for (const ct of cutoutTypes) {
     cutoutTypeMap.set(ct.id, ct);
   }
-  const fabricationDiscountPct = extractFabricationDiscount(quote.customer?.client_tiers);
+  const fabricationDiscountPct = extractFabricationDiscount(quote.customers?.client_tiers);
 
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
   for (const piece of allPieces) {
@@ -324,10 +324,10 @@ export async function calculateQuotePrice(
 
   // Calculate join costs for oversized pieces
   for (const piece of allPieces) {
-    const material = piece.material as unknown as { category?: string } | null;
+    const material = piece.materials as unknown as { category?: string } | null;
     const materialCategory = material?.category || 'caesarstone';
     const cutPlan = calculateCutPlan(
-      { lengthMm: piece.lengthMm, widthMm: piece.widthMm },
+      { lengthMm: piece.length_mm, widthMm: piece.width_mm },
       materialCategory
     );
 
@@ -382,9 +382,9 @@ export async function calculateQuotePrice(
   // Get applicable pricing rules
   const priceBookId = options?.price_book_id || quote.price_book_id;
   const rules = await getApplicableRules(
-    quote.customer?.clientTypeId || null,
-    quote.customer?.clientTierId || null,
-    quote.customer?.id || null,
+    quote.customers?.client_type_id || null,
+    quote.customers?.client_tier_id || null,
+    quote.customers?.id || null,
     priceBookId,
     piecesSubtotal
   );
@@ -462,13 +462,13 @@ export async function calculateQuotePrice(
  */
 function calculateEdgeCostV2(
   pieces: Array<{
-    lengthMm: number;
-    widthMm: number;
-    thicknessMm: number;
-    edgeTop: string | null;
-    edgeBottom: string | null;
-    edgeLeft: string | null;
-    edgeRight: string | null;
+    length_mm: number;
+    width_mm: number;
+    thickness_mm: number;
+    edge_top: string | null;
+    edge_bottom: string | null;
+    edge_left: string | null;
+    edge_right: string | null;
   }>,
   edgeTypes: Array<{
     id: string;
@@ -485,10 +485,10 @@ function calculateEdgeCostV2(
 
   for (const piece of pieces) {
     const edges = [
-      { id: piece.edgeTop, length: piece.widthMm },
-      { id: piece.edgeBottom, length: piece.widthMm },
-      { id: piece.edgeLeft, length: piece.lengthMm },
-      { id: piece.edgeRight, length: piece.lengthMm },
+      { id: piece.edge_top, length: piece.width_mm },
+      { id: piece.edge_bottom, length: piece.width_mm },
+      { id: piece.edge_left, length: piece.length_mm },
+      { id: piece.edge_right, length: piece.length_mm },
     ];
 
     for (const edge of edges) {
@@ -498,9 +498,9 @@ function calculateEdgeCostV2(
       if (!edgeType) continue;
 
       const linearMeters = edge.length / 1000;
-      const key = `${edgeType.id}_${piece.thicknessMm}`;
+      const key = `${edgeType.id}_${piece.thickness_mm}`;
 
-      const existing = edgeTotals.get(key) || { linearMeters: 0, thickness: piece.thicknessMm, edgeType };
+      const existing = edgeTotals.get(key) || { linearMeters: 0, thickness: piece.thickness_mm, edgeType };
       existing.linearMeters += linearMeters;
       edgeTotals.set(key, existing);
     }
@@ -615,9 +615,9 @@ function calculateCutoutCostV2(
  * Calculate service costs (cutting, polishing, installation, waterfall)
  */
 function calculateServiceCosts(
-  pieces: Array<{ lengthMm: number; widthMm: number; thicknessMm: number; edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null }>,
+  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null }>,
   totalEdgeLinearMeters: number,
-  service_rates: Array<{
+  serviceRates: Array<{
     serviceType: string;
     name: string;
     rate20mm: { toNumber: () => number };
@@ -631,8 +631,8 @@ function calculateServiceCosts(
   // Cutting: per m² (total area)
   const cuttingRate = serviceRates.find(sr => sr.serviceType === 'CUTTING');
   if (cuttingRate) {
-    const totalAreaM2 = pieces.reduce((sum, p) => sum + (p.lengthMm * p.widthMm) / 1_000_000, 0);
-    const avgThickness = pieces.reduce((sum, p) => sum + p.thicknessMm, 0) / pieces.length;
+    const totalAreaM2 = pieces.reduce((sum, p) => sum + (p.length_mm * p.width_mm) / 1_000_000, 0);
+    const avgThickness = pieces.reduce((sum, p) => sum + p.thickness_mm, 0) / pieces.length;
     const rate = avgThickness <= 20 ? cuttingRate.rate20mm.toNumber() : cuttingRate.rate40mm.toNumber();
 
     let cost = totalAreaM2 * rate;
@@ -660,15 +660,15 @@ function calculateServiceCosts(
     for (const piece of pieces) {
       // Sum finished edge lengths for this piece
       const edgeLengths = [
-        piece.edgeTop ? piece.widthMm : 0,
-        piece.edgeBottom ? piece.widthMm : 0,
-        piece.edgeLeft ? piece.lengthMm : 0,
-        piece.edgeRight ? piece.lengthMm : 0,
+        piece.edge_top ? piece.width_mm : 0,
+        piece.edge_bottom ? piece.width_mm : 0,
+        piece.edge_left ? piece.length_mm : 0,
+        piece.edge_right ? piece.length_mm : 0,
       ];
       const pieceEdgeMeters = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
       if (pieceEdgeMeters <= 0) continue;
 
-      const rate = piece.thicknessMm <= 20
+      const rate = piece.thickness_mm <= 20
         ? polishingRate.rate20mm.toNumber()
         : polishingRate.rate40mm.toNumber();
 
@@ -718,16 +718,16 @@ async function getApplicableRules(
   if (clientTypeId) conditions.push({ clientTypeId });
   if (clientTierId) conditions.push({ clientTierId });
 
-  const rules = await prisma.pricing_rules.findMany({
+  const rules = await prisma.pricing_rules_engine.findMany({
     where: {
       isActive: true,
       OR: conditions,
     },
     include: {
       client_tiers: true,
-      edgeOverrides: true,
-      cutoutOverrides: true,
-      materialOverrides: true,
+      pricing_rule_edges: true,
+      pricing_rule_cutouts: true,
+      pricing_rule_materials: true,
     },
     orderBy: { priority: 'desc' },
   });
@@ -749,16 +749,16 @@ function calculatePiecePricing(
     id: number;
     name: string;
     description: string | null;
-    lengthMm: number;
-    widthMm: number;
-    thicknessMm: number;
-    edgeTop: string | null;
-    edgeBottom: string | null;
-    edgeLeft: string | null;
-    edgeRight: string | null;
+    length_mm: number;
+    width_mm: number;
+    thickness_mm: number;
+    edge_top: string | null;
+    edge_bottom: string | null;
+    edge_left: string | null;
+    edge_right: string | null;
     cutouts: unknown;
   },
-  service_rates: Array<{
+  serviceRates: Array<{
     serviceType: string;
     rate20mm: { toNumber: () => number };
     rate40mm: { toNumber: () => number };
@@ -782,7 +782,7 @@ function calculatePiecePricing(
   }>,
   fabricationDiscountPct: number
 ): PiecePricingBreakdown {
-  const thickness = piece.thicknessMm;
+  const thickness = piece.thickness_mm;
   const isThick = thickness > 20;
 
   // Get service rates based on thickness
@@ -798,19 +798,19 @@ function calculatePiecePricing(
     : (polishingRate?.rate20mm.toNumber() ?? 45);
 
   // Cutting: perimeter in linear meters
-  const perimeterMm = 2 * (piece.lengthMm + piece.widthMm);
+  const perimeterMm = 2 * (piece.length_mm + piece.width_mm);
   const perimeterLm = perimeterMm / 1000;
 
   const cuttingBase = roundToTwo(perimeterLm * cuttingRatePerLm);
   const cuttingDiscount = roundToTwo(cuttingBase * (fabricationDiscountPct / 100));
   const cuttingTotal = roundToTwo(cuttingBase - cuttingDiscount);
 
-  // Edge sides mapping: top/bottom use widthMm, left/right use lengthMm
+  // Edge sides mapping: top/bottom use width_mm, left/right use length_mm
   const edgeSides: Array<{ side: 'top' | 'bottom' | 'left' | 'right'; lengthMm: number; edgeTypeId: string | null }> = [
-    { side: 'top', lengthMm: piece.widthMm, edgeTypeId: piece.edgeTop },
-    { side: 'bottom', lengthMm: piece.widthMm, edgeTypeId: piece.edgeBottom },
-    { side: 'left', lengthMm: piece.lengthMm, edgeTypeId: piece.edgeLeft },
-    { side: 'right', lengthMm: piece.lengthMm, edgeTypeId: piece.edgeRight },
+    { side: 'top', lengthMm: piece.width_mm, edgeTypeId: piece.edge_top },
+    { side: 'bottom', lengthMm: piece.width_mm, edgeTypeId: piece.edge_bottom },
+    { side: 'left', lengthMm: piece.length_mm, edgeTypeId: piece.edge_left },
+    { side: 'right', lengthMm: piece.length_mm, edgeTypeId: piece.edge_right },
   ];
 
   // Polishing: finished edges only (any edge with a non-null edgeTypeId)
@@ -914,8 +914,8 @@ function calculatePiecePricing(
     pieceId: piece.id,
     pieceName: piece.name || piece.description || `Piece ${piece.id}`,
     dimensions: {
-      lengthMm: piece.lengthMm,
-      widthMm: piece.widthMm,
+      lengthMm: piece.length_mm,
+      widthMm: piece.width_mm,
       thicknessMm: thickness,
     },
     fabrication: {
@@ -959,9 +959,9 @@ function findCutoutByName(
  * Extract fabrication discount percentage from a client tier's discount matrix.
  * The discountMatrix JSON is expected to contain a fabricationDiscount field (as a percentage, e.g. 10 for 10%).
  */
-function extractFabricationDiscount(client_tiers: { discountMatrix: unknown } | null | undefined): number {
-  if (!client_tiers?.discountMatrix) return 0;
-  const matrix = client_tiers.discountMatrix as unknown as Record<string, unknown>;
+function extractFabricationDiscount(client_tiers: { discount_matrix: unknown } | null | undefined): number {
+  if (!client_tiers?.discount_matrix) return 0;
+  const matrix = client_tiers.discount_matrix as unknown as Record<string, unknown>;
   const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? matrix.discount ?? 0;
   return typeof discount === 'number' ? discount : 0;
 }

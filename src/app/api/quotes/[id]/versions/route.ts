@@ -21,11 +21,11 @@ export async function GET(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
-      select: { id: true, quoteNumber: true, currentVersion: true },
+      select: { id: true, quote_number: true },
     });
 
     if (!quote) {
@@ -51,7 +51,6 @@ export async function GET(
       quote: {
         id: quote.id,
         quote_number: quote.quote_number,
-        currentVersion: quote.currentVersion,
       },
       versions: versions.map((v) => ({
         id: v.id,
@@ -66,7 +65,7 @@ export async function GET(
         tax_amount: v.tax_amount,
         totalAmount: v.totalAmount,
         pieceCount: v.pieceCount,
-        isCurrent: v.version === quote.currentVersion,
+        isCurrent: false,
         snapshotData: v.snapshotData ?? null,
       })),
     });

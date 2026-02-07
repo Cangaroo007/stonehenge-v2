@@ -47,14 +47,7 @@ export async function POST(
         overrideAt: new Date()
       },
       include: {
-        customer: true,
-        overrideByUser: {
-          select: {
-            id: true,
-            name: true,
-            email: true
-          }
-        }
+        customers: true,
       }
     });
     

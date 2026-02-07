@@ -22,8 +22,8 @@ export async function GET(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
     });
@@ -66,7 +66,7 @@ export async function GET(
       changedAt: versionRecord.changedAt,
       rolledBackFromVersion: versionRecord.rolledBackFromVersion,
       snapshot: versionRecord.snapshotData,
-      isCurrent: versionRecord.version === quote.currentVersion,
+      isCurrent: versionRecord.version === quote.revision,
     });
   } catch (error) {
     console.error('Error fetching quote version:', error);

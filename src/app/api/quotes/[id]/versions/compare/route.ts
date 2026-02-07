@@ -33,8 +33,8 @@ export async function GET(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
     });

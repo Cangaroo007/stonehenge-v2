@@ -30,8 +30,8 @@ export async function POST(
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       include: {
-        customer: true,
-        signature: true,
+        customers: true,
+        quote_signatures: true,
       },
     });
 
@@ -40,7 +40,7 @@ export async function POST(
     }
 
     // Check if quote is already signed
-    if (quote.signature) {
+    if (quote.quote_signatures) {
       return NextResponse.json(
         { error: 'Quote has already been signed' },
         { status: 400 }
@@ -74,7 +74,7 @@ export async function POST(
     // Generate document hash (hash of quote details for verification)
     const documentContent = JSON.stringify({
       quote_number: quote.quote_number,
-      customerId: quote.customerId,
+      customerId: quote.customer_id,
       total: quote.total.toString(),
       subtotal: quote.subtotal.toString(),
       tax_amount: quote.tax_amount.toString(),
@@ -86,22 +86,22 @@ export async function POST(
       .digest('hex');
 
     // Get quote version (could be enhanced with actual versioning)
-    const quoteVersion = `v${new Date(quote.updatedAt).getTime()}`;
+    const quoteVersion = `v${new Date(quote.updated_at).getTime()}`;
 
     // Create signature record with legal compliance data
     const signature = await prisma.quote_signatures.create({
       data: {
-        quoteId,
-        userId: currentUser.id,
-        signatureData,
-        signatureType,
-        signerName,
-        signerEmail,
-        ipAddress,
-        userAgent,
-        signedAt: timestamp,
-        documentHash,
-        documentVersion: quoteVersion,
+        quote_id: quoteId,
+        user_id: currentUser.id,
+        signature_data: signatureData,
+        signature_type: signatureType,
+        signer_name: signerName,
+        signer_email: signerEmail,
+        ip_address: ipAddress,
+        user_agent: userAgent,
+        signed_at: timestamp,
+        document_hash: documentHash,
+        document_version: quoteVersion,
       },
     });
 
@@ -133,7 +133,7 @@ export async function POST(
     // await sendSignatureConfirmationEmail({
     //   to: signerEmail,
     //   quote_number: quote.quote_number,
-    //   customerName: quote.customer?.name,
+    //   customerName: quote.customers?.name,
     //   totalAmount: quote.total,
     //   signedAt: timestamp,
     // });
@@ -142,8 +142,8 @@ export async function POST(
       success: true,
       signature: {
         id: signature.id,
-        signedAt: signature.signedAt,
-        signerName: signature.signerName,
+        signedAt: signature.signed_at,
+        signerName: signature.signer_name,
       },
     });
   } catch (error) {

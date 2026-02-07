@@ -46,7 +46,7 @@ export async function POST(
       include: {
         quote_rooms: {
           include: {
-            quote: {
+            quotes: {
               select: {
                 quote_number: true
               }
@@ -64,15 +64,15 @@ export async function POST(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quote_number: piece.quote_rooms.quote.quote_number,
+        quote_number: piece.quote_rooms.quotes.quote_number,
         pieceName: piece.name,
         overrideMaterialCost: body.overrideMaterialCost,
         overrideFeaturesCost: body.overrideFeaturesCost,
         overrideTotalCost: body.overrideTotalCost,
         reason: body.reason,
-        originalMaterialCost: Number(piece.materialCost),
-        originalFeaturesCost: Number(piece.featuresCost),
-        originalTotalCost: Number(piece.totalCost)
+        originalMaterialCost: Number(piece.material_cost),
+        originalFeaturesCost: Number(piece.features_cost),
+        originalTotalCost: Number(piece.total_cost)
       }
     });
     
@@ -81,9 +81,9 @@ export async function POST(
       piece: {
         id: piece.id,
         name: piece.name,
-        materialCost: Number(piece.materialCost),
-        featuresCost: Number(piece.featuresCost),
-        totalCost: Number(piece.totalCost),
+        materialCost: Number(piece.material_cost),
+        featuresCost: Number(piece.features_cost),
+        totalCost: Number(piece.total_cost),
         overrideMaterialCost: piece.overrideMaterialCost ? Number(piece.overrideMaterialCost) : null,
         overrideFeaturesCost: piece.overrideFeaturesCost ? Number(piece.overrideFeaturesCost) : null,
         overrideTotalCost: piece.overrideTotalCost ? Number(piece.overrideTotalCost) : null,
@@ -126,7 +126,7 @@ export async function DELETE(
       include: {
         quote_rooms: {
           include: {
-            quote: {
+            quotes: {
               select: {
                 quote_number: true
               }
@@ -143,7 +143,7 @@ export async function DELETE(
       entity: 'QUOTE_PIECE',
       entityId: pieceId.toString(),
       details: {
-        quote_number: piece.quote_rooms.quote.quote_number,
+        quote_number: piece.quote_rooms.quotes.quote_number,
         pieceName: piece.name
       }
     });
