@@ -94,7 +94,7 @@ export default function NewUnitBlockPage() {
     const selectedQuotes = availableQuotes.filter(q => selectedQuoteIds.includes(q.id));
     const totalAreaSqm = selectedQuotes.reduce((sum, quote) => 
       sum + quote.rooms.reduce((roomSum, room) => 
-        roomSum + quote_rooms.pieces.reduce((pieceSum, piece) => 
+        roomSum + room.pieces.reduce((pieceSum, piece) =>
           pieceSum + (piece.lengthMm * piece.widthMm) / 1_000_000, 0), 0), 0);
     const subtotal = selectedQuotes.reduce((sum, q) => sum + Number(q.subtotal || q.total), 0);
     const volumeTier = VOLUME_TIERS.find(t => {

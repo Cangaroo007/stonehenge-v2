@@ -19,12 +19,14 @@ export async function POST(request: NextRequest) {
 
     const thicknessOption = await prisma.thickness_options.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         value: data.value,
         multiplier: data.multiplier || 1.0,
         isDefault: data.isDefault || false,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

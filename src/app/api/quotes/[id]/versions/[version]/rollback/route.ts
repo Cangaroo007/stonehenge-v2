@@ -38,11 +38,11 @@ export async function POST(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
-      select: { id: true, currentVersion: true },
+      select: { id: true },
     });
 
     if (!quote) {
@@ -50,7 +50,7 @@ export async function POST(
     }
 
     // Check if already at this version
-    if (quote.currentVersion === versionNumber) {
+    if ((quote as any).revision === versionNumber) {
       return NextResponse.json(
         { error: 'Quote is already at this version' },
         { status: 400 }
@@ -63,13 +63,13 @@ export async function POST(
     // Get updated quote info
     const updatedQuote = await prisma.quotes.findUnique({
       where: { id: quoteId },
-      select: { currentVersion: true },
+      select: { revision: true },
     });
 
     return NextResponse.json({
       success: true,
       message: `Rolled back to version ${versionNumber}`,
-      newVersion: updatedQuote?.currentVersion,
+      newVersion: updatedQuote?.revision,
     });
   } catch (error) {
     console.error('Error rolling back quote version:', error);

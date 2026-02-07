@@ -19,10 +19,12 @@ export async function POST(request: NextRequest) {
 
     const clientType = await prisma.client_types.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

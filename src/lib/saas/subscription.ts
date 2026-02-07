@@ -259,25 +259,25 @@ export class FeatureGate {
   }
   
   canUseUnitBlocks(): boolean {
-    return this.plan.features.unitBlockSupport;
+    return this.plan.piece_features.unitBlockSupport;
   }
   
   canUseVisualLayout(): boolean {
-    return this.plan.features.visualLayoutTool;
+    return this.plan.piece_features.visualLayoutTool;
   }
   
   canUseAPI(): boolean {
-    return this.plan.features.apiAccess;
+    return this.plan.piece_features.apiAccess;
   }
   
   canAddUser(currentUserCount: number): boolean {
-    const max = this.plan.features.maxUsers;
+    const max = this.plan.piece_features.maxUsers;
     if (max === 'unlimited') return true;
     return currentUserCount < (max as number);
   }
   
   canCreateQuote(currentMonthCount: number): boolean {
-    const max = this.plan.features.maxQuotesPerMonth;
+    const max = this.plan.piece_features.maxQuotesPerMonth;
     if (max === 'unlimited') return true;
     return currentMonthCount < (max as number);
   }
@@ -315,7 +315,7 @@ export interface CompanyUsage {
 // ============================================================================
 
 export function getPlanFeatures(tier: SubscriptionTier): SubscriptionFeatures {
-  return SAAS_PLANS[tier].features;
+  return SAAS_PLANS[tier].piece_features;
 }
 
 export function getPlanLimits(tier: SubscriptionTier): SubscriptionLimits {

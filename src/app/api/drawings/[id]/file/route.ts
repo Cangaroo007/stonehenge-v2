@@ -24,10 +24,10 @@ export async function GET(
     const drawing = await prisma.drawings.findUnique({
       where: { id },
       include: {
-        quote: {
+        quotes: {
           select: {
             id: true,
-            customerId: true,
+            customer_id: true,
             created_by: true,
           },
         },
@@ -46,8 +46,8 @@ export async function GET(
 
     const hasAccess =
       canViewAll ||
-      drawing.quote.created_by === currentUser.id ||
-      (currentUser.customerId && drawing.quote.customerId === currentUser.customerId);
+      drawing.quotes.created_by === currentUser.id ||
+      (currentUser.customerId && drawing.quotes.customer_id === currentUser.customerId);
 
     if (!hasAccess) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });

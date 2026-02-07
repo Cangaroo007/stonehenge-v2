@@ -32,17 +32,17 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid user ID' }, { status: 400 });
     }
 
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             name: true,
             company: true,
           },
         },
-        permissions: {
+        user_permissions: {
           select: {
             permission: true,
           },
@@ -55,11 +55,11 @@ export async function GET(
     }
 
     // Remove password hash from response
-    const { passwordHash, ...safeUser } = user;
+    const { password_hash, ...safeUser } = user;
 
     return NextResponse.json({
       ...safeUser,
-      permissions: user.permissions.map(p => p.permission),
+      permissions: user.user_permissions.map(p => p.permission),
     });
   } catch (error) {
     console.error('Error fetching user:', error);
@@ -97,9 +97,9 @@ export async function PUT(
     }
 
     // Get existing user
-    const existingUser = await prisma.users.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { id: userId },
-      include: { permissions: true },
+      include: { user_permissions: true },
     });
 
     if (!existingUser) {
@@ -126,25 +126,25 @@ export async function PUT(
       }
       updateData.role = role;
     }
-    if (customerId !== undefined) updateData.customerId = customerId || null;
+    if (customerId !== undefined) updateData.customer_id = customerId || null;
     if (customerUserRole !== undefined) {
       // Validate customerUserRole if provided
       if (customerUserRole && !Object.values(CustomerUserRole).includes(customerUserRole)) {
         return NextResponse.json({ error: 'Invalid customer user role' }, { status: 400 });
       }
-      updateData.customerUserRole = customerUserRole || null;
+      updateData.customer_user_role = customerUserRole || null;
     }
-    if (isActive !== undefined) updateData.isActive = isActive;
+    if (isActive !== undefined) updateData.is_active = isActive;
     if (password) {
-      updateData.passwordHash = await hashPassword(password);
+      updateData.password_hash = await hashPassword(password);
     }
 
     // Update user
-    const updatedUser = await prisma.users.update({
+    const updatedUser = await prisma.user.update({
       where: { id: userId },
       data: updateData,
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             name: true,
@@ -158,14 +158,14 @@ export async function PUT(
     if (role === UserRole.CUSTOM && permissions && Array.isArray(permissions)) {
       // Delete existing permissions
       await prisma.user_permissions.deleteMany({
-        where: { userId },
+        where: { user_id: userId },
       });
 
       // Create new permissions
       if (permissions.length > 0) {
         await prisma.user_permissions.createMany({
           data: permissions.map((permission: Permission) => ({
-            userId,
+            user_id: userId,
             permission,
           })),
         });
@@ -177,10 +177,10 @@ export async function PUT(
       {
         name: existingUser.name,
         role: existingUser.role,
-        customerId: existingUser.customerId,
-        isActive: existingUser.isActive,
+        customer_id: existingUser.customer_id,
+        is_active: existingUser.is_active,
       },
-      { name, role, customerId, isActive }
+      { name, role, customer_id: customerId, is_active: isActive }
     );
 
     await createAuditLog({
@@ -194,7 +194,7 @@ export async function PUT(
     });
 
     // Remove password hash from response
-    const { passwordHash: _, ...safeUser } = updatedUser;
+    const { password_hash: _, ...safeUser } = updatedUser;
 
     return NextResponse.json(safeUser);
   } catch (error) {
@@ -240,7 +240,7 @@ export async function DELETE(
       );
     }
 
-    const user = await prisma.users.findUnique({
+    const user = await prisma.user.findUnique({
       where: { id: userId },
     });
 
@@ -248,10 +248,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
-    // Soft delete by setting isActive to false instead of actual deletion
-    await prisma.users.update({
+    // Soft delete by setting is_active to false instead of actual deletion
+    await prisma.user.update({
       where: { id: userId },
-      data: { isActive: false },
+      data: { is_active: false },
     });
 
     // Create audit log
@@ -260,7 +260,7 @@ export async function DELETE(
       action: 'deactivated',
       entityType: 'user',
       entityId: String(userId),
-      changes: { isActive: { from: true, to: false } },
+      changes: { is_active: { from: true, to: false } },
       ipAddress: getClientIp(request.headers),
       userAgent: getUserAgent(request.headers),
     });

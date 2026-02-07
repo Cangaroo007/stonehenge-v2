@@ -107,13 +107,13 @@ export function generateDetailedChangeSummary(
   const piecesModified: PieceModification[] = [];
 
   // Compare top-level fields
-  const fieldMap: Array<{ key: keyof Pick<SnapshotForDiff, 'status' | 'client_types' | 'client_tiers' | 'notes' | 'projectName' | 'projectAddress'>; label: string }> = [
+  const fieldMap: Array<{ key: keyof Pick<SnapshotForDiff, 'status' | 'client_types' | 'client_tiers' | 'notes' | 'project_name' | 'project_address'>; label: string }> = [
     { key: 'status', label: 'Status' },
     { key: 'client_types', label: 'Client Type' },
     { key: 'client_tiers', label: 'Client Tier' },
     { key: 'notes', label: 'Notes' },
-    { key: 'projectName', label: 'Project Name' },
-    { key: 'projectAddress', label: 'Project Address' },
+    { key: 'project_name', label: 'Project Name' },
+    { key: 'project_address', label: 'Project Address' },
   ];
 
   for (const { key, label } of fieldMap) {
@@ -133,19 +133,19 @@ export function generateDetailedChangeSummary(
   }
 
   // Compare material
-  if (oldSnapshot.material?.id !== newSnapshot.material?.id) {
+  if (oldSnapshot.materials?.id !== newSnapshot.materials?.id) {
     fieldChanges.push({
       field: 'material',
       label: 'Material',
-      oldValue: oldSnapshot.material?.name ?? '(none)',
-      newValue: newSnapshot.material?.name ?? '(none)',
+      oldValue: oldSnapshot.materials?.name ?? '(none)',
+      newValue: newSnapshot.materials?.name ?? '(none)',
     });
   }
 
   // Compare pricing
   const pricingFields: Array<{ key: keyof SnapshotForDiff['pricing']; label: string }> = [
     { key: 'subtotal', label: 'Subtotal' },
-    { key: 'taxAmount', label: 'GST' },
+    { key: 'tax_amount', label: 'GST' },
     { key: 'total', label: 'Total' },
     { key: 'deliveryCost', label: 'Delivery Cost' },
     { key: 'templatingCost', label: 'Templating Cost' },
@@ -191,9 +191,9 @@ export function generateDetailedChangeSummary(
   const newPieces = new Map<number, PieceInfo>();
 
   for (const room of oldSnapshot.rooms) {
-    for (const piece of quote_rooms.pieces) {
+    for (const piece of room.pieces) {
       oldPieces.set(piece.id, {
-        name: piece.name, quote_rooms: quote_rooms.name,
+        name: piece.name, quote_rooms: room.name,
         widthMm: piece.widthMm, lengthMm: piece.lengthMm, thicknessMm: piece.thicknessMm,
         materialName: piece.materialName,
         materialCost: piece.materialCost ?? 0,
@@ -206,9 +206,9 @@ export function generateDetailedChangeSummary(
   }
 
   for (const room of newSnapshot.rooms) {
-    for (const piece of quote_rooms.pieces) {
+    for (const piece of room.pieces) {
       newPieces.set(piece.id, {
-        name: piece.name, quote_rooms: quote_rooms.name,
+        name: piece.name, quote_rooms: room.name,
         widthMm: piece.widthMm, lengthMm: piece.lengthMm, thicknessMm: piece.thicknessMm,
         materialName: piece.materialName,
         materialCost: piece.materialCost ?? 0,
@@ -228,7 +228,7 @@ export function generateDetailedChangeSummary(
     if (!oldPieces.has(id)) {
       const p = newPieces.get(id)!;
       piecesAdded.push({
-        name: p.name, quote_rooms: p.room,
+        name: p.name, quote_rooms: p.quote_rooms,
         dimensions: `${p.widthMm} x ${p.lengthMm}mm`,
         thickness: p.thicknessMm,
         materials: p.materialName,
@@ -243,7 +243,7 @@ export function generateDetailedChangeSummary(
     if (!newPieces.has(id)) {
       const p = oldPieces.get(id)!;
       piecesRemoved.push({
-        name: p.name, quote_rooms: p.room,
+        name: p.name, quote_rooms: p.quote_rooms,
         dimensions: `${p.widthMm} x ${p.lengthMm}mm`,
         thickness: p.thicknessMm,
         materials: p.materialName,
@@ -280,7 +280,7 @@ export function generateDetailedChangeSummary(
 
       if (changes.length > 0) {
         piecesModified.push({
-          name: newP.name, quote_rooms: newP.room, changes,
+          name: newP.name, quote_rooms: newP.quote_rooms, changes,
           oldCost: oldP.totalCost, newCost: newP.totalCost,
           costDiff: newP.totalCost - oldP.totalCost,
         });

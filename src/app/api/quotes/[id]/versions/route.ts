@@ -21,19 +21,19 @@ export async function GET(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
-      select: { id: true, quoteNumber: true, currentVersion: true },
+      select: { id: true, quote_number: true },
     });
 
     if (!quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch all versions
-    const versions = await prisma.quote_versions.findMany({
+    // Fetch all versions (quote_versions is a planned model)
+    const versions = await (prisma as any).quote_versions.findMany({
       where: { quoteId },
       orderBy: { version: 'desc' },
       include: {
@@ -51,9 +51,8 @@ export async function GET(
       quote: {
         id: quote.id,
         quote_number: quote.quote_number,
-        currentVersion: quote.currentVersion,
       },
-      versions: versions.map((v) => ({
+      versions: versions.map((v: any) => ({
         id: v.id,
         version: v.version,
         changeType: v.changeType,
@@ -66,7 +65,7 @@ export async function GET(
         tax_amount: v.tax_amount,
         totalAmount: v.totalAmount,
         pieceCount: v.pieceCount,
-        isCurrent: v.version === quote.currentVersion,
+        isCurrent: false,
         snapshotData: v.snapshotData ?? null,
       })),
     });

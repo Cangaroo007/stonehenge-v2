@@ -65,7 +65,7 @@ export async function POST(
       const body = await request.json();
       if (body) {
         options = {
-          price_book_id: body.price_book_id,
+          priceBookId: body.priceBookId || body.price_book_id,
           customerId: body.customerId,
           forceRecalculate: body.forceRecalculate,
         };
@@ -75,7 +75,7 @@ export async function POST(
     }
 
     // Validate options if provided
-    if (options.price_book_id && typeof options.price_book_id !== 'string') {
+    if (options.priceBookId && typeof options.priceBookId !== 'string') {
       return NextResponse.json(
         { error: 'Invalid priceBookId. Must be a string.' },
         { status: 400 }

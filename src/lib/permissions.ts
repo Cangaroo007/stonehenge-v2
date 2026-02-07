@@ -141,18 +141,18 @@ export async function hasPermissionAsync(
   userId: number,
   permission: Permission
 ): Promise<boolean> {
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      permissions: true,
+      user_permissions: true,
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.is_active) {
     return false;
   }
 
-  return hasPermission(user, permission);
+  return hasPermission({ role: user.role, permissions: user.user_permissions }, permission);
 }
 
 /**
@@ -189,20 +189,20 @@ export async function hasAllPermissions(
  * Get all permissions for a user
  */
 export async function getUserPermissions(userId: number): Promise<Permission[]> {
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
     include: {
-      permissions: true,
+      user_permissions: true,
     },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.is_active) {
     return [];
   }
 
   // CUSTOM role uses database permissions
   if (user.role === UserRole.CUSTOM) {
-    return user.permissions.map(p => p.permission);
+    return user.user_permissions.map(p => p.permission);
   }
 
   // Predefined roles use ROLE_PERMISSIONS mapping
@@ -219,20 +219,20 @@ export async function canAccessQuote(
   userId: number,
   quoteId: number
 ): Promise<boolean> {
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.is_active) {
     return false;
   }
 
   // Customer users can only access their own customer's quotes
-  if (user.role === UserRole.CUSTOMER && user.customerId) {
+  if (user.role === UserRole.CUSTOMER && user.customer_id) {
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
     });
-    return quote?.customerId === user.customerId;
+    return quote?.customer_id === user.customer_id;
   }
 
   // Check if user has VIEW_ALL_QUOTES permission
@@ -260,17 +260,17 @@ export async function canAccessCustomer(
   userId: number,
   customerId: number
 ): Promise<boolean> {
-  const user = await prisma.users.findUnique({
+  const user = await prisma.user.findUnique({
     where: { id: userId },
   });
 
-  if (!user || !user.isActive) {
+  if (!user || !user.is_active) {
     return false;
   }
 
   // Customer users can only access their own customer
   if (user.role === UserRole.CUSTOMER) {
-    return user.customerId === customerId;
+    return user.customer_id === customerId;
   }
 
   // Check general customer permissions
@@ -286,7 +286,7 @@ export async function canAccessCustomer(
 export function getQuoteAccessFilter(userId: number, userRole: UserRole, customerId?: number | null) {
   // Customer users: only their customer's quotes
   if (userRole === UserRole.CUSTOMER && customerId) {
-    return { customerId };
+    return { customer_id: customerId };
   }
 
   // Sales reps with VIEW_OWN_QUOTES only: their own quotes
@@ -295,7 +295,7 @@ export function getQuoteAccessFilter(userId: number, userRole: UserRole, custome
     rolePermissions.includes(Permission.VIEW_OWN_QUOTES) &&
     !rolePermissions.includes(Permission.VIEW_ALL_QUOTES)
   ) {
-    return { createdBy: userId };
+    return { created_by: userId };
   }
 
   // Everyone else: no filter (all quotes)

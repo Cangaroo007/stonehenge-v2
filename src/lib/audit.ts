@@ -53,13 +53,13 @@ export async function createAuditLog(data: AuditLogData): Promise<void> {
   try {
     await prisma.audit_logs.create({
       data: {
-        userId: data.userId,
+        user_id: data.userId,
         action: data.action,
-        entityType: data.entityType,
-        entityId: data.entityId,
+        entity_type: data.entityType,
+        entity_id: data.entityId,
         changes: data.changes ? (data.changes as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
+        ip_address: data.ipAddress,
+        user_agent: data.userAgent,
       },
     });
   } catch (error) {
@@ -83,13 +83,13 @@ export async function logActivity(data: {
   try {
     await prisma.audit_logs.create({
       data: {
-        userId: data.userId,
+        user_id: data.userId,
         action: data.action as AuditAction,
-        entityType: data.entity as AuditEntityType,
-        entityId: data.entityId,
+        entity_type: data.entity as AuditEntityType,
+        entity_id: data.entityId,
         changes: data.details ? (data.details as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
-        ipAddress: data.ipAddress,
-        userAgent: data.userAgent,
+        ip_address: data.ipAddress,
+        user_agent: data.userAgent,
       },
     });
   } catch (error) {
@@ -110,10 +110,10 @@ export async function trackQuoteView(
     // Create quote view record
     await prisma.quote_views.create({
       data: {
-        quoteId,
-        userId,
-        ipAddress,
-        userAgent,
+        quote_id: quoteId,
+        user_id: userId,
+        ip_address: ipAddress,
+        user_agent: userAgent,
       },
     });
 
@@ -180,11 +180,11 @@ export async function trackLogin(
 ): Promise<void> {
   try {
     // Update last login time
-    await prisma.users.update({
+    await prisma.user.update({
       where: { id: userId },
       data: {
-        lastLoginAt: new Date(),
-        lastActiveAt: new Date(),
+        last_login_at: new Date(),
+        last_active_at: new Date(),
       },
     });
 
@@ -234,8 +234,8 @@ export async function getEntityAuditLog(
 ) {
   return prisma.audit_logs.findMany({
     where: {
-      entityType,
-      entityId,
+      entity_type: entityType,
+      entity_id: entityId,
     },
     include: {
       user: {
@@ -259,7 +259,7 @@ export async function getEntityAuditLog(
 export async function getUserAuditLog(userId: number, limit = 50) {
   return prisma.audit_logs.findMany({
     where: {
-      userId,
+      user_id: userId,
     },
     orderBy: {
       created_at: 'desc',

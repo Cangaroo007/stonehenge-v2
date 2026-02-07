@@ -59,16 +59,16 @@ export default async function MaterialsPage() {
                   {mats.map((material) => (
                     <tr key={material.id} className="hover:bg-gray-50">
                       <td className="table-cell font-medium">{material.name}</td>
-                      <td className="table-cell">{formatCurrency(Number(material.pricePerSqm))}</td>
+                      <td className="table-cell">{formatCurrency(Number(material.price_per_sqm))}</td>
                       <td className="table-cell">
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                            material.isActive
+                            material.is_active
                               ? 'bg-green-100 text-green-800'
                               : 'bg-gray-100 text-gray-800'
                           }`}
                         >
-                          {material.isActive ? 'Active' : 'Inactive'}
+                          {material.is_active ? 'Active' : 'Inactive'}
                         </span>
                       </td>
                       <td className="table-cell">

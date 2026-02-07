@@ -14,7 +14,7 @@ export async function GET(
 
     const rate = await prisma.service_rates.findUnique({
       where: { id },
-      include: { pricingSettings: true }
+      include: { pricing_settings: true }
     });
 
     if (!rate) {
@@ -54,7 +54,8 @@ export async function PUT(
         ...(body.rate20mm !== undefined && { rate20mm: body.rate20mm }),
         ...(body.rate40mm !== undefined && { rate40mm: body.rate40mm }),
         ...(body.minimumCharge !== undefined && { minimumCharge: body.minimumCharge }),
-        ...(body.isActive !== undefined && { isActive: body.isActive })
+        ...(body.isActive !== undefined && { isActive: body.isActive }),
+        updated_at: new Date(),
       }
     });
 

@@ -123,14 +123,14 @@ export default function VersionDiffView({ summary }: VersionDiffViewProps) {
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-semibold text-green-800">{piece.name}</span>
-                    <span className="text-green-600 text-sm ml-2">{piece.room}</span>
+                    <span className="text-green-600 text-sm ml-2">{piece.quote_rooms}</span>
                   </div>
                   {piece.cost > 0 && (
                     <span className="text-green-700 font-semibold text-sm">+{formatCurrency(piece.cost)}</span>
                   )}
                 </div>
                 <div className="mt-1 text-sm text-green-700 space-y-0.5">
-                  <div>{piece.dimensions} &middot; {piece.thickness}mm thick{piece.material ? ` &middot; ${piece.material}` : ''}</div>
+                  <div>{piece.dimensions} &middot; {piece.thickness}mm thick{piece.materials ? ` &middot; ${piece.materials}` : ''}</div>
                   {piece.edges.length > 0 && (
                     <div className="text-green-600">Edges: {piece.edges.join(', ')}</div>
                   )}
@@ -154,14 +154,14 @@ export default function VersionDiffView({ summary }: VersionDiffViewProps) {
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-semibold text-red-800 line-through">{piece.name}</span>
-                    <span className="text-red-600 text-sm ml-2 line-through">{piece.room}</span>
+                    <span className="text-red-600 text-sm ml-2 line-through">{piece.quote_rooms}</span>
                   </div>
                   {piece.cost > 0 && (
                     <span className="text-red-700 font-semibold text-sm">-{formatCurrency(piece.cost)}</span>
                   )}
                 </div>
                 <div className="mt-1 text-sm text-red-700 line-through">
-                  {piece.dimensions} &middot; {piece.thickness}mm thick{piece.material ? ` &middot; ${piece.material}` : ''}
+                  {piece.dimensions} &middot; {piece.thickness}mm thick{piece.materials ? ` &middot; ${piece.materials}` : ''}
                 </div>
               </div>
             ))}
@@ -182,7 +182,7 @@ export default function VersionDiffView({ summary }: VersionDiffViewProps) {
                 <div className="flex justify-between items-start">
                   <div>
                     <span className="font-semibold text-amber-800">{piece.name}</span>
-                    <span className="text-amber-600 text-sm ml-2">{piece.room}</span>
+                    <span className="text-amber-600 text-sm ml-2">{piece.quote_rooms}</span>
                   </div>
                   {piece.costDiff !== 0 && (
                     <span className={`font-semibold text-sm ${piece.costDiff > 0 ? 'text-red-600' : 'text-green-600'}`}>

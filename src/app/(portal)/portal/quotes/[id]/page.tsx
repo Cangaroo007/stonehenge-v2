@@ -15,15 +15,15 @@ async function getQuote(id: number, customerId: number) {
   return prisma.quotes.findFirst({
     where: {
       id,
-      customerId, // Ensure customer can only see their own quotes
+      customer_id: customerId, // Ensure customer can only see their own quotes
     },
     include: {
-      customer: true,
-      rooms: {
-        orderBy: { sortOrder: 'asc' },
+      customers: true,
+      quote_rooms: {
+        orderBy: { sort_order: 'asc' },
         include: {
-          pieces: {
-            orderBy: { sortOrder: 'asc' },
+          quote_pieces: {
+            orderBy: { sort_order: 'asc' },
             include: {
               piece_features: true,
               materials: true,
@@ -31,7 +31,7 @@ async function getQuote(id: number, customerId: number) {
           },
         },
       },
-      signature: {
+      quote_signatures: {
         include: {
           user: {
             select: {
@@ -108,7 +108,7 @@ export default async function CustomerQuoteDetailPage({
           </div>
           <div>
             <p className="text-sm text-gray-500">Created</p>
-            <p className="font-medium">{formatDate(quote.createdAt)}</p>
+            <p className="font-medium">{formatDate(quote.created_at)}</p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Valid Until</p>
@@ -125,20 +125,28 @@ export default async function CustomerQuoteDetailPage({
         <QuoteSignatureSection
           quoteId={quote.id}
           quoteNumber={quote.quote_number}
-          customerName={quote.customer?.company || quote.customer?.name || 'Customer'}
+          customerName={quote.customers?.company || quote.customers?.name || 'Customer'}
           totalAmount={formatCurrency(Number(quote.total))}
           status={quote.status}
-          signature={quote.signature ? {
-            ...quote.signature,
-            signedAt: quote.signature.signedAt.toISOString(),
+          signature={quote.quote_signatures ? {
+            id: quote.quote_signatures.id,
+            signatureType: quote.quote_signatures.signature_type,
+            signedAt: quote.quote_signatures.signed_at.toISOString(),
+            signerName: quote.quote_signatures.signer_name,
+            signerEmail: quote.quote_signatures.signer_email,
+            ipAddress: quote.quote_signatures.ip_address,
+            user: quote.quote_signatures.user ? {
+              name: quote.quote_signatures.user.name,
+              email: quote.quote_signatures.user.email,
+            } : null,
           } : null}
         />
-      ) : quote.signature && (
+      ) : quote.quote_signatures && (
         <div className="bg-white rounded-lg shadow p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Quote Status</h2>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm text-green-900">
-              ✓ This quote was signed on {formatDate(quote.signature.signedAt)}
+              ✓ This quote was signed on {formatDate(quote.quote_signatures.signed_at)}
             </p>
           </div>
         </div>
@@ -146,10 +154,10 @@ export default async function CustomerQuoteDetailPage({
 
       {/* Rooms and Pieces */}
       <div className="space-y-4">
-        {quote.rooms.map((room) => (
-          <div key={quote_rooms.id} className="bg-white rounded-lg shadow overflow-hidden">
+        {quote.quote_rooms.map((room) => (
+          <div key={room.id} className="bg-white rounded-lg shadow overflow-hidden">
             <div className="p-4 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-lg font-semibold">{quote_rooms.name}</h3>
+              <h3 className="text-lg font-semibold">{room.name}</h3>
             </div>
             <div className="overflow-x-auto">
               <table className="min-w-full divide-y divide-gray-200">
@@ -163,23 +171,23 @@ export default async function CustomerQuoteDetailPage({
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
-                  {quote_rooms.pieces.map((piece) => (
+                  {room.quote_pieces.map((piece) => (
                     <tr key={piece.id}>
                       <td className="table-cell font-medium">
                         {piece.description || 'Unnamed piece'}
                       </td>
                       <td className="table-cell">
-                        <DimensionsDisplay lengthMm={piece.lengthMm} widthMm={piece.widthMm} thicknessMm={piece.thicknessMm} />
+                        <DimensionsDisplay lengthMm={piece.length_mm} widthMm={piece.width_mm} thicknessMm={piece.thickness_mm} />
                         <br />
                         <span className="text-xs text-gray-500">
-                          (<AreaDisplay sqm={Number(piece.areaSqm)} />)
+                          (<AreaDisplay sqm={Number(piece.area_sqm)} />)
                         </span>
                       </td>
-                      <td className="table-cell">{piece.materialName || '-'}</td>
+                      <td className="table-cell">{piece.material_name || '-'}</td>
                       <td className="table-cell">
-                        {piece.features.length > 0 ? (
+                        {piece.piece_features.length > 0 ? (
                           <ul className="text-sm">
-                            {piece.features.map((f) => (
+                            {piece.piece_features.map((f) => (
                               <li key={f.id}>
                                 {f.quantity}× {f.name}
                               </li>
@@ -190,7 +198,7 @@ export default async function CustomerQuoteDetailPage({
                         )}
                       </td>
                       <td className="table-cell text-right font-medium">
-                        {formatCurrency(Number(piece.totalCost))}
+                        {formatCurrency(Number(piece.total_cost))}
                       </td>
                     </tr>
                   ))}

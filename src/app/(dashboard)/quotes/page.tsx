@@ -60,7 +60,7 @@ export default async function QuotesPage() {
                         {getStatusLabel(quote.status)}
                       </span>
                     </td>
-                    <td className="table-cell">{formatDate(quote.createdAt)}</td>
+                    <td className="table-cell">{formatDate(quote.created_at)}</td>
                     <td className="table-cell">{quote.valid_until ? formatDate(quote.valid_until) : '-'}</td>
                     <td className="table-cell">
                       <div className="flex gap-2">

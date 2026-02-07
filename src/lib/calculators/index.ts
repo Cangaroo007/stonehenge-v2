@@ -130,7 +130,7 @@ export class QuoteCalculator {
       appliedRules,
       subtotal: this.round(subtotal),
       discount: this.round(discount),
-      taxRate,
+      tax_rate: taxRate,
       tax_amount: this.round(taxAmount),
       total: this.round(total),
       currency: this.pricingContext.currency,
@@ -160,17 +160,17 @@ export class QuoteCalculator {
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteIdNum },
       include: {
-        customer: {
+        customers: {
           include: {
             client_types: true,
             client_tiers: true,
           },
         },
-        
+
         price_books: true,
-        rooms: {
+        quote_rooms: {
           include: {
-            pieces: {
+            quote_pieces: {
               include: {
                 materials: true,
                 piece_features: true,
@@ -199,26 +199,26 @@ export class QuoteCalculator {
     ]);
 
     this.edgeTypes = edgeTypes as EdgeTypeData[];
-    this.cutoutTypes = cutoutTypes as CutoutTypeData[];
-    this.serviceRates = serviceRates as ServiceRateData[];
+    this.cutoutTypes = cutoutTypes as unknown as CutoutTypeData[];
+    this.service_rates = serviceRates as ServiceRateData[];
   }
 
   private async loadPricingContext(organisationId: string): Promise<PricingContext> {
     const settings = await prisma.pricing_settings.findUnique({
-      where: { organisationId },
+      where: { organisation_id: organisationId },
     });
 
     const customer = this.quoteData?.customer;
 
     return {
       organisationId,
-      materialPricingBasis: (settings?.materialPricingBasis as any) || 'PER_SLAB',
+      materialPricingBasis: (settings?.material_pricing_basis as any) || 'PER_SLAB',
       currency: settings?.currency || 'AUD',
-      tax_rate: new Decimal(settings?.gstRate || 0.10),
+      tax_rate: new Decimal(settings?.gst_rate || 0.10),
       clientTypeId: customer?.clientTypeId || undefined,
       clientTierId: customer?.clientTierId || undefined,
       customerId: customer?.id?.toString(),
-      price_book_id: this.quoteData?.price_book_id || undefined,
+      priceBookId: this.quoteData?.price_book_id || undefined,
     };
   }
 
@@ -232,11 +232,11 @@ export class QuoteCalculator {
     }
 
     const pieces = this.quoteData.rooms.flatMap(room =>
-      quote_rooms.pieces.map(piece => ({
+      room.pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
         lengthMm: piece.lengthMm,
         widthMm: piece.widthMm,
-        materials: piece.material,
+        materials: piece.materials,
         overrideMaterialCost: piece.overrideMaterialCost,
       }))
     );
@@ -261,7 +261,7 @@ export class QuoteCalculator {
     }
 
     const pieces = this.quoteData.rooms.flatMap(room =>
-      quote_rooms.pieces.map(piece => ({
+      room.pieces.map(piece => ({
         pieceId: piece.id.toString() as any,
         thicknessMm: piece.thicknessMm,
         dimensions: {
@@ -359,7 +359,7 @@ export class QuoteCalculator {
     }
 
     // Load rules from database
-    const rules = await prisma.pricing_rules.findMany({
+    const rules = await prisma.pricing_rules_engine.findMany({
       where: {
         isActive: true,
         OR: [
@@ -387,9 +387,9 @@ export class QuoteCalculator {
 
   private extractFabricationDiscount(): number {
     const tier = this.quoteData?.customer?.client_tiers;
-    if (!tier?.discountMatrix) return 0;
+    if (!tier?.discount_matrix) return 0;
 
-    const matrix = tier.discountMatrix as Record<string, unknown>;
+    const matrix = tier.discount_matrix as Record<string, unknown>;
     const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? 0;
     return typeof discount === 'number' ? discount : 0;
   }
@@ -446,7 +446,7 @@ interface QuoteData {
     clientTypeId: string | null;
     clientTierId: string | null;
     client_tiers: {
-      discountMatrix: unknown;
+      discount_matrix: unknown;
     } | null;
   } | null;
   rooms: Array<{

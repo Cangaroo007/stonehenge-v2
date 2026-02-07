@@ -9,12 +9,12 @@ async function getQuote(id: number) {
   return prisma.quotes.findUnique({
     where: { id },
     include: {
-      customer: true,
-      rooms: {
-        orderBy: { sortOrder: 'asc' },
+      customers: true,
+      quote_rooms: {
+        orderBy: { sort_order: 'asc' },
         include: {
-          pieces: {
-            orderBy: { sortOrder: 'asc' },
+          quote_pieces: {
+            orderBy: { sort_order: 'asc' },
             include: {
               piece_features: true,
               materials: true,
@@ -53,29 +53,30 @@ export async function GET(
     // Fetch company settings from database (with fallbacks to env vars)
     const companyData = await prisma.companies.findFirst();
     
+    const companyAny = companyData as any;
     const company = {
       name: companyData?.name || process.env.COMPANY_NAME || 'Northcoast Stone Pty Ltd',
-      abn: companyData?.abn || process.env.COMPANY_ABN || '57 120 880 355',
-      address: companyData?.address || process.env.COMPANY_ADDRESS || '20 Hitech Drive, KUNDA PARK Queensland 4556, Australia',
-      phone: companyData?.phone || process.env.COMPANY_PHONE || '0754767636',
-      fax: companyData?.fax || process.env.COMPANY_FAX || '0754768636',
-      email: companyData?.email || process.env.COMPANY_EMAIL || 'admin@northcoaststone.com.au',
+      abn: companyAny?.abn || process.env.COMPANY_ABN || '57 120 880 355',
+      address: companyAny?.address || process.env.COMPANY_ADDRESS || '20 Hitech Drive, KUNDA PARK Queensland 4556, Australia',
+      phone: companyAny?.phone || process.env.COMPANY_PHONE || '0754767636',
+      fax: companyAny?.fax || process.env.COMPANY_FAX || '0754768636',
+      email: companyAny?.email || process.env.COMPANY_EMAIL || 'admin@northcoaststone.com.au',
     };
 
     // Quote template settings (with defaults)
     const settings = {
-      introText1: companyData?.quoteIntroText1 || 'Please see below for our price breakdown for your quotation as per the plans supplied. Any differences in stonework at measure and fabrication stage will be charged accordingly.',
-      introText2: companyData?.quoteIntroText2 || 'This quote is for supply, fabrication and local installation of stonework.',
-      introText3: companyData?.quoteIntroText3 || 'Thank you for the opportunity in submitting this quotation. We look forward to working with you.',
-      pleaseNote: companyData?.quotePleaseNote || 'This Quote is based on the proviso that all stonework is the same colour and fabricated and installed at the same time. Any variation from this assumption will require re-quoting.',
-      termsText1: companyData?.quoteTermsText1 || `Upon acceptance of this quotation I hereby certify that the above information is true and correct. I have read and understand the TERMS AND CONDITIONS OF TRADE OF ${company.name.toUpperCase()} which forms part of, and is intended to read in conjunction with this quotation. I agree to be bound by these conditions. I authorise the use of my personal information as detailed in the Privacy Act Clause therein. I agree that if I am a Director or a shareholder (owning at least 15% of the shares) of the client I shall be personally liable for the performance of the client's obligations under this act.`,
-      termsText2: companyData?.quoteTermsText2 || `Please read this quote carefully for all details regarding edge thickness, stone colour and work description. We require a ${companyData?.depositPercent || 50}% deposit and completed purchase order upon acceptance of this quote.`,
-      termsText3: companyData?.quoteTermsText3 || `Please contact our office via email ${company.email} if you wish to proceed.`,
-      termsText4: companyData?.quoteTermsText4 || `This quote is valid for ${companyData?.quoteValidityDays || 30} days, on the exception of being signed off as a job, where it will be valid for a 3 month period.`,
-      signatureName: companyData?.signatureName || 'Beau Kavanagh',
-      signatureTitle: companyData?.signatureTitle || null,
-      depositPercent: companyData?.depositPercent || 50,
-      validityDays: companyData?.quoteValidityDays || 30,
+      introText1: companyData?.quote_intro_text_1 || 'Please see below for our price breakdown for your quotation as per the plans supplied. Any differences in stonework at measure and fabrication stage will be charged accordingly.',
+      introText2: companyData?.quote_intro_text_2 || 'This quote is for supply, fabrication and local installation of stonework.',
+      introText3: companyData?.quote_intro_text_3 || 'Thank you for the opportunity in submitting this quotation. We look forward to working with you.',
+      pleaseNote: companyData?.quote_please_note || 'This Quote is based on the proviso that all stonework is the same colour and fabricated and installed at the same time. Any variation from this assumption will require re-quoting.',
+      termsText1: companyData?.quote_terms_text_1 || `Upon acceptance of this quotation I hereby certify that the above information is true and correct. I have read and understand the TERMS AND CONDITIONS OF TRADE OF ${company.name.toUpperCase()} which forms part of, and is intended to read in conjunction with this quotation. I agree to be bound by these conditions. I authorise the use of my personal information as detailed in the Privacy Act Clause therein. I agree that if I am a Director or a shareholder (owning at least 15% of the shares) of the client I shall be personally liable for the performance of the client's obligations under this act.`,
+      termsText2: companyData?.quote_terms_text_2 || `Please read this quote carefully for all details regarding edge thickness, stone colour and work description. We require a ${companyData?.deposit_percent || 50}% deposit and completed purchase order upon acceptance of this quote.`,
+      termsText3: companyData?.quote_terms_text_3 || `Please contact our office via email ${company.email} if you wish to proceed.`,
+      termsText4: companyData?.quote_terms_text_4 || `This quote is valid for ${companyData?.quote_validity_days || 30} days, on the exception of being signed off as a job, where it will be valid for a 3 month period.`,
+      signatureName: companyData?.signature_name || 'Beau Kavanagh',
+      signatureTitle: companyData?.signature_title || null,
+      depositPercent: companyData?.deposit_percent || 50,
+      validityDays: companyData?.quote_validity_days || 30,
     };
 
     // Parse decimal values
@@ -207,7 +208,7 @@ export async function GET(
     });
     
     // Date on right
-    page1.drawText(`Date: ${formatDate(quote.createdAt)}`, {
+    page1.drawText(`Date: ${formatDate(quote.created_at)}`, {
       x: pageWidth - margin - 100,
       y,
       size: 10,
@@ -236,7 +237,7 @@ export async function GET(
     });
     y -= 15;
 
-    const customerText = `${quote.customer?.name || 'No customer specified'}${quote.customer?.company ? ` - ${quote.customer.company}` : ''}`;
+    const customerText = `${quote.customers?.name || 'No customer specified'}${quote.customers?.company ? ` - ${quote.customers.company}` : ''}`;
     page1.drawText(customerText, {
       x: margin,
       y,
@@ -381,7 +382,7 @@ export async function GET(
     };
 
     // Rooms and pieces
-    for (const room of quote.rooms) {
+    for (const room of quote.quote_rooms) {
       checkNewPage(100);
 
       // Room header
@@ -393,7 +394,7 @@ export async function GET(
         color: lightGray,
       });
 
-      currentPage.drawText(quote_rooms.name.toUpperCase(), {
+      currentPage.drawText(room.name.toUpperCase(), {
         x: margin + 6,
         y: y - 12,
         size: 11,
@@ -402,11 +403,11 @@ export async function GET(
       });
       y -= 30;
 
-      for (const piece of quote_rooms.pieces) {
+      for (const piece of room.quote_pieces) {
         checkNewPage(80);
 
-        const pieceTotal = parseFloat(piece.totalCost.toString());
-        const areaSqm = parseFloat(piece.areaSqm.toString());
+        const pieceTotal = parseFloat(piece.total_cost.toString());
+        const areaSqm = parseFloat(piece.area_sqm.toString());
 
         // Piece description
         currentPage.drawText(piece.description || 'Stone piece', {
@@ -420,14 +421,14 @@ export async function GET(
 
         // Dimensions
         currentPage.drawText(
-          `${piece.lengthMm} x ${piece.widthMm} x ${piece.thicknessMm}mm (${areaSqm.toFixed(2)} m²)`,
+          `${piece.length_mm} x ${piece.width_mm} x ${piece.thickness_mm}mm (${areaSqm.toFixed(2)} m²)`,
           { x: margin + 6, y, size: 9, font: helvetica, color: gray }
         );
         y -= 12;
 
         // Material
-        if (piece.materialName) {
-          currentPage.drawText(`Material: ${piece.materialName}`, {
+        if (piece.material_name) {
+          currentPage.drawText(`Material: ${piece.material_name}`, {
             x: margin + 6,
             y,
             size: 9,
@@ -438,7 +439,7 @@ export async function GET(
         }
 
         // Features
-        for (const feature of piece.features) {
+        for (const feature of piece.piece_features) {
           currentPage.drawText(`- ${feature.quantity}x ${feature.name}`, {
             x: margin + 16,
             y,

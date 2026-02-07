@@ -6,7 +6,7 @@ export async function GET() {
   try {
     const machines = await prisma.machine_profiles.findMany({
       orderBy: [
-        { isDefault: 'desc' },
+        { is_default: 'desc' },
         { name: 'asc' }
       ]
     });
@@ -43,26 +43,28 @@ export async function POST(request: Request) {
     // If this machine is set as default, unset any existing default
     if (data.isDefault) {
       await prisma.machine_profiles.updateMany({
-        where: { isDefault: true },
-        data: { isDefault: false }
+        where: { is_default: true },
+        data: { is_default: false, updated_at: new Date() }
       });
     }
 
     const machine = await prisma.machine_profiles.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
-        kerfWidthMm: data.kerfWidthMm,
-        maxSlabLengthMm: data.maxSlabLengthMm || null,
-        maxSlabWidthMm: data.maxSlabWidthMm || null,
-        isDefault: data.isDefault || false,
-        isActive: data.isActive !== false,
+        kerf_width_mm: data.kerfWidthMm,
+        max_slab_length_mm: data.maxSlabLengthMm || null,
+        max_slab_width_mm: data.maxSlabWidthMm || null,
+        is_default: data.isDefault || false,
+        is_active: data.isActive !== false,
+        updated_at: new Date(),
       }
     });
 
     return NextResponse.json(machine);
   } catch (error: any) {
     console.error('Error creating machine profile:', error);
-    
+
     // Handle unique constraint violation
     if (error.code === 'P2002') {
       return NextResponse.json(

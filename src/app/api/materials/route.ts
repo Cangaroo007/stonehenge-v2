@@ -22,8 +22,9 @@ export async function POST(request: NextRequest) {
         name: data.name,
         collection: data.collection || null,
         description: data.description || null,
-        pricePerSqm: data.pricePerSqm,
-        isActive: data.isActive ?? true,
+        price_per_sqm: data.pricePerSqm,
+        is_active: data.isActive ?? true,
+        updated_at: new Date(),
       },
     });
 

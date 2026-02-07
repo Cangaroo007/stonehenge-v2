@@ -79,27 +79,27 @@ export async function PUT(
     }
 
     // Handle room change if needed
-    let roomId = currentPiece.roomId;
+    let roomId = currentPiece.room_id;
     if (roomName && roomName !== currentPiece.quote_rooms.name) {
       // Find or create the new room
       let newRoom = await prisma.quote_rooms.findFirst({
         where: {
-          quoteId,
+          quote_id: quoteId,
           name: roomName,
         },
       });
 
       if (!newRoom) {
         const maxRoom = await prisma.quote_rooms.findFirst({
-          where: { quoteId },
-          orderBy: { sortOrder: 'desc' },
+          where: { quote_id: quoteId },
+          orderBy: { sort_order: 'desc' },
         });
 
         newRoom = await prisma.quote_rooms.create({
           data: {
-            quoteId,
+            quote_id: quoteId,
             name: roomName,
-            sortOrder: (maxRoom?.sortOrder ?? -1) + 1,
+            sort_order: (maxRoom?.sort_order ?? -1) + 1,
           },
         });
       }
@@ -108,19 +108,19 @@ export async function PUT(
     }
 
     // Calculate area
-    const length = lengthMm ?? currentPiece.lengthMm;
-    const width = widthMm ?? currentPiece.widthMm;
+    const length = lengthMm ?? currentPiece.length_mm;
+    const width = widthMm ?? currentPiece.width_mm;
     const areaSqm = (length * width) / 1_000_000;
 
     // Calculate material cost if material is provided
     let materialCost = 0;
-    const matId = materialId !== undefined ? materialId : currentPiece.materialId;
+    const matId = materialId !== undefined ? materialId : currentPiece.material_id;
     if (matId) {
       const material = await prisma.materials.findUnique({
         where: { id: matId },
       });
       if (material) {
-        materialCost = areaSqm * material.pricePerSqm.toNumber();
+        materialCost = areaSqm * material.price_per_sqm.toNumber();
       }
     }
 
@@ -128,21 +128,21 @@ export async function PUT(
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceIdNum },
       data: {
-        roomId,
+        room_id: roomId,
         name: name ?? currentPiece.name,
         description: description !== undefined ? description : currentPiece.description,
-        lengthMm: length,
-        widthMm: width,
-        thicknessMm: thicknessMm ?? currentPiece.thicknessMm,
-        areaSqm,
-        materialId: matId,
-        materialName: materialName !== undefined ? materialName : currentPiece.materialName,
-        materialCost,
-        totalCost: materialCost + currentPiece.featuresCost.toNumber(),
-        edgeTop: edgeTop !== undefined ? edgeTop : currentPiece.edgeTop,
-        edgeBottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edgeBottom,
-        edgeLeft: edgeLeft !== undefined ? edgeLeft : currentPiece.edgeLeft,
-        edgeRight: edgeRight !== undefined ? edgeRight : currentPiece.edgeRight,
+        length_mm: length,
+        width_mm: width,
+        thickness_mm: thicknessMm ?? currentPiece.thickness_mm,
+        area_sqm: areaSqm,
+        material_id: matId,
+        material_name: materialName !== undefined ? materialName : currentPiece.material_name,
+        material_cost: materialCost,
+        total_cost: materialCost + currentPiece.features_cost.toNumber(),
+        edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
+        edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
+        edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
+        edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
       },
       include: {
@@ -153,11 +153,11 @@ export async function PUT(
 
     // Clean up empty rooms
     const oldRoomPiecesCount = await prisma.quote_pieces.count({
-      where: { roomId: currentPiece.roomId },
+      where: { room_id: currentPiece.room_id },
     });
-    if (oldRoomPiecesCount === 0 && currentPiece.roomId !== roomId) {
+    if (oldRoomPiecesCount === 0 && currentPiece.room_id !== roomId) {
       await prisma.quote_rooms.delete({
-        where: { id: currentPiece.roomId },
+        where: { id: currentPiece.room_id },
       });
     }
 
@@ -193,7 +193,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
     }
 
-    const roomId = piece.roomId;
+    const roomId = piece.room_id;
 
     // Delete the piece
     await prisma.quote_pieces.delete({
@@ -202,7 +202,7 @@ export async function DELETE(
 
     // Check if the room is now empty
     const roomPiecesCount = await prisma.quote_pieces.count({
-      where: { roomId },
+      where: { room_id: roomId },
     });
 
     // Delete empty room

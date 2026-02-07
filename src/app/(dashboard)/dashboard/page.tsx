@@ -110,7 +110,7 @@ export default async function DashboardPage() {
                         {getStatusLabel(quote.status)}
                       </span>
                     </td>
-                    <td className="table-cell">{formatDate(quote.createdAt)}</td>
+                    <td className="table-cell">{formatDate(quote.created_at)}</td>
                     <td className="table-cell">
                       <Link
                         href={`/quotes/${quote.id}`}

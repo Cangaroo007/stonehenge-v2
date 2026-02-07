@@ -29,10 +29,10 @@ export async function POST(
 
     // Verify the piece belongs to the correct quote
     const room = await prisma.quote_rooms.findUnique({
-      where: { id: originalPiece.roomId },
+      where: { id: originalPiece.room_id },
     });
 
-    if (!room || quote_rooms.quoteId !== quoteId) {
+    if (!room || room.quote_id !== quoteId) {
       return NextResponse.json({ error: 'Piece does not belong to this quote' }, { status: 400 });
     }
 
@@ -40,34 +40,34 @@ export async function POST(
     const maxSortOrderPiece = await prisma.quote_pieces.findFirst({
       where: {
         quote_rooms: {
-          quoteId,
+          quote_id: quoteId,
         },
       },
-      orderBy: { sortOrder: 'desc' },
+      orderBy: { sort_order: 'desc' },
     });
-    const newSortOrder = (maxSortOrderPiece?.sortOrder ?? -1) + 1;
+    const newSortOrder = (maxSortOrderPiece?.sort_order ?? -1) + 1;
 
     // Create the duplicate piece
     const duplicatedPiece = await prisma.quote_pieces.create({
       data: {
-        roomId: originalPiece.roomId,
+        room_id: originalPiece.room_id,
         name: `${originalPiece.name} (copy)`,
         description: originalPiece.description,
-        lengthMm: originalPiece.lengthMm,
-        widthMm: originalPiece.widthMm,
-        thicknessMm: originalPiece.thicknessMm,
-        areaSqm: originalPiece.areaSqm,
-        materialId: originalPiece.materialId,
-        materialName: originalPiece.materialName,
-        materialCost: originalPiece.materialCost,
-        featuresCost: originalPiece.featuresCost,
-        totalCost: originalPiece.totalCost,
-        edgeTop: originalPiece.edgeTop,
-        edgeBottom: originalPiece.edgeBottom,
-        edgeLeft: originalPiece.edgeLeft,
-        edgeRight: originalPiece.edgeRight,
+        length_mm: originalPiece.length_mm,
+        width_mm: originalPiece.width_mm,
+        thickness_mm: originalPiece.thickness_mm,
+        area_sqm: originalPiece.area_sqm,
+        material_id: originalPiece.material_id,
+        material_name: originalPiece.material_name,
+        material_cost: originalPiece.material_cost,
+        features_cost: originalPiece.features_cost,
+        total_cost: originalPiece.total_cost,
+        edge_top: originalPiece.edge_top,
+        edge_bottom: originalPiece.edge_bottom,
+        edge_left: originalPiece.edge_left,
+        edge_right: originalPiece.edge_right,
         cutouts: originalPiece.cutouts ?? [],
-        sortOrder: newSortOrder,
+        sort_order: newSortOrder,
       },
       include: {
         quote_rooms: true,

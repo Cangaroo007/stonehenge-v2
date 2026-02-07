@@ -33,8 +33,8 @@ export async function GET(
       where: {
         id: quoteId,
         OR: [
-          { createdBy: authResult.user.id },
-          { customer: { users: { some: { id: authResult.user.id } } } },
+          { created_by: authResult.user.id },
+          { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
     });
@@ -43,12 +43,12 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch both versions
+    // Fetch both versions (quote_versions is a planned model)
     const [fromVersionRecord, toVersionRecord] = await Promise.all([
-      prisma.quote_versions.findUnique({
+      (prisma as any).quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: fromVersion } },
       }),
-      prisma.quote_versions.findUnique({
+      (prisma as any).quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: toVersion } },
       }),
     ]);

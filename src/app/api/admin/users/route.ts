@@ -29,23 +29,23 @@ export async function GET(request: NextRequest) {
     const customerId = searchParams.get('customerId');
 
     // Build where clause
-    const where: Prisma.UserWhereInput = {};
+    const where: Prisma.userWhereInput = {};
     if (customerId) {
-      where.customerId = parseInt(customerId);
+      where.customer_id = parseInt(customerId);
     }
 
     // Get all users with their customer info and permissions
-    const users = await prisma.users.findMany({
+    const users = await prisma.user.findMany({
       where,
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             name: true,
             company: true,
           },
         },
-        permissions: {
+        user_permissions: {
           select: {
             permission: true,
           },
@@ -57,9 +57,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Remove password hashes from response
-    const safeUsers = users.map(({ passwordHash, ...user }) => ({
+    const safeUsers = users.map(({ password_hash, ...user }) => ({
       ...user,
-      permissions: user.permissions.map(p => p.permission),
+      permissions: user.user_permissions.map(p => p.permission),
     }));
 
     return NextResponse.json(safeUsers);
@@ -125,7 +125,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if user already exists
-    const existingUser = await prisma.users.findUnique({
+    const existingUser = await prisma.user.findUnique({
       where: { email },
     });
 
@@ -145,23 +145,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const passwordHash = await hashPassword(tempPassword);
+    const hashedPassword = await hashPassword(tempPassword);
 
     // Create user
-    const newUser = await prisma.users.create({
+    const newUser = await prisma.user.create({
       data: {
         email,
         name,
-        passwordHash,
+        password_hash: hashedPassword,
         role,
-        customerId: customerId || null,
-        customerUserRole: role === UserRole.CUSTOMER ? customerUserRole : null,
-        isActive: true,
-        invitedBy: currentUser.id,
-        invitedAt: new Date(),
+        customer_id: customerId || null,
+        customer_user_role: role === UserRole.CUSTOMER ? customerUserRole : null,
+        is_active: true,
+        invited_by: currentUser.id,
+        invited_at: new Date(),
+        updated_at: new Date(),
       },
       include: {
-        customer: {
+        customers: {
           select: {
             id: true,
             name: true,
@@ -175,7 +176,7 @@ export async function POST(request: NextRequest) {
     if (role === UserRole.CUSTOM && permissions && Array.isArray(permissions)) {
       await prisma.user_permissions.createMany({
         data: permissions.map((permission: Permission) => ({
-          userId: newUser.id,
+          user_id: newUser.id,
           permission,
         })),
       });
@@ -196,7 +197,7 @@ export async function POST(request: NextRequest) {
     // This would integrate with your email service
 
     // Remove password hash from response
-    const { passwordHash: _, ...safeUser } = newUser;
+    const { password_hash: _, ...safeUser } = newUser;
 
     return NextResponse.json(safeUser);
   } catch (error) {

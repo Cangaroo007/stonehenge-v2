@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const pricingRules = await prisma.pricing_rules.findMany({
+    const pricingRules = await prisma.pricing_rules_engine.findMany({
       orderBy: [{ priority: 'desc' }, { name: 'asc' }],
       include: {
         client_types: true,
@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const pricingRule = await prisma.pricing_rules.create({
+    const pricingRule = await prisma.pricing_rules_engine.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         priority: data.priority || 0,
@@ -35,6 +36,7 @@ export async function POST(request: NextRequest) {
         adjustmentValue: data.adjustmentValue || 0,
         appliesTo: data.appliesTo || 'all',
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

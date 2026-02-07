@@ -46,7 +46,7 @@ export async function POST(request: NextRequest) {
 
     // Check if email already exists (if creating portal user)
     if (data.createPortalUser && data.email) {
-      const existingUser = await prisma.users.findUnique({
+      const existingUser = await prisma.user.findUnique({
         where: { email: data.email },
       });
       if (existingUser) {
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // Create customer and optional portal user in a transaction
     const result = await prisma.$transaction(async (tx) => {
       // Create customer
-      const customer = await tx.customer.create({
+      const customer = await tx.customers.create({
         data: {
           name: data.name,
           company: data.company || null,
@@ -68,9 +68,10 @@ export async function POST(request: NextRequest) {
           phone: data.phone || null,
           address: data.address || null,
           notes: data.notes || null,
-          clientTypeId: data.clientTypeId || null,
-          clientTierId: data.clientTierId || null,
-          defaultPriceBookId: data.defaultPriceBookId || null,
+          client_type_id: data.clientTypeId || null,
+          client_tier_id: data.clientTierId || null,
+          default_price_book_id: data.defaultPriceBookId || null,
+          updated_at: new Date(),
         },
         include: {
           client_types: true,
@@ -90,12 +91,13 @@ export async function POST(request: NextRequest) {
         portalUser = await tx.user.create({
           data: {
             email: data.email,
-            passwordHash: hashedPassword,
+            password_hash: hashedPassword,
             name: data.name,
             role: UserRole.CUSTOMER,
-            customerUserRole: data.customerUserRole as CustomerUserRole || CustomerUserRole.CUSTOMER_ADMIN,
-            customerId: customer.id,
-            isActive: true,
+            customer_user_role: data.customerUserRole as CustomerUserRole || CustomerUserRole.CUSTOMER_ADMIN,
+            customer_id: customer.id,
+            is_active: true,
+            updated_at: new Date(),
           },
         });
       }
@@ -109,7 +111,7 @@ export async function POST(request: NextRequest) {
       response.portalUser = {
         id: result.portalUser.id,
         email: result.portalUser.email,
-        role: result.portalUser.customerUserRole,
+        role: result.portalUser.customer_user_role,
       };
     }
 

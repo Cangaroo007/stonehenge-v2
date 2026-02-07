@@ -6,9 +6,9 @@ export async function GET() {
     const priceBooks = await prisma.price_books.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        rules: {
+        price_book_rules: {
           include: {
-            pricingRule: true,
+            pricing_rules_engine: true,
           },
         },
       },
@@ -26,6 +26,7 @@ export async function POST(request: NextRequest) {
 
     const priceBook = await prisma.price_books.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         category: data.category || 'general',
@@ -33,17 +34,19 @@ export async function POST(request: NextRequest) {
         isDefault: data.isDefault || false,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
-        rules: data.ruleIds && data.ruleIds.length > 0 ? {
+        updatedAt: new Date(),
+        price_book_rules: data.ruleIds && data.ruleIds.length > 0 ? {
           create: data.ruleIds.map((ruleId: string, index: number) => ({
-            pricingRuleId: ruleId,
+            id: crypto.randomUUID(),
+            pricing_rule_id: ruleId,
             sortOrder: index,
           })),
         } : undefined,
       },
       include: {
-        rules: {
+        price_book_rules: {
           include: {
-            pricingRule: true,
+            pricing_rules_engine: true,
           },
         },
       },

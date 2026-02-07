@@ -53,9 +53,9 @@ export async function POST(
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       include: {
-        rooms: {
+        quote_rooms: {
           include: {
-            pieces: true,
+            quote_pieces: true,
           },
         },
       },
@@ -66,37 +66,37 @@ export async function POST(
     }
 
     // Extract pieces from quote with thickness, finished edges, and edge type names
-    const pieces = quote.rooms.flatMap((quote_rooms: {
+    const pieces = quote.quote_rooms.flatMap((room: {
       name: string;
-      pieces: Array<{
+      quote_pieces: Array<{
         id: number;
-        lengthMm: number;
-        widthMm: number;
-        thicknessMm: number;
+        length_mm: number;
+        width_mm: number;
+        thickness_mm: number;
         name: string;
-        edgeTop: string | null;
-        edgeBottom: string | null;
-        edgeLeft: string | null;
-        edgeRight: string | null;
+        edge_top: string | null;
+        edge_bottom: string | null;
+        edge_left: string | null;
+        edge_right: string | null;
       }>
     }) =>
-      quote_rooms.pieces.map((piece) => ({
+      room.quote_pieces.map((piece) => ({
         id: piece.id.toString(),
-        width: piece.lengthMm,
-        height: piece.widthMm,
-        label: `${quote_rooms.name}: ${piece.name || 'Piece'}`,
-        thickness: piece.thicknessMm || 20,
+        width: piece.length_mm,
+        height: piece.width_mm,
+        label: `${room.name}: ${piece.name || 'Piece'}`,
+        thickness: piece.thickness_mm || 20,
         finishedEdges: {
-          top: piece.edgeTop !== null,
-          bottom: piece.edgeBottom !== null,
-          left: piece.edgeLeft !== null,
-          right: piece.edgeRight !== null,
+          top: piece.edge_top !== null,
+          bottom: piece.edge_bottom !== null,
+          left: piece.edge_left !== null,
+          right: piece.edge_right !== null,
         },
         edgeTypeNames: {
-          top: piece.edgeTop || undefined,
-          bottom: piece.edgeBottom || undefined,
-          left: piece.edgeLeft || undefined,
-          right: piece.edgeRight || undefined,
+          top: piece.edge_top || undefined,
+          bottom: piece.edge_bottom || undefined,
+          left: piece.edge_left || undefined,
+          right: piece.edge_right || undefined,
         },
       }))
     );
@@ -125,6 +125,7 @@ export async function POST(
     console.log('[Optimize API] Saving optimization to database...');
     const optimization = await prisma.slab_optimizations.create({
       data: {
+        id: crypto.randomUUID(),
         quoteId,
         slabWidth,
         slabHeight,
@@ -134,7 +135,7 @@ export async function POST(
         wastePercent: result.wastePercent,
         placements: result.placements as object,
         laminationSummary: result.laminationSummary as object || null,
-      },
+      } as any,
     });
 
     console.log(`[Optimize API] ✅ Saved optimization ${optimization.id} to database`);

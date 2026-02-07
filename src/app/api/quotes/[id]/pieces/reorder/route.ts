@@ -34,7 +34,7 @@ export async function PUT(
       pieces.map((piece: ReorderItem) =>
         prisma.quote_pieces.update({
           where: { id: piece.id },
-          data: { sortOrder: piece.sortOrder },
+          data: { sort_order: piece.sortOrder },
         })
       )
     );

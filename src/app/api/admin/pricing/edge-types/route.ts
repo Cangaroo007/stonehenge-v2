@@ -31,12 +31,14 @@ export async function POST(request: NextRequest) {
 
     const edgeType = await prisma.edge_types.create({
       data: {
+        id: crypto.randomUUID(),
         name: data.name,
         description: data.description || null,
         category: data.category || 'polish',
         baseRate: data.baseRate || 0,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        updatedAt: new Date(),
       },
     });
 

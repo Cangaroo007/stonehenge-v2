@@ -113,12 +113,12 @@ export async function POST(
     const prisma = (await import('@/lib/db')).default;
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
-      select: { customerId: true },
+      select: { customer_id: true },
     });
 
-    console.log('[Create Drawing API] Quote fetched:', { 
-      found: !!quote, 
-      customerId: quote?.customerId 
+    console.log('[Create Drawing API] Quote fetched:', {
+      found: !!quote,
+      customerId: quote?.customer_id
     });
 
     if (!quote) {
@@ -126,7 +126,7 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (!quote.customerId) {
+    if (!quote.customer_id) {
       console.error('[Create Drawing API] ❌ Quote has no customer assigned');
       return NextResponse.json(
         { error: 'Quote has no customer assigned' },
@@ -136,7 +136,7 @@ export async function POST(
 
     console.log('[Create Drawing API] Creating database record with:', {
       quoteId,
-      customerId: quote.customerId,
+      customerId: quote.customer_id,
       storageKey,
       filename,
       mimeType,
@@ -149,7 +149,7 @@ export async function POST(
       mimeType,
       fileSize: fileSize || 0,
       quoteId,
-      customerId: quote.customerId,
+      customerId: quote.customer_id,
       analysisData,
       isPrimary: false,
     });

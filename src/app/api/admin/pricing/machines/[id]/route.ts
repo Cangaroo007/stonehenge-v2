@@ -54,11 +54,11 @@ export async function PUT(
     // If this machine is being set as default, unset any existing default
     if (data.isDefault) {
       await prisma.machine_profiles.updateMany({
-        where: { 
-          isDefault: true,
+        where: {
+          is_default: true,
           id: { not: params.id }
         },
-        data: { isDefault: false }
+        data: { is_default: false, updated_at: new Date() }
       });
     }
 
@@ -66,11 +66,12 @@ export async function PUT(
       where: { id: params.id },
       data: {
         name: data.name,
-        kerfWidthMm: data.kerfWidthMm,
-        maxSlabLengthMm: data.maxSlabLengthMm !== undefined ? data.maxSlabLengthMm : undefined,
-        maxSlabWidthMm: data.maxSlabWidthMm !== undefined ? data.maxSlabWidthMm : undefined,
-        isDefault: data.isDefault,
-        isActive: data.isActive !== undefined ? data.isActive : undefined,
+        kerf_width_mm: data.kerfWidthMm,
+        max_slab_length_mm: data.maxSlabLengthMm !== undefined ? data.maxSlabLengthMm : undefined,
+        max_slab_width_mm: data.maxSlabWidthMm !== undefined ? data.maxSlabWidthMm : undefined,
+        is_default: data.isDefault,
+        is_active: data.isActive !== undefined ? data.isActive : undefined,
+        updated_at: new Date(),
       }
     });
 
@@ -120,17 +121,17 @@ export async function DELETE(
     }
 
     // Prevent deleting the default machine
-    if (machine.isDefault) {
+    if (machine.is_default) {
       return NextResponse.json(
         { error: 'Cannot delete the default machine. Set another machine as default first.' },
         { status: 400 }
       );
     }
 
-    // Soft delete by setting isActive to false
+    // Soft delete by setting is_active to false
     await prisma.machine_profiles.update({
       where: { id: params.id },
-      data: { isActive: false }
+      data: { is_active: false, updated_at: new Date() }
     });
 
     return NextResponse.json({ success: true });

@@ -96,14 +96,14 @@ export async function POST(request: NextRequest) {
     // 7. Verify quote exists and belongs to customer
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
-      select: { id: true, customerId: true },
+      select: { id: true, customer_id: true },
     });
 
     if (!quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    if (quote.customerId !== customerId) {
+    if (quote.customer_id !== customerId) {
       return NextResponse.json({ error: 'Quote does not belong to this customer' }, { status: 400 });
     }
 

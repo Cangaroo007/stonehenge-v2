@@ -133,9 +133,9 @@ export class MaterialCalculator {
 
     if (this.pricingBasis === 'PER_SLAB') {
       // For per-slab, we calculate proportionally until final aggregation
-      const slabPrice = piece.material?.pricePerSlab ?? new Decimal(0);
-      const sqmPrice = piece.material?.pricePerSquareMetre 
-        ?? piece.material?.pricePerSqm 
+      const slabPrice = piece.materials?.pricePerSlab ?? new Decimal(0);
+      const sqmPrice = piece.materials?.pricePerSquareMetre 
+        ?? piece.materials?.pricePerSqm 
         ?? new Decimal(0);
       
       // Use sqm price as fallback if no slab price
@@ -143,8 +143,8 @@ export class MaterialCalculator {
       totalCost = areaSqm.times(unitCost);
     } else {
       // Per square metre pricing
-      unitCost = piece.material?.pricePerSquareMetre 
-        ?? piece.material?.pricePerSqm 
+      unitCost = piece.materials?.pricePerSquareMetre 
+        ?? piece.materials?.pricePerSqm 
         ?? new Decimal(0);
       totalCost = areaSqm.times(unitCost);
     }
@@ -168,17 +168,17 @@ export class MaterialCalculator {
   ): { totalCost: Decimal; unitCost: Decimal } {
     // Find the material price from first piece with material
     const materialWithPricing = pieces.find(
-      p => p.material?.pricePerSlab && p.material.pricePerSlab.greaterThan(0)
+      p => p.materials?.pricePerSlab && p.materials.pricePerSlab.greaterThan(0)
     );
 
-    if (!materialWithPricing?.material?.pricePerSlab) {
+    if (!materialWithPricing?.materials?.pricePerSlab) {
       // Fallback to per-m² pricing
       const totalArea = pieces.reduce(
         (sum, p) => sum.plus(this.calculateArea(p.lengthMm, p.widthMm)),
         new Decimal(0)
       );
       const avgPricePerSqm = pieces.reduce((sum, p) => {
-        const price = p.material?.pricePerSquareMetre ?? p.material?.pricePerSqm ?? new Decimal(0);
+        const price = p.materials?.pricePerSquareMetre ?? p.materials?.pricePerSqm ?? new Decimal(0);
         return sum.plus(price);
       }, new Decimal(0)).dividedBy(pieces.length || 1);
       
@@ -188,7 +188,7 @@ export class MaterialCalculator {
       };
     }
 
-    const slabPrice = materialWithPricing.material.pricePerSlab;
+    const slabPrice = materialWithPricing.materials!.pricePerSlab!;
     const totalCost = slabPrice.times(slabCount);
 
     // Calculate effective unit cost
