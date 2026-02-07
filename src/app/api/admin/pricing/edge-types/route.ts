@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const edgeTypes = await prisma.edgeType.findMany({
+    const edgeTypes = await prisma.edge_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const edgeType = await prisma.edgeType.create({
+    const edgeType = await prisma.edge_types.create({
       data: {
         name: data.name,
         description: data.description || null,

@@ -16,7 +16,7 @@ export async function POST(
     }
 
     // Get the original piece
-    const originalPiece = await prisma.quotePiece.findUnique({
+    const originalPiece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
       include: {
         room: true,
@@ -28,7 +28,7 @@ export async function POST(
     }
 
     // Verify the piece belongs to the correct quote
-    const room = await prisma.quoteRoom.findUnique({
+    const room = await prisma.quote_rooms.findUnique({
       where: { id: originalPiece.roomId },
     });
 
@@ -37,7 +37,7 @@ export async function POST(
     }
 
     // Get the max sortOrder for the quote
-    const maxSortOrderPiece = await prisma.quotePiece.findFirst({
+    const maxSortOrderPiece = await prisma.quote_pieces.findFirst({
       where: {
         room: {
           quoteId,
@@ -48,7 +48,7 @@ export async function POST(
     const newSortOrder = (maxSortOrderPiece?.sortOrder ?? -1) + 1;
 
     // Create the duplicate piece
-    const duplicatedPiece = await prisma.quotePiece.create({
+    const duplicatedPiece = await prisma.quote_pieces.create({
       data: {
         roomId: originalPiece.roomId,
         name: `${originalPiece.name} (copy)`,

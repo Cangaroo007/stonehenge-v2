@@ -32,7 +32,7 @@ interface RawResults {
 }
 
 async function getQuote(id: number) {
-  return prisma.quote.findUnique({
+  return prisma.quotes.findUnique({
     where: { id },
     include: {
       customer: true,

@@ -5,7 +5,7 @@ import { formatCurrency } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 async function getMaterials() {
-  return prisma.material.findMany({
+  return prisma.materials.findMany({
     orderBy: [{ collection: 'asc' }, { name: 'asc' }],
   });
 }

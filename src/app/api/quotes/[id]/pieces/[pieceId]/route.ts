@@ -14,7 +14,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid piece ID' }, { status: 400 });
     }
 
-    const piece = await prisma.quotePiece.findUnique({
+    const piece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
       include: {
         material: true,
@@ -69,7 +69,7 @@ export async function PUT(
     } = data;
 
     // Get the current piece
-    const currentPiece = await prisma.quotePiece.findUnique({
+    const currentPiece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
       include: { room: true },
     });
@@ -82,7 +82,7 @@ export async function PUT(
     let roomId = currentPiece.roomId;
     if (roomName && roomName !== currentPiece.room.name) {
       // Find or create the new room
-      let newRoom = await prisma.quoteRoom.findFirst({
+      let newRoom = await prisma.quote_rooms.findFirst({
         where: {
           quoteId,
           name: roomName,
@@ -90,12 +90,12 @@ export async function PUT(
       });
 
       if (!newRoom) {
-        const maxRoom = await prisma.quoteRoom.findFirst({
+        const maxRoom = await prisma.quote_rooms.findFirst({
           where: { quoteId },
           orderBy: { sortOrder: 'desc' },
         });
 
-        newRoom = await prisma.quoteRoom.create({
+        newRoom = await prisma.quote_rooms.create({
           data: {
             quoteId,
             name: roomName,
@@ -116,7 +116,7 @@ export async function PUT(
     let materialCost = 0;
     const matId = materialId !== undefined ? materialId : currentPiece.materialId;
     if (matId) {
-      const material = await prisma.material.findUnique({
+      const material = await prisma.materials.findUnique({
         where: { id: matId },
       });
       if (material) {
@@ -125,7 +125,7 @@ export async function PUT(
     }
 
     // Update the piece
-    const piece = await prisma.quotePiece.update({
+    const piece = await prisma.quote_pieces.update({
       where: { id: pieceIdNum },
       data: {
         roomId,
@@ -152,11 +152,11 @@ export async function PUT(
     });
 
     // Clean up empty rooms
-    const oldRoomPiecesCount = await prisma.quotePiece.count({
+    const oldRoomPiecesCount = await prisma.quote_pieces.count({
       where: { roomId: currentPiece.roomId },
     });
     if (oldRoomPiecesCount === 0 && currentPiece.roomId !== roomId) {
-      await prisma.quoteRoom.delete({
+      await prisma.quote_rooms.delete({
         where: { id: currentPiece.roomId },
       });
     }
@@ -185,7 +185,7 @@ export async function DELETE(
     }
 
     // Get the piece first to check the room
-    const piece = await prisma.quotePiece.findUnique({
+    const piece = await prisma.quote_pieces.findUnique({
       where: { id: pieceIdNum },
     });
 
@@ -196,18 +196,18 @@ export async function DELETE(
     const roomId = piece.roomId;
 
     // Delete the piece
-    await prisma.quotePiece.delete({
+    await prisma.quote_pieces.delete({
       where: { id: pieceIdNum },
     });
 
     // Check if the room is now empty
-    const roomPiecesCount = await prisma.quotePiece.count({
+    const roomPiecesCount = await prisma.quote_pieces.count({
       where: { roomId },
     });
 
     // Delete empty room
     if (roomPiecesCount === 0) {
-      await prisma.quoteRoom.delete({
+      await prisma.quote_rooms.delete({
         where: { id: roomId },
       });
     }

@@ -18,7 +18,7 @@ export async function GET(
     const versionNumber = parseInt(version);
 
     // Verify quote exists and user has access
-    const quote = await prisma.quote.findFirst({
+    const quote = await prisma.quotes.findFirst({
       where: {
         id: quoteId,
         OR: [
@@ -33,7 +33,7 @@ export async function GET(
     }
 
     // Fetch the specific version
-    const versionRecord = await prisma.quoteVersion.findUnique({
+    const versionRecord = await prisma.quote_versions.findUnique({
       where: {
         quoteId_version: {
           quoteId,

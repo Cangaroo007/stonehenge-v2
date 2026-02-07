@@ -35,7 +35,7 @@ export async function POST(
     }
 
     // Verify quote exists
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
     });
 
@@ -54,7 +54,7 @@ export async function POST(
     }
 
     // Look up default edge type (Pencil Round) for pieces without edges
-    const defaultEdgeType = await prisma.edgeType.findFirst({
+    const defaultEdgeType = await prisma.edge_types.findFirst({
       where: { category: 'polish', isActive: true },
       orderBy: { sortOrder: 'asc' },
       select: { id: true },
@@ -74,16 +74,16 @@ export async function POST(
 
     // If replaceExisting, delete all existing rooms and pieces for this quote
     if (replaceExisting) {
-      const existingRooms = await prisma.quoteRoom.findMany({
+      const existingRooms = await prisma.quote_rooms.findMany({
         where: { quoteId },
         select: { id: true },
       });
       const roomIds = existingRooms.map(r => r.id);
       if (roomIds.length > 0) {
-        await prisma.quotePiece.deleteMany({
+        await prisma.quote_pieces.deleteMany({
           where: { roomId: { in: roomIds } },
         });
-        await prisma.quoteRoom.deleteMany({
+        await prisma.quote_rooms.deleteMany({
           where: { quoteId },
         });
       }
@@ -104,7 +104,7 @@ export async function POST(
     // Process each room
     for (const [roomName, roomPieces] of Object.entries(piecesByRoom)) {
       // Find or create the room
-      let room = await prisma.quoteRoom.findFirst({
+      let room = await prisma.quote_rooms.findFirst({
         where: {
           quoteId,
           name: roomName,
@@ -113,12 +113,12 @@ export async function POST(
 
       if (!room) {
         // Get the highest sort order for rooms
-        const maxRoom = await prisma.quoteRoom.findFirst({
+        const maxRoom = await prisma.quote_rooms.findFirst({
           where: { quoteId },
           orderBy: { sortOrder: 'desc' },
         });
 
-        room = await prisma.quoteRoom.create({
+        room = await prisma.quote_rooms.create({
           data: {
             quoteId,
             name: roomName,
@@ -128,7 +128,7 @@ export async function POST(
       }
 
       // Get the highest piece sort order in the room
-      const maxPiece = await prisma.quotePiece.findFirst({
+      const maxPiece = await prisma.quote_pieces.findFirst({
         where: { roomId: room.id },
         orderBy: { sortOrder: 'desc' },
       });
@@ -144,7 +144,7 @@ export async function POST(
         // Calculate area
         const areaSqm = (lengthMm * widthMm) / 1_000_000;
 
-        const piece = await prisma.quotePiece.create({
+        const piece = await prisma.quote_pieces.create({
           data: {
             roomId: room.id,
             name: pieceData.name,
@@ -178,7 +178,7 @@ export async function POST(
     if (sourceAnalysisId) {
       const analysisId = parseInt(sourceAnalysisId);
       if (!isNaN(analysisId)) {
-        await prisma.quoteDrawingAnalysis.update({
+        await prisma.quote_drawing_analysis.update({
           where: { id: analysisId },
           data: {
             importedPieces: createdPieces.map(p => p.id.toString()),

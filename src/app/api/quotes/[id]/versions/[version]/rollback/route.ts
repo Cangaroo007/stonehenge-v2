@@ -34,7 +34,7 @@ export async function POST(
     }
 
     // Verify quote exists and user has access
-    const quote = await prisma.quote.findFirst({
+    const quote = await prisma.quotes.findFirst({
       where: {
         id: quoteId,
         OR: [
@@ -61,7 +61,7 @@ export async function POST(
     await rollbackToVersion(quoteId, versionNumber, authResult.user.id, reason);
 
     // Get updated quote info
-    const updatedQuote = await prisma.quote.findUnique({
+    const updatedQuote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: { currentVersion: true },
     });

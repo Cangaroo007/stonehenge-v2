@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const cutoutType = await prisma.cutoutType.findUnique({
+    const cutoutType = await prisma.cutout_types.findUnique({
       where: { id },
     });
 
@@ -30,7 +30,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const cutoutType = await prisma.cutoutType.update({
+    const cutoutType = await prisma.cutout_types.update({
       where: { id },
       data: {
         name: data.name,
@@ -56,7 +56,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.cutoutType.update({
+    await prisma.cutout_types.update({
       where: { id },
       data: { isActive: false },
     });

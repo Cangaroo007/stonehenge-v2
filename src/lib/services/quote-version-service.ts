@@ -93,7 +93,7 @@ export interface QuoteSnapshot {
  * Creates a complete snapshot of a quote's current state
  */
 export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapshot> {
-  const quote = await prisma.quote.findUnique({
+  const quote = await prisma.quotes.findUnique({
     where: { id: quoteId },
     include: {
       customer: {
@@ -584,7 +584,7 @@ export async function createQuoteVersion(
   const currentSnapshot = await createQuoteSnapshot(quoteId);
   
   // Get the quote's current version number
-  const quote = await prisma.quote.findUnique({
+  const quote = await prisma.quotes.findUnique({
     where: { id: quoteId },
     select: { currentVersion: true },
   });
@@ -630,7 +630,7 @@ export async function createQuoteVersion(
         pieceCount,
       },
     }),
-    prisma.quote.update({
+    prisma.quotes.update({
       where: { id: quoteId },
       data: { currentVersion: newVersionNumber },
     }),

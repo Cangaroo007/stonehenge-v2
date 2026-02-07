@@ -225,7 +225,7 @@ export async function calculateQuotePrice(
   }
 
   // Fetch the quote with all related data
-  const quote = await prisma.quote.findUnique({
+  const quote = await prisma.quotes.findUnique({
     where: { id: quoteIdNum },
     include: {
       customer: {

@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const material = await prisma.material.findUnique({
+    const material = await prisma.materials.findUnique({
       where: { id: parseInt(id) },
     });
 
@@ -30,7 +30,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const material = await prisma.material.update({
+    const material = await prisma.materials.update({
       where: { id: parseInt(id) },
       data: {
         name: data.name,
@@ -54,7 +54,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await prisma.material.delete({
+    await prisma.materials.delete({
       where: { id: parseInt(id) },
     });
 

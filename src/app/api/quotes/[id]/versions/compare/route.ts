@@ -29,7 +29,7 @@ export async function GET(
     const quoteId = parseInt(id);
 
     // Verify quote exists and user has access
-    const quote = await prisma.quote.findFirst({
+    const quote = await prisma.quotes.findFirst({
       where: {
         id: quoteId,
         OR: [
@@ -45,10 +45,10 @@ export async function GET(
 
     // Fetch both versions
     const [fromVersionRecord, toVersionRecord] = await Promise.all([
-      prisma.quoteVersion.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: fromVersion } },
       }),
-      prisma.quoteVersion.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: toVersion } },
       }),
     ]);

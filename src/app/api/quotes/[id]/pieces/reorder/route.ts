@@ -32,7 +32,7 @@ export async function PUT(
     // Update all pieces in a transaction
     await prisma.$transaction(
       pieces.map((piece: ReorderItem) =>
-        prisma.quotePiece.update({
+        prisma.quote_pieces.update({
           where: { id: piece.id },
           data: { sortOrder: piece.sortOrder },
         })

@@ -9,8 +9,8 @@ async function getCustomers() {
     orderBy: { name: 'asc' },
     include: {
       _count: { select: { quotes: true } },
-      clientType: true,
-      clientTier: true,
+      client_types: true,
+      client_tiers: true,
     },
   });
 }

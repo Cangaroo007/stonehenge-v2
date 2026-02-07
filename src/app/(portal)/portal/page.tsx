@@ -8,7 +8,7 @@ import { UserRole } from '@prisma/client';
 export const dynamic = 'force-dynamic';
 
 async function getCustomerQuotes(customerId: number) {
-  return prisma.quote.findMany({
+  return prisma.quotes.findMany({
     where: { customerId },
     include: {
       signature: {

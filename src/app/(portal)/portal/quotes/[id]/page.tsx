@@ -12,7 +12,7 @@ import QuoteSignatureSection from '@/app/(dashboard)/quotes/[id]/components/Quot
 export const dynamic = 'force-dynamic';
 
 async function getQuote(id: number, customerId: number) {
-  return prisma.quote.findFirst({
+  return prisma.quotes.findFirst({
     where: {
       id,
       customerId, // Ensure customer can only see their own quotes

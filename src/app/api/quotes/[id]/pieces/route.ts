@@ -15,7 +15,7 @@ export async function GET(
     }
 
     // Get all rooms with their pieces
-    const rooms = await prisma.quoteRoom.findMany({
+    const rooms = await prisma.quote_rooms.findMany({
       where: { quoteId },
       orderBy: { sortOrder: 'asc' },
       include: {
@@ -81,7 +81,7 @@ export async function POST(
     }
 
     // Find or create the room
-    let room = await prisma.quoteRoom.findFirst({
+    let room = await prisma.quote_rooms.findFirst({
       where: {
         quoteId,
         name: roomName,
@@ -90,12 +90,12 @@ export async function POST(
 
     if (!room) {
       // Get the highest sort order
-      const maxRoom = await prisma.quoteRoom.findFirst({
+      const maxRoom = await prisma.quote_rooms.findFirst({
         where: { quoteId },
         orderBy: { sortOrder: 'desc' },
       });
 
-      room = await prisma.quoteRoom.create({
+      room = await prisma.quote_rooms.create({
         data: {
           quoteId,
           name: roomName,
@@ -105,7 +105,7 @@ export async function POST(
     }
 
     // Get the highest piece sort order in the room
-    const maxPiece = await prisma.quotePiece.findFirst({
+    const maxPiece = await prisma.quote_pieces.findFirst({
       where: { roomId: room.id },
       orderBy: { sortOrder: 'desc' },
     });
@@ -116,7 +116,7 @@ export async function POST(
     // Calculate material cost if material is provided
     let materialCost = 0;
     if (materialId) {
-      const material = await prisma.material.findUnique({
+      const material = await prisma.materials.findUnique({
         where: { id: materialId },
       });
       if (material) {
@@ -125,7 +125,7 @@ export async function POST(
     }
 
     // Create the piece
-    const piece = await prisma.quotePiece.create({
+    const piece = await prisma.quote_pieces.create({
       data: {
         roomId: room.id,
         name,

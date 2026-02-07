@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
           orderBy: { serviceType: 'asc' }
         },
         cutoutRates: {
-          orderBy: { cutoutType: 'asc' }
+          orderBy: { cutout_types: 'asc' }
         }
       }
     });

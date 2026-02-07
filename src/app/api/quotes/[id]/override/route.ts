@@ -35,7 +35,7 @@ export async function POST(
     }
     
     // Update quote with overrides
-    const quote = await prisma.quote.update({
+    const quote = await prisma.quotes.update({
       where: { id: quoteId },
       data: {
         overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
@@ -119,7 +119,7 @@ export async function DELETE(
       );
     }
     
-    const quote = await prisma.quote.update({
+    const quote = await prisma.quotes.update({
       where: { id: quoteId },
       data: {
         overrideSubtotal: null,

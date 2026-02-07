@@ -9,15 +9,15 @@ async function getStats() {
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [totalQuotes, quotesThisMonth, totalValue, recentQuotes] = await Promise.all([
-    prisma.quote.count(),
-    prisma.quote.count({
+    prisma.quotes.count(),
+    prisma.quotes.count({
       where: { createdAt: { gte: startOfMonth } },
     }),
-    prisma.quote.aggregate({
+    prisma.quotes.aggregate({
       _sum: { total: true },
       where: { createdAt: { gte: startOfMonth } },
     }),
-    prisma.quote.findMany({
+    prisma.quotes.findMany({
       take: 5,
       orderBy: { createdAt: 'desc' },
       include: { customer: true },

@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const edgeType = await prisma.edgeType.findUnique({
+    const edgeType = await prisma.edge_types.findUnique({
       where: { id },
     });
 
@@ -30,7 +30,7 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
-    const edgeType = await prisma.edgeType.update({
+    const edgeType = await prisma.edge_types.update({
       where: { id },
       data: {
         name: data.name,
@@ -57,7 +57,7 @@ export async function DELETE(
     const { id } = await params;
 
     // Soft delete by setting isActive to false
-    await prisma.edgeType.update({
+    await prisma.edge_types.update({
       where: { id },
       data: { isActive: false },
     });

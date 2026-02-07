@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const cutoutTypes = await prisma.cutoutType.findMany({
+    const cutoutTypes = await prisma.cutout_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
     });
 
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const cutoutType = await prisma.cutoutType.create({
+    const cutoutType = await prisma.cutout_types.create({
       data: {
         name: data.name,
         description: data.description || null,

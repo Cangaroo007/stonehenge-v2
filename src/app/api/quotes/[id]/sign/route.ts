@@ -27,7 +27,7 @@ export async function POST(
     }
 
     // Get the quote
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       include: {
         customer: true,
@@ -106,7 +106,7 @@ export async function POST(
     });
 
     // Update quote status to ACCEPTED
-    await prisma.quote.update({
+    await prisma.quotes.update({
       where: { id: quoteId },
       data: {
         status: 'ACCEPTED',

@@ -94,7 +94,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Verify quote exists and belongs to customer
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: { id: true, customerId: true },
     });

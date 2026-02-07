@@ -89,7 +89,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: parseInt(id) },
       include: {
         customer: {
@@ -159,7 +159,7 @@ export async function PUT(
       const gst = subtotal * GST_RATE;
       const grandTotal = subtotal + gst;
 
-      const quote = await prisma.quote.update({
+      const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: {
           calculatedTotal: grandTotal,
@@ -193,7 +193,7 @@ export async function PUT(
 
     // Handle status-only update
     if (data.status && !data.rooms) {
-      const quote = await prisma.quote.update({
+      const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: {
           status: data.status,
@@ -222,13 +222,13 @@ export async function PUT(
     // Full update with rooms (original behavior)
     if (data.rooms) {
       // Delete existing rooms (cascade deletes pieces and features)
-      await prisma.quoteRoom.deleteMany({
+      await prisma.quote_rooms.deleteMany({
         where: { quoteId },
       });
 
       // Handle drawing analysis - upsert or delete
       if (data.drawingAnalysis) {
-        await prisma.quoteDrawingAnalysis.upsert({
+        await prisma.quote_drawing_analysis.upsert({
           where: { quoteId },
           create: {
             quoteId,
@@ -250,7 +250,7 @@ export async function PUT(
       }
 
       // Update quote with new rooms
-      const quote = await prisma.quote.update({
+      const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: {
           customerId: data.customerId,
@@ -335,7 +335,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    await prisma.quote.delete({
+    await prisma.quotes.delete({
       where: { id: parseInt(id) },
     });
 

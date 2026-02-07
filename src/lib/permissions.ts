@@ -229,7 +229,7 @@ export async function canAccessQuote(
 
   // Customer users can only access their own customer's quotes
   if (user.role === UserRole.CUSTOMER && user.customerId) {
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
     });
     return quote?.customerId === user.customerId;
@@ -242,7 +242,7 @@ export async function canAccessQuote(
 
   // Check if user has VIEW_OWN_QUOTES and created this quote
   if (await hasPermissionAsync(userId, Permission.VIEW_OWN_QUOTES)) {
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
     });
     return quote?.createdBy === userId;

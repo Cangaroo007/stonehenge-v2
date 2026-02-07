@@ -7,7 +7,7 @@ interface PieceInput {
   name: string;
   edgeLength: number;
   thickness: number;
-  edgeType: string | null;
+  edge_types: string | null;
 }
 
 // POST /api/admin/pricing/strip-configurations/calculator
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       pieceName: string;
       edgeLength: number;
       thickness: number;
-      edgeType: string | null;
+      edge_types: string | null;
       matchedConfig: {
         id: number;
         name: string;

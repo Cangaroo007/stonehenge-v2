@@ -6,7 +6,7 @@ import { format } from 'date-fns';
 export const dynamic = 'force-dynamic';
 
 async function getQuote(id: number) {
-  return prisma.quote.findUnique({
+  return prisma.quotes.findUnique({
     where: { id },
     include: {
       customer: true,
@@ -51,7 +51,7 @@ export async function GET(
     }
 
     // Fetch company settings from database (with fallbacks to env vars)
-    const companyData = await prisma.company.findFirst();
+    const companyData = await prisma.companies.findFirst();
     
     const company = {
       name: companyData?.name || process.env.COMPANY_NAME || 'Northcoast Stone Pty Ltd',

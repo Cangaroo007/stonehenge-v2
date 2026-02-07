@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
 
     // STEP 5: Fetch quote and verify ownership
     console.log('[Unified Upload] Fetching quote...', quoteId);
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: {
         id: true,

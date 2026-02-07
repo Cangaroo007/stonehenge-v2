@@ -3,7 +3,7 @@ import prisma from '@/lib/db';
 
 export async function GET() {
   try {
-    const materials = await prisma.material.findMany({
+    const materials = await prisma.materials.findMany({
       orderBy: [{ collection: 'asc' }, { name: 'asc' }],
     });
     return NextResponse.json(materials);
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
 
-    const material = await prisma.material.create({
+    const material = await prisma.materials.create({
       data: {
         name: data.name,
         collection: data.collection || null,

@@ -5,7 +5,7 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/li
 export const dynamic = 'force-dynamic';
 
 async function getQuotes() {
-  return prisma.quote.findMany({
+  return prisma.quotes.findMany({
     orderBy: { createdAt: 'desc' },
     include: { customer: true },
   });

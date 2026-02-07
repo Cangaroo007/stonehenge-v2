@@ -30,7 +30,7 @@ export async function GET(
     }
 
     console.log('[Get Drawings API] Fetching drawings for quoteId:', quoteId);
-    const drawings = await prisma.drawing.findMany({
+    const drawings = await prisma.drawings.findMany({
       where: { quoteId },
       orderBy: [
         { isPrimary: 'desc' },
@@ -111,7 +111,7 @@ export async function POST(
     // Get customerId from the quote
     console.log('[Create Drawing API] Fetching quote from database...');
     const prisma = (await import('@/lib/db')).default;
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: { customerId: true },
     });

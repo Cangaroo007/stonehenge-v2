@@ -35,7 +35,7 @@ export async function POST(
     }
     
     // Update piece with overrides
-    const piece = await prisma.quotePiece.update({
+    const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {
         overrideMaterialCost: body.overrideMaterialCost !== undefined ? body.overrideMaterialCost : undefined,
@@ -115,7 +115,7 @@ export async function DELETE(
       );
     }
     
-    const piece = await prisma.quotePiece.update({
+    const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {
         overrideMaterialCost: null,

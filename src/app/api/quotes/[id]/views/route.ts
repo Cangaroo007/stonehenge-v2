@@ -28,7 +28,7 @@ export async function GET(
     const canViewAll = await hasPermissionAsync(currentUser.id, Permission.VIEW_ALL_QUOTES);
     
     // Get the quote to check ownership
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: { 
         id: true,

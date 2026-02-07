@@ -14,13 +14,13 @@ async function getData() {
         clientType: true,
       },
     }),
-    prisma.material.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
+    prisma.materials.findMany({ where: { isActive: true }, orderBy: { name: 'asc' } }),
     prisma.featurePricing.findMany({ where: { isActive: true }, orderBy: { category: 'asc' } }),
     prisma.edgeType.findMany({
       where: { isActive: { not: false } }, // Include true and null (treat null as active)
       orderBy: { sortOrder: 'asc' },
     }),
-    prisma.quote.findFirst({ orderBy: { quoteNumber: 'desc' } }),
+    prisma.quotes.findFirst({ orderBy: { quoteNumber: 'desc' } }),
   ]);
 
   const nextQuoteNumber = generateQuoteNumber(lastQuote?.quoteNumber || null);

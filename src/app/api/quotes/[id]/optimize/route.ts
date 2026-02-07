@@ -15,7 +15,7 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    const optimization = await prisma.slabOptimization.findFirst({
+    const optimization = await prisma.slab_optimizations.findFirst({
       where: { quoteId },
       orderBy: { createdAt: 'desc' },
     });
@@ -50,7 +50,7 @@ export async function POST(
     console.log(`[Optimize API] Settings: ${slabWidth}x${slabHeight}mm, kerf: ${kerfWidth}mm, rotation: ${allowRotation}`);
 
     // Get quote with pieces
-    const quote = await prisma.quote.findUnique({
+    const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       include: {
         rooms: {
@@ -123,7 +123,7 @@ export async function POST(
 
     // Save to database
     console.log('[Optimize API] Saving optimization to database...');
-    const optimization = await prisma.slabOptimization.create({
+    const optimization = await prisma.slab_optimizations.create({
       data: {
         quoteId,
         slabWidth,
@@ -140,7 +140,7 @@ export async function POST(
     console.log(`[Optimize API] ✅ Saved optimization ${optimization.id} to database`);
 
     // Verify save by reading it back
-    const verification = await prisma.slabOptimization.findUnique({
+    const verification = await prisma.slab_optimizations.findUnique({
       where: { id: optimization.id },
     });
 

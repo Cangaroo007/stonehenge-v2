@@ -13,10 +13,10 @@ export async function GET(
         clientType: true,
         clientTier: true,
         edgeOverrides: {
-          include: { edgeType: true },
+          include: { edge_types: true },
         },
         cutoutOverrides: {
-          include: { cutoutType: true },
+          include: { cutout_types: true },
         },
         materialOverrides: {
           include: { material: true },
