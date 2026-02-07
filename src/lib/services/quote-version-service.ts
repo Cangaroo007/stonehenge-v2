@@ -138,8 +138,8 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
   return {
     quoteNumber: quote.quoteNumber,
     status: quote.status,
-    client_types: quote.customer?.clientType?.name ?? null,
-    client_tiers: quote.customer?.clientTier?.name ?? null,
+    client_types: quote.customer?.client_types?.name ?? null,
+    client_tiers: quote.customer?.client_tiers?.name ?? null,
     
     customer: quote.customer ? {
       id: quote.customer.id,

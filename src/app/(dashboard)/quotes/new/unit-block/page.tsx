@@ -197,7 +197,7 @@ export default function NewUnitBlockPage() {
             <label className="block text-sm font-medium text-gray-700 mb-1">Customer *</label>
             <select value={selectedCustomerId || ''} onChange={(e) => setSelectedCustomerId(Number(e.target.value) || null)} className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500">
               <option value="">Select a customer...</option>
-              {customers.map(c => <option key={c.id} value={c.id}>{c.company || c.name}{c.clientType ? ` (${c.clientType.name})` : ''}</option>)}
+              {customers.map(c => <option key={c.id} value={c.id}>{c.company || c.name}{c.clientType ? ` (${c.client_types.name})` : ''}</option>)}
             </select>
           </div>
           <div className="pt-4 border-t border-gray-200 flex justify-end">

@@ -741,9 +741,9 @@ const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
             quoteId={quoteId}
             refreshTrigger={refreshTrigger}
             customerName={quote.customer?.company || quote.customer?.name}
-            customerTier={quote.customer?.clientTier?.name}
-            customerType={quote.customer?.clientType?.name}
-            priceBookName={quote.priceBook?.name}
+            customerTier={quote.customer?.client_tiers?.name}
+            customerType={quote.customer?.client_types?.name}
+            priceBookName={quote.price_books?.name}
             onCalculationComplete={handleCalculationUpdate}
             discountDisplayMode={discountDisplayMode}
             onDiscountDisplayModeChange={setDiscountDisplayMode}

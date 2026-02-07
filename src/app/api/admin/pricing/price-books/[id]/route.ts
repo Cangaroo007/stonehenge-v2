@@ -44,12 +44,12 @@ export async function PUT(
     // Update the price book and its rules in a transaction
     const priceBook = await prisma.$transaction(async (tx: TransactionClient) => {
       // First, delete existing rules
-      await tx.priceBookRule.deleteMany({
+      await tx.price_book_rules.deleteMany({
         where: { priceBookId: id },
       });
 
       // Update the price book and create new rules
-      return tx.priceBook.update({
+      return tx.price_books.update({
         where: { id },
         data: {
           name: data.name,

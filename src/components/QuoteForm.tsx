@@ -238,14 +238,14 @@ export default function QuoteForm({
   const [selectedCustomerTier, setSelectedCustomerTier] = useState<string | null>(() => {
     if (initialData?.customerId) {
       const customer = customers.find(c => c.id === initialData.customerId);
-      return customer?.clientTier?.name || null;
+      return customer?.client_tiers?.name || null;
     }
     return null;
   });
   const [selectedCustomerType, setSelectedCustomerType] = useState<string | null>(() => {
     if (initialData?.customerId) {
       const customer = customers.find(c => c.id === initialData.customerId);
-      return customer?.clientType?.name || null;
+      return customer?.client_types?.name || null;
     }
     return null;
   });
@@ -843,8 +843,8 @@ export default function QuoteForm({
 
     if (newCustomerId) {
       const customer = customers.find(c => c.id === newCustomerId);
-      setSelectedCustomerTier(customer?.clientTier?.name || null);
-      setSelectedCustomerType(customer?.clientType?.name || null);
+      setSelectedCustomerTier(customer?.client_tiers?.name || null);
+      setSelectedCustomerType(customer?.client_types?.name || null);
     } else {
       setSelectedCustomerTier(null);
       setSelectedCustomerType(null);

@@ -307,11 +307,11 @@ function DetailsTab({ customer }: { customer: Customer }) {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div>
             <label className="text-sm font-medium text-gray-500">Client Type</label>
-            <p className="mt-1 text-gray-900">{customer.clientType?.name || '—'}</p>
+            <p className="mt-1 text-gray-900">{customer.client_types?.name || '—'}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-500">Client Tier</label>
-            <p className="mt-1 text-gray-900">{customer.clientTier?.name || '—'}</p>
+            <p className="mt-1 text-gray-900">{customer.client_tiers?.name || '—'}</p>
           </div>
           <div>
             <label className="text-sm font-medium text-gray-500">Default Price Book</label>
