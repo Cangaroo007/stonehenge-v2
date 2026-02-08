@@ -19,6 +19,7 @@ export interface UserPayload {
   email: string;
   name: string | null;
   role: string;
+  companyId?: number | null;
   customerId?: number | null;
 }
 
@@ -98,6 +99,7 @@ export async function login(email: string, password: string): Promise<{ success:
     email: user.email,
     name: user.name,
     role: user.role,
+    companyId: user.company_id,
     customerId: user.customer_id,
   });
 
