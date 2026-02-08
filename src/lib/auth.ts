@@ -124,7 +124,7 @@ export async function logout(): Promise<void> {
  */
 export async function requireAuth(
   allowedRoles?: string[]
-): Promise<{ user: UserPayload & { companyId: string; role: UserRole } } | { error: string; status: number }> {
+): Promise<{ user: UserPayload & { companyId: number; role: UserRole } } | { error: string; status: number }> {
   const token = await getAuthCookie();
   
   if (!token) {
