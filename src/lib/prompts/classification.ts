@@ -29,7 +29,15 @@ Signs to look for:
 - Material codes (e.g., BTP-01)
 - Layer information or legend
 
-**D) MIXED** - Combination or unclear
+**D) ELEVATION** - Architectural elevation drawings
+Signs to look for:
+- Side-on view of walls/buildings
+- Shows stone cladding, feature walls, facades
+- Windows, doors shown as openings
+- Material callouts, hatch patterns
+- Dimension lines for wall sections
+
+**E) MIXED** - Combination or unclear
 Use when:
 - Document combines multiple types
 - Too blurry or unclear to classify
@@ -40,7 +48,7 @@ Use when:
 Respond with ONLY valid JSON, no markdown formatting:
 
 {
-  "category": "JOB_SHEET" | "HAND_DRAWN" | "CAD_DRAWING" | "MIXED",
+  "category": "JOB_SHEET" | "HAND_DRAWN" | "CAD_DRAWING" | "ELEVATION" | "MIXED",
   "confidence": 0.0 to 1.0,
   "reason": "Brief explanation of classification"
 }`;

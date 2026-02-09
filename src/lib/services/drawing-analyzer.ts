@@ -24,6 +24,7 @@ import {
   CAD_EXTRACTION_SYSTEM_PROMPT,
   CAD_EXTRACTION_USER_PROMPT,
 } from '@/lib/prompts/extraction-cad';
+import { extractElevationAreas } from './spatial-extractor';
 
 const anthropic = new Anthropic();
 const MODEL = 'claude-sonnet-4-5-20250929';
@@ -271,6 +272,21 @@ export async function analyzeDrawing(
 ): Promise<DrawingAnalysisResult> {
   // Stage 1: Classify
   const classification = await classifyDocument(imageBase64, mimeType);
+
+  // Elevation drawings use a separate extraction pipeline
+  if (classification.category === 'ELEVATION') {
+    const elevationAnalysis = await extractElevationAreas(imageBase64, mimeType);
+
+    return {
+      documentCategory: 'ELEVATION',
+      categoryConfidence: classification.confidence,
+      pieces: [],
+      clarificationQuestions: [],
+      overallConfidence: elevationAnalysis.overallConfidence >= 0.7 ? 'HIGH'
+        : elevationAnalysis.overallConfidence >= 0.4 ? 'MEDIUM' : 'LOW',
+      elevationAnalysis,
+    };
+  }
 
   // Stage 2: Extract pieces based on category
   const pieces = await extractPieces(imageBase64, mimeType, classification.category);
