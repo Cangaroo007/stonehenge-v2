@@ -86,19 +86,16 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       installationUnit: settings.installation_unit,
       currency: settings.currency,
       gstRate: Number(settings.gst_rate),
+      laminatedMultiplier: Number(settings.laminated_multiplier),
+      mitredMultiplier: Number(settings.mitred_multiplier),
     };
   }
 
-  // Return defaults if no settings configured
-  return {
-    organisationId,
-    materialPricingBasis: 'PER_SLAB',
-    cuttingUnit: 'LINEAR_METRE',
-    polishingUnit: 'LINEAR_METRE',
-    installationUnit: 'SQUARE_METRE',
-    currency: 'AUD',
-    gstRate: 0.10,
-  };
+  // No settings found — fail loudly instead of defaulting to hardcoded values
+  throw new Error(
+    'Pricing settings not configured for this organisation. ' +
+    'Configure in Pricing Admin → Settings before creating quotes.'
+  );
 }
 
 /**
@@ -676,7 +673,7 @@ function applyMinimumCharge(
  * Reads configured units from pricingContext to determine quantity basis.
  */
 function calculateServiceCosts(
-  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null }>,
+  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string }>,
   totalEdgeLinearMeters: number,
   serviceRates: Array<{
     serviceType: string;
@@ -786,6 +783,48 @@ function calculateServiceCosts(
     }
   }
 
+  // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
+  const polishingRate20mm = polishingRateRecord.rate20mm.toNumber();
+  let totalLaminationCost = 0;
+  let totalLaminationLm = 0;
+
+  for (const piece of pieces) {
+    if (piece.thickness_mm <= 20) continue;
+    if (piece.lamination_method === 'NONE') continue;
+
+    const edgeLengths = [
+      piece.edge_top ? piece.width_mm : 0,
+      piece.edge_bottom ? piece.width_mm : 0,
+      piece.edge_left ? piece.length_mm : 0,
+      piece.edge_right ? piece.length_mm : 0,
+    ];
+    const pieceFinishedEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
+    if (pieceFinishedEdgeLm <= 0) continue;
+
+    const multiplier = piece.lamination_method === 'MITRED'
+      ? pricingContext.mitredMultiplier
+      : pricingContext.laminatedMultiplier;
+
+    totalLaminationCost += pieceFinishedEdgeLm * (polishingRate20mm * multiplier);
+    totalLaminationLm += pieceFinishedEdgeLm;
+  }
+
+  if (totalLaminationCost > 0) {
+    const displayRate = totalLaminationLm > 0
+      ? roundToTwo(totalLaminationCost / totalLaminationLm)
+      : 0;
+
+    items.push({
+      serviceType: 'LAMINATION',
+      name: 'Lamination (edge build-up)',
+      quantity: roundToTwo(totalLaminationLm),
+      unit: 'LINEAR_METRE',
+      rate: displayRate,
+      subtotal: roundToTwo(totalLaminationCost),
+    });
+    subtotal += totalLaminationCost;
+  }
+
   return { items, subtotal };
 }
 
@@ -846,6 +885,7 @@ function calculatePiecePricing(
     edge_left: string | null;
     edge_right: string | null;
     cutouts: unknown;
+    lamination_method: string;
   },
   serviceRates: Array<{
     serviceType: string;
@@ -919,6 +959,43 @@ function calculatePiecePricing(
   const polishingBase = roundToTwo(polishingQty * polishingRateVal);
   const polishingDiscount = roundToTwo(polishingBase * (fabricationDiscountPct / 100));
   const polishingTotal = roundToTwo(polishingBase - polishingDiscount);
+
+  // Mitred constraint: mitred edges can only use Pencil Round profile
+  if (piece.lamination_method === 'MITRED') {
+    for (const { edgeTypeId } of edgeSides) {
+      if (!edgeTypeId) continue;
+      const edgeType = edgeTypes.get(edgeTypeId);
+      if (!edgeType) continue;
+      const nameLower = edgeType.name.toLowerCase();
+      if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
+        throw new Error(
+          `Piece "${piece.name || piece.description || piece.id}": ` +
+          `Mitred edges only support Pencil Round profile. ` +
+          `Found "${edgeType.name}". Change to Pencil Round or switch to Laminated edge.`
+        );
+      }
+    }
+  }
+
+  // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
+  let laminationBreakdown: PiecePricingBreakdown['fabrication']['lamination'];
+  if (thickness > 20 && piece.lamination_method !== 'NONE') {
+    const polishRate20mm = getServiceRate(serviceRates, 'POLISHING', 20).rate;
+    const multiplier = piece.lamination_method === 'MITRED'
+      ? pricingContext.mitredMultiplier
+      : pricingContext.laminatedMultiplier;
+
+    const laminationTotal = roundToTwo(finishedEdgeLm * polishRate20mm * multiplier);
+    if (laminationTotal > 0) {
+      laminationBreakdown = {
+        method: piece.lamination_method,
+        finishedEdgeLm: roundToTwo(finishedEdgeLm),
+        baseRate: polishRate20mm,
+        multiplier,
+        total: laminationTotal,
+      };
+    }
+  }
 
   // Edge profile costs (additional cost per edge type)
   const edgeBreakdowns: PiecePricingBreakdown['fabrication']['edges'] = [];
@@ -1026,6 +1103,7 @@ function calculatePiecePricing(
     cuttingTotal +
     polishingTotal +
     (installationBreakdown?.total ?? 0) +
+    (laminationBreakdown?.total ?? 0) +
     edgeBreakdowns.reduce((sum, e) => sum + e.total, 0) +
     cutoutBreakdowns.reduce((sum, c) => sum + c.total, 0)
   );
@@ -1058,6 +1136,7 @@ function calculatePiecePricing(
         discountPercentage: fabricationDiscountPct,
       },
       installation: installationBreakdown,
+      lamination: laminationBreakdown,
       edges: edgeBreakdowns,
       cutouts: cutoutBreakdowns,
       subtotal: fabricationSubtotal,

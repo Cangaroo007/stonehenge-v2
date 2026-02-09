@@ -19,6 +19,8 @@ export interface PricingContext {
   installationUnit: ServiceUnit;
   currency: string;
   gstRate: number;
+  laminatedMultiplier: number;
+  mitredMultiplier: number;
 }
 
 export interface DiscountBreakdown {
@@ -149,6 +151,13 @@ export interface PiecePricingBreakdown {
       rate: number;
       baseAmount: number;
       discount: number;
+      total: number;
+    };
+    lamination?: {
+      method: string;
+      finishedEdgeLm: number;
+      baseRate: number;
+      multiplier: number;
       total: number;
     };
     edges: Array<{

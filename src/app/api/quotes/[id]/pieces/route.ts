@@ -43,6 +43,7 @@ export async function GET(
         edgeBottom: piece.edge_bottom,
         edgeLeft: piece.edge_left,
         edgeRight: piece.edge_right,
+        laminationMethod: piece.lamination_method,
         sortOrder: piece.sort_order,
         totalCost: Number(piece.total_cost || 0),
         areaSqm: Number(piece.area_sqm || 0),
@@ -85,6 +86,7 @@ export async function POST(
       edgeBottom,
       edgeLeft,
       edgeRight,
+      laminationMethod = 'NONE',
     } = data;
 
     // Validate required fields
@@ -93,6 +95,38 @@ export async function POST(
         { error: 'Name, length, and width are required' },
         { status: 400 }
       );
+    }
+
+    // Validate lamination method
+    const validLaminationMethods = ['NONE', 'LAMINATED', 'MITRED'];
+    if (!validLaminationMethods.includes(laminationMethod)) {
+      return NextResponse.json(
+        { error: `Invalid laminationMethod. Must be one of: ${validLaminationMethods.join(', ')}` },
+        { status: 400 }
+      );
+    }
+
+    // Mitred constraint: only Pencil Round edge profiles allowed
+    if (laminationMethod === 'MITRED') {
+      const edgeIds = [edgeTop, edgeBottom, edgeLeft, edgeRight].filter(Boolean);
+      if (edgeIds.length > 0) {
+        const edgeTypes = await prisma.edge_types.findMany({
+          where: { id: { in: edgeIds } },
+          select: { id: true, name: true },
+        });
+        for (const et of edgeTypes) {
+          const nameLower = et.name.toLowerCase();
+          if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
+            return NextResponse.json(
+              {
+                error: `Mitred edges only support Pencil Round profile. Found "${et.name}". Change to Pencil Round or switch to Laminated.`,
+                code: 'MITRED_PROFILE_CONSTRAINT',
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
     }
 
     // Find or create the room
@@ -159,6 +193,7 @@ export async function POST(
         edge_bottom: edgeBottom || null,
         edge_left: edgeLeft || null,
         edge_right: edgeRight || null,
+        lamination_method: laminationMethod,
       },
       include: {
         materials: true,
@@ -180,6 +215,7 @@ export async function POST(
       edgeBottom: pieceAny.edge_bottom,
       edgeLeft: pieceAny.edge_left,
       edgeRight: pieceAny.edge_right,
+      laminationMethod: pieceAny.lamination_method,
       sortOrder: pieceAny.sort_order,
       totalCost: Number(pieceAny.total_cost || 0),
       areaSqm: Number(pieceAny.area_sqm || 0),

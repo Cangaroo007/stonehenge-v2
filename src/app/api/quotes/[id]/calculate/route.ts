@@ -126,6 +126,13 @@ export async function POST(
         );
       }
 
+      if (error.message.includes('Mitred edges only support')) {
+        return NextResponse.json(
+          { error: error.message, code: 'MITRED_PROFILE_CONSTRAINT' },
+          { status: 400 }
+        );
+      }
+
       // Return detailed error for debugging
       return NextResponse.json(
         {
