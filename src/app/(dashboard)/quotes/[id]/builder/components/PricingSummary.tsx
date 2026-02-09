@@ -321,6 +321,15 @@ export default function PricingSummary({
                   <span>Total Area:</span>
                   <span>{formatAreaFromSqm(Number(calculation.breakdown.materials.totalAreaM2) || 0, unitSystem)}</span>
                 </div>
+                {/* Waste factor line — only for per-sqm pricing */}
+                {calculation.breakdown.materials.wasteFactorPercent != null && calculation.breakdown.materials.wasteFactorPercent > 0 && (
+                  <div className="flex justify-between text-gray-600">
+                    <span>Waste Factor ({calculation.breakdown.materials.wasteFactorPercent}%):</span>
+                    <span>
+                      {formatAreaFromSqm(Number(calculation.breakdown.materials.adjustedAreaM2) || 0, unitSystem)} incl. waste
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between text-gray-600">
                   <span>Base Rate:</span>
                   <span>
