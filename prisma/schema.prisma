@@ -768,6 +768,58 @@ model unit_block_units {
   @@map("unit_block_units")
 }
 
+model unit_type_templates {
+  id              Int             @id @default(autoincrement())
+
+  // Template identity
+  name            String
+  unitTypeCode    String          // e.g. "TYPE_A_KITCHEN", "TYPE_B_BATHROOM"
+  description     String?
+
+  // Template content — rooms and pieces as JSON
+  // Structure: { rooms: [{ name, pieces: [{ name, materialRole, length_mm, width_mm, thickness_mm, edges, cutouts }] }] }
+  templateData    Json
+
+  // Metadata
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  // Relations
+  finishMappings  finish_tier_mappings[]
+
+  @@unique([unitTypeCode])
+  @@map("unit_type_templates")
+}
+
+model finish_tier_mappings {
+  id              Int             @id @default(autoincrement())
+
+  // Links
+  templateId      Int
+  template        unit_type_templates @relation(fields: [templateId], references: [id], onDelete: Cascade)
+
+  // Finish tier identity
+  finishLevel     String          // "PREMIUM", "DELUXE", "PENTHOUSE_SERIES"
+  colourScheme    String?         // "LINEN", "SILK", "DENIM" — optional further refinement
+
+  // Material assignments — JSON mapping materialRole → materialId
+  materialAssignments Json        // { "PRIMARY_BENCHTOP": 42, "VANITY": 15, "LAUNDRY": 15 }
+
+  // Edge overrides — if Premium uses mitred and Deluxe uses arris
+  edgeOverrides   Json?           // { "PRIMARY_BENCHTOP": { "edges": { "top": { "finish": "MITRED" } } } }
+
+  // Metadata
+  description     String?
+  isActive        Boolean         @default(true)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  @@unique([templateId, finishLevel, colourScheme])
+  @@map("finish_tier_mappings")
+}
+
 model unit_block_files {
   id              Int                  @id @default(autoincrement())
   projectId       Int
