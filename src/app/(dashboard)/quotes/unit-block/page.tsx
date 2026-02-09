@@ -10,44 +10,25 @@ interface Customer {
   company: string | null;
 }
 
-interface Quote {
-  id: number;
-  quote_number: string;
-  project_name: string | null;
-  status: string;
-  total: number;
-  subtotal: number;
-  createdAt: string;
-  rooms: {
-    id: number;
-    name: string;
-    pieces: {
-      id: number;
-      lengthMm: number;
-      widthMm: number;
-      totalCost: number;
-    }[];
-  }[];
-}
-
 interface UnitBlockProject {
-  id: string;
+  id: number;
   name: string;
-  customer: Customer;
-  projectType: 'APARTMENTS' | 'TOWNHOUSES' | 'COMMERCIAL' | 'OTHER';
-  quotes: Quote[];
-  totalAreaSqm: number;
-  subtotal: number;
-  volumeDiscount: number;
-  grandTotal: number;
-  volumeTier: string;
+  customer: Customer | null;
+  projectType: 'APARTMENTS' | 'TOWNHOUSES' | 'COMMERCIAL' | 'MIXED_USE' | 'OTHER';
+  status: string;
+  totalUnits: number;
+  totalArea_sqm: string | number | null;
+  subtotalExGst: string | number | null;
+  discountAmount: string | number | null;
+  grandTotal: string | number | null;
+  volumeTier: string | null;
+  volumeDiscount: string | number | null;
   createdAt: string;
 }
 
 export default function UnitBlockProjectsPage() {
   const [projects, setProjects] = useState<UnitBlockProject[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     fetchProjects();
@@ -55,11 +36,10 @@ export default function UnitBlockProjectsPage() {
 
   const fetchProjects = async () => {
     try {
-      // For now, we'll fetch from localStorage or API
-      // In production, this would fetch from /api/unit-blocks
-      const saved = localStorage.getItem('unitBlockProjects');
-      if (saved) {
-        setProjects(JSON.parse(saved));
+      const res = await fetch('/api/unit-blocks');
+      if (res.ok) {
+        const data = await res.json();
+        setProjects(data);
       }
     } catch (err) {
       console.error('Failed to load projects:', err);
@@ -68,11 +48,16 @@ export default function UnitBlockProjectsPage() {
     }
   };
 
-  const deleteProject = (id: string) => {
+  const deleteProject = async (id: number) => {
     if (!confirm('Are you sure you want to delete this project?')) return;
-    const updated = projects.filter(p => p.id !== id);
-    setProjects(updated);
-    localStorage.setItem('unitBlockProjects', JSON.stringify(updated));
+    try {
+      const res = await fetch(`/api/unit-blocks/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setProjects(projects.filter(p => p.id !== id));
+      }
+    } catch (err) {
+      console.error('Failed to delete project:', err);
+    }
   };
 
   if (loading) {
@@ -119,7 +104,7 @@ export default function UnitBlockProjectsPage() {
           </svg>
           <h3 className="text-lg font-medium text-gray-900 mb-2">No unit block projects yet</h3>
           <p className="text-gray-500 mb-6 max-w-md mx-auto">
-            Create a unit block project to manage multi-unit developments like apartments or townhouses. 
+            Create a unit block project to manage multi-unit developments like apartments or townhouses.
             Combine multiple quotes for volume discounts and consolidated billing.
           </p>
           <Link href="/quotes/new/unit-block" className="btn-primary">
@@ -151,22 +136,22 @@ export default function UnitBlockProjectsPage() {
                   {project.name}
                 </h3>
                 <p className="text-sm text-gray-500 mb-4">
-                  {project.customer.company || project.customer.name}
+                  {project.customer?.company || project.customer?.name || 'No customer'}
                 </p>
 
                 {/* Stats */}
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-600">Units:</span>
-                    <span className="font-medium">{project.quotes.length}</span>
+                    <span className="font-medium">{project.totalUnits}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Total Area:</span>
-                    <span className="font-medium">{project.totalAreaSqm.toFixed(2)} m²</span>
+                    <span className="font-medium">{Number(project.totalArea_sqm || 0).toFixed(2)} m²</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-600">Volume Tier:</span>
-                    <span className="font-medium text-blue-600">{project.volumeTier}</span>
+                    <span className="font-medium text-blue-600">{project.volumeTier || 'N/A'}</span>
                   </div>
                 </div>
 
@@ -174,17 +159,17 @@ export default function UnitBlockProjectsPage() {
                 <div className="mt-4 pt-4 border-t border-gray-200">
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600">Subtotal:</span>
-                    <span className="font-medium">{formatCurrency(project.subtotal)}</span>
+                    <span className="font-medium">{formatCurrency(Number(project.subtotalExGst || 0))}</span>
                   </div>
                   <div className="flex justify-between text-sm mb-1">
                     <span className="text-gray-600">Volume Discount:</span>
                     <span className="font-medium text-green-600">
-                      -{formatCurrency(project.volumeDiscount)}
+                      -{formatCurrency(Number(project.discountAmount || 0))}
                     </span>
                   </div>
                   <div className="flex justify-between text-base font-semibold pt-2 border-t border-gray-100">
                     <span className="text-gray-900">Total:</span>
-                    <span className="text-primary-600">{formatCurrency(project.grandTotal)}</span>
+                    <span className="text-primary-600">{formatCurrency(Number(project.grandTotal || 0))}</span>
                   </div>
                 </div>
 
