@@ -1,50 +1,64 @@
 /**
- * Types for unit type templates and finish tier mappings.
- * Used by the template cloner and bulk generation systems.
+ * Unit Type Template Types
+ *
+ * Templates define stone pieces for a unit type ONCE, then generate quotes
+ * for every apartment of that type. The material is NOT baked into the template —
+ * that comes from finish tier mapping (9.3).
  */
-
-// -- Template Edge Types --
-
-export interface TemplateEdge {
-  finish: string; // e.g. "POLISHED", "MITRED", "ARRIS"
-  thickness?: number;
-}
-
-export interface TemplatePieceEdges {
-  top?: TemplateEdge;
-  bottom?: TemplateEdge;
-  left?: TemplateEdge;
-  right?: TemplateEdge;
-}
-
-// -- Template Piece & Room Types --
-
-export interface TemplateCutout {
-  type: string; // e.g. "SINK", "COOKTOP", "TAP_HOLE"
-  quantity: number;
-}
-
-export interface TemplatePiece {
-  name: string;
-  materialRole: string; // e.g. "PRIMARY_BENCHTOP", "VANITY", "LAUNDRY"
-  length_mm: number;
-  width_mm: number;
-  thickness_mm: number;
-  edges: TemplatePieceEdges;
-  cutouts: TemplateCutout[];
-  laminationMethod?: string;
-}
-
-export interface TemplateRoom {
-  name: string;
-  pieces: TemplatePiece[];
-}
 
 export interface TemplateData {
   rooms: TemplateRoom[];
+  totalPieces: number;
+  estimatedArea_sqm: number;
 }
 
-// -- Finish Tier Mapping Types --
+export interface TemplateRoom {
+  name: string;           // "Kitchen", "Bathroom", "Ensuite", "Laundry"
+  roomType: string;       // KITCHEN, BATHROOM, ENSUITE, LAUNDRY, OTHER
+  pieces: TemplatePiece[];
+}
+
+export interface TemplatePiece {
+  label: string;          // "Main Benchtop", "Island", "Splashback", "Vanity Top"
+  length_mm: number;
+  width_mm: number;
+  thickness_mm: number;   // usually 20mm, but template can specify 40mm
+
+  // Edges — which sides are finished
+  edges: {
+    top: TemplateEdge;
+    bottom: TemplateEdge;
+    left: TemplateEdge;
+    right: TemplateEdge;
+  };
+
+  // Cutouts
+  cutouts: TemplateCutout[];
+
+  // Material placeholder — NOT a specific material, but a ROLE
+  materialRole: MaterialRole;
+
+  notes?: string;
+}
+
+export type MaterialRole =
+  | 'PRIMARY_BENCHTOP'
+  | 'SECONDARY_BENCHTOP'
+  | 'SPLASHBACK'
+  | 'VANITY'
+  | 'LAUNDRY';
+
+export interface TemplateEdge {
+  finish: 'RAW' | 'POLISHED' | 'LAMINATED' | 'MITRED';
+  profileType?: string;   // 'PENCIL_ROUND', 'BULLNOSE', 'ARRIS_2MM', etc.
+}
+
+export interface TemplateCutout {
+  type: string;           // 'UNDERMOUNT_SINK', 'COOKTOP', 'TAP_HOLE', 'GPO', etc.
+  quantity: number;
+}
+
+// -- Finish Tier Mapping Types (9.3) --
 
 export interface MaterialAssignments {
   [materialRole: string]: number; // materialRole → materialId

@@ -725,6 +725,7 @@ model unit_block_projects {
   // Relations
   units           unit_block_units[]
   files           unit_block_files[]
+  templates       unit_type_templates[]
 
   @@map("unit_block_projects")
 }
@@ -756,6 +757,7 @@ model unit_block_units {
 
   // Template reference (for regeneration)
   templateId      Int?
+  template        unit_type_templates? @relation(fields: [templateId], references: [id])
 
   // Override notes
   notes           String?
@@ -769,26 +771,33 @@ model unit_block_units {
 }
 
 model unit_type_templates {
-  id              Int             @id @default(autoincrement())
+  id              Int                  @id @default(autoincrement())
 
-  // Template identity
-  name            String
-  unitTypeCode    String          // e.g. "TYPE_A_KITCHEN", "TYPE_B_BATHROOM"
+  // Identity
+  name            String               // e.g. "Type A — Kitchen & Wet Areas"
+  unitTypeCode    String               // e.g. "A" — matches FR.01 unit type column
   description     String?
 
-  // Template content — rooms and pieces as JSON
-  // Structure: { rooms: [{ name, pieces: [{ name, materialRole, length_mm, width_mm, thickness_mm, edges, cutouts }] }] }
-  templateData    Json
+  // Source tracking
+  projectId       Int?                 // optionally tied to a specific project
+  project         unit_block_projects? @relation(fields: [projectId], references: [id])
+  sourceDrawingId Int?                 // which drawing was this extracted from
+
+  // Template data — JSON blob containing rooms, pieces, edges, cutouts
+  templateData    Json                 // TemplateData type
 
   // Metadata
-  isActive        Boolean         @default(true)
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  version         Int                  @default(1)
+  isActive        Boolean              @default(true)
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
 
   // Relations
+  units           unit_block_units[]
   finishMappings  finish_tier_mappings[]
 
-  @@unique([unitTypeCode])
+  @@unique([unitTypeCode, projectId])
   @@map("unit_type_templates")
 }
 
