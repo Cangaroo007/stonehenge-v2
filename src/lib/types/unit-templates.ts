@@ -1,0 +1,59 @@
+/**
+ * Unit Type Template Types
+ *
+ * Templates define stone pieces for a unit type ONCE, then generate quotes
+ * for every apartment of that type. The material is NOT baked into the template —
+ * that comes from finish tier mapping (9.3).
+ */
+
+export interface TemplateData {
+  rooms: TemplateRoom[];
+  totalPieces: number;
+  estimatedArea_sqm: number;
+}
+
+export interface TemplateRoom {
+  name: string;           // "Kitchen", "Bathroom", "Ensuite", "Laundry"
+  roomType: string;       // KITCHEN, BATHROOM, ENSUITE, LAUNDRY, OTHER
+  pieces: TemplatePiece[];
+}
+
+export interface TemplatePiece {
+  label: string;          // "Main Benchtop", "Island", "Splashback", "Vanity Top"
+  length_mm: number;
+  width_mm: number;
+  thickness_mm: number;   // usually 20mm, but template can specify 40mm
+
+  // Edges — which sides are finished
+  edges: {
+    top: TemplateEdge;
+    bottom: TemplateEdge;
+    left: TemplateEdge;
+    right: TemplateEdge;
+  };
+
+  // Cutouts
+  cutouts: TemplateCutout[];
+
+  // Material placeholder — NOT a specific material, but a ROLE
+  materialRole: MaterialRole;
+
+  notes?: string;
+}
+
+export type MaterialRole =
+  | 'PRIMARY_BENCHTOP'
+  | 'SECONDARY_BENCHTOP'
+  | 'SPLASHBACK'
+  | 'VANITY'
+  | 'LAUNDRY';
+
+export interface TemplateEdge {
+  finish: 'RAW' | 'POLISHED' | 'LAMINATED' | 'MITRED';
+  profileType?: string;   // 'PENCIL_ROUND', 'BULLNOSE', 'ARRIS_2MM', etc.
+}
+
+export interface TemplateCutout {
+  type: string;           // 'UNDERMOUNT_SINK', 'COOKTOP', 'TAP_HOLE', 'GPO', etc.
+  quantity: number;
+}
