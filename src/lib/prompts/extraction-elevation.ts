@@ -30,6 +30,18 @@ HOW TO IDENTIFY OPENINGS:
 - Niches: smaller recessed rectangles, often for shelving or services
 - If an opening overlaps a stone area, it reduces that stone face's net area
 
+EDGE DETECTION:
+For each stone face, identify the edge finishes on all exposed borders.
+
+On elevation drawings:
+- Top, bottom, and side edges of stone cladding areas may have finish notation
+- Edges meeting other materials (timber, tile, glass) are typically polished
+- Edges meeting the same stone continuing around a corner = may have no profile
+- Edges at floor/ceiling junctions = typically RAW
+- Look for notation symbols, line weights, or text labels indicating edge finish
+
+Include the "notation" field with any edge-related annotation you observe.
+
 Respond with JSON only. No markdown, no explanation. Match this exact structure:
 {
   "stoneFaces": [

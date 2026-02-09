@@ -48,6 +48,7 @@ export interface ExtractedEdge {
   finish: EdgeFinish;
   lengthMm?: number;
   confidence: ConfidenceLevel;
+  notation?: string;  // Raw symbol/text observed on drawing (e.g., "X", "//", "○")
 }
 
 // Piece shapes
@@ -88,7 +89,8 @@ export interface DrawingAnalysisResult {
   clarificationQuestions: ClarificationQuestion[];
   rawNotes?: string;           // Any text extracted from drawing
   overallConfidence: ConfidenceLevel;
-  elevationAnalysis?: ElevationAnalysis;  // Populated when category is ELEVATION
+  elevationAnalysis?: ElevationAnalysis;       // Populated when category is ELEVATION
+  edgeDetectionResults?: EdgeDetectionResult[]; // Populated after edge detection (8.2)
 }
 
 // Classification-only result (Stage 1)
@@ -134,6 +136,40 @@ export interface ElevationAnalysis {
   overallConfidence: number;       // 0-1
   drawingScale?: string;          // e.g., "1:50", "1:100" if detected
   notes?: string[];               // any relevant observations
+}
+
+// ──── Edge Detection Types (8.2) ────
+
+export type EdgeProfileType = 'PENCIL_ROUND' | 'BULLNOSE' | 'OGEE' | 'BEVELED' | 'NONE';
+
+export interface DetectedEdge {
+  side: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT' | 'FRONT' | 'BACK';
+  finish: EdgeFinish;
+  profileType: EdgeProfileType;
+  confidence: ConfidenceLevel;
+  notation?: string;          // raw symbol/text seen on drawing (e.g., "X", "//", "○")
+  needsReview: boolean;       // true if confidence is LOW or finish is UNKNOWN
+  reviewReason?: string;      // why it needs review (e.g., "Ambiguous notation near corner")
+}
+
+export interface EdgeDetectionResult {
+  pieceId: string;
+  edges: DetectedEdge[];
+  overallConfidence: ConfidenceLevel;
+  notationSystem?: string;    // e.g., "NORTHCOAST_STANDARD" if recognised
+}
+
+/**
+ * Notation mapping for a specific tenant.
+ * Keys are the notation symbols found on drawings.
+ * Values are the edge finish they represent.
+ */
+export interface EdgeNotationMap {
+  [notation: string]: {
+    finish: EdgeFinish;
+    profileType?: EdgeProfileType;
+    description: string;
+  };
 }
 
 // Multi-slab types (re-export from calculator)

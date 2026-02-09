@@ -6,8 +6,10 @@ import {
   ConfidenceLevel,
   DocumentCategory,
   DrawingAnalysisResult,
+  EdgeDetectionResult,
   ExtractedPiece,
 } from '@/lib/types/drawing-analysis';
+import { detectEdgesForAllPieces, getEdgesNeedingReview } from './edge-detector';
 import {
   CLASSIFICATION_SYSTEM_PROMPT,
   CLASSIFICATION_USER_PROMPT,
@@ -291,8 +293,40 @@ export async function analyzeDrawing(
   // Stage 2: Extract pieces based on category
   const pieces = await extractPieces(imageBase64, mimeType, classification.category);
 
+  // Stage 2.5: Run edge detection on extracted pieces
+  const edgeResults = detectEdgesForAllPieces(pieces, classification.category);
+
+  // Merge detected edges back into pieces (overwrite the raw extraction edges)
+  for (const result of edgeResults) {
+    const piece = pieces.find((p) => p.id === result.pieceId);
+    if (piece) {
+      piece.edges = result.edges.map((de) => ({
+        side: de.side,
+        finish: de.finish,
+        confidence: de.confidence,
+        notation: de.notation,
+      }));
+    }
+  }
+
   // Stage 3: Generate clarification questions
   const clarificationQuestions = generateClarificationQuestions(pieces);
+
+  // Add edge review items as additional clarification questions
+  const reviewItems = getEdgesNeedingReview(edgeResults);
+  for (const item of reviewItems) {
+    const piece = pieces.find((p) => p.id === item.pieceId);
+    clarificationQuestions.push({
+      id: `${item.pieceId}-edge-${item.edge.side.toLowerCase()}`,
+      pieceId: item.pieceId,
+      category: 'EDGE',
+      priority: 'IMPORTANT',
+      question: `What is the edge finish on the ${item.edge.side.toLowerCase()} side of ${
+        piece?.description || item.pieceId
+      }?${item.edge.reviewReason ? ` (${item.edge.reviewReason})` : ''}`,
+      options: ['Polished 20mm', 'Polished 40mm', 'Bullnose', 'Pencil Round', 'Raw'],
+    });
+  }
 
   // Calculate overall confidence
   const overallConfidence = calculateOverallConfidence(pieces);
@@ -303,6 +337,7 @@ export async function analyzeDrawing(
     pieces,
     clarificationQuestions,
     overallConfidence,
+    edgeDetectionResults: edgeResults,
   };
 }
 

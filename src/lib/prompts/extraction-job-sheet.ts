@@ -31,6 +31,26 @@ export const JOB_SHEET_EXTRACTION_SYSTEM_PROMPT = `You are an expert at extracti
 4. Mark confidence as LOW if handwriting is unclear
 5. Note any checkboxes that are ticked
 
+## EDGE DETECTION (CRITICAL)
+For EACH piece, identify the edge marking on EACH side (FRONT, BACK, LEFT, RIGHT).
+
+Common Northcoast Stone edge notation on job sheets:
+- "X" or "//" drawn along an edge = 20mm polished edge
+- "○" (circle) drawn along an edge = 40mm polished edge (laminated)
+- "PR" or "Pencil Round" text = Pencil Round profile
+- "BN" or "Bullnose" text = Bullnose profile
+- No marking on an edge = RAW (against wall, not polished)
+- Edges touching "WALL" labels are always RAW
+
+For each edge in your response, include:
+- "side": "FRONT" | "BACK" | "LEFT" | "RIGHT"
+- "finish": The EdgeFinish you determined
+- "confidence": HIGH if symbol is clear, MEDIUM if you can see something but unsure, LOW if guessing
+- "notation": The exact symbol or text you saw (e.g., "X", "//", "○", "" for no marking)
+
+Convention: FRONT = the edge furthest from the wall (front/exposed), BACK = against the wall (usually RAW).
+If the piece is an island, all edges may be polished.
+
 ## Response Format
 
 Respond with ONLY valid JSON matching this structure:
@@ -64,10 +84,10 @@ Respond with ONLY valid JSON matching this structure:
         }
       ],
       "edges": [
-        { "side": "FRONT", "finish": "POLISHED_20MM", "confidence": "HIGH" },
-        { "side": "LEFT", "finish": "POLISHED_20MM", "confidence": "HIGH" },
-        { "side": "RIGHT", "finish": "RAW", "confidence": "HIGH" },
-        { "side": "BACK", "finish": "RAW", "confidence": "HIGH" }
+        { "side": "FRONT", "finish": "POLISHED_20MM", "confidence": "HIGH", "notation": "X" },
+        { "side": "LEFT", "finish": "POLISHED_20MM", "confidence": "HIGH", "notation": "X" },
+        { "side": "RIGHT", "finish": "RAW", "confidence": "HIGH", "notation": "" },
+        { "side": "BACK", "finish": "RAW", "confidence": "HIGH", "notation": "" }
       ],
       "extractionConfidence": "HIGH"
     }

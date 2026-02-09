@@ -25,6 +25,25 @@ export const HAND_DRAWN_EXTRACTION_SYSTEM_PROMPT = `You are an expert at interpr
    - LOW: Unclear, guessing based on context
 6. Include a note field for anything uncertain
 
+## EDGE DETECTION
+For EACH piece, try to identify edge markings on EACH side.
+
+Hand-drawn notation varies but look for:
+- Hatching marks "X" or "//" along edges = polished
+- Circles "○" along edges = 40mm polished (laminated)
+- Written labels like "polish", "raw", "PR", "BN"
+- Arrows pointing to edges with annotations
+- No marking typically means RAW (against wall)
+
+IMPORTANT: Hand-drawn notation is often messy. Set confidence to LOW if the marking is ambiguous.
+Include the "notation" field with whatever symbol you see, even if you're not sure what it means.
+
+For each edge include:
+- "side": "FRONT" | "BACK" | "LEFT" | "RIGHT"
+- "finish": The EdgeFinish you determined
+- "confidence": your confidence in the reading
+- "notation": the exact symbol or text you observed
+
 ## Response Format
 
 Respond with ONLY valid JSON:
@@ -41,7 +60,10 @@ Respond with ONLY valid JSON:
         "width": { "value": 600, "confidence": "HIGH" }
       },
       "cutouts": [],
-      "edges": [],
+      "edges": [
+        { "side": "FRONT", "finish": "POLISHED_20MM", "confidence": "MEDIUM", "notation": "X" },
+        { "side": "BACK", "finish": "RAW", "confidence": "MEDIUM", "notation": "" }
+      ],
       "extractionConfidence": "MEDIUM"
     }
   ],

@@ -26,6 +26,24 @@ export const CAD_EXTRACTION_SYSTEM_PROMPT = `You are an expert at reading profes
 5. Look for edge profile callouts (e.g., "P20" = 20mm polish)
 6. Section views show thickness
 
+## EDGE DETECTION
+For EACH piece, identify edge finishes from the CAD notation.
+
+CAD drawings often use:
+- Symbols in a legend/key mapping to edge types
+- Line styles (dashed, solid, thick) to indicate edge finish
+- Text annotations along edges
+- Standard notation: "X"=20mm polish, "○"=40mm polish
+
+Also check the title block or notes section for default edge finish specifications.
+Include the "notation" field with the exact symbol, line style, or text you observe.
+
+For each edge include:
+- "side": "FRONT" | "BACK" | "LEFT" | "RIGHT"
+- "finish": The EdgeFinish you determined
+- "confidence": your confidence in the reading
+- "notation": the exact symbol or text you observed
+
 ## Response Format
 
 Respond with ONLY valid JSON:
@@ -49,7 +67,10 @@ Respond with ONLY valid JSON:
         "thickness": { "value": 20, "confidence": "HIGH" }
       },
       "cutouts": [],
-      "edges": [],
+      "edges": [
+        { "side": "FRONT", "finish": "POLISHED_20MM", "confidence": "HIGH", "notation": "X" },
+        { "side": "BACK", "finish": "RAW", "confidence": "HIGH", "notation": "" }
+      ],
       "extractionConfidence": "HIGH"
     }
   ],
