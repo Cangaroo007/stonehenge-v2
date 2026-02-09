@@ -725,6 +725,7 @@ model unit_block_projects {
   // Relations
   units           unit_block_units[]
   files           unit_block_files[]
+  templates       unit_type_templates[]
 
   @@map("unit_block_projects")
 }
@@ -756,6 +757,7 @@ model unit_block_units {
 
   // Template reference (for regeneration)
   templateId      Int?
+  template        unit_type_templates? @relation(fields: [templateId], references: [id])
 
   // Override notes
   notes           String?
@@ -766,6 +768,36 @@ model unit_block_units {
 
   @@unique([projectId, unitNumber])
   @@map("unit_block_units")
+}
+
+model unit_type_templates {
+  id              Int                  @id @default(autoincrement())
+
+  // Identity
+  name            String               // e.g. "Type A — Kitchen & Wet Areas"
+  unitTypeCode    String               // e.g. "A" — matches FR.01 unit type column
+  description     String?
+
+  // Source tracking
+  projectId       Int?                 // optionally tied to a specific project
+  project         unit_block_projects? @relation(fields: [projectId], references: [id])
+  sourceDrawingId Int?                 // which drawing was this extracted from
+
+  // Template data — JSON blob containing rooms, pieces, edges, cutouts
+  templateData    Json                 // TemplateData type
+
+  // Metadata
+  version         Int                  @default(1)
+  isActive        Boolean              @default(true)
+
+  createdAt       DateTime             @default(now())
+  updatedAt       DateTime             @updatedAt
+
+  // Relations
+  units           unit_block_units[]
+
+  @@unique([unitTypeCode, projectId])
+  @@map("unit_type_templates")
 }
 
 model unit_block_files {

@@ -131,6 +131,13 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const [warnings, setWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Save as Template state
+  const [showTemplateForm, setShowTemplateForm] = useState(false);
+  const [templateName, setTemplateName] = useState('');
+  const [templateUnitType, setTemplateUnitType] = useState('');
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  const [templateSaveSuccess, setTemplateSaveSuccess] = useState(false);
+
   // R2 storage states
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>('idle');
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
@@ -589,6 +596,62 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     }
   }, [quoteId, extractedPieces, selectedIds, onImportComplete]);
 
+  // Save as Template handler
+  const handleSaveAsTemplate = useCallback(async () => {
+    if (!templateName.trim() || !templateUnitType.trim()) return;
+
+    setIsSavingTemplate(true);
+    setError(null);
+
+    try {
+      // Build analysis data from extracted pieces
+      const roomMap: Record<string, typeof extractedPieces> = {};
+      for (const piece of extractedPieces) {
+        const roomName = piece.room || 'Kitchen';
+        if (!roomMap[roomName]) roomMap[roomName] = [];
+        roomMap[roomName].push(piece);
+      }
+
+      const analysisData = {
+        rooms: Object.entries(roomMap).map(([roomName, pieces]) => ({
+          name: roomName,
+          pieces: pieces.map(p => ({
+            name: p.name,
+            length: p.length,
+            width: p.width,
+            thickness: p.thickness,
+            cutouts: p.cutouts || [],
+            notes: p.notes,
+          })),
+        })),
+        metadata: { defaultThickness: 20 },
+      };
+
+      const response = await fetch('/api/templates/from-analysis', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          analysisData,
+          name: templateName.trim(),
+          unitTypeCode: templateUnitType.trim(),
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save template');
+      }
+
+      setTemplateSaveSuccess(true);
+      setShowTemplateForm(false);
+    } catch (err) {
+      console.error('Save template error:', err);
+      setError(err instanceof Error ? err.message : 'Failed to save as template');
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  }, [templateName, templateUnitType, extractedPieces]);
+
   // Get confidence indicator
   const getConfidenceIndicator = (confidence: number) => {
     if (confidence >= 0.9) {
@@ -986,20 +1049,84 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         </span>
       </div>
 
+      {/* Save as Template form */}
+      {showTemplateForm && (
+        <div className="mt-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+          <h3 className="text-sm font-semibold text-blue-900 mb-3">Save as Unit Type Template</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm text-blue-800 mb-1">Template Name</label>
+              <input
+                type="text"
+                value={templateName}
+                onChange={(e) => setTemplateName(e.target.value)}
+                placeholder="e.g. Type A — Kitchen & Wet Areas"
+                className="w-full px-3 py-2 border border-blue-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-blue-800 mb-1">Unit Type Code</label>
+              <input
+                type="text"
+                value={templateUnitType}
+                onChange={(e) => setTemplateUnitType(e.target.value)}
+                placeholder="e.g. A, B, C"
+                className="w-full px-3 py-2 border border-blue-300 rounded text-sm focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+          </div>
+          <div className="mt-3 flex gap-2 justify-end">
+            <button
+              onClick={() => setShowTemplateForm(false)}
+              className="btn-secondary text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSaveAsTemplate}
+              disabled={isSavingTemplate || !templateName.trim() || !templateUnitType.trim()}
+              className="btn-primary text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSavingTemplate ? 'Saving...' : 'Save Template'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {templateSaveSuccess && (
+        <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
+          <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          <span className="text-green-700 text-sm">Template saved successfully!</span>
+        </div>
+      )}
+
       {/* Footer actions */}
       <div className="mt-6 flex justify-between">
-        <button
-          onClick={() => {
-            setStep('upload');
-            setFile(null);
-            setExtractedPieces([]);
-            setSelectedIds(new Set());
-            setError(null);
-          }}
-          className="btn-secondary"
-        >
-          Upload Different Drawing
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={() => {
+              setStep('upload');
+              setFile(null);
+              setExtractedPieces([]);
+              setSelectedIds(new Set());
+              setError(null);
+            }}
+            className="btn-secondary"
+          >
+            Upload Different Drawing
+          </button>
+          {!showTemplateForm && !templateSaveSuccess && (
+            <button
+              onClick={() => setShowTemplateForm(true)}
+              className="btn-secondary text-sm"
+              title="Save these pieces as a reusable unit type template"
+            >
+              Save as Template
+            </button>
+          )}
+        </div>
         <div className="flex gap-3">
           <button onClick={onClose} className="btn-secondary">
             Cancel
