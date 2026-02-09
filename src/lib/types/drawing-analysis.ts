@@ -1,5 +1,5 @@
 // Document categories
-export type DocumentCategory = 'JOB_SHEET' | 'HAND_DRAWN' | 'CAD_DRAWING' | 'MIXED';
+export type DocumentCategory = 'JOB_SHEET' | 'HAND_DRAWN' | 'CAD_DRAWING' | 'ELEVATION' | 'MIXED';
 export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 
 // Dimension with confidence
@@ -88,6 +88,7 @@ export interface DrawingAnalysisResult {
   clarificationQuestions: ClarificationQuestion[];
   rawNotes?: string;           // Any text extracted from drawing
   overallConfidence: ConfidenceLevel;
+  elevationAnalysis?: ElevationAnalysis;  // Populated when category is ELEVATION
 }
 
 // Classification-only result (Stage 1)
@@ -95,6 +96,44 @@ export interface ClassificationResult {
   category: DocumentCategory;
   confidence: number;
   reason: string;
+}
+
+// ──── Elevation Analysis Types (8.1) ────
+
+export type OpeningType = 'WINDOW' | 'DOOR' | 'NICHE' | 'OTHER';
+
+export interface ElevationOpening {
+  type: OpeningType;
+  dimensions: {
+    width: number;   // mm
+    height: number;  // mm
+  };
+  position: {
+    x: number;       // mm from left edge of face
+    y: number;       // mm from bottom edge of face
+  };
+  confidence: number; // 0-1
+}
+
+export interface StoneFace {
+  id: string;
+  name: string;                    // e.g., "Feature Wall A", "Kitchen Splashback"
+  grossDimensions: {
+    width: number;                 // mm
+    height: number;                // mm
+  };
+  openings: ElevationOpening[];
+  netArea_sqm: number;            // gross minus openings
+  stoneFinish?: string;           // if annotated on drawing
+  materialCallout?: string;       // e.g., "Caesarstone Calacatta Maximus"
+  confidence: number;             // 0-1
+}
+
+export interface ElevationAnalysis {
+  stoneFaces: StoneFace[];
+  overallConfidence: number;       // 0-1
+  drawingScale?: string;          // e.g., "1:50", "1:100" if detected
+  notes?: string[];               // any relevant observations
 }
 
 // Multi-slab types (re-export from calculator)
