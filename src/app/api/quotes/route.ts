@@ -47,18 +47,24 @@ interface DrawingAnalysisData {
 interface QuoteCreateData {
   quote_number: string;
   customerId: number | null;
-  project_name: string | null;
-  project_address: string | null;
+  // Accept both camelCase (from QuoteForm) and snake_case
+  project_name?: string | null;
+  projectName?: string | null;
+  project_address?: string | null;
+  projectAddress?: string | null;
   status?: string;
   subtotal: number;
-  tax_rate: number;
+  tax_rate?: number;
+  taxRate?: number;
   tax_amount: number;
   total: number;
   notes: string | null;
   created_by: number | null;
   rooms: RoomData[];
+  // Accept both field names for drawing analysis
   drawingAnalysis?: DrawingAnalysisData | null;
-  // Delivery & Templating
+  quote_drawing_analyses?: DrawingAnalysisData | null;
+  // Delivery & Templating (accepted but not persisted to quotes table)
   deliveryAddress?: string | null;
   deliveryDistanceKm?: number | null;
   deliveryZoneId?: number | null;
@@ -87,21 +93,28 @@ export async function POST(request: NextRequest) {
   try {
     const data: QuoteCreateData = await request.json();
 
+    // Normalise field names: accept both camelCase (from QuoteForm) and snake_case
+    const projectName = data.project_name ?? data.projectName ?? null;
+    const projectAddress = data.project_address ?? data.projectAddress ?? null;
+    const taxRate = data.tax_rate ?? data.taxRate ?? 10;
+    const drawingAnalysis = data.drawingAnalysis ?? data.quote_drawing_analyses ?? null;
+
     // Create the quote with rooms and pieces
     const quote = await prisma.quotes.create({
       data: {
         quote_number: data.quote_number,
         customer_id: data.customerId,
-        project_name: data.project_name,
-        project_address: data.project_address,
+        project_name: projectName,
+        project_address: projectAddress,
         status: data.status || 'draft',
         subtotal: data.subtotal,
-        tax_rate: data.tax_rate,
+        tax_rate: taxRate,
         tax_amount: data.tax_amount,
         total: data.total,
         notes: data.notes,
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days
         created_by: data.created_by,
+        updated_at: new Date(),
         quote_rooms: {
           create: data.rooms.map((room: RoomData) => ({
             name: room.name,
@@ -136,14 +149,14 @@ export async function POST(request: NextRequest) {
           })),
         },
         // Create drawing analysis if provided
-        ...(data.drawingAnalysis && {
+        ...(drawingAnalysis && {
           quote_drawing_analyses: {
             create: {
-              filename: data.drawingAnalysis.filename,
-              analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
-              drawing_type: data.drawingAnalysis.drawingType,
-              raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
-              metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
+              filename: drawingAnalysis.filename,
+              analyzed_at: new Date(drawingAnalysis.analyzedAt),
+              drawing_type: drawingAnalysis.drawingType,
+              raw_results: drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
+              metadata: drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
               imported_pieces: [],
             },
           },
@@ -163,6 +176,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(quote, { status: 201 });
   } catch (error) {
     console.error('Error creating quote:', error);
-    return NextResponse.json({ error: 'Failed to create quote' }, { status: 500 });
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json(
+      { error: 'Failed to create quote', details: message },
+      { status: 500 }
+    );
   }
 }

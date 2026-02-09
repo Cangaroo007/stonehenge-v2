@@ -65,7 +65,31 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Extract pieces from quote with thickness, finished edges, and edge type names
+    // Collect all unique edge type IDs from pieces for name resolution
+    const allEdgeTypeIds = new Set<string>();
+    for (const room of quote.quote_rooms) {
+      for (const piece of room.quote_pieces as Array<{ edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null }>) {
+        if (piece.edge_top) allEdgeTypeIds.add(piece.edge_top);
+        if (piece.edge_bottom) allEdgeTypeIds.add(piece.edge_bottom);
+        if (piece.edge_left) allEdgeTypeIds.add(piece.edge_left);
+        if (piece.edge_right) allEdgeTypeIds.add(piece.edge_right);
+      }
+    }
+
+    // Resolve edge type IDs to names (needed for mitre/waterfall strip width calculation)
+    const edgeTypeMap = new Map<string, string>();
+    if (allEdgeTypeIds.size > 0) {
+      const edgeTypes = await prisma.edge_types.findMany({
+        where: { id: { in: Array.from(allEdgeTypeIds) } },
+        select: { id: true, name: true },
+      });
+      for (const et of edgeTypes) {
+        edgeTypeMap.set(et.id, et.name);
+      }
+      console.log(`[Optimize API] Resolved ${edgeTypeMap.size} edge type IDs to names`);
+    }
+
+    // Extract pieces from quote with thickness, finished edges, and resolved edge type names
     const pieces = quote.quote_rooms.flatMap((room: {
       name: string;
       quote_pieces: Array<{
@@ -93,10 +117,10 @@ export async function POST(
           right: piece.edge_right !== null,
         },
         edgeTypeNames: {
-          top: piece.edge_top || undefined,
-          bottom: piece.edge_bottom || undefined,
-          left: piece.edge_left || undefined,
-          right: piece.edge_right || undefined,
+          top: piece.edge_top ? edgeTypeMap.get(piece.edge_top) : undefined,
+          bottom: piece.edge_bottom ? edgeTypeMap.get(piece.edge_bottom) : undefined,
+          left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
+          right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
         },
       }))
     );

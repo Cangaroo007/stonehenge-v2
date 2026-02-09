@@ -21,8 +21,9 @@ interface Slab {
 }
 
 // Lamination strip constants
-const LAMINATION_STRIP_WIDTH_DEFAULT = 40; // mm - standard strip width
-const LAMINATION_STRIP_BUFFER = 5; // mm - buffer added to mitre strips
+// Strip widths from business rules (kerf is added separately by the optimizer during placement)
+const LAMINATION_STRIP_WIDTH_DEFAULT = 60; // mm - standard laminated strip width (~60mm + kerf = 68mm)
+const LAMINATION_STRIP_WIDTH_MITRE = 40; // mm - mitred strip width (~40mm + kerf = 48mm)
 const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
 
 // Internal type for pieces during optimization (includes lamination data)
@@ -34,26 +35,25 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
 
 /**
  * Determine the strip width for an edge based on the edge type name.
- * Mitre strip formula: FinishedThickness + Kerf + 5mm buffer
- * Standard polish edges use 40mm (default).
+ * Mitre strips: ~40mm (kerf added by optimizer during placement).
+ * Waterfall & standard polish strips: ~60mm (kerf added by optimizer during placement).
+ * Strip widths should come from strip_configurations table; these are defaults if not found.
  */
-function getStripWidthForEdge(edgeTypeName?: string, thickness?: number, kerfWidth?: number): number {
+function getStripWidthForEdge(edgeTypeName?: string, _thickness?: number, _kerfWidth?: number): number {
   if (!edgeTypeName) return LAMINATION_STRIP_WIDTH_DEFAULT;
   const lower = edgeTypeName.toLowerCase();
   if (lower.includes('mitre')) {
-    // Dynamic formula: FinishedThickness + Kerf + 5mm buffer
-    const finishedThickness = thickness ?? 40;
-    const kerf = kerfWidth ?? 8;
-    return finishedThickness + kerf + LAMINATION_STRIP_BUFFER;
+    return LAMINATION_STRIP_WIDTH_MITRE;
   }
+  // Waterfall and standard polish edges use the default laminated width
   return LAMINATION_STRIP_WIDTH_DEFAULT;
 }
 
 /**
  * Generates lamination strips for a 40mm+ piece.
  * Strips are needed under each finished edge to create the thickness appearance.
- * Mitre strip width: FinishedThickness + Kerf + 5mm buffer.
- * Standard polish strip width: 40mm default.
+ * Mitre strip width: ~40mm (kerf added separately by optimizer).
+ * Standard/waterfall strip width: ~60mm (kerf added separately by optimizer).
  */
 function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number): OptimizationPiece[] {
   // Only generate strips for 40mm+ pieces
