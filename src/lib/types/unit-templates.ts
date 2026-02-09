@@ -57,3 +57,51 @@ export interface TemplateCutout {
   type: string;           // 'UNDERMOUNT_SINK', 'COOKTOP', 'TAP_HOLE', 'GPO', etc.
   quantity: number;
 }
+
+// -- Finish Tier Mapping Types (9.3) --
+
+export interface MaterialAssignments {
+  [materialRole: string]: number; // materialRole → materialId
+}
+
+export interface EdgeOverrides {
+  [materialRole: string]: {
+    edges: Partial<{
+      top: TemplateEdge;
+      bottom: TemplateEdge;
+      left: TemplateEdge;
+      right: TemplateEdge;
+    }>;
+  };
+}
+
+export interface FinishTierMapping {
+  id: number;
+  templateId: number;
+  finishLevel: string;
+  colourScheme: string | null;
+  materialAssignments: MaterialAssignments;
+  edgeOverrides: EdgeOverrides | null;
+  description: string | null;
+  isActive: boolean;
+}
+
+// -- Clone Options --
+
+export interface CloneByMaterialOptions {
+  templateId: number;
+  customerId: number;
+  unitNumber: string;
+  projectName?: string;
+  materialAssignments: MaterialAssignments;
+  edgeOverrides?: EdgeOverrides;
+}
+
+export interface CloneByFinishOptions {
+  templateId: number;
+  customerId: number;
+  unitNumber: string;
+  projectName?: string;
+  finishLevel: string;
+  colourScheme?: string;
+}

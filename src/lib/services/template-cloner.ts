@@ -5,13 +5,24 @@
  * with rooms, pieces, edges, and cutouts. Material assignments are
  * provided via materialRole → materialId mapping.
  *
- * After creating the quote structure, the pricing calculator can be
+ * Supports two calling patterns:
+ * 1. Direct: cloneTemplateToQuote() with explicit materialAssignments
+ * 2. Finish-based: cloneTemplateToQuoteByFinish() resolves materials from finish tier mapping
+ *
+ * After creating the quote structure, the pricing calculator is
  * called to price the quote.
  */
 
 import prisma from '@/lib/db';
 import type { Prisma } from '@prisma/client';
-import type { TemplateData, TemplatePiece, TemplateEdge, TemplateCutout } from '@/lib/types/unit-templates';
+import type {
+  TemplateData,
+  TemplatePiece,
+  TemplateEdge,
+  MaterialAssignments,
+  EdgeOverrides,
+  CloneByFinishOptions,
+} from '@/lib/types/unit-templates';
 import { calculateQuotePrice } from './pricing-calculator-v2';
 
 export interface CloneOptions {
@@ -20,6 +31,7 @@ export interface CloneOptions {
   unitNumber: string;
   projectName?: string;
   materialAssignments: Record<string, number>; // materialRole → materialId
+  edgeOverrides?: EdgeOverrides;
 }
 
 export interface CloneResult {
@@ -108,10 +120,32 @@ async function generateQuoteNumber(): Promise<string> {
 }
 
 /**
+ * Apply edge overrides to a template piece's edges.
+ * Override edges take priority over the template's defaults.
+ */
+function applyEdgeOverrides(
+  piece: TemplatePiece,
+  edgeOverrides?: EdgeOverrides
+): { top: TemplateEdge; bottom: TemplateEdge; left: TemplateEdge; right: TemplateEdge } {
+  const edges = { ...piece.edges };
+
+  if (edgeOverrides?.[piece.materialRole]?.edges) {
+    const overrides = edgeOverrides[piece.materialRole].edges;
+    if (overrides.top) edges.top = overrides.top;
+    if (overrides.bottom) edges.bottom = overrides.bottom;
+    if (overrides.left) edges.left = overrides.left;
+    if (overrides.right) edges.right = overrides.right;
+  }
+
+  return edges;
+}
+
+/**
  * Clone a template into a fully structured quote.
+ * Supports optional edge overrides for finish-tier-specific edge profiles.
  */
 export async function cloneTemplateToQuote(options: CloneOptions): Promise<CloneResult> {
-  const { templateId, customerId, unitNumber, projectName, materialAssignments } = options;
+  const { templateId, customerId, unitNumber, projectName, materialAssignments, edgeOverrides } = options;
 
   // 1. Load template from DB
   const template = await prisma.unit_type_templates.findUnique({
@@ -177,6 +211,9 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
       for (let pieceIdx = 0; pieceIdx < templateRoom.pieces.length; pieceIdx++) {
         const templatePiece = templateRoom.pieces[pieceIdx];
 
+        // Apply edge overrides before resolving
+        const edges = applyEdgeOverrides(templatePiece, edgeOverrides);
+
         // Resolve material from role assignment
         const materialId = materialAssignments[templatePiece.materialRole];
         const material = materialId ? materialMap.get(materialId) : null;
@@ -190,19 +227,19 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
           materialCost = areaSqm * material.price_per_sqm.toNumber();
         }
 
-        // Resolve edge type IDs
-        const edgeTop = await resolveEdgeTypeId(templatePiece.edges.top, edgeTypeCache);
-        const edgeBottom = await resolveEdgeTypeId(templatePiece.edges.bottom, edgeTypeCache);
-        const edgeLeft = await resolveEdgeTypeId(templatePiece.edges.left, edgeTypeCache);
-        const edgeRight = await resolveEdgeTypeId(templatePiece.edges.right, edgeTypeCache);
+        // Resolve edge type IDs (using overridden edges)
+        const edgeTop = await resolveEdgeTypeId(edges.top, edgeTypeCache);
+        const edgeBottom = await resolveEdgeTypeId(edges.bottom, edgeTypeCache);
+        const edgeLeft = await resolveEdgeTypeId(edges.left, edgeTypeCache);
+        const edgeRight = await resolveEdgeTypeId(edges.right, edgeTypeCache);
 
         // Determine lamination method from edge finishes
         let laminationMethod: 'NONE' | 'LAMINATED' | 'MITRED' = 'NONE';
         const edgeFinishes = [
-          templatePiece.edges.top.finish,
-          templatePiece.edges.bottom.finish,
-          templatePiece.edges.left.finish,
-          templatePiece.edges.right.finish,
+          edges.top.finish,
+          edges.bottom.finish,
+          edges.left.finish,
+          edges.right.finish,
         ];
         if (edgeFinishes.includes('MITRED')) {
           laminationMethod = 'MITRED';
@@ -280,4 +317,59 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
     totalIncGst,
     pieceCount: result.pieceCount,
   };
+}
+
+/**
+ * Clone a template to a quote by resolving materials from a finish tier mapping.
+ * Used by bulk generation — looks up the mapping for the given finish level.
+ *
+ * Resolution strategy:
+ * 1. Try exact match: templateId + finishLevel + colourScheme
+ * 2. Fall back to: templateId + finishLevel (colourScheme=null)
+ * 3. If no match found, throw with helpful error
+ */
+export async function cloneTemplateToQuoteByFinish(
+  options: CloneByFinishOptions
+): Promise<CloneResult> {
+  const { templateId, finishLevel, colourScheme } = options;
+
+  // Try exact match first (with colourScheme)
+  let mapping = colourScheme
+    ? await prisma.finish_tier_mappings.findFirst({
+        where: {
+          templateId,
+          finishLevel,
+          colourScheme,
+          isActive: true,
+        },
+      })
+    : null;
+
+  // Fall back to finishLevel-only match (colourScheme=null)
+  if (!mapping) {
+    mapping = await prisma.finish_tier_mappings.findFirst({
+      where: {
+        templateId,
+        finishLevel,
+        colourScheme: null,
+        isActive: true,
+      },
+    });
+  }
+
+  if (!mapping) {
+    throw new Error(
+      `No active finish tier mapping found for template ${templateId} ` +
+      `with finishLevel="${finishLevel}"${colourScheme ? ` and colourScheme="${colourScheme}"` : ''}`
+    );
+  }
+
+  const materialAssignments = mapping.materialAssignments as unknown as MaterialAssignments;
+  const edgeOverrides = mapping.edgeOverrides as unknown as EdgeOverrides | null;
+
+  return cloneTemplateToQuote({
+    ...options,
+    materialAssignments,
+    edgeOverrides: edgeOverrides ?? undefined,
+  });
 }
