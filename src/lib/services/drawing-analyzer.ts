@@ -27,6 +27,7 @@ import {
   CAD_EXTRACTION_USER_PROMPT,
 } from '@/lib/prompts/extraction-cad';
 import { extractElevationAreas } from './spatial-extractor';
+import { calculateElevationDeductions } from './cutout-deductor';
 
 const anthropic = new Anthropic();
 const MODEL = 'claude-sonnet-4-5-20250929';
@@ -279,6 +280,9 @@ export async function analyzeDrawing(
   if (classification.category === 'ELEVATION') {
     const elevationAnalysis = await extractElevationAreas(imageBase64, mimeType);
 
+    // Calculate deductions for all stone faces
+    const deductionSummary = calculateElevationDeductions(elevationAnalysis);
+
     return {
       documentCategory: 'ELEVATION',
       categoryConfidence: classification.confidence,
@@ -287,6 +291,7 @@ export async function analyzeDrawing(
       overallConfidence: elevationAnalysis.overallConfidence >= 0.7 ? 'HIGH'
         : elevationAnalysis.overallConfidence >= 0.4 ? 'MEDIUM' : 'LOW',
       elevationAnalysis,
+      deductionSummary,
     };
   }
 

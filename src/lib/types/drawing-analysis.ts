@@ -91,6 +91,7 @@ export interface DrawingAnalysisResult {
   overallConfidence: ConfidenceLevel;
   elevationAnalysis?: ElevationAnalysis;       // Populated when category is ELEVATION
   edgeDetectionResults?: EdgeDetectionResult[]; // Populated after edge detection (8.2)
+  deductionSummary?: ElevationDeductionSummary; // Populated for ELEVATION documents (8.3)
 }
 
 // Classification-only result (Stage 1)
@@ -170,6 +171,53 @@ export interface EdgeNotationMap {
     profileType?: EdgeProfileType;
     description: string;
   };
+}
+
+// ──── Cutout Deduction Types (8.3) ────
+
+export interface DeductionWarning {
+  faceId: string;
+  type: 'OPENING_EXCEEDS_FACE' | 'TOTAL_DEDUCTION_EXCEEDS_GROSS' | 'ZERO_DIMENSION' | 'OVERLAPPING_OPENINGS';
+  message: string;
+  severity: 'WARNING' | 'ERROR';
+}
+
+export interface OpeningDeduction {
+  type: string;                    // 'WINDOW' | 'DOOR' | 'NICHE' | 'OTHER'
+  dimensions: {
+    width: number;                 // mm
+    height: number;                // mm
+  };
+  area_sqm: number;               // area of this opening
+  perimeter_Lm: number;           // perimeter of this opening (for cutting)
+}
+
+export interface DeductionResult {
+  faceId: string;
+  faceName: string;
+  grossDimensions: {
+    width: number;                 // mm
+    height: number;                // mm
+  };
+  grossArea_sqm: number;
+  openings: OpeningDeduction[];
+  totalDeduction_sqm: number;      // sum of all opening areas
+  netArea_sqm: number;             // grossArea - totalDeduction
+  outerPerimeter_Lm: number;       // perimeter of the stone face itself
+  openingPerimeters_Lm: number;    // sum of all opening perimeters
+  totalCuttingPerimeter_Lm: number; // outer + opening perimeters (for cutting cost)
+  deductionPercentage: number;     // % of gross area that is openings
+  warnings: DeductionWarning[];
+}
+
+export interface ElevationDeductionSummary {
+  faceResults: DeductionResult[];
+  totalGrossArea_sqm: number;
+  totalNetArea_sqm: number;
+  totalDeduction_sqm: number;
+  totalCuttingPerimeter_Lm: number;
+  overallDeductionPercentage: number;
+  warnings: DeductionWarning[];    // aggregated from all faces
 }
 
 // Multi-slab types (re-export from calculator)
