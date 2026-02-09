@@ -19,6 +19,7 @@
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-s3": "^3.978.0",
     "@aws-sdk/s3-request-presigner": "^3.978.0",
+    "@fontsource-variable/inter": "^5.2.8",
     "@googlemaps/google-maps-services-js": "^3.4.0",
     "@napi-rs/canvas": "^0.1.89",
     "@prisma/adapter-pg": "^7.3.0",
