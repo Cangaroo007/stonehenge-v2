@@ -126,7 +126,8 @@ export interface PiecePricingBreakdown {
 
   fabrication: {
     cutting: {
-      linearMeters: number;
+      quantity: number;
+      unit: string;
       rate: number;
       baseAmount: number;
       discount: number;
@@ -134,12 +135,21 @@ export interface PiecePricingBreakdown {
       discountPercentage: number;
     };
     polishing: {
-      linearMeters: number;
+      quantity: number;
+      unit: string;
       rate: number;
       baseAmount: number;
       discount: number;
       total: number;
       discountPercentage: number;
+    };
+    installation?: {
+      quantity: number;
+      unit: string;
+      rate: number;
+      baseAmount: number;
+      discount: number;
+      total: number;
     };
     edges: Array<{
       side: 'top' | 'bottom' | 'left' | 'right';

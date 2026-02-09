@@ -646,7 +646,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Cutting */}
           {piece.fabrication.cutting && piece.fabrication.cutting.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Cutting ({piece.fabrication.cutting.linearMeters.toFixed(1)} lm × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
+              <span>Cutting ({piece.fabrication.cutting.quantity.toFixed(1)} {piece.fabrication.cutting.unit === 'SQUARE_METRE' ? 'm²' : 'lm'} × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
               <span>
                 {piece.fabrication.cutting.discount > 0 ? (
                   <span>
@@ -663,7 +663,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Polishing */}
           {piece.fabrication.polishing && piece.fabrication.polishing.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Polishing ({piece.fabrication.polishing.linearMeters.toFixed(1)} lm × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
+              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm²' : 'lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
               <span>
                 {piece.fabrication.polishing.discount > 0 ? (
                   <span>
