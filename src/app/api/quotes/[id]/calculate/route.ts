@@ -105,6 +105,27 @@ export async function POST(
         );
       }
 
+      if (error.message.includes('Missing required service rates')) {
+        return NextResponse.json(
+          { error: error.message, code: 'MISSING_SERVICE_RATES' },
+          { status: 400 }
+        );
+      }
+
+      if (error.message.includes('Service rate not found for')) {
+        return NextResponse.json(
+          { error: error.message, code: 'MISSING_SERVICE_RATE' },
+          { status: 400 }
+        );
+      }
+
+      if (error.message.includes('Pricing settings not configured')) {
+        return NextResponse.json(
+          { error: error.message, code: 'MISSING_PRICING_SETTINGS' },
+          { status: 400 }
+        );
+      }
+
       // Return detailed error for debugging
       return NextResponse.json(
         {

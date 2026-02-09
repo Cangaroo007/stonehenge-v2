@@ -268,6 +268,18 @@ export async function calculateQuotePrice(
     prisma.service_rates.findMany({ where: { isActive: true } }),
   ]);
 
+  // Validate required service rates exist — never silently return $0
+  const requiredServiceTypes = ['CUTTING', 'POLISHING', 'INSTALLATION'];
+  const loadedServiceTypes: string[] = Array.from(new Set(serviceRates.map(r => r.serviceType as string)));
+  const missingServiceTypes = requiredServiceTypes.filter(t => !loadedServiceTypes.includes(t));
+
+  if (missingServiceTypes.length > 0) {
+    throw new Error(
+      `Missing required service rates: ${missingServiceTypes.join(', ')}. ` +
+      `Configure these in Pricing Admin → Service Rates before creating quotes.`
+    );
+  }
+
   // Flatten all pieces
   const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
@@ -616,6 +628,50 @@ function calculateCutoutCostV2(
 }
 
 /**
+ * Look up a service rate by type and return the thickness-appropriate value.
+ * Throws if the rate is not found — prevents silent $0 calculations.
+ */
+function getServiceRate(
+  rates: Array<{
+    serviceType: string;
+    name: string;
+    rate20mm: { toNumber: () => number };
+    rate40mm: { toNumber: () => number };
+    minimumCharge: { toNumber: () => number } | null;
+  }>,
+  serviceType: string,
+  thickness: number
+): { rate: number; rateRecord: typeof rates[number] } {
+  const rateRecord = rates.find(r => r.serviceType === serviceType);
+  if (!rateRecord) {
+    throw new Error(
+      `Service rate not found for ${serviceType}. ` +
+      `Configure in Pricing Admin → Service Rates.`
+    );
+  }
+  const rate = thickness > 20
+    ? rateRecord.rate40mm.toNumber()
+    : rateRecord.rate20mm.toNumber();
+  return { rate, rateRecord };
+}
+
+/**
+ * Apply minimum charge: returns the greater of calculatedCost or the rate's minimumCharge.
+ */
+function applyMinimumCharge(
+  calculatedCost: number,
+  rateRecord: { minimumCharge: { toNumber: () => number } | null }
+): number {
+  if (rateRecord.minimumCharge) {
+    const minimum = rateRecord.minimumCharge.toNumber();
+    if (minimum > 0) {
+      return Math.max(calculatedCost, minimum);
+    }
+  }
+  return calculatedCost;
+}
+
+/**
  * Calculate service costs (cutting, polishing, installation, waterfall)
  * Reads configured units from pricingContext to determine quantity basis.
  */
@@ -642,30 +698,27 @@ function calculateServiceCosts(
     : 20;
 
   // Cutting: use tenant's configured cutting_unit
-  const cuttingRate = serviceRates.find(sr => sr.serviceType === 'CUTTING');
-  if (cuttingRate) {
+  const { rate: cuttingRateVal, rateRecord: cuttingRateRecord } =
+    getServiceRate(serviceRates, 'CUTTING', avgThickness);
+  {
     const cuttingUnit = pricingContext.cuttingUnit;
     const cuttingQty = cuttingUnit === 'LINEAR_METRE' ? totalPerimeterLm : totalAreaM2;
-    const rate = avgThickness <= 20 ? cuttingRate.rate20mm.toNumber() : cuttingRate.rate40mm.toNumber();
-
-    let cost = cuttingQty * rate;
-    const minCharge = cuttingRate.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && cost < minCharge) cost = minCharge;
+    const cost = applyMinimumCharge(cuttingQty * cuttingRateVal, cuttingRateRecord);
 
     items.push({
       serviceType: 'CUTTING',
-      name: cuttingRate.name,
+      name: cuttingRateRecord.name,
       quantity: roundToTwo(cuttingQty),
       unit: cuttingUnit,
-      rate: rate,
+      rate: cuttingRateVal,
       subtotal: roundToTwo(cost),
     });
     subtotal += cost;
   }
 
   // Polishing: use tenant's configured polishing_unit
-  const polishingRate = serviceRates.find(sr => sr.serviceType === 'POLISHING');
-  if (polishingRate && totalEdgeLinearMeters > 0) {
+  const polishingRateRecord = serviceRates.find(sr => sr.serviceType === 'POLISHING')!;
+  if (totalEdgeLinearMeters > 0) {
     const polishingUnit = pricingContext.polishingUnit;
     let polishingCost = 0;
     let totalPolishingQty = 0;
@@ -680,30 +733,25 @@ function calculateServiceCosts(
       const pieceEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
       if (pieceEdgeLm <= 0) continue;
 
-      // SQUARE_METRE: finished edge area = edge_length_m × thickness_m
       const piecePolishingQty = polishingUnit === 'SQUARE_METRE'
         ? pieceEdgeLm * (piece.thickness_mm / 1000)
         : pieceEdgeLm;
 
-      const rate = piece.thickness_mm <= 20
-        ? polishingRate.rate20mm.toNumber()
-        : polishingRate.rate40mm.toNumber();
-
+      const { rate } = getServiceRate(serviceRates, 'POLISHING', piece.thickness_mm);
       polishingCost += piecePolishingQty * rate;
       totalPolishingQty += piecePolishingQty;
     }
 
-    const minCharge = polishingRate.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && polishingCost < minCharge) polishingCost = minCharge;
+    polishingCost = applyMinimumCharge(polishingCost, polishingRateRecord);
 
     const displayRate = totalPolishingQty > 0
       ? roundToTwo(polishingCost / totalPolishingQty)
-      : polishingRate.rate20mm.toNumber();
+      : polishingRateRecord.rate20mm.toNumber();
 
     if (totalPolishingQty > 0) {
       items.push({
         serviceType: 'POLISHING',
-        name: polishingRate.name,
+        name: polishingRateRecord.name,
         quantity: roundToTwo(totalPolishingQty),
         unit: polishingUnit,
         rate: displayRate,
@@ -714,29 +762,24 @@ function calculateServiceCosts(
   }
 
   // Installation: use tenant's configured installation_unit
-  const installationRate = serviceRates.find(sr => sr.serviceType === 'INSTALLATION');
-  if (installationRate) {
+  const { rate: installRateVal, rateRecord: installRateRecord } =
+    getServiceRate(serviceRates, 'INSTALLATION', avgThickness);
+  {
     const installationUnit = pricingContext.installationUnit;
     const installQty =
       installationUnit === 'SQUARE_METRE' ? totalAreaM2 :
       installationUnit === 'LINEAR_METRE' ? totalPerimeterLm :
       1; // FIXED = flat fee
 
-    const rate = avgThickness <= 20
-      ? installationRate.rate20mm.toNumber()
-      : installationRate.rate40mm.toNumber();
-
-    let cost = installQty * rate;
-    const minCharge = installationRate.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && cost < minCharge) cost = minCharge;
+    const cost = applyMinimumCharge(installQty * installRateVal, installRateRecord);
 
     if (cost > 0) {
       items.push({
         serviceType: 'INSTALLATION',
-        name: installationRate.name,
+        name: installRateRecord.name,
         quantity: roundToTwo(installQty),
         unit: installationUnit,
-        rate: rate,
+        rate: installRateVal,
         subtotal: roundToTwo(cost),
       });
       subtotal += cost;
@@ -806,6 +849,7 @@ function calculatePiecePricing(
   },
   serviceRates: Array<{
     serviceType: string;
+    name: string;
     rate20mm: { toNumber: () => number };
     rate40mm: { toNumber: () => number };
     minimumCharge: { toNumber: () => number } | null;
@@ -832,18 +876,11 @@ function calculatePiecePricing(
   const thickness = piece.thickness_mm;
   const isThick = thickness > 20;
 
-  // Get service rates based on thickness
-  const cuttingRate = serviceRates.find(r => r.serviceType === 'CUTTING');
-  const polishingRate = serviceRates.find(r => r.serviceType === 'POLISHING');
-  const installationRate = serviceRates.find(r => r.serviceType === 'INSTALLATION');
-
-  const cuttingRateVal = isThick
-    ? (cuttingRate?.rate40mm.toNumber() ?? 45)
-    : (cuttingRate?.rate20mm.toNumber() ?? 17.5);
-
-  const polishingRateVal = isThick
-    ? (polishingRate?.rate40mm.toNumber() ?? 115)
-    : (polishingRate?.rate20mm.toNumber() ?? 45);
+  // Get service rates based on thickness — no fallback defaults, rates must exist
+  const { rate: cuttingRateVal } = getServiceRate(serviceRates, 'CUTTING', thickness);
+  const { rate: polishingRateVal } = getServiceRate(serviceRates, 'POLISHING', thickness);
+  const { rate: installRateVal, rateRecord: installRateRecord } =
+    getServiceRate(serviceRates, 'INSTALLATION', thickness);
 
   // Piece dimensions
   const perimeterMm = 2 * (piece.length_mm + piece.width_mm);
@@ -962,18 +999,16 @@ function calculatePiecePricing(
 
   // Installation: use tenant's configured installation_unit
   let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
-  if (installationRate) {
+  {
     const installationUnit = pricingContext.installationUnit;
-    const installRateVal = isThick
-      ? installationRate.rate40mm.toNumber()
-      : installationRate.rate20mm.toNumber();
-
     const installQty =
       installationUnit === 'SQUARE_METRE' ? areaSqm :
       installationUnit === 'LINEAR_METRE' ? perimeterLm :
       1; // FIXED = flat fee; distributed per-piece as rate × 1
 
-    const installBase = roundToTwo(installQty * installRateVal);
+    const installBase = roundToTwo(
+      applyMinimumCharge(installQty * installRateVal, installRateRecord)
+    );
     if (installBase > 0) {
       installationBreakdown = {
         quantity: roundToTwo(installQty),
