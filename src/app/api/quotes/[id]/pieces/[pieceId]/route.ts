@@ -41,6 +41,7 @@ export async function GET(
       edgeBottom: p.edge_bottom,
       edgeLeft: p.edge_left,
       edgeRight: p.edge_right,
+      laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
       totalCost: Number(p.total_cost || 0),
       areaSqm: Number(p.area_sqm || 0),
@@ -82,6 +83,7 @@ export async function PUT(
       edgeLeft,
       edgeRight,
       cutouts,
+      laminationMethod,
     } = data;
 
     // Get the current piece
@@ -92,6 +94,47 @@ export async function PUT(
 
     if (!currentPiece) {
       return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
+    }
+
+    // Validate lamination method if provided
+    if (laminationMethod !== undefined) {
+      const validLaminationMethods = ['NONE', 'LAMINATED', 'MITRED'];
+      if (!validLaminationMethods.includes(laminationMethod)) {
+        return NextResponse.json(
+          { error: `Invalid laminationMethod. Must be one of: ${validLaminationMethods.join(', ')}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Mitred constraint: only Pencil Round edge profiles allowed
+    const effectiveLamination = laminationMethod ?? currentPiece.lamination_method;
+    if (effectiveLamination === 'MITRED') {
+      const effectiveEdges = [
+        edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
+        edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
+        edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
+        edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+      ].filter(Boolean);
+
+      if (effectiveEdges.length > 0) {
+        const edgeTypes = await prisma.edge_types.findMany({
+          where: { id: { in: effectiveEdges } },
+          select: { id: true, name: true },
+        });
+        for (const et of edgeTypes) {
+          const nameLower = et.name.toLowerCase();
+          if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
+            return NextResponse.json(
+              {
+                error: `Mitred edges only support Pencil Round profile. Found "${et.name}". Change to Pencil Round or switch to Laminated.`,
+                code: 'MITRED_PROFILE_CONSTRAINT',
+              },
+              { status: 400 }
+            );
+          }
+        }
+      }
     }
 
     // Handle room change if needed
@@ -160,6 +203,7 @@ export async function PUT(
         edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
         edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
+        lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
       },
       include: {
         materials: true,
@@ -191,6 +235,7 @@ export async function PUT(
       edgeBottom: pu.edge_bottom,
       edgeLeft: pu.edge_left,
       edgeRight: pu.edge_right,
+      laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       totalCost: Number(pu.total_cost || 0),
       areaSqm: Number(pu.area_sqm || 0),

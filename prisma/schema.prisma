@@ -322,6 +322,8 @@ model pricing_settings {
   unit_system            UnitSystem           @default(METRIC)
   currency               String               @default("AUD")
   gst_rate               Decimal              @default(0.10) @db.Decimal(5, 4)
+  laminated_multiplier   Decimal              @default(1.30) @db.Decimal(5, 2)
+  mitred_multiplier      Decimal              @default(1.50) @db.Decimal(5, 2)
   created_at             DateTime             @default(now())
   updated_at             DateTime
   cutout_rates           cutout_rates[]
@@ -372,8 +374,9 @@ model quote_pieces {
   edge_left      String?
   edge_right     String?
   edge_top       String?
-  name           String           @default("Piece")
-  piece_features piece_features[]
+  name              String           @default("Piece")
+  lamination_method LaminationMethod @default(NONE)
+  piece_features    piece_features[]
   materials      materials?       @relation(fields: [material_id], references: [id])
   quote_rooms    quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
 }
@@ -624,6 +627,12 @@ enum ServiceUnit {
 enum UnitSystem {
   METRIC
   IMPERIAL
+}
+
+enum LaminationMethod {
+  NONE
+  LAMINATED
+  MITRED
 }
 
 enum UserRole {
