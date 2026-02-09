@@ -227,3 +227,73 @@ export type {
   JoinLocation,
   JoinStrategy,
 } from '@/lib/services/multi-slab-calculator';
+
+// ──── Slab Fit Adapter Types (8.4) ────
+
+/**
+ * Configuration for the slab fit pipeline.
+ * Combines material info with slab dimensions.
+ */
+export interface SlabFitConfig {
+  materialCategory: string;           // e.g., 'ENGINEERED_QUARTZ_JUMBO'
+  slabWidth: number;                  // mm (maps to slab lengthMm)
+  slabHeight: number;                 // mm (maps to slab widthMm)
+  kerfWidth: number;                  // mm (default 8)
+  allowRotation: boolean;             // default true
+  thickness: number;                  // mm (20 or 40) — affects lamination strips
+}
+
+/**
+ * A piece derived from an elevation stone face for slab fitting.
+ */
+export interface SlabFitPiece {
+  id: string;
+  label: string;
+  sourceFaceId: string;               // links back to the StoneFace this came from
+  width: number;                      // mm
+  height: number;                     // mm
+  isSplitPiece: boolean;              // true if face was split to fit on slab
+  splitIndex?: number;                // 0, 1, 2... if split
+}
+
+/**
+ * Result of the full pipeline:
+ * Elevation Analysis → Deduction → Optimiser → Pricing Data
+ */
+export interface SlabFitResult {
+  /** Pieces generated from elevation faces (may include split pieces for oversized faces) */
+  pieces: SlabFitPiece[];
+  /** Raw optimizer result */
+  optimizerResult: {
+    placements: Array<{
+      pieceId: string;
+      slabIndex: number;
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      rotated: boolean;
+      label: string;
+    }>;
+    slabs: Array<{
+      slabIndex: number;
+      width: number;
+      height: number;
+      usedArea: number;
+      wasteArea: number;
+      wastePercent: number;
+    }>;
+    totalSlabs: number;
+    totalUsedArea: number;
+    totalWasteArea: number;
+    wastePercent: number;
+    unplacedPieces: string[];
+  };
+  /** Summary for pricing */
+  slabCount: number;
+  totalWastePercent: number;
+  unplacedPieces: string[];           // IDs of pieces that didn't fit
+  /** Pricing inputs */
+  totalNetArea_sqm: number;           // for PER_SQUARE_METRE pricing
+  totalCuttingPerimeter_Lm: number;   // for cutting cost
+}
