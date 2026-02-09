@@ -762,6 +762,13 @@ model unit_block_units {
   // Override notes
   notes           String?
 
+  // Buyer change tracking
+  originalQuoteSnapshot  Json?
+  lastChangeAt           DateTime?
+  changeNotes            String?
+  costDelta              Decimal?    @default(0) @db.Decimal(10, 2)
+  changeHistory          Json?
+
   // Timestamps
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt

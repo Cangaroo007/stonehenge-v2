@@ -86,6 +86,36 @@ export interface FinishTierMapping {
   isActive: boolean;
 }
 
+// -- Buyer Change Tracking Types (9.6) --
+
+export interface BuyerChange {
+  id: string;               // UUID for each change record
+  unitId: number;
+  unitNumber: string;
+  changeType: 'MATERIAL_UPGRADE' | 'EDGE_CHANGE' | 'LAYOUT_CHANGE' | 'CUTOUT_CHANGE' | 'THICKNESS_CHANGE' | 'OTHER';
+  description: string;      // Human-readable description
+  originalValue: string;    // What it was before
+  newValue: string;         // What it is now
+  costImpact: number;       // Positive = more expensive, negative = saving
+  timestamp: string;        // ISO date string
+  recordedBy?: string;      // Who recorded this change
+}
+
+export interface QuoteSnapshot {
+  snapshotDate: string;     // ISO date
+  subtotalExGst: number;
+  gstAmount: number;
+  grandTotal: number;
+  pieces: Array<{
+    label: string;
+    material: string;
+    dimensions: string;
+    edges: string;
+    cutouts: string[];
+    lineTotal: number;
+  }>;
+}
+
 // -- Clone Options --
 
 export interface CloneByMaterialOptions {
