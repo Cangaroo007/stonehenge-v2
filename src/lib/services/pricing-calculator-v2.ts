@@ -88,6 +88,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       gstRate: Number(settings.gst_rate),
       laminatedMultiplier: Number(settings.laminated_multiplier),
       mitredMultiplier: Number(settings.mitred_multiplier),
+      wasteFactorPercent: Number(settings.waste_factor_percent),
     };
   }
 
@@ -116,7 +117,8 @@ export function calculateMaterialCost(
     overrideMaterialCost?: { toNumber: () => number } | null;
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
-  slabCount?: number
+  slabCount?: number,
+  wasteFactorPercent?: number
 ): MaterialBreakdown {
   let totalAreaM2 = 0;
   let subtotal = 0;
@@ -171,19 +173,39 @@ export function calculateMaterialCost(
 
   const effectiveRate = totalAreaM2 > 0 ? roundToTwo(subtotal / totalAreaM2) : 0;
 
+  // Apply waste factor for PER_SQUARE_METRE pricing only
+  let finalSubtotalWithWaste = subtotal;
+  let adjustedAreaM2: number | undefined;
+  let appliedWastePercent: number | undefined;
+
+  if (pricingBasis === 'PER_SQUARE_METRE' && wasteFactorPercent !== undefined && wasteFactorPercent > 0) {
+    const clampedWaste = Math.max(0, Math.min(50, wasteFactorPercent));
+    if (clampedWaste !== wasteFactorPercent) {
+      console.warn(
+        `Waste factor ${wasteFactorPercent}% is outside normal range (0-50%). Clamping to ${clampedWaste}%.`
+      );
+    }
+    const wasteMultiplier = 1 + clampedWaste / 100;
+    adjustedAreaM2 = roundToTwo(totalAreaM2 * wasteMultiplier);
+    finalSubtotalWithWaste = roundToTwo(subtotal * wasteMultiplier);
+    appliedWastePercent = clampedWaste;
+  }
+
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
     baseRate: effectiveRate,
     thicknessMultiplier: 1,
     appliedRate: effectiveRate,
-    subtotal: roundToTwo(subtotal),
+    subtotal: roundToTwo(finalSubtotalWithWaste),
     discount: 0,
-    total: roundToTwo(subtotal),
+    total: roundToTwo(finalSubtotalWithWaste),
     pricingBasis,
     slabCount: pricingBasis === 'PER_SLAB' ? slabCount : undefined,
     slabRate: pricingBasis === 'PER_SLAB' && slabCount
       ? roundToTwo(subtotal / slabCount)
       : undefined,
+    wasteFactorPercent: appliedWastePercent,
+    adjustedAreaM2,
   };
 }
 
@@ -291,11 +313,12 @@ export async function calculateQuotePrice(
     slabCount = optimization?.totalSlabs;
   }
 
-  // Calculate material costs with pricing basis
+  // Calculate material costs with pricing basis and waste factor
   const materialBreakdown = calculateMaterialCost(
     allPieces,
     pricingContext.materialPricingBasis,
-    slabCount
+    slabCount,
+    pricingContext.wasteFactorPercent
   );
 
   // Calculate edge costs with thickness variants

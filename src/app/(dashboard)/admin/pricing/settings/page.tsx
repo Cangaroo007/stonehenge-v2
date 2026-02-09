@@ -7,6 +7,7 @@ interface PricingSettings {
   id?: string;
   organisationId: string;
   materialPricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE';
+  wasteFactorPercent: string;
   cuttingUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
   polishingUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
   installationUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
@@ -19,6 +20,7 @@ export default function PricingSettingsPage() {
   const [settings, setSettings] = useState<PricingSettings>({
     organisationId: 'default-org',
     materialPricingBasis: 'PER_SLAB',
+    wasteFactorPercent: '15.00',
     cuttingUnit: 'LINEAR_METRE',
     polishingUnit: 'LINEAR_METRE',
     installationUnit: 'SQUARE_METRE',
@@ -148,6 +150,37 @@ export default function PricingSettingsPage() {
             </label>
           </div>
         </div>
+
+        {/* Waste Factor — only relevant for PER_SQUARE_METRE */}
+        {settings.materialPricingBasis === 'PER_SQUARE_METRE' && (
+          <div className="space-y-2 ml-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <label htmlFor="wasteFactorPercent" className="block text-sm font-medium text-gray-700">
+              Waste Factor (%)
+            </label>
+            <p className="text-xs text-gray-500">
+              Applied to per-square-metre material pricing. Accounts for kerf loss, breakage, and cutting waste. Industry standard: 10–15%.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                id="wasteFactorPercent"
+                name="wasteFactorPercent"
+                min={0}
+                max={50}
+                step={0.5}
+                value={settings.wasteFactorPercent}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    wasteFactorPercent: e.target.value,
+                  })
+                }
+                className="w-24 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">%</span>
+            </div>
+          </div>
+        )}
 
         <hr className="border-gray-200" />
 

@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         unitSystem: 'METRIC',
         currency: 'AUD',
         gstRate: '0.1000',
+        wasteFactorPercent: '15.00',
         organisationId
       });
     }
@@ -47,6 +48,7 @@ export async function GET(request: NextRequest) {
       unitSystem: settings.unit_system,
       currency: settings.currency,
       gstRate: Number(settings.gst_rate).toFixed(4),
+      wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -122,6 +124,16 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    if (body.wasteFactorPercent !== undefined) {
+      const wf = Number(body.wasteFactorPercent);
+      if (isNaN(wf) || wf < 0 || wf > 50) {
+        return NextResponse.json(
+          { error: 'Waste factor must be between 0 and 50 percent' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if settings already exist
     const existingSettings = await prisma.pricing_settings.findUnique({
       where: { organisation_id: organisationId }
@@ -141,6 +153,7 @@ export async function PUT(request: NextRequest) {
           unit_system: body.unitSystem,
           currency: body.currency,
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : undefined,
+          waste_factor_percent: body.wasteFactorPercent !== undefined ? parseFloat(body.wasteFactorPercent) : undefined,
           updated_at: new Date(),
         }
       });
@@ -157,6 +170,7 @@ export async function PUT(request: NextRequest) {
           unit_system: body.unitSystem || 'METRIC',
           currency: body.currency || 'AUD',
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : 0.1,
+          waste_factor_percent: body.wasteFactorPercent ? parseFloat(body.wasteFactorPercent) : 15.0,
           updated_at: new Date(),
         }
       });
@@ -173,6 +187,7 @@ export async function PUT(request: NextRequest) {
       unitSystem: settings.unit_system,
       currency: settings.currency,
       gstRate: Number(settings.gst_rate).toFixed(4),
+      wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };

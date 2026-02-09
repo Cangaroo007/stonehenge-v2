@@ -21,6 +21,7 @@ export interface PricingContext {
   gstRate: number;
   laminatedMultiplier: number;
   mitredMultiplier: number;
+  wasteFactorPercent: number;
 }
 
 export interface DiscountBreakdown {
@@ -68,6 +69,8 @@ export interface MaterialBreakdown {
   pricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE';
   slabCount?: number;
   slabRate?: number;
+  wasteFactorPercent?: number;
+  adjustedAreaM2?: number;
 }
 
 export interface CalculationResult {
