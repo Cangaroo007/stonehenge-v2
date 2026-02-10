@@ -192,6 +192,7 @@ model materials {
   price_per_square_metre Decimal?                 @db.Decimal(10, 2)
   slab_length_mm         Int?
   slab_width_mm          Int?
+  fabrication_category   FabricationCategory      @default(ENGINEERED)
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
 }
@@ -631,6 +632,14 @@ enum ServiceUnit {
 enum UnitSystem {
   METRIC
   IMPERIAL
+}
+
+enum FabricationCategory {
+  ENGINEERED
+  NATURAL_HARD
+  NATURAL_SOFT
+  NATURAL_PREMIUM
+  SINTERED
 }
 
 enum LaminationMethod {
