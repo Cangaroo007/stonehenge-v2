@@ -513,10 +513,58 @@ async function seedClientTiers() {
   console.log(`  ✅ Client tiers: ${clientTiers.length} rows`);
 }
 
+async function seedMachineOperationDefaults() {
+  console.log('🌱 Seeding machine-operation defaults...');
+
+  const DEFAULTS = [
+    { operationType: 'INITIAL_CUT',    machineName: 'CNC Bridge Saw',    kerfMm: 4 },
+    { operationType: 'EDGE_POLISHING', machineName: 'Edge Polisher',     kerfMm: 0 },
+    { operationType: 'MITRING',        machineName: '5-Axis Saw',        kerfMm: 4 },
+    { operationType: 'LAMINATION',     machineName: 'Manual/Hand Tools', kerfMm: 0 },
+    { operationType: 'CUTOUT',         machineName: 'Waterjet / CNC',    kerfMm: 1 },
+  ];
+
+  for (const def of DEFAULTS) {
+    // Find or create machine profile
+    let machine = await prisma.machine_profiles.findFirst({
+      where: { name: def.machineName },
+    });
+
+    if (!machine) {
+      machine = await prisma.machine_profiles.create({
+        data: {
+          id: `machine-${def.machineName.toLowerCase().replace(/[\s/]+/g, '-')}`,
+          name: def.machineName,
+          kerf_width_mm: def.kerfMm,
+          is_active: true,
+          is_default: def.operationType === 'INITIAL_CUT',
+          updated_at: new Date(),
+        },
+      });
+    }
+
+    await prisma.machine_operation_defaults.upsert({
+      where: { operation_type: def.operationType },
+      update: {
+        machine_id: machine.id,
+        updated_at: new Date(),
+      },
+      create: {
+        operation_type: def.operationType,
+        machine_id: machine.id,
+        is_default: true,
+        updated_at: new Date(),
+      },
+    });
+  }
+  console.log(`  ✅ Machine-operation defaults: ${DEFAULTS.length} rows`);
+}
+
 async function main() {
   console.log('🚀 Running production seed...');
   await seedPricingSettings();
   await seedMachineProfiles();
+  await seedMachineOperationDefaults();
   await seedMaterialSlabPrices();
   await seedEdgeTypes();
   await seedCutoutTypes();

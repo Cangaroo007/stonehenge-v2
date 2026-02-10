@@ -168,15 +168,26 @@ model edge_types {
 }
 
 model machine_profiles {
-  id                 String   @id
-  name               String   @unique
-  kerf_width_mm      Int      @default(8)
-  max_slab_length_mm Int?
-  max_slab_width_mm  Int?
-  is_default         Boolean  @default(false)
-  is_active          Boolean  @default(true)
-  created_at         DateTime @default(now())
-  updated_at         DateTime
+  id                          String                       @id
+  name                        String                       @unique
+  kerf_width_mm               Int                          @default(8)
+  max_slab_length_mm          Int?
+  max_slab_width_mm           Int?
+  is_default                  Boolean                      @default(false)
+  is_active                   Boolean                      @default(true)
+  created_at                  DateTime                     @default(now())
+  updated_at                  DateTime
+  machine_operation_defaults  machine_operation_defaults[]
+}
+
+model machine_operation_defaults {
+  id              String        @id @default(cuid())
+  operation_type  OperationType @unique
+  machine_id      String
+  machine         machine_profiles @relation(fields: [machine_id], references: [id])
+  is_default      Boolean       @default(true)
+  created_at      DateTime      @default(now())
+  updated_at      DateTime      @updatedAt
 }
 
 model materials {
@@ -651,6 +662,14 @@ enum LaminationMethod {
   NONE
   LAMINATED
   MITRED
+}
+
+enum OperationType {
+  INITIAL_CUT
+  EDGE_POLISHING
+  MITRING
+  LAMINATION
+  CUTOUT
 }
 
 enum UserRole {

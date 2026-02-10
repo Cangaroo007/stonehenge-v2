@@ -12,6 +12,28 @@ interface MachineProfile {
   isActive: boolean;
 }
 
+interface MachineOperationDefault {
+  id: string;
+  operationType: string;
+  machineId: string;
+  isDefault: boolean;
+  machine: {
+    id: string;
+    name: string;
+    kerfWidthMm: number;
+    isDefault: boolean;
+    isActive: boolean;
+  };
+}
+
+const OPERATION_LABELS: Record<string, { label: string; description: string }> = {
+  INITIAL_CUT: { label: 'Initial Cut', description: 'Extract piece from slab' },
+  EDGE_POLISHING: { label: 'Edge Polishing', description: 'Finish visible profile' },
+  MITRING: { label: 'Mitring', description: '45-degree bevel cut' },
+  LAMINATION: { label: 'Lamination', description: 'Glue & stack drop-strips' },
+  CUTOUT: { label: 'Cutouts/Features', description: 'Internal holes/sink extraction' },
+};
+
 export default function MachineManagement() {
   const [machines, setMachines] = useState<MachineProfile[]>([]);
   const [loading, setLoading] = useState(true);
@@ -19,6 +41,9 @@ export default function MachineManagement() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingMachine, setEditingMachine] = useState<MachineProfile | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [operationDefaults, setOperationDefaults] = useState<MachineOperationDefault[]>([]);
+  const [loadingDefaults, setLoadingDefaults] = useState(true);
+  const [savingDefault, setSavingDefault] = useState<string | null>(null);
 
   const fetchMachines = useCallback(async () => {
     setLoading(true);
@@ -35,9 +60,47 @@ export default function MachineManagement() {
     }
   }, []);
 
+  const fetchOperationDefaults = useCallback(async () => {
+    setLoadingDefaults(true);
+    try {
+      const res = await fetch('/api/admin/pricing/machine-defaults');
+      if (!res.ok) throw new Error('Failed to fetch operation defaults');
+      const data = await res.json();
+      setOperationDefaults(data);
+    } catch (err) {
+      console.error('Error fetching operation defaults:', err);
+    } finally {
+      setLoadingDefaults(false);
+    }
+  }, []);
+
+  const handleUpdateDefault = async (operationType: string, machineId: string) => {
+    setSavingDefault(operationType);
+    try {
+      const res = await fetch('/api/admin/pricing/machine-defaults', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operationType, machineId }),
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || 'Failed to update default');
+      }
+
+      showToast('Default machine assignment updated', 'success');
+      fetchOperationDefaults();
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to update default', 'error');
+    } finally {
+      setSavingDefault(null);
+    }
+  };
+
   useEffect(() => {
     fetchMachines();
-  }, [fetchMachines]);
+    fetchOperationDefaults();
+  }, [fetchMachines, fetchOperationDefaults]);
 
   useEffect(() => {
     if (toast) {
@@ -246,6 +309,87 @@ export default function MachineManagement() {
           <div className="col-span-full text-center py-12 text-zinc-500">
             <p className="mb-2">No machine profiles yet</p>
             <p className="text-sm">Click &quot;Create Machine&quot; to add your first machine</p>
+          </div>
+        )}
+      </div>
+
+      {/* Default Machine Assignments */}
+      <div className="mt-10 pt-8 border-t border-zinc-300">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-zinc-900">Default Machine Assignments</h2>
+          <p className="text-sm text-zinc-600 mt-1">
+            Each fabrication operation has a default machine. These are used for cost estimation and manufacturing instructions.
+          </p>
+        </div>
+
+        {loadingDefaults ? (
+          <div className="text-sm text-zinc-500 py-4">Loading operation defaults...</div>
+        ) : (
+          <div className="bg-white border border-zinc-200 rounded-lg overflow-hidden">
+            <table className="min-w-full divide-y divide-zinc-200">
+              <thead className="bg-zinc-50">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Operation
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Description
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Default Machine
+                  </th>
+                  <th className="px-4 py-3 text-left text-xs font-medium text-zinc-500 uppercase tracking-wider">
+                    Kerf
+                  </th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-zinc-100">
+                {Object.entries(OPERATION_LABELS).map(([opType, info]) => {
+                  const currentDefault = operationDefaults.find(
+                    (d) => d.operationType === opType
+                  );
+                  const activeMachines = machines.filter((m) => m.isActive);
+
+                  return (
+                    <tr key={opType} className="hover:bg-zinc-50 transition-colors">
+                      <td className="px-4 py-3">
+                        <span className="text-sm font-medium text-zinc-900">{info.label}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-zinc-500">{info.description}</span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <select
+                          value={currentDefault?.machineId || ''}
+                          onChange={(e) => handleUpdateDefault(opType, e.target.value)}
+                          disabled={savingDefault === opType}
+                          className="text-sm border border-zinc-300 rounded-md px-2 py-1.5 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 disabled:opacity-50 min-w-[180px]"
+                        >
+                          <option value="" disabled>
+                            Select machine...
+                          </option>
+                          {activeMachines.map((m) => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}
+                            </option>
+                          ))}
+                        </select>
+                        {savingDefault === opType && (
+                          <span className="ml-2 text-xs text-amber-600">Saving...</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <span className="text-sm text-zinc-700">
+                          {currentDefault?.machine?.kerfWidthMm != null
+                            ? `${currentDefault.machine.kerfWidthMm}mm`
+                            : '—'}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
