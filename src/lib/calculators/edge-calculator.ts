@@ -227,7 +227,7 @@ export class EdgeCalculator {
 
     // Apply minimum length (pad to minimum if below)
     if (edgeType.minimumLength && edgeType.minimumLength.greaterThan(0)) {
-      if (linearMeters.lessThan(edgeType.minimumLength)) {
+      if (linearMeters.greaterThan(0) && linearMeters.lessThan(edgeType.minimumLength)) {
         const rate = cost.dividedBy(linearMeters);
         result = edgeType.minimumLength.times(rate);
       }
