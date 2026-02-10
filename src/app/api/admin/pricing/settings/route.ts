@@ -1,12 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/settings - Get current pricing settings or return defaults
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
-
     // For now, use a hardcoded org ID - in a real multi-tenant system this would come from the session
     const organisationId = 'default-org';
 
@@ -79,8 +76,6 @@ export async function GET(request: NextRequest) {
 // PUT /api/admin/pricing/settings - Update pricing settings
 export async function PUT(request: NextRequest) {
   try {
-    await requireAuth(request, ['ADMIN']);
-
     const body = await request.json();
 
     // For now, use a hardcoded org ID
