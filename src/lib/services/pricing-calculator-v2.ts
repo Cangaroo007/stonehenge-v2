@@ -745,11 +745,18 @@ function getServiceRate(
 ): { rate: number; rateRecord: ServiceRateRecord } {
   const rateRecord = rates.find(r => {
     if (r.serviceType !== serviceType) return false;
-    if (fabricationCategory && r.fabricationCategory) {
+    if (fabricationCategory) {
+      // When a category is specified, require exact match
       return r.fabricationCategory === fabricationCategory;
     }
-    return true;
-  });
+    // When no category specified, prefer rates without a category set
+    return !r.fabricationCategory;
+  }) ?? (
+    // Fallback: if no uncategorised rate exists, pick the first matching serviceType
+    !fabricationCategory
+      ? rates.find(r => r.serviceType === serviceType)
+      : undefined
+  );
   if (!rateRecord) {
     throw new Error(
       `No ${serviceType} rate found` +
@@ -824,7 +831,12 @@ function calculateServiceCosts(
   // Polishing: use tenant's configured polishing_unit
   const polishingRateRecord = serviceRates.find(
     sr => sr.serviceType === 'POLISHING' && sr.fabricationCategory === primaryCategory
-  ) ?? serviceRates.find(sr => sr.serviceType === 'POLISHING')!;
+  );
+  if (!polishingRateRecord) {
+    throw new Error(
+      `No POLISHING rate found for fabrication category ${primaryCategory}. Configure in Pricing Admin → Service Rates.`
+    );
+  }
   if (totalEdgeLinearMeters > 0) {
     const polishingUnit = pricingContext.polishingUnit;
     let polishingCost = 0;
