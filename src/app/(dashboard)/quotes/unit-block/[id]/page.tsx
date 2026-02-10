@@ -44,6 +44,19 @@ interface BuyerChangeRecord {
   recordedBy?: string;
 }
 
+interface ChangeRecord {
+  id: number;
+  changeType: string;
+  description: string;
+  pieceName: string | null;
+  roomName: string | null;
+  previousValue: string | null;
+  newValue: string | null;
+  costDelta: number;
+  createdAt: string;
+  createdBy: string | null;
+}
+
 interface ChangeReport {
   totalChanges: number;
   unitsWithChanges: number;
@@ -54,6 +67,7 @@ interface ChangeReport {
     changeCount: number;
     costDelta: number;
     changes: BuyerChangeRecord[];
+    records: ChangeRecord[];
   }>;
   changesByType: Record<string, { count: number; totalImpact: number }>;
 }
@@ -63,6 +77,7 @@ interface UnitChangeHistory {
   currentTotal: number;
   costDelta: number;
   changes: BuyerChangeRecord[];
+  records: ChangeRecord[];
 }
 
 interface UnitBlockProject {
@@ -358,6 +373,19 @@ export default function UnitBlockDetailPage() {
 
           {showChangeReport && (
             <div className="px-6 pb-6 space-y-4">
+              {/* Export button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={() => alert('PDF export will be available in a future update.')}
+                  className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-amber-800 bg-white border border-amber-300 rounded-lg hover:bg-amber-100 transition-colors"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Export Change Report
+                </button>
+              </div>
+
               {/* Change type breakdown */}
               <div>
                 <h3 className="text-sm font-medium text-amber-900 mb-2">By Change Type</h3>
@@ -378,29 +406,52 @@ export default function UnitBlockDetailPage() {
               <div>
                 <h3 className="text-sm font-medium text-amber-900 mb-2">By Unit</h3>
                 <div className="space-y-2">
-                  {changeReport.changesByUnit.map((unitReport) => (
-                    <div key={unitReport.unitId} className="bg-white rounded-lg p-4 border border-amber-200">
-                      <div className="flex items-center justify-between mb-2">
-                        <p className="font-medium text-gray-900">Unit {unitReport.unitNumber}</p>
-                        <div className="flex items-center gap-3">
-                          <span className="text-xs text-gray-500">{unitReport.changeCount} change{unitReport.changeCount !== 1 ? 's' : ''}</span>
-                          <span className={`text-sm font-semibold ${unitReport.costDelta >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                            {formatDelta(unitReport.costDelta)}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        {unitReport.changes.map((change) => (
-                          <div key={change.id} className="text-xs text-gray-600 flex justify-between">
-                            <span>{change.description}</span>
-                            <span className={change.costImpact >= 0 ? 'text-red-500' : 'text-green-500'}>
-                              {formatDelta(change.costImpact)}
+                  {changeReport.changesByUnit.map((unitReport) => {
+                    // Prefer table-based records when available
+                    const displayRecords = unitReport.records && unitReport.records.length > 0;
+
+                    return (
+                      <div key={unitReport.unitId} className="bg-white rounded-lg p-4 border border-amber-200">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-medium text-gray-900">Unit {unitReport.unitNumber}</p>
+                          <div className="flex items-center gap-3">
+                            <span className="text-xs text-gray-500">{unitReport.changeCount} change{unitReport.changeCount !== 1 ? 's' : ''}</span>
+                            <span className={`text-sm font-semibold ${unitReport.costDelta >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                              {formatDelta(unitReport.costDelta)}
                             </span>
                           </div>
-                        ))}
+                        </div>
+                        <div className="space-y-1">
+                          {displayRecords ? (
+                            unitReport.records.map((record) => (
+                              <div key={record.id} className="text-xs text-gray-600 flex justify-between items-start">
+                                <div>
+                                  <span>{record.description}</span>
+                                  {(record.roomName || record.pieceName) && (
+                                    <span className="ml-1 text-gray-400">
+                                      ({[record.roomName, record.pieceName].filter(Boolean).join(' / ')})
+                                    </span>
+                                  )}
+                                </div>
+                                <span className={`ml-2 whitespace-nowrap ${record.costDelta >= 0 ? 'text-red-500' : 'text-green-500'}`}>
+                                  {formatDelta(record.costDelta)}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            unitReport.changes.map((change) => (
+                              <div key={change.id} className="text-xs text-gray-600 flex justify-between">
+                                <span>{change.description}</span>
+                                <span className={change.costImpact >= 0 ? 'text-red-500' : 'text-green-500'}>
+                                  {formatDelta(change.costImpact)}
+                                </span>
+                              </div>
+                            ))
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -541,39 +592,90 @@ export default function UnitBlockDetailPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              {/* Change history timeline */}
-              {unitHistory && unitHistory.changes.length > 0 ? (
+              {/* Change history timeline — prefer table records when available */}
+              {unitHistory && (unitHistory.records.length > 0 || unitHistory.changes.length > 0) ? (
                 <div className="space-y-3">
-                  {unitHistory.changes.map((change) => (
-                    <div key={change.id} className="border border-gray-200 rounded-lg p-4">
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                              {change.changeType.replace(/_/g, ' ')}
-                            </span>
-                            <span className="text-xs text-gray-400">
-                              {new Date(change.timestamp).toLocaleDateString('en-AU', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
-                              })}
-                            </span>
+                  {unitHistory.records.length > 0 ? (
+                    // Table-based records with room/piece context
+                    unitHistory.records.map((record) => (
+                      <div key={record.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                record.changeType.includes('MATERIAL') ? 'bg-purple-100 text-purple-800' :
+                                record.changeType.includes('EDGE') ? 'bg-blue-100 text-blue-800' :
+                                record.changeType.includes('CUTOUT') ? 'bg-orange-100 text-orange-800' :
+                                record.changeType.includes('DIMENSION') ? 'bg-teal-100 text-teal-800' :
+                                record.changeType.includes('PIECE') ? 'bg-pink-100 text-pink-800' :
+                                'bg-gray-100 text-gray-800'
+                              }`}>
+                                {record.changeType.replace(/_/g, ' ')}
+                              </span>
+                              {record.roomName && (
+                                <span className="text-xs text-gray-400">{record.roomName}</span>
+                              )}
+                              {record.pieceName && (
+                                <span className="text-xs text-gray-400">/ {record.pieceName}</span>
+                              )}
+                              <span className="text-xs text-gray-400">
+                                {new Date(record.createdAt).toLocaleDateString('en-AU', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-900 mt-1">{record.description}</p>
+                            <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                              <span>Was: <span className="text-gray-700">{record.previousValue || '—'}</span></span>
+                              <span>Now: <span className="text-gray-700">{record.newValue || '—'}</span></span>
+                            </div>
+                            {record.createdBy && (
+                              <p className="text-xs text-gray-400 mt-1">By: {record.createdBy}</p>
+                            )}
                           </div>
-                          <p className="text-sm text-gray-900 mt-1">{change.description}</p>
-                          <div className="flex gap-4 mt-1 text-xs text-gray-500">
-                            <span>Was: <span className="text-gray-700">{change.originalValue || '—'}</span></span>
-                            <span>Now: <span className="text-gray-700">{change.newValue || '—'}</span></span>
-                          </div>
+                          <span className={`text-sm font-semibold whitespace-nowrap ${record.costDelta >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatDelta(record.costDelta)}
+                          </span>
                         </div>
-                        <span className={`text-sm font-semibold whitespace-nowrap ${change.costImpact >= 0 ? 'text-red-600' : 'text-green-600'}`}>
-                          {formatDelta(change.costImpact)}
-                        </span>
                       </div>
-                    </div>
-                  ))}
+                    ))
+                  ) : (
+                    // Legacy JSON changes
+                    unitHistory.changes.map((change) => (
+                      <div key={change.id} className="border border-gray-200 rounded-lg p-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                                {change.changeType.replace(/_/g, ' ')}
+                              </span>
+                              <span className="text-xs text-gray-400">
+                                {new Date(change.timestamp).toLocaleDateString('en-AU', {
+                                  day: '2-digit',
+                                  month: 'short',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })}
+                              </span>
+                            </div>
+                            <p className="text-sm text-gray-900 mt-1">{change.description}</p>
+                            <div className="flex gap-4 mt-1 text-xs text-gray-500">
+                              <span>Was: <span className="text-gray-700">{change.originalValue || '—'}</span></span>
+                              <span>Now: <span className="text-gray-700">{change.newValue || '—'}</span></span>
+                            </div>
+                          </div>
+                          <span className={`text-sm font-semibold whitespace-nowrap ${change.costImpact >= 0 ? 'text-red-600' : 'text-green-600'}`}>
+                            {formatDelta(change.costImpact)}
+                          </span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               ) : (
                 <p className="text-gray-500 text-sm text-center py-4">No changes recorded yet.</p>

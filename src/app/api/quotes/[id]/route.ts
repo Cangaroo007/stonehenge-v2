@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
+import { checkAndRecordQuoteChanges } from '@/lib/services/buyer-change-tracker';
 
 interface RoomData {
   name: string;
@@ -188,6 +189,13 @@ export async function PUT(
         console.error('Error creating version (non-blocking):', versionError);
       }
 
+      // Auto-record buyer changes if this quote is linked to a unit
+      try {
+        await checkAndRecordQuoteChanges(quoteId, String(userId));
+      } catch (changeError) {
+        console.error('Error checking buyer changes (non-blocking):', changeError);
+      }
+
       return NextResponse.json(quote);
     }
 
@@ -306,6 +314,13 @@ export async function PUT(
         await createQuoteVersion(quoteId, userId, 'UPDATED', undefined, previousSnapshot);
       } catch (versionError) {
         console.error('Error creating version (non-blocking):', versionError);
+      }
+
+      // Auto-record buyer changes if this quote is linked to a unit
+      try {
+        await checkAndRecordQuoteChanges(quoteId, String(userId));
+      } catch (changeError) {
+        console.error('Error checking buyer changes (non-blocking):', changeError);
       }
 
       return NextResponse.json(quote);

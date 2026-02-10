@@ -3,11 +3,13 @@ import { requireAuth } from '@/lib/auth';
 import {
   getUnitChangeHistory,
   recordBuyerChange,
+  recordBuyerChangeFromSnapshot,
   applyMaterialChange,
   applyEdgeChange,
   applyThicknessChange,
   addCutout,
 } from '@/lib/services/buyer-change-tracker';
+import prisma from '@/lib/db';
 
 /**
  * GET /api/unit-blocks/[id]/units/[unitId]/changes
@@ -76,11 +78,36 @@ export async function POST(
     }
 
     const body = await request.json();
+
+    // Snapshot comparison mode: POST with { changedBy?: string } and no changeType
+    // Compares current quote state against the STANDARD snapshot
+    if (!body.changeType) {
+      const unit = await prisma.unit_block_units.findUnique({
+        where: { id: unitIdNum },
+        select: { quoteId: true },
+      });
+
+      if (!unit || !unit.quoteId) {
+        return NextResponse.json(
+          { error: 'Unit has no linked quote' },
+          { status: 400 }
+        );
+      }
+
+      const result = await recordBuyerChangeFromSnapshot(
+        unitIdNum,
+        unit.quoteId,
+        body.changedBy
+      );
+
+      return NextResponse.json(result, { status: 201 });
+    }
+
     const { changeType, description } = body;
 
-    if (!changeType || !description) {
+    if (!description) {
       return NextResponse.json(
-        { error: 'changeType and description are required' },
+        { error: 'description is required' },
         { status: 400 }
       );
     }

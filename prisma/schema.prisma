@@ -474,6 +474,7 @@ model quotes {
   price_books            price_books?            @relation(fields: [price_book_id], references: [id])
   slab_optimizations     slab_optimizations[]
   unitBlockUnit          unit_block_units?
+  buyerChangeSnapshots   buyer_change_snapshots[]
 }
 
 model service_rates {
@@ -796,7 +797,7 @@ model unit_block_units {
   // Override notes
   notes           String?
 
-  // Buyer change tracking
+  // Buyer change tracking (legacy JSON fields kept for backwards compatibility)
   originalQuoteSnapshot  Json?
   lastChangeAt           DateTime?
   changeNotes            String?
@@ -806,6 +807,10 @@ model unit_block_units {
   // Timestamps
   createdAt       DateTime             @default(now())
   updatedAt       DateTime             @updatedAt
+
+  // Relations to buyer change tracking tables
+  buyerChangeSnapshots   buyer_change_snapshots[]
+  buyerChangeRecords     buyer_change_records[]
 
   @@unique([projectId, unitNumber])
   @@map("unit_block_units")
@@ -868,6 +873,49 @@ model finish_tier_mappings {
 
   @@unique([templateId, finishLevel, colourScheme])
   @@map("finish_tier_mappings")
+}
+
+model buyer_change_snapshots {
+  id              Int                  @id @default(autoincrement())
+
+  // Links
+  unitId          Int
+  unit            unit_block_units     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+  quoteId         Int
+  quote           quotes               @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+
+  // Snapshot data
+  snapshotData    Json                 // Full quote state at time of snapshot
+  snapshotType    String               // "STANDARD" or "BUYER_CHANGE"
+
+  createdAt       DateTime             @default(now())
+
+  @@index([unitId])
+  @@index([quoteId])
+  @@map("buyer_change_snapshots")
+}
+
+model buyer_change_records {
+  id              Int                  @id @default(autoincrement())
+
+  // Links
+  unitId          Int
+  unit            unit_block_units     @relation(fields: [unitId], references: [id], onDelete: Cascade)
+
+  // Change details
+  changeType      String               // MATERIAL_UPGRADE, EDGE_CHANGE, CUTOUT_ADD, CUTOUT_REMOVE, DIMENSION_CHANGE, PIECE_ADD, PIECE_REMOVE
+  description     String               // Human-readable description
+  pieceName       String?              // Which piece was affected
+  roomName        String?              // Which room
+  previousValue   String?              // What it was before
+  newValue        String?              // What it is now
+  costDelta       Decimal              @default(0) @db.Decimal(10, 2)
+
+  createdAt       DateTime             @default(now())
+  createdBy       String?              // User who made the change
+
+  @@index([unitId])
+  @@map("buyer_change_records")
 }
 
 model unit_block_files {
