@@ -19,6 +19,7 @@ import {
   Users,
   Sliders,
   UserCircle,
+  ClipboardList,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -34,6 +35,7 @@ const navigation: NavigationItem[] = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Quotes', href: '/quotes', icon: FileText },
   { name: 'Unit Block', href: '/quotes/unit-block', icon: Building2 },
+  { name: 'Templates', href: '/templates', icon: ClipboardList },
   { name: 'Customers', href: '/customers', icon: UserCircle },
   { name: 'Materials', href: '/materials', icon: Layers },
   { name: 'Optimizer', href: '/optimize', icon: Square },

@@ -46,7 +46,11 @@ export type MaterialRole =
   | 'SECONDARY_BENCHTOP'
   | 'SPLASHBACK'
   | 'VANITY'
-  | 'LAUNDRY';
+  | 'LAUNDRY'
+  | 'SHOWER_SHELF'
+  | 'FEATURE_PANEL'
+  | 'WINDOW_SILL'
+  | 'CUSTOM';
 
 export interface TemplateEdge {
   finish: 'RAW' | 'POLISHED' | 'LAMINATED' | 'MITRED';
