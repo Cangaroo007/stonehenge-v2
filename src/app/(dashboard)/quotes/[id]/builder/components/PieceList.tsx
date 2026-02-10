@@ -131,7 +131,20 @@ export default function PieceList({
 }: PieceListProps) {
   const { unitSystem } = useUnits();
   const unitLabel = getDimensionUnitLabel(unitSystem);
-  
+
+  // Build a map of piece ID -> oversize status from calculation results
+  const pieceOversizeMap = useMemo(() => {
+    const map = new Map<number, boolean>();
+    if (calculation?.breakdown?.pieces) {
+      for (const pb of calculation.breakdown.pieces as Array<{ pieceId: number; oversize?: { isOversize: boolean } }>) {
+        if (pb.oversize?.isOversize) {
+          map.set(pb.pieceId, true);
+        }
+      }
+    }
+    return map;
+  }, [calculation]);
+
   // Local state for inline editing
   const [editingCell, setEditingCell] = useState<{ pieceId: number; field: string } | null>(null);
   const [editValue, setEditValue] = useState<string>('');
@@ -381,11 +394,18 @@ export default function PieceList({
                     onClick={(e) => e.stopPropagation()}
                   />
                 ) : (
-                  <div 
+                  <div
                     className="cursor-text hover:bg-blue-50 px-2 py-1 rounded"
                     onClick={(e) => handleCellClick(piece.id, 'name', piece.name, e)}
                   >
-                    <div className="text-sm font-medium text-gray-900">{piece.name}</div>
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-sm font-medium text-gray-900">{piece.name}</span>
+                      {pieceOversizeMap.get(piece.id) && (
+                        <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                          OVERSIZE
+                        </span>
+                      )}
+                    </div>
                     {piece.materialName && (
                       <div className="text-xs text-gray-500">{piece.materialName}</div>
                     )}

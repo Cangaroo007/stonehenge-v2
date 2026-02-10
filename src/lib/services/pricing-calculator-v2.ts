@@ -28,12 +28,8 @@ import type {
   PiecePricingBreakdown,
 } from '@/lib/types/pricing';
 
-/**
- * Grain matching surcharge rate applied to fabrication subtotal for oversize pieces.
- * Per "Rules for Quote Calculation" — Step 4: 15% surcharge on total fabrication cost.
- * TODO: Make tenant-configurable in future (some partners prefer a flat fee per join).
- */
-const GRAIN_MATCHING_SURCHARGE_RATE = 0.15;
+// Grain matching surcharge rate is now tenant-configurable via pricing_settings.
+// See pricingContext.grainMatchingSurchargePercent (stored as percentage, e.g. 15.0 = 15%).
 
 /**
  * Enhanced pricing calculation result
@@ -110,6 +106,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       laminatedMultiplier: Number(settings.laminated_multiplier),
       mitredMultiplier: Number(settings.mitred_multiplier),
       wasteFactorPercent: Number(settings.waste_factor_percent),
+      grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent),
     };
   }
 
@@ -408,9 +405,10 @@ export async function calculateQuotePrice(
       const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
       const joinCost = roundToTwo(joinLengthLm * joinRate);
 
-      // 15% grain matching surcharge on the piece's fabrication subtotal
+      // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
+      const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
       const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
-      const grainSurcharge = roundToTwo(pieceFabSubtotal * GRAIN_MATCHING_SURCHARGE_RATE);
+      const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
 
       totalJoinCost += joinCost;
       totalGrainMatchingSurcharge += grainSurcharge;
@@ -423,7 +421,7 @@ export async function calculateQuotePrice(
           joinLengthLm,
           joinRate,
           joinCost,
-          grainMatchingSurchargeRate: GRAIN_MATCHING_SURCHARGE_RATE,
+          grainMatchingSurchargeRate: grainMatchingSurchargeRate,
           fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
           grainMatchingSurcharge: grainSurcharge,
           strategy: cutPlan.strategy,

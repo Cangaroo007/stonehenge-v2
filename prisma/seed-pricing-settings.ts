@@ -19,6 +19,7 @@ async function main() {
     laminated_multiplier: 1.30,
     mitred_multiplier: 1.50,
     waste_factor_percent: 15.0,
+    grain_matching_surcharge_percent: 15.0,
     updated_at: new Date(),
   };
 

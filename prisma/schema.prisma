@@ -337,7 +337,8 @@ model pricing_settings {
   gst_rate               Decimal              @default(0.10) @db.Decimal(5, 4)
   laminated_multiplier   Decimal              @default(1.30) @db.Decimal(5, 2)
   mitred_multiplier      Decimal              @default(1.50) @db.Decimal(5, 2)
-  waste_factor_percent   Decimal              @default(15.0) @db.Decimal(5, 2)
+  waste_factor_percent               Decimal  @default(15.0) @db.Decimal(5, 2)
+  grain_matching_surcharge_percent   Decimal  @default(15.0) @db.Decimal(5, 2)
   created_at             DateTime             @default(now())
   updated_at             DateTime
   cutout_rates           cutout_rates[]
