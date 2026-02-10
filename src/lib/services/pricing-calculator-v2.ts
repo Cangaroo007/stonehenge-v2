@@ -15,7 +15,6 @@
 
 import prisma from '@/lib/db';
 import { calculateCutPlan } from './multi-slab-calculator';
-import { JOIN_RATE_PER_METRE } from '@/lib/constants/slab-sizes';
 import type { MaterialPricingBasis } from '@prisma/client';
 import type {
   PricingOptions,
@@ -28,6 +27,13 @@ import type {
   PricingRuleWithOverrides,
   PiecePricingBreakdown,
 } from '@/lib/types/pricing';
+
+/**
+ * Grain matching surcharge rate applied to fabrication subtotal for oversize pieces.
+ * Per "Rules for Quote Calculation" — Step 4: 15% surcharge on total fabrication cost.
+ * TODO: Make tenant-configurable in future (some partners prefer a flat fee per join).
+ */
+const GRAIN_MATCHING_SURCHARGE_RATE = 0.15;
 
 /**
  * Enhanced pricing calculation result
@@ -380,25 +386,79 @@ export async function calculateQuotePrice(
     );
   }
 
-  // Calculate join costs for oversized pieces
-  for (const piece of allPieces) {
-    const material = piece.materials as unknown as { category?: string } | null;
-    const materialCategory = material?.category || 'caesarstone';
+  // Calculate oversize/join costs per piece using DB-driven rates + grain matching surcharge
+  let totalJoinCost = 0;
+  let totalGrainMatchingSurcharge = 0;
+
+  for (let i = 0; i < allPieces.length; i++) {
+    const piece = allPieces[i];
+    const pieceFabCategory: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+    const materialName: string =
+      (piece.materials as unknown as { name?: string } | null)?.name ?? 'caesarstone';
     const cutPlan = calculateCutPlan(
       { lengthMm: piece.length_mm, widthMm: piece.width_mm },
-      materialCategory
+      materialName
     );
 
     if (!cutPlan.fitsOnSingleSlab) {
+      // Look up JOIN rate from DB for this fabrication category
+      const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+      const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
+      const joinCost = roundToTwo(joinLengthLm * joinRate);
+
+      // 15% grain matching surcharge on the piece's fabrication subtotal
+      const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
+      const grainSurcharge = roundToTwo(pieceFabSubtotal * GRAIN_MATCHING_SURCHARGE_RATE);
+
+      totalJoinCost += joinCost;
+      totalGrainMatchingSurcharge += grainSurcharge;
+
+      // Add oversize data to the piece breakdown
+      if (pieceBreakdowns[i]) {
+        pieceBreakdowns[i].oversize = {
+          isOversize: true,
+          joinCount: cutPlan.joins.length,
+          joinLengthLm,
+          joinRate,
+          joinCost,
+          grainMatchingSurchargeRate: GRAIN_MATCHING_SURCHARGE_RATE,
+          fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
+          grainMatchingSurcharge: grainSurcharge,
+          strategy: cutPlan.strategy,
+          warnings: cutPlan.warnings,
+        };
+        pieceBreakdowns[i].pieceTotal = roundToTwo(
+          pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
+        );
+      }
+
+      // Add to service-level items for aggregate display
       serviceData.items.push({
         serviceType: 'JOIN',
-        name: `Join - ${cutPlan.strategy}`,
-        quantity: roundToTwo(cutPlan.joinLengthMm / 1000),
+        name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
+        quantity: joinLengthLm,
         unit: 'LINEAR_METRE',
-        rate: JOIN_RATE_PER_METRE,
-        subtotal: cutPlan.joinCost,
+        rate: joinRate,
+        subtotal: joinCost,
+        fabricationCategory: pieceFabCategory,
       });
-      serviceData.subtotal += cutPlan.joinCost;
+      serviceData.subtotal += joinCost;
+
+      // Add grain matching surcharge as a separate line item
+      if (grainSurcharge > 0) {
+        serviceData.items.push({
+          serviceType: 'JOIN',
+          name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
+          quantity: 1,
+          unit: 'FIXED',
+          rate: grainSurcharge,
+          subtotal: grainSurcharge,
+          fabricationCategory: pieceFabCategory,
+        });
+        serviceData.subtotal += grainSurcharge;
+      }
     }
   }
 

@@ -626,9 +626,10 @@ export default function PricingSummary({
  */
 function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
   const [expanded, setExpanded] = useState(false);
+  const isOversize = piece.oversize?.isOversize ?? false;
 
   return (
-    <div className="bg-gray-50 rounded-lg p-2">
+    <div className={`rounded-lg p-2 ${isOversize ? 'bg-amber-50 ring-1 ring-amber-200' : 'bg-gray-50'}`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between text-sm hover:text-primary-600 transition-colors"
@@ -646,6 +647,11 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           <span className="text-xs text-gray-500">
             {piece.dimensions.lengthMm} × {piece.dimensions.widthMm} mm
           </span>
+          {isOversize && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+              OVERSIZE
+            </span>
+          )}
         </div>
         <span className="font-medium text-gray-900">{formatCurrency(piece.pieceTotal)}</span>
       </button>
@@ -655,7 +661,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Cutting */}
           {piece.fabrication.cutting && piece.fabrication.cutting.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Cutting ({piece.fabrication.cutting.quantity.toFixed(1)} {piece.fabrication.cutting.unit === 'SQUARE_METRE' ? 'm²' : 'lm'} × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
+              <span>Cutting ({piece.fabrication.cutting.quantity.toFixed(1)} {piece.fabrication.cutting.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'lm'} × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
               <span>
                 {piece.fabrication.cutting.discount > 0 ? (
                   <span>
@@ -672,7 +678,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Polishing */}
           {piece.fabrication.polishing && piece.fabrication.polishing.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm²' : 'lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
+              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
               <span>
                 {piece.fabrication.polishing.discount > 0 ? (
                   <span>
@@ -710,6 +716,31 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
               <span>{formatCurrency(cutout.total)}</span>
             </div>
           ))}
+
+          {/* Oversize / Join Details */}
+          {piece.oversize?.isOversize && (
+            <div className="pt-1 mt-1 border-t border-amber-200 space-y-1">
+              <div className="flex justify-between text-amber-700">
+                <span>
+                  Join ({piece.oversize.joinCount} join{piece.oversize.joinCount !== 1 ? 's' : ''}) — {piece.oversize.joinLengthLm.toFixed(1)} lm × {formatCurrency(piece.oversize.joinRate)}/lm:
+                </span>
+                <span>{formatCurrency(piece.oversize.joinCost)}</span>
+              </div>
+              <div className="flex justify-between text-amber-700">
+                <span>
+                  + {(piece.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}% Grain Matching Surcharge:
+                </span>
+                <span>{formatCurrency(piece.oversize.grainMatchingSurcharge)}</span>
+              </div>
+              {piece.oversize.warnings.length > 0 && (
+                <div className="text-amber-600 text-[10px] italic">
+                  {piece.oversize.warnings.map((w, idx) => (
+                    <p key={idx}>{w}</p>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Piece subtotal */}
           <div className="flex justify-between font-medium text-gray-800 pt-1 border-t border-gray-200">

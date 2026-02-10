@@ -379,6 +379,9 @@ model quote_pieces {
   edge_top       String?
   name              String           @default("Piece")
   lamination_method LaminationMethod @default(NONE)
+  isOversize        Boolean          @default(false)
+  joinCount         Int              @default(0)
+  joinLengthMm      Int?
   piece_features    piece_features[]
   materials      materials?       @relation(fields: [material_id], references: [id])
   quote_rooms    quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
@@ -620,6 +623,7 @@ enum ServiceType {
   WATERFALL_END
   TEMPLATING
   DELIVERY
+  JOIN
 }
 
 enum ServiceUnit {
