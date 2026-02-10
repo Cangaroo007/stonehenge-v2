@@ -28,6 +28,8 @@ interface DrawingImportProps {
   onImportComplete: (count: number) => void;
   onDrawingsSaved?: () => void;
   onClose: () => void;
+  /** Pre-fill projectId when used within a unit block project context */
+  projectId?: number;
 }
 
 type UploadProgress = 'idle' | 'uploading' | 'analyzing' | 'saving' | 'complete' | 'error';
@@ -118,7 +120,7 @@ function getDefaultEdgeSelections(edgeTypes: EdgeType[]): EdgeSelections {
   };
 }
 
-export default function DrawingImport({ quoteId, customerId, edgeTypes, onImportComplete, onDrawingsSaved, onClose }: DrawingImportProps) {
+export default function DrawingImport({ quoteId, customerId, edgeTypes, onImportComplete, onDrawingsSaved, onClose, projectId }: DrawingImportProps) {
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
@@ -137,6 +139,12 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const [templateUnitType, setTemplateUnitType] = useState('');
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
   const [templateSaveSuccess, setTemplateSaveSuccess] = useState(false);
+  const [templateSaveResult, setTemplateSaveResult] = useState<{
+    templateId: number;
+    piecesConverted: number;
+    piecesSkipped: number;
+    warnings: string[];
+  } | null>(null);
 
   // R2 storage states
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>('idle');
@@ -634,6 +642,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           analysisData,
           name: templateName.trim(),
           unitTypeCode: templateUnitType.trim(),
+          projectId: projectId || undefined,
         }),
       });
 
@@ -642,6 +651,13 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         throw new Error(errorData.error || 'Failed to save template');
       }
 
+      const result = await response.json();
+      setTemplateSaveResult({
+        templateId: result.templateId,
+        piecesConverted: result.piecesConverted,
+        piecesSkipped: result.piecesSkipped,
+        warnings: result.warnings || [],
+      });
       setTemplateSaveSuccess(true);
       setShowTemplateForm(false);
     } catch (err) {
@@ -650,7 +666,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     } finally {
       setIsSavingTemplate(false);
     }
-  }, [templateName, templateUnitType, extractedPieces]);
+  }, [templateName, templateUnitType, extractedPieces, projectId]);
 
   // Get confidence indicator
   const getConfidenceIndicator = (confidence: number) => {
@@ -1093,7 +1109,42 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         </div>
       )}
 
-      {templateSaveSuccess && (
+      {templateSaveSuccess && templateSaveResult && (
+        <div className="mt-4 p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
+          <div className="flex items-center gap-2">
+            <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+            <span className="text-green-700 text-sm font-medium">
+              Template saved — {templateSaveResult.piecesConverted} piece{templateSaveResult.piecesConverted !== 1 ? 's' : ''} converted
+              {templateSaveResult.piecesSkipped > 0 && (
+                <span className="text-yellow-700">
+                  {' '}({templateSaveResult.piecesSkipped} skipped)
+                </span>
+              )}
+            </span>
+          </div>
+          {templateSaveResult.warnings.length > 0 && (
+            <div className="text-xs text-yellow-700 ml-7">
+              <ul className="list-disc list-inside space-y-0.5">
+                {templateSaveResult.warnings.map((w, i) => (
+                  <li key={i}>{w}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="ml-7">
+            <a
+              href={`/quotes/unit-block`}
+              className="text-sm text-primary-600 hover:text-primary-700 underline"
+            >
+              View templates in Unit Block Projects
+            </a>
+          </div>
+        </div>
+      )}
+
+      {templateSaveSuccess && !templateSaveResult && (
         <div className="mt-4 p-3 bg-green-50 border border-green-200 rounded-lg flex items-center gap-2">
           <svg className="h-5 w-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />

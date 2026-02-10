@@ -7,6 +7,7 @@ import DeleteQuoteButton from '@/components/DeleteQuoteButton';
 import ManufacturingExportButton from './components/ManufacturingExportButton';
 import QuoteViewTracker from './components/QuoteViewTracker';
 import QuoteSignatureSection from './components/QuoteSignatureSection';
+import SaveAsTemplateButton from './components/SaveAsTemplateButton';
 
 export const dynamic = 'force-dynamic';
 
@@ -169,9 +170,15 @@ export default async function QuoteDetailPage({
               </svg>
               <h3 className="text-lg font-semibold">Drawing Analysis</h3>
             </div>
-            <span className="text-sm text-gray-500">
-              Analyzed {formatDate(quote.quote_drawing_analyses.analyzed_at)}
-            </span>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">
+                Analyzed {formatDate(quote.quote_drawing_analyses.analyzed_at)}
+              </span>
+              <SaveAsTemplateButton
+                analysisId={quote.quote_drawing_analyses.id}
+                defaultName={quote.project_name || undefined}
+              />
+            </div>
           </div>
           <div className="p-6">
             {/* Analysis Metadata */}
