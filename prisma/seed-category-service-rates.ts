@@ -11,6 +11,7 @@ const BASE_RATES: Record<string, { rate20mm: number; rate40mm: number; name: str
   WATERFALL_END: { rate20mm: 300.00, rate40mm: 650.00, name: 'Waterfall End', description: 'Waterfall end return — fixed price',        minimumCharge: 300.00 },
   TEMPLATING:    { rate20mm: 180.00, rate40mm: 180.00, name: 'Templating',    description: 'On-site templating — fixed price',          minimumCharge: 180.00 },
   DELIVERY:      { rate20mm: 150.00, rate40mm: 150.00, name: 'Delivery',      description: 'Delivery per trip',                         minimumCharge: 100.00 },
+  JOIN:          { rate20mm: 80.00,  rate40mm: 80.00,  name: 'Join',          description: 'Join fabrication per lineal metre',          minimumCharge: 50.00  },
 };
 
 // Material complexity multipliers relative to ENGINEERED baseline

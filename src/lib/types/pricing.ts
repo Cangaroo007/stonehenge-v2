@@ -188,6 +188,19 @@ export interface PiecePricingBreakdown {
     subtotal: number;
   };
 
+  oversize?: {
+    isOversize: boolean;
+    joinCount: number;
+    joinLengthLm: number;
+    joinRate: number;
+    joinCost: number;
+    grainMatchingSurchargeRate: number;
+    fabricationSubtotalBeforeSurcharge: number;
+    grainMatchingSurcharge: number;
+    strategy: string;
+    warnings: string[];
+  };
+
   materials?: {
     areaM2: number;
     baseRate: number;
