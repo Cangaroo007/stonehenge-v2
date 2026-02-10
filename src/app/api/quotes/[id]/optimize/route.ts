@@ -2,6 +2,25 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 
+/**
+ * Fetch operation-specific kerfs from machine_operation_defaults.
+ * Returns a map of operationType → kerfWidthMm.
+ */
+async function getOperationKerfs(): Promise<Record<string, number>> {
+  try {
+    const defaults = await prisma.machine_operation_defaults.findMany({
+      include: { machine: true },
+    });
+    const kerfs: Record<string, number> = {};
+    for (const d of defaults) {
+      kerfs[d.operation_type] = d.machine.kerf_width_mm;
+    }
+    return kerfs;
+  } catch {
+    return {};
+  }
+}
+
 // GET - Retrieve saved optimization for quote
 export async function GET(
   request: NextRequest,
@@ -44,10 +63,24 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { slabWidth = 3000, slabHeight = 1400, kerfWidth = 3, allowRotation = true } = body;
+
+    // Fetch operation-specific kerfs from machine_operation_defaults
+    const operationKerfs = await getOperationKerfs();
+    const initialCutKerf = operationKerfs['INITIAL_CUT'] ?? 3;
+
+    // Use INITIAL_CUT kerf as the default for slab nesting (primary cuts)
+    const {
+      slabWidth = 3000,
+      slabHeight = 1400,
+      kerfWidth = initialCutKerf,
+      allowRotation = true,
+    } = body;
 
     console.log(`[Optimize API] Starting optimization for quote ${quoteId}`);
     console.log(`[Optimize API] Settings: ${slabWidth}x${slabHeight}mm, kerf: ${kerfWidth}mm, rotation: ${allowRotation}`);
+    if (Object.keys(operationKerfs).length > 0) {
+      console.log(`[Optimize API] Operation kerfs: ${JSON.stringify(operationKerfs)}`);
+    }
 
     // Get quote with pieces
     const quote = await prisma.quotes.findUnique({
@@ -179,6 +212,7 @@ export async function POST(
     return NextResponse.json({
       optimization,
       result,
+      operationKerfs,
     });
   } catch (error) {
     console.error('[Optimize API] ❌ Failed to optimize:', error);
