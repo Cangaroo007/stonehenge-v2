@@ -16,6 +16,7 @@ import DrawingImport from './components/DrawingImport';
 import { DrawingReferencePanel } from './components/DrawingReferencePanel';
 import DeliveryTemplatingCard from './components/DeliveryTemplatingCard';
 import { OptimizationDisplay } from './components/OptimizationDisplay';
+import MachineDetailsPanel from './components/MachineDetailsPanel';
 import { CutoutType, PieceCutout } from './components/CutoutSelector';
 import VersionHistoryTab from '@/components/quotes/VersionHistoryTab';
 import type { CalculationResult } from '@/lib/types/pricing';
@@ -25,6 +26,17 @@ interface MachineOption {
   name: string;
   kerfWidthMm: number;
   isDefault: boolean;
+}
+
+interface MachineOperationDefault {
+  id: string;
+  operationType: string;
+  machineId: string;
+  machine: {
+    id: string;
+    name: string;
+    kerfWidthMm: number;
+  };
 }
 
 interface QuotePiece {
@@ -135,6 +147,11 @@ export default function QuoteBuilderPage() {
   // Machine Profile state
   const [machines, setMachines] = useState<MachineOption[]>([]);
   const [defaultMachineId, setDefaultMachineId] = useState<string | null>(null);
+  const [machineOperationDefaults, setMachineOperationDefaults] = useState<MachineOperationDefault[]>([]);
+  const [machineOverrides, setMachineOverrides] = useState<Record<string, string>>({});
+
+  // Auto re-optimization ref
+  const reOptimizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Trigger recalculation after piece changes
   const triggerRecalculate = useCallback(() => {
@@ -243,15 +260,99 @@ export default function QuoteBuilderPage() {
     }
   }, []);
 
+  // Fetch machine operation defaults
+  const fetchMachineOperationDefaults = useCallback(async () => {
+    try {
+      const response = await fetch('/api/admin/pricing/machine-defaults');
+      if (!response.ok) throw new Error('Failed to fetch machine defaults');
+      const data = await response.json();
+      setMachineOperationDefaults(data);
+    } catch (err) {
+      console.error('Error fetching machine operation defaults:', err);
+    }
+  }, []);
+
+  // Get effective kerf width (from INITIAL_CUT machine, considering overrides)
+  const getEffectiveKerfWidth = useCallback((): number => {
+    const overrideMachineId = machineOverrides['INITIAL_CUT'];
+    if (overrideMachineId) {
+      const overrideMachine = machines.find(m => m.id === overrideMachineId);
+      if (overrideMachine) return overrideMachine.kerfWidthMm;
+    }
+
+    const initialCutDefault = machineOperationDefaults.find(d => d.operationType === 'INITIAL_CUT');
+    if (initialCutDefault) return initialCutDefault.machine.kerfWidthMm;
+
+    const defaultMachine = machines.find(m => m.id === defaultMachineId);
+    return defaultMachine?.kerfWidthMm ?? 8;
+  }, [machineOverrides, machineOperationDefaults, machines, defaultMachineId]);
+
+  // Debounced auto re-optimization (1s) — only runs if a saved optimization exists
+  const autoReOptimize = useCallback(() => {
+    if (reOptimizeTimeoutRef.current) {
+      clearTimeout(reOptimizeTimeoutRef.current);
+    }
+    reOptimizeTimeoutRef.current = setTimeout(async () => {
+      try {
+        // Check if there's a saved optimization
+        const response = await fetch(`/api/quotes/${quoteId}/optimize`);
+        if (!response.ok) return;
+        const saved = await response.json();
+        if (!saved || !saved.placements) return;
+
+        // Re-run with same slab settings but potentially updated kerf
+        await fetch(`/api/quotes/${quoteId}/optimize`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            slabWidth: saved.slabWidth || 3000,
+            slabHeight: saved.slabHeight || 1400,
+            kerfWidth: getEffectiveKerfWidth(),
+            allowRotation: true,
+          }),
+        });
+
+        // Refresh optimisation display
+        setOptimizationRefreshKey(n => n + 1);
+      } catch (err) {
+        console.error('Auto re-optimisation failed:', err);
+      }
+    }, 1000);
+  }, [quoteId, getEffectiveKerfWidth]);
+
+  // Handle machine operation override
+  const handleMachineOverride = useCallback((operationType: string, machineId: string) => {
+    setMachineOverrides(prev => ({ ...prev, [operationType]: machineId }));
+    triggerRecalculate();
+    autoReOptimize();
+  }, [triggerRecalculate, autoReOptimize]);
+
   // Initial load
   useEffect(() => {
     const loadData = async () => {
       setLoading(true);
-      await Promise.all([fetchQuote(), fetchMaterials(), fetchEdgeTypes(), fetchCutoutTypes(), fetchThicknessOptions(), fetchMachines()]);
+      await Promise.all([
+        fetchQuote(),
+        fetchMaterials(),
+        fetchEdgeTypes(),
+        fetchCutoutTypes(),
+        fetchThicknessOptions(),
+        fetchMachines(),
+        fetchMachineOperationDefaults(),
+      ]);
       setLoading(false);
     };
     loadData();
-  }, [fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines]);
+  }, [fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults]);
+
+  // Cleanup auto re-optimise timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (reOptimizeTimeoutRef.current) {
+        clearTimeout(reOptimizeTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Handle piece selection
   const handleSelectPiece = (pieceId: number) => {
@@ -290,15 +391,16 @@ export default function QuoteBuilderPage() {
         p.id === pieceId ? { ...p, ...updates } : p
       ));
       
-      // Trigger pricing recalculation
+      // Trigger pricing recalculation + auto re-optimise
       triggerRecalculate();
+      autoReOptimize();
       markAsChanged();
     } catch (err) {
       console.error('Failed to update piece:', err);
       // Refresh to get correct state
       await fetchQuote();
     }
-  }, [quoteId, triggerRecalculate, markAsChanged, fetchQuote]);
+  }, [quoteId, triggerRecalculate, autoReOptimize, markAsChanged, fetchQuote]);
 
   // Handle save piece
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
@@ -325,8 +427,9 @@ export default function QuoteBuilderPage() {
       await fetchQuote();
       setSelectedPieceId(null);
       setIsAddingPiece(false);
-      // Trigger pricing recalculation
+      // Trigger pricing recalculation + auto re-optimise
       triggerRecalculate();
+      autoReOptimize();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
@@ -352,8 +455,9 @@ export default function QuoteBuilderPage() {
       if (selectedPieceId === pieceId) {
         setSelectedPieceId(null);
       }
-      // Trigger pricing recalculation
+      // Trigger pricing recalculation + auto re-optimise
       triggerRecalculate();
+      autoReOptimize();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete piece');
@@ -381,8 +485,9 @@ export default function QuoteBuilderPage() {
       await fetchQuote();
       setSelectedPieceId(newPiece.id);
       setIsAddingPiece(false);
-      // Trigger pricing recalculation
+      // Trigger pricing recalculation + auto re-optimise
       triggerRecalculate();
+      autoReOptimize();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to duplicate piece');
@@ -471,11 +576,12 @@ export default function QuoteBuilderPage() {
     setShowDrawingImport(false);
     await fetchQuote();
     triggerRecalculate();
+    autoReOptimize();
     markAsChanged();
     setImportSuccessMessage(`Imported ${count} piece${count !== 1 ? 's' : ''} from drawing`);
     // Auto-clear success message after 5 seconds
     setTimeout(() => setImportSuccessMessage(null), 5000);
-  }, [fetchQuote, triggerRecalculate, markAsChanged]);
+  }, [fetchQuote, triggerRecalculate, autoReOptimize, markAsChanged]);
 
   // Handle drawings saved (refresh DrawingReferencePanel)
   const handleDrawingsSaved = useCallback(() => {
@@ -578,7 +684,7 @@ const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
         onStatusChange={handleStatusChange}
         onOptimizationSaved={() => setOptimizationRefreshKey(n => n + 1)}
         saving={saving}
-        kerfWidth={machines.find(m => m.id === defaultMachineId)?.kerfWidthMm ?? 8}
+        kerfWidth={getEffectiveKerfWidth()}
       />
 
       {/* Tab Navigation */}
@@ -703,6 +809,16 @@ const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
             initialProjectAddress={quote.project_name}
             onUpdate={triggerRecalculate}
           />
+
+          {/* Machine Details Panel */}
+          {machines.length > 0 && (
+            <MachineDetailsPanel
+              machines={machines}
+              machineOperationDefaults={machineOperationDefaults}
+              overrides={machineOverrides}
+              onOverrideChange={handleMachineOverride}
+            />
+          )}
 
           {/* Piece Editor */}
           {(isAddingPiece || selectedPiece) ? (
