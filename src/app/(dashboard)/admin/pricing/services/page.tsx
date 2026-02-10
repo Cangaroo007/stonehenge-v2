@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 
 interface ServiceRate {
   id: string;
   serviceType: string;
+  fabricationCategory: string;
   name: string;
   description: string | null;
   rate20mm: number;
@@ -14,15 +15,55 @@ interface ServiceRate {
   isActive: boolean;
 }
 
+const FABRICATION_CATEGORIES = [
+  { value: 'ENGINEERED', label: 'Engineered Quartz' },
+  { value: 'NATURAL_HARD', label: 'Natural Hard (Granite)' },
+  { value: 'NATURAL_SOFT', label: 'Natural Soft (Marble)' },
+  { value: 'NATURAL_PREMIUM', label: 'Natural Premium (Quartzite)' },
+  { value: 'SINTERED', label: 'Sintered / Porcelain' },
+] as const;
+
+const CATEGORY_MULTIPLIER_LABELS: Record<string, string> = {
+  ENGINEERED: '1.00x — baseline',
+  NATURAL_HARD: '1.15x — harder, predictable',
+  NATURAL_SOFT: '1.10x — softer, chips',
+  NATURAL_PREMIUM: '1.30x — extreme hardness',
+  SINTERED: '1.30x — high tension',
+};
+
 export default function ServiceRatesPage() {
-  const [rates, setRates] = useState<ServiceRate[]>([]);
+  const [allRates, setAllRates] = useState<ServiceRate[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('ENGINEERED');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
+  const fetchRates = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/pricing/service-rates');
+      if (!res.ok) throw new Error('Failed to fetch service rates');
+      const data = await res.json();
+      // Convert Decimal strings to numbers for display
+      const parsed = data.map((r: any) => ({
+        ...r,
+        rate20mm: typeof r.rate20mm === 'string' ? parseFloat(r.rate20mm) : r.rate20mm,
+        rate40mm: typeof r.rate40mm === 'string' ? parseFloat(r.rate40mm) : r.rate40mm,
+        minimumCharge: r.minimumCharge != null
+          ? (typeof r.minimumCharge === 'string' ? parseFloat(r.minimumCharge) : r.minimumCharge)
+          : null,
+      }));
+      setAllRates(parsed);
+    } catch (error) {
+      console.error('Error fetching service rates:', error);
+      setToast({ message: 'Failed to load service rates', type: 'error' });
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchRates();
-  }, []);
+  }, [fetchRates]);
 
   useEffect(() => {
     if (toast) {
@@ -31,22 +72,14 @@ export default function ServiceRatesPage() {
     }
   }, [toast]);
 
-  const fetchRates = async () => {
-    try {
-      const res = await fetch('/api/admin/pricing/service-rates');
-      if (!res.ok) throw new Error('Failed to fetch service rates');
-      const data = await res.json();
-      setRates(data);
-    } catch (error) {
-      console.error('Error fetching service rates:', error);
-      setToast({ message: 'Failed to load service rates', type: 'error' });
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Filter rates by selected category
+  const filteredRates = allRates.filter(r => r.fabricationCategory === selectedCategory);
+
+  // Count how many categories have rates
+  const categoriesWithRates = Array.from(new Set(allRates.map(r => r.fabricationCategory)));
 
   const handleRateChange = (id: string, field: keyof ServiceRate, value: string | number | boolean | null) => {
-    setRates(rates.map(rate => 
+    setAllRates(allRates.map(rate =>
       rate.id === id ? { ...rate, [field]: value } : rate
     ));
   };
@@ -54,8 +87,8 @@ export default function ServiceRatesPage() {
   const handleSaveAll = async () => {
     setSaving(true);
     try {
-      // Update each rate
-      const promises = rates.map(rate =>
+      // Only save rates for the current category
+      const promises = filteredRates.map(rate =>
         fetch(`/api/admin/pricing/service-rates/${rate.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
@@ -65,14 +98,14 @@ export default function ServiceRatesPage() {
             rate20mm: rate.rate20mm,
             rate40mm: rate.rate40mm,
             minimumCharge: rate.minimumCharge,
-            isActive: rate.isActive
+            isActive: rate.isActive,
           })
         })
       );
 
       await Promise.all(promises);
-      setToast({ message: 'All service rates saved successfully', type: 'success' });
-      fetchRates(); // Refresh to get latest data
+      setToast({ message: 'Service rates saved successfully', type: 'success' });
+      fetchRates();
     } catch (error) {
       console.error('Error saving service rates:', error);
       setToast({ message: 'Failed to save service rates', type: 'error' });
@@ -116,19 +149,69 @@ export default function ServiceRatesPage() {
       )}
 
       <div className="space-y-4">
-        {rates.length === 0 ? (
+        {/* Category Info */}
+        <div className="card">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Service Rates by Material Category</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Rates vary by material hardness. Harder materials cost more to fabricate due to blade wear and slower cutting speeds.
+              </p>
+            </div>
+            <div className="text-right text-sm text-gray-500">
+              {categoriesWithRates.length} of {FABRICATION_CATEGORIES.length} categories configured
+            </div>
+          </div>
+        </div>
+
+        {/* Category Tabs */}
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-1 overflow-x-auto" aria-label="Fabrication categories">
+            {FABRICATION_CATEGORIES.map((cat) => {
+              const hasRates = categoriesWithRates.includes(cat.value);
+              const isSelected = selectedCategory === cat.value;
+              return (
+                <button
+                  key={cat.value}
+                  onClick={() => setSelectedCategory(cat.value)}
+                  className={cn(
+                    'whitespace-nowrap py-3 px-4 border-b-2 font-medium text-sm transition-colors',
+                    isSelected
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+                    !hasRates && !isSelected && 'opacity-50'
+                  )}
+                >
+                  {cat.label}
+                  {!hasRates && (
+                    <span className="ml-1.5 text-xs text-gray-400">(no rates)</span>
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Category Multiplier Hint */}
+        <div className="text-sm text-gray-500 px-1">
+          <span className="font-medium">{FABRICATION_CATEGORIES.find(c => c.value === selectedCategory)?.label}</span>
+          {' — '}
+          <span>{CATEGORY_MULTIPLIER_LABELS[selectedCategory]}</span>
+        </div>
+
+        {filteredRates.length === 0 ? (
           <div className="card">
             <div className="text-center py-12">
-              <p className="text-gray-500">No service rates found.</p>
+              <p className="text-gray-500">No service rates found for this category.</p>
               <p className="text-sm text-gray-400 mt-2">
-                Service rates are automatically created when pricing settings are configured.
+                Run the category seed script to populate rates for all material categories.
               </p>
             </div>
           </div>
         ) : (
           <>
             <div className="grid gap-4 md:grid-cols-2">
-              {rates.map((rate) => (
+              {filteredRates.map((rate) => (
                 <div key={rate.id} className="card">
                   <div className="space-y-4">
                     {/* Header */}

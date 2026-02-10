@@ -1,6 +1,15 @@
 import Link from 'next/link';
 import prisma from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
+import type { FabricationCategory } from '@prisma/client';
+
+const FABRICATION_CATEGORY_LABELS: Record<FabricationCategory, string> = {
+  ENGINEERED: 'Engineered Quartz',
+  NATURAL_HARD: 'Natural (Hard)',
+  NATURAL_SOFT: 'Natural (Soft)',
+  NATURAL_PREMIUM: 'Natural (Premium)',
+  SINTERED: 'Sintered / Porcelain',
+};
 
 export const dynamic = 'force-dynamic';
 
@@ -50,6 +59,7 @@ export default async function MaterialsPage() {
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="table-header">Name</th>
+                    <th className="table-header">Fabrication Category</th>
                     <th className="table-header">Price per m²</th>
                     <th className="table-header">Status</th>
                     <th className="table-header"></th>
@@ -59,6 +69,11 @@ export default async function MaterialsPage() {
                   {mats.map((material) => (
                     <tr key={material.id} className="hover:bg-gray-50">
                       <td className="table-cell font-medium">{material.name}</td>
+                      <td className="table-cell">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
+                          {FABRICATION_CATEGORY_LABELS[material.fabrication_category]}
+                        </span>
+                      </td>
                       <td className="table-cell">{formatCurrency(Number(material.price_per_sqm))}</td>
                       <td className="table-cell">
                         <span

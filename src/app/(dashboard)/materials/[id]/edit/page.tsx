@@ -4,6 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import toast from 'react-hot-toast';
 
+const FABRICATION_CATEGORIES = [
+  { value: 'ENGINEERED', label: 'Engineered Quartz' },
+  { value: 'NATURAL_HARD', label: 'Natural Stone (Hard) — e.g. Granite' },
+  { value: 'NATURAL_SOFT', label: 'Natural Stone (Soft) — e.g. Marble' },
+  { value: 'NATURAL_PREMIUM', label: 'Natural Stone (Premium) — e.g. Quartzite' },
+  { value: 'SINTERED', label: 'Sintered / Porcelain' },
+] as const;
+
 export default function EditMaterialPage() {
   const router = useRouter();
   const params = useParams();
@@ -15,6 +23,7 @@ export default function EditMaterialPage() {
     pricePerSqm: '',
     description: '',
     isActive: true,
+    fabricationCategory: 'ENGINEERED',
   });
 
   useEffect(() => {
@@ -29,6 +38,7 @@ export default function EditMaterialPage() {
             pricePerSqm: data.pricePerSqm?.toString() || '',
             description: data.description || '',
             isActive: data.isActive ?? true,
+            fabricationCategory: data.fabricationCategory || 'ENGINEERED',
           });
         } else {
           toast.error('Material not found');
@@ -116,6 +126,23 @@ export default function EditMaterialPage() {
               value={form.pricePerSqm}
               onChange={(e) => setForm({ ...form, pricePerSqm: e.target.value })}
             />
+          </div>
+          <div>
+            <label className="label">Fabrication Category *</label>
+            <select
+              className="input"
+              value={form.fabricationCategory}
+              onChange={(e) => setForm({ ...form, fabricationCategory: e.target.value })}
+            >
+              {FABRICATION_CATEGORIES.map((cat) => (
+                <option key={cat.value} value={cat.value}>
+                  {cat.label}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-gray-500">
+              Determines service rate tier for cutting, polishing, and other fabrication costs.
+            </p>
           </div>
           <div className="flex items-center pt-6">
             <label className="flex items-center gap-2 cursor-pointer">

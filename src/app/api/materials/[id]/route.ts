@@ -15,7 +15,18 @@ export async function GET(
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
 
-    return NextResponse.json(material);
+    // Add camelCase aliases for client components
+    const transformed = {
+      ...material,
+      pricePerSqm: Number(material.price_per_sqm || 0),
+      pricePerSlab: material.price_per_slab ? Number(material.price_per_slab) : null,
+      isActive: material.is_active,
+      slabLengthMm: material.slab_length_mm,
+      slabWidthMm: material.slab_width_mm,
+      fabricationCategory: material.fabrication_category,
+    };
+
+    return NextResponse.json(transformed);
   } catch (error) {
     console.error('Error fetching materials:', error);
     return NextResponse.json({ error: 'Failed to fetch material' }, { status: 500 });
@@ -30,15 +41,20 @@ export async function PUT(
     const { id } = await params;
     const data = await request.json();
 
+    const updateData: Record<string, unknown> = {
+      name: data.name,
+      collection: data.collection || null,
+      description: data.description || null,
+      price_per_sqm: data.pricePerSqm,
+      is_active: data.isActive ?? true,
+    };
+    if (data.fabricationCategory) {
+      updateData.fabrication_category = data.fabricationCategory;
+    }
+
     const material = await prisma.materials.update({
       where: { id: parseInt(id) },
-      data: {
-        name: data.name,
-        collection: data.collection || null,
-        description: data.description || null,
-        price_per_sqm: data.pricePerSqm,
-        is_active: data.isActive ?? true,
-      },
+      data: updateData,
     });
 
     return NextResponse.json(material);

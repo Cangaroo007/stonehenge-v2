@@ -123,6 +123,7 @@ export interface CalculationResult {
 export interface PiecePricingBreakdown {
   pieceId: number;
   pieceName: string;
+  fabricationCategory?: string;
   dimensions: {
     lengthMm: number;
     widthMm: number;

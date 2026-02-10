@@ -55,6 +55,7 @@ export async function PUT(
         ...(body.rate40mm !== undefined && { rate40mm: body.rate40mm }),
         ...(body.minimumCharge !== undefined && { minimumCharge: body.minimumCharge }),
         ...(body.isActive !== undefined && { isActive: body.isActive }),
+        ...(body.fabricationCategory !== undefined && { fabricationCategory: body.fabricationCategory }),
         updated_at: new Date(),
       }
     });

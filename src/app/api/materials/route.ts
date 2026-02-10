@@ -14,6 +14,7 @@ export async function GET() {
       isActive: m.is_active,
       slabLengthMm: m.slab_length_mm,
       slabWidthMm: m.slab_width_mm,
+      fabricationCategory: m.fabrication_category,
     }));
     return NextResponse.json(transformed);
   } catch (error) {
@@ -33,6 +34,7 @@ export async function POST(request: NextRequest) {
         description: data.description || null,
         price_per_sqm: data.pricePerSqm,
         is_active: data.isActive ?? true,
+        fabrication_category: data.fabricationCategory || 'ENGINEERED',
         updated_at: new Date(),
       },
     });

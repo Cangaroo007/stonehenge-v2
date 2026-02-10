@@ -49,9 +49,10 @@ async function main() {
   for (const rate of serviceRates) {
     await prisma.service_rates.upsert({
       where: {
-        pricing_settings_id_serviceType: {
+        pricing_settings_id_serviceType_fabricationCategory: {
           pricing_settings_id: settings.id,
           serviceType: rate.serviceType,
+          fabricationCategory: 'ENGINEERED',
         },
       },
       update: {
@@ -67,6 +68,7 @@ async function main() {
         id: rate.id,
         pricing_settings_id: settings.id,
         serviceType: rate.serviceType,
+        fabricationCategory: 'ENGINEERED',
         name: rate.name,
         description: rate.description,
         rate20mm: rate.rate20mm,

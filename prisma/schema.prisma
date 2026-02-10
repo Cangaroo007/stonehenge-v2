@@ -192,6 +192,7 @@ model materials {
   price_per_square_metre Decimal?                 @db.Decimal(10, 2)
   slab_length_mm         Int?
   slab_width_mm          Int?
+  fabrication_category   FabricationCategory      @default(ENGINEERED)
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
 }
@@ -461,20 +462,21 @@ model quotes {
 }
 
 model service_rates {
-  id                  String           @id
-  pricing_settings_id String
-  serviceType         ServiceType
-  name                String
-  description         String?
-  rate20mm            Decimal          @db.Decimal(10, 2)
-  rate40mm            Decimal          @db.Decimal(10, 2)
-  minimumCharge       Decimal?         @db.Decimal(10, 2)
-  isActive            Boolean          @default(true)
-  created_at          DateTime         @default(now())
-  updated_at          DateTime
-  pricing_settings    pricing_settings @relation(fields: [pricing_settings_id], references: [id], onDelete: Cascade)
+  id                   String              @id
+  pricing_settings_id  String
+  serviceType          ServiceType
+  fabricationCategory  FabricationCategory @default(ENGINEERED)
+  name                 String
+  description          String?
+  rate20mm             Decimal             @db.Decimal(10, 2)
+  rate40mm             Decimal             @db.Decimal(10, 2)
+  minimumCharge        Decimal?            @db.Decimal(10, 2)
+  isActive             Boolean             @default(true)
+  created_at           DateTime            @default(now())
+  updated_at           DateTime
+  pricing_settings     pricing_settings    @relation(fields: [pricing_settings_id], references: [id], onDelete: Cascade)
 
-  @@unique([pricing_settings_id, serviceType])
+  @@unique([pricing_settings_id, serviceType, fabricationCategory])
 }
 
 model settings {
@@ -631,6 +633,14 @@ enum ServiceUnit {
 enum UnitSystem {
   METRIC
   IMPERIAL
+}
+
+enum FabricationCategory {
+  ENGINEERED
+  NATURAL_HARD
+  NATURAL_SOFT
+  NATURAL_PREMIUM
+  SINTERED
 }
 
 enum LaminationMethod {
