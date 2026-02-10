@@ -218,11 +218,288 @@ async function seedMaterialSlabPrices() {
   console.log(`  ✅ Materials: ${materials.length} rows`);
 }
 
+async function seedEdgeTypes() {
+  console.log('🌱 Seeding edge types...');
+
+  const edgeTypes = [
+    {
+      id: 'et-pencil-round',
+      name: 'Pencil Round',
+      code: 'PR',
+      description: 'Standard pencil round edge - included in base polishing',
+      category: 'polish',
+      baseRate: 45.00,
+      rate20mm: 0.00,
+      rate40mm: 0.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 1,
+      isActive: true,
+    },
+    {
+      id: 'et-bullnose',
+      name: 'Bullnose',
+      code: 'BN',
+      description: 'Full bullnose profile',
+      category: 'polish',
+      baseRate: 55.00,
+      rate20mm: 10.00,
+      rate40mm: 10.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 2,
+      isActive: true,
+    },
+    {
+      id: 'et-ogee',
+      name: 'Ogee',
+      code: 'OG',
+      description: 'Decorative ogee profile',
+      category: 'polish',
+      baseRate: 65.00,
+      rate20mm: 20.00,
+      rate40mm: 25.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 3,
+      isActive: true,
+    },
+    {
+      id: 'et-beveled',
+      name: 'Beveled',
+      code: 'BV',
+      description: 'Beveled edge profile',
+      category: 'polish',
+      baseRate: 50.00,
+      rate20mm: 5.00,
+      rate40mm: 5.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 4,
+      isActive: true,
+    },
+    {
+      id: 'et-curved-finished',
+      name: 'Curved Finished Edge',
+      code: 'CF',
+      description: 'Curved/radius edge - premium rate with 1m minimum',
+      category: 'polish',
+      baseRate: 300.00,
+      rate20mm: 255.00,
+      rate40mm: 535.00,
+      minimumCharge: 300.00,
+      minimumLength: 1.0,
+      isCurved: true,
+      sortOrder: 5,
+      isActive: true,
+    },
+  ];
+
+  for (const edgeType of edgeTypes) {
+    const existing = await prisma.edge_types.findUnique({
+      where: { name: edgeType.name },
+    });
+
+    if (existing) {
+      await prisma.edge_types.update({
+        where: { name: edgeType.name },
+        data: {
+          code: edgeType.code,
+          description: edgeType.description,
+          category: edgeType.category,
+          baseRate: edgeType.baseRate,
+          rate20mm: edgeType.rate20mm,
+          rate40mm: edgeType.rate40mm,
+          minimumCharge: edgeType.minimumCharge,
+          minimumLength: edgeType.minimumLength,
+          isCurved: edgeType.isCurved,
+          sortOrder: edgeType.sortOrder,
+          isActive: edgeType.isActive,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.edge_types.create({
+        data: {
+          ...edgeType,
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+  console.log(`  ✅ Edge types: ${edgeTypes.length} rows`);
+}
+
+async function seedCutoutTypes() {
+  console.log('🌱 Seeding cutout types...');
+
+  const cutoutTypes = [
+    { id: 'ct-undermount-sink', name: 'Undermount Sink', baseRate: 220.00, sortOrder: 1 },
+    { id: 'ct-drop-in-sink', name: 'Drop-in Sink', baseRate: 180.00, sortOrder: 2 },
+    { id: 'ct-hotplate', name: 'Hotplate', baseRate: 180.00, sortOrder: 3 },
+    { id: 'ct-tap-hole', name: 'Tap Hole', baseRate: 45.00, sortOrder: 4 },
+    { id: 'ct-powerpoint', name: 'Powerpoint Cutout', baseRate: 65.00, sortOrder: 5 },
+    { id: 'ct-cooktop', name: 'Cooktop Cutout', baseRate: 180.00, sortOrder: 6 },
+  ];
+
+  for (const cutout of cutoutTypes) {
+    const existing = await prisma.cutout_types.findUnique({
+      where: { name: cutout.name },
+    });
+
+    if (existing) {
+      await prisma.cutout_types.update({
+        where: { name: cutout.name },
+        data: {
+          baseRate: cutout.baseRate,
+          sortOrder: cutout.sortOrder,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.cutout_types.create({
+        data: {
+          ...cutout,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+  console.log(`  ✅ Cutout types: ${cutoutTypes.length} rows`);
+}
+
+async function seedThicknessOptions() {
+  console.log('🌱 Seeding thickness options...');
+
+  const thicknessOptions = [
+    { id: 'to-20mm', name: '20mm', value: 20, multiplier: 1.00, isDefault: true, sortOrder: 1 },
+    { id: 'to-40mm', name: '40mm', value: 40, multiplier: 1.30, isDefault: false, sortOrder: 2 },
+  ];
+
+  for (const thickness of thicknessOptions) {
+    const existing = await prisma.thickness_options.findUnique({
+      where: { name: thickness.name },
+    });
+
+    if (existing) {
+      await prisma.thickness_options.update({
+        where: { name: thickness.name },
+        data: {
+          value: thickness.value,
+          multiplier: thickness.multiplier,
+          isDefault: thickness.isDefault,
+          sortOrder: thickness.sortOrder,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.thickness_options.create({
+        data: {
+          ...thickness,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+  console.log(`  ✅ Thickness options: ${thicknessOptions.length} rows`);
+}
+
+async function seedClientTypes() {
+  console.log('🌱 Seeding client types...');
+
+  const clientTypes = [
+    { id: 'ctype-cabinet-maker', name: 'Cabinet Maker', description: 'Kitchen and joinery manufacturers', sortOrder: 1 },
+    { id: 'ctype-builder', name: 'Builder', description: 'Residential and commercial builders', sortOrder: 2 },
+    { id: 'ctype-direct-consumer', name: 'Direct Consumer', description: 'Homeowners and end consumers', sortOrder: 3 },
+    { id: 'ctype-designer-architect', name: 'Designer/Architect', description: 'Interior designers and architects', sortOrder: 4 },
+  ];
+
+  for (const clientType of clientTypes) {
+    const existing = await prisma.client_types.findUnique({
+      where: { name: clientType.name },
+    });
+
+    if (existing) {
+      await prisma.client_types.update({
+        where: { name: clientType.name },
+        data: {
+          description: clientType.description,
+          sortOrder: clientType.sortOrder,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.client_types.create({
+        data: {
+          ...clientType,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+  console.log(`  ✅ Client types: ${clientTypes.length} rows`);
+}
+
+async function seedClientTiers() {
+  console.log('🌱 Seeding client tiers...');
+
+  const clientTiers = [
+    { id: 'ctier-1', name: 'Tier 1', description: 'Premium partners - best pricing', priority: 100, sortOrder: 1 },
+    { id: 'ctier-2', name: 'Tier 2', description: 'Regular clients - standard discounts', priority: 50, sortOrder: 2 },
+    { id: 'ctier-3', name: 'Tier 3', description: 'New clients - standard pricing', priority: 0, isDefault: true, sortOrder: 3 },
+  ];
+
+  for (const tier of clientTiers) {
+    const existing = await prisma.client_tiers.findUnique({
+      where: { name: tier.name },
+    });
+
+    if (existing) {
+      await prisma.client_tiers.update({
+        where: { name: tier.name },
+        data: {
+          description: tier.description,
+          priority: tier.priority,
+          isDefault: tier.isDefault || false,
+          sortOrder: tier.sortOrder,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    } else {
+      await prisma.client_tiers.create({
+        data: {
+          ...tier,
+          isDefault: tier.isDefault || false,
+          isActive: true,
+          updatedAt: new Date(),
+        },
+      });
+    }
+  }
+  console.log(`  ✅ Client tiers: ${clientTiers.length} rows`);
+}
+
 async function main() {
   console.log('🚀 Running production seed...');
   await seedPricingSettings();
   await seedMachineProfiles();
   await seedMaterialSlabPrices();
+  await seedEdgeTypes();
+  await seedCutoutTypes();
+  await seedThicknessOptions();
+  await seedClientTypes();
+  await seedClientTiers();
   console.log('🎉 Production seed complete!');
 }
 
