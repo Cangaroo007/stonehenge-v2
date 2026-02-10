@@ -4,11 +4,12 @@ import { prisma } from '@/lib/db';
 // GET /api/admin/pricing/machines/[id] - Fetch single machine profile
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const machine = await prisma.machine_profiles.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!machine) {
@@ -39,9 +40,10 @@ export async function GET(
 // PUT /api/admin/pricing/machines/[id] - Update machine profile
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     const data = await request.json();
 
     // Validate required fields
@@ -64,14 +66,14 @@ export async function PUT(
       await prisma.machine_profiles.updateMany({
         where: {
           is_default: true,
-          id: { not: params.id }
+          id: { not: id }
         },
         data: { is_default: false, updated_at: new Date() }
       });
     }
 
     const machine = await prisma.machine_profiles.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name: data.name,
         kerf_width_mm: data.kerfWidthMm,
@@ -121,12 +123,13 @@ export async function PUT(
 // DELETE /api/admin/pricing/machines/[id] - Soft delete machine profile
 export async function DELETE(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params;
     // Check if this is the only active machine or the default
     const machine = await prisma.machine_profiles.findUnique({
-      where: { id: params.id }
+      where: { id }
     });
 
     if (!machine) {
@@ -146,7 +149,7 @@ export async function DELETE(
 
     // Soft delete by setting is_active to false
     await prisma.machine_profiles.update({
-      where: { id: params.id },
+      where: { id },
       data: { is_active: false, updated_at: new Date() }
     });
 
