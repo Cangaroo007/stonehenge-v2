@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
+import ScheduleParser from './ScheduleParser';
 
 interface QuoteSummary {
   id: number;
@@ -325,6 +326,9 @@ export default function UnitBlockDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Finishes Schedule Parser */}
+      <ScheduleParser projectId={projectId} onMappingsCreated={fetchProject} />
 
       {/* Project Change Report */}
       {hasChanges && (
