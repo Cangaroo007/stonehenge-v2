@@ -45,12 +45,16 @@ async function seedPricingSettings() {
     { id: 'sr-delivery', serviceType: 'DELIVERY', name: 'Delivery', description: 'Delivery per trip', rate20mm: 150.00, rate40mm: 150.00, minimumCharge: 100.00 },
   ];
 
+  // Seed ENGINEERED rates only (baseline).
+  // Other fabrication categories are seeded via seed-category-service-rates.ts
+  // after the pricing calculator is updated to filter by category (11.0c).
   for (const rate of serviceRates) {
     await prisma.service_rates.upsert({
       where: {
-        pricing_settings_id_serviceType: {
+        pricing_settings_id_serviceType_fabricationCategory: {
           pricing_settings_id: settings.id,
           serviceType: rate.serviceType,
+          fabricationCategory: 'ENGINEERED',
         },
       },
       update: {
@@ -66,6 +70,7 @@ async function seedPricingSettings() {
         id: rate.id,
         pricing_settings_id: settings.id,
         serviceType: rate.serviceType,
+        fabricationCategory: 'ENGINEERED',
         name: rate.name,
         description: rate.description,
         rate20mm: rate.rate20mm,
@@ -76,7 +81,7 @@ async function seedPricingSettings() {
       },
     });
   }
-  console.log(`  ✅ Service rates: ${serviceRates.length} rows`);
+  console.log(`  ✅ Service rates: ${serviceRates.length} rows (ENGINEERED baseline)`);
 
   // Cutout rates
   const cutoutRates = [

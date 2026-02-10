@@ -3,21 +3,32 @@ import { prisma } from '@/lib/db';
 import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/service-rates - List all service rates
+// Optional query param: ?fabricationCategory=ENGINEERED (filter by category)
 export async function GET(request: NextRequest) {
   try {
     await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
 
+    const { searchParams } = new URL(request.url);
+    const fabricationCategory = searchParams.get('fabricationCategory');
+
     const rates = await prisma.service_rates.findMany({
+      where: fabricationCategory
+        ? { fabricationCategory: fabricationCategory as any }
+        : undefined,
       include: { pricing_settings: true },
-      orderBy: { serviceType: 'asc' }
+      orderBy: [
+        { fabricationCategory: 'asc' },
+        { serviceType: 'asc' },
+      ],
     });
 
     return NextResponse.json(rates);
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to fetch service rates';
     console.error('Error fetching service rates:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch service rates' },
-      { status: error.message?.includes('Unauthorized') ? 401 : 500 }
+      { error: message },
+      { status: message.includes('Unauthorized') ? 401 : 500 }
     );
   }
 }
@@ -42,6 +53,7 @@ export async function POST(request: NextRequest) {
         id: crypto.randomUUID(),
         pricing_settings_id: body.pricingSettingsId,
         serviceType: body.serviceType,
+        fabricationCategory: body.fabricationCategory || 'ENGINEERED',
         name: body.name,
         description: body.description || null,
         rate20mm: body.rate20mm,
@@ -53,10 +65,11 @@ export async function POST(request: NextRequest) {
     });
 
     return NextResponse.json(rate, { status: 201 });
-  } catch (error: any) {
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : 'Failed to create service rate';
     console.error('Error creating service rate:', error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create service rate' },
+      { error: message },
       { status: 400 }
     );
   }
