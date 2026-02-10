@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import ScheduleParser from './ScheduleParser';
 import MappingReadiness from './MappingReadiness';
+import BulkQuoteGenerator from './BulkQuoteGenerator';
 
 interface QuoteSummary {
   id: number;
@@ -333,6 +334,9 @@ export default function UnitBlockDetailPage() {
 
       {/* Mapping Readiness Dashboard */}
       <MappingReadiness projectId={projectId} />
+
+      {/* Bulk Quote Generator */}
+      <BulkQuoteGenerator projectId={projectId} onGenerationComplete={fetchProject} />
 
       {/* Project Change Report */}
       {hasChanges && (
