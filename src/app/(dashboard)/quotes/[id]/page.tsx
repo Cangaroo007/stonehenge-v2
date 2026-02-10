@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
+import ManufacturingExportButton from './components/ManufacturingExportButton';
 import QuoteViewTracker from './components/QuoteViewTracker';
 import QuoteSignatureSection from './components/QuoteSignatureSection';
 
@@ -99,6 +100,12 @@ export default async function QuoteDetailPage({
           <Link href={`/api/quotes/${quote.id}/pdf`} target="_blank" className="btn-secondary">
             Download PDF
           </Link>
+          {['locked', 'accepted'].includes(quote.status.toLowerCase()) && (
+            <ManufacturingExportButton
+              quoteId={quote.id}
+              quoteNumber={quote.quote_number}
+            />
+          )}
           <DeleteQuoteButton quoteId={quote.id} />
         </div>
       </div>
