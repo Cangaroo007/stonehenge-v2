@@ -33,6 +33,7 @@ import type {
  * Enhanced pricing calculation result
  */
 export interface EnhancedCalculationResult extends CalculationResult {
+  fabricationCategory?: string;
   breakdown: CalculationResult['breakdown'] & {
     services?: {
       items: ServiceBreakdown[];
@@ -61,12 +62,26 @@ export interface EnhancedCalculationResult extends CalculationResult {
 
 export interface ServiceBreakdown {
   serviceType: string;
+  fabricationCategory?: string;
   name: string;
   quantity: number;
   unit: string;
   rate: number;
   subtotal: number;
 }
+
+/**
+ * Shape of a service_rates record used for rate lookups.
+ * Includes fabricationCategory for material-specific pricing.
+ */
+type ServiceRateRecord = {
+  serviceType: string;
+  fabricationCategory: string;
+  name: string;
+  rate20mm: { toNumber: () => number };
+  rate40mm: { toNumber: () => number };
+  minimumCharge: { toNumber: () => number } | null;
+};
 
 /**
  * Load pricing context for an organisation.
@@ -342,8 +357,16 @@ export async function calculateQuotePrice(
   }
   const fabricationDiscountPct = extractFabricationDiscount(quote.customers?.client_tiers);
 
+  // Determine primary fabrication category for the quote
+  const primaryFabricationCategory: string =
+    (allPieces[0]?.materials as unknown as { fabrication_category?: string } | null)
+      ?.fabrication_category ?? 'ENGINEERED';
+
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
   for (const piece of allPieces) {
+    const pieceFabCategory: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
     pieceBreakdowns.push(
       calculatePiecePricing(
         piece,
@@ -351,7 +374,8 @@ export async function calculateQuotePrice(
         edgeTypeMap,
         cutoutTypeMap,
         fabricationDiscountPct,
-        pricingContext
+        pricingContext,
+        pieceFabCategory
       )
     );
   }
@@ -456,6 +480,7 @@ export async function calculateQuotePrice(
 
   return {
     quoteId,
+    fabricationCategory: primaryFabricationCategory,
     subtotal: roundToTwo(subtotal),
     totalDiscount: 0, // Calculated from rules
     total: roundToTwo(finalTotal),
@@ -648,25 +673,28 @@ function calculateCutoutCostV2(
 }
 
 /**
- * Look up a service rate by type and return the thickness-appropriate value.
+ * Look up a service rate by type (and optionally fabrication category)
+ * and return the thickness-appropriate value.
  * Throws if the rate is not found — prevents silent $0 calculations.
  */
 function getServiceRate(
-  rates: Array<{
-    serviceType: string;
-    name: string;
-    rate20mm: { toNumber: () => number };
-    rate40mm: { toNumber: () => number };
-    minimumCharge: { toNumber: () => number } | null;
-  }>,
+  rates: ServiceRateRecord[],
   serviceType: string,
-  thickness: number
-): { rate: number; rateRecord: typeof rates[number] } {
-  const rateRecord = rates.find(r => r.serviceType === serviceType);
+  thickness: number,
+  fabricationCategory?: string
+): { rate: number; rateRecord: ServiceRateRecord } {
+  const rateRecord = rates.find(r => {
+    if (r.serviceType !== serviceType) return false;
+    if (fabricationCategory && r.fabricationCategory) {
+      return r.fabricationCategory === fabricationCategory;
+    }
+    return true;
+  });
   if (!rateRecord) {
     throw new Error(
-      `Service rate not found for ${serviceType}. ` +
-      `Configure in Pricing Admin → Service Rates.`
+      `No ${serviceType} rate found` +
+      (fabricationCategory ? ` for fabrication category ${fabricationCategory}` : '') +
+      `. Configure in Pricing Admin → Service Rates.`
     );
   }
   const rate = thickness > 20
@@ -696,15 +724,9 @@ function applyMinimumCharge(
  * Reads configured units from pricingContext to determine quantity basis.
  */
 function calculateServiceCosts(
-  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string }>,
+  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string; materials?: { fabrication_category: string } | null }>,
   totalEdgeLinearMeters: number,
-  serviceRates: Array<{
-    serviceType: string;
-    name: string;
-    rate20mm: { toNumber: () => number };
-    rate40mm: { toNumber: () => number };
-    minimumCharge: { toNumber: () => number } | null;
-  }>,
+  serviceRates: ServiceRateRecord[],
   pricingContext: PricingContext
 ): { items: ServiceBreakdown[]; subtotal: number } {
   const items: ServiceBreakdown[] = [];
@@ -717,9 +739,12 @@ function calculateServiceCosts(
     ? pieces.reduce((sum, p) => sum + p.thickness_mm, 0) / pieces.length
     : 20;
 
+  // Determine primary fabrication category for aggregate rate lookups
+  const primaryCategory = pieces[0]?.materials?.fabrication_category ?? 'ENGINEERED';
+
   // Cutting: use tenant's configured cutting_unit
   const { rate: cuttingRateVal, rateRecord: cuttingRateRecord } =
-    getServiceRate(serviceRates, 'CUTTING', avgThickness);
+    getServiceRate(serviceRates, 'CUTTING', avgThickness, primaryCategory);
   {
     const cuttingUnit = pricingContext.cuttingUnit;
     const cuttingQty = cuttingUnit === 'LINEAR_METRE' ? totalPerimeterLm : totalAreaM2;
@@ -737,7 +762,9 @@ function calculateServiceCosts(
   }
 
   // Polishing: use tenant's configured polishing_unit
-  const polishingRateRecord = serviceRates.find(sr => sr.serviceType === 'POLISHING')!;
+  const polishingRateRecord = serviceRates.find(
+    sr => sr.serviceType === 'POLISHING' && sr.fabricationCategory === primaryCategory
+  ) ?? serviceRates.find(sr => sr.serviceType === 'POLISHING')!;
   if (totalEdgeLinearMeters > 0) {
     const polishingUnit = pricingContext.polishingUnit;
     let polishingCost = 0;
@@ -757,7 +784,8 @@ function calculateServiceCosts(
         ? pieceEdgeLm * (piece.thickness_mm / 1000)
         : pieceEdgeLm;
 
-      const { rate } = getServiceRate(serviceRates, 'POLISHING', piece.thickness_mm);
+      const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
+      const { rate } = getServiceRate(serviceRates, 'POLISHING', piece.thickness_mm, pieceCategory);
       polishingCost += piecePolishingQty * rate;
       totalPolishingQty += piecePolishingQty;
     }
@@ -783,7 +811,7 @@ function calculateServiceCosts(
 
   // Installation: use tenant's configured installation_unit
   const { rate: installRateVal, rateRecord: installRateRecord } =
-    getServiceRate(serviceRates, 'INSTALLATION', avgThickness);
+    getServiceRate(serviceRates, 'INSTALLATION', avgThickness, primaryCategory);
   {
     const installationUnit = pricingContext.installationUnit;
     const installQty =
@@ -807,13 +835,16 @@ function calculateServiceCosts(
   }
 
   // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
-  const polishingRate20mm = polishingRateRecord.rate20mm.toNumber();
   let totalLaminationCost = 0;
   let totalLaminationLm = 0;
 
   for (const piece of pieces) {
     if (piece.thickness_mm <= 20) continue;
     if (piece.lamination_method === 'NONE') continue;
+
+    // Use per-piece category for the polishing base rate
+    const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
+    const { rate: polishRate20mm } = getServiceRate(serviceRates, 'POLISHING', 20, pieceCategory);
 
     const edgeLengths = [
       piece.edge_top ? piece.width_mm : 0,
@@ -828,7 +859,7 @@ function calculateServiceCosts(
       ? pricingContext.mitredMultiplier
       : pricingContext.laminatedMultiplier;
 
-    totalLaminationCost += pieceFinishedEdgeLm * (polishingRate20mm * multiplier);
+    totalLaminationCost += pieceFinishedEdgeLm * (polishRate20mm * multiplier);
     totalLaminationLm += pieceFinishedEdgeLm;
   }
 
@@ -910,13 +941,7 @@ function calculatePiecePricing(
     cutouts: unknown;
     lamination_method: string;
   },
-  serviceRates: Array<{
-    serviceType: string;
-    name: string;
-    rate20mm: { toNumber: () => number };
-    rate40mm: { toNumber: () => number };
-    minimumCharge: { toNumber: () => number } | null;
-  }>,
+  serviceRates: ServiceRateRecord[],
   edgeTypes: Map<string, {
     id: string;
     name: string;
@@ -934,16 +959,17 @@ function calculatePiecePricing(
     minimumCharge: { toNumber: () => number } | null;
   }>,
   fabricationDiscountPct: number,
-  pricingContext: PricingContext
+  pricingContext: PricingContext,
+  fabricationCategory: string = 'ENGINEERED'
 ): PiecePricingBreakdown {
   const thickness = piece.thickness_mm;
   const isThick = thickness > 20;
 
-  // Get service rates based on thickness — no fallback defaults, rates must exist
-  const { rate: cuttingRateVal } = getServiceRate(serviceRates, 'CUTTING', thickness);
-  const { rate: polishingRateVal } = getServiceRate(serviceRates, 'POLISHING', thickness);
+  // Get service rates based on thickness + fabrication category — no fallback defaults, rates must exist
+  const { rate: cuttingRateVal } = getServiceRate(serviceRates, 'CUTTING', thickness, fabricationCategory);
+  const { rate: polishingRateVal } = getServiceRate(serviceRates, 'POLISHING', thickness, fabricationCategory);
   const { rate: installRateVal, rateRecord: installRateRecord } =
-    getServiceRate(serviceRates, 'INSTALLATION', thickness);
+    getServiceRate(serviceRates, 'INSTALLATION', thickness, fabricationCategory);
 
   // Piece dimensions
   const perimeterMm = 2 * (piece.length_mm + piece.width_mm);
@@ -1003,7 +1029,7 @@ function calculatePiecePricing(
   // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
   let laminationBreakdown: PiecePricingBreakdown['fabrication']['lamination'];
   if (thickness > 20 && piece.lamination_method !== 'NONE') {
-    const polishRate20mm = getServiceRate(serviceRates, 'POLISHING', 20).rate;
+    const polishRate20mm = getServiceRate(serviceRates, 'POLISHING', 20, fabricationCategory).rate;
     const multiplier = piece.lamination_method === 'MITRED'
       ? pricingContext.mitredMultiplier
       : pricingContext.laminatedMultiplier;
@@ -1134,6 +1160,7 @@ function calculatePiecePricing(
   return {
     pieceId: piece.id,
     pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+    fabricationCategory,
     dimensions: {
       lengthMm: piece.length_mm,
       widthMm: piece.width_mm,
