@@ -1,7 +1,8 @@
 import prisma from '@/lib/db';
 import { notFound } from 'next/navigation';
 import TemplateEditor from '../../components/TemplateEditor';
-import type { TemplateData } from '@/lib/types/unit-templates';
+import MappingMatrix from '../../components/MappingMatrix';
+import type { TemplateData, MaterialRole } from '@/lib/types/unit-templates';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,6 +28,15 @@ export default async function EditTemplatePage({
 
   const templateData = template.templateData as unknown as TemplateData;
 
+  // Extract unique material roles from the template for the mapping matrix
+  const materialRolesSet = new Set<MaterialRole>();
+  for (const room of templateData.rooms) {
+    for (const piece of room.pieces) {
+      materialRolesSet.add(piece.materialRole);
+    }
+  }
+  const materialRoles = Array.from(materialRolesSet);
+
   return (
     <div className="space-y-6">
       <h1 className="text-2xl font-bold text-gray-900">Edit Template</h1>
@@ -38,6 +48,12 @@ export default async function EditTemplatePage({
           description: template.description || '',
           templateData,
         }}
+      />
+
+      {/* Finish Tier Mappings */}
+      <MappingMatrix
+        templateId={template.id}
+        materialRoles={materialRoles}
       />
     </div>
   );

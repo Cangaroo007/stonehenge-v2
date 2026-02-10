@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import ScheduleParser from './ScheduleParser';
+import MappingReadiness from './MappingReadiness';
 
 interface QuoteSummary {
   id: number;
@@ -329,6 +330,9 @@ export default function UnitBlockDetailPage() {
 
       {/* Finishes Schedule Parser */}
       <ScheduleParser projectId={projectId} onMappingsCreated={fetchProject} />
+
+      {/* Mapping Readiness Dashboard */}
+      <MappingReadiness projectId={projectId} />
 
       {/* Project Change Report */}
       {hasChanges && (
