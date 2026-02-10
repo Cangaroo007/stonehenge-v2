@@ -22,6 +22,7 @@ export interface PricingContext {
   laminatedMultiplier: number;
   mitredMultiplier: number;
   wasteFactorPercent: number;
+  grainMatchingSurchargePercent: number;
 }
 
 export interface DiscountBreakdown {

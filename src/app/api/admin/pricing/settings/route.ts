@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         currency: 'AUD',
         gstRate: '0.1000',
         wasteFactorPercent: '15.00',
+        grainMatchingSurchargePercent: '15.00',
         organisationId
       });
     }
@@ -49,6 +50,7 @@ export async function GET(request: NextRequest) {
       currency: settings.currency,
       gstRate: Number(settings.gst_rate).toFixed(4),
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
+      grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -134,6 +136,16 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    if (body.grainMatchingSurchargePercent !== undefined) {
+      const gm = Number(body.grainMatchingSurchargePercent);
+      if (isNaN(gm) || gm < 0 || gm > 100) {
+        return NextResponse.json(
+          { error: 'Grain matching surcharge must be between 0 and 100 percent' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if settings already exist
     const existingSettings = await prisma.pricing_settings.findUnique({
       where: { organisation_id: organisationId }
@@ -154,6 +166,7 @@ export async function PUT(request: NextRequest) {
           currency: body.currency,
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : undefined,
           waste_factor_percent: body.wasteFactorPercent !== undefined ? parseFloat(body.wasteFactorPercent) : undefined,
+          grain_matching_surcharge_percent: body.grainMatchingSurchargePercent !== undefined ? parseFloat(body.grainMatchingSurchargePercent) : undefined,
           updated_at: new Date(),
         }
       });
@@ -171,6 +184,7 @@ export async function PUT(request: NextRequest) {
           currency: body.currency || 'AUD',
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : 0.1,
           waste_factor_percent: body.wasteFactorPercent ? parseFloat(body.wasteFactorPercent) : 15.0,
+          grain_matching_surcharge_percent: body.grainMatchingSurchargePercent ? parseFloat(body.grainMatchingSurchargePercent) : 15.0,
           updated_at: new Date(),
         }
       });
@@ -188,6 +202,7 @@ export async function PUT(request: NextRequest) {
       currency: settings.currency,
       gstRate: Number(settings.gst_rate).toFixed(4),
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
+      grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };

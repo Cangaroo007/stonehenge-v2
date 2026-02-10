@@ -8,6 +8,7 @@ interface PricingSettings {
   organisationId: string;
   materialPricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE';
   wasteFactorPercent: string;
+  grainMatchingSurchargePercent: string;
   cuttingUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
   polishingUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
   installationUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
@@ -21,6 +22,7 @@ export default function PricingSettingsPage() {
     organisationId: 'default-org',
     materialPricingBasis: 'PER_SLAB',
     wasteFactorPercent: '15.00',
+    grainMatchingSurchargePercent: '15.00',
     cuttingUnit: 'LINEAR_METRE',
     polishingUnit: 'LINEAR_METRE',
     installationUnit: 'SQUARE_METRE',
@@ -321,6 +323,40 @@ export default function PricingSettingsPage() {
             <p className="text-xs text-gray-500">
               Enter as decimal (e.g., 0.10 for 10% GST)
             </p>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Oversize & Joins */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Oversize & Joins</h3>
+          <div className="space-y-2">
+            <label htmlFor="grainMatchingSurchargePercent" className="block text-sm font-medium text-gray-700">
+              Grain Matching Surcharge (%)
+            </label>
+            <p className="text-xs text-gray-500">
+              Applied to fabrication subtotal for oversize pieces requiring joins. Set to 0 to disable.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                id="grainMatchingSurchargePercent"
+                name="grainMatchingSurchargePercent"
+                min={0}
+                max={100}
+                step={0.5}
+                value={settings.grainMatchingSurchargePercent}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    grainMatchingSurchargePercent: e.target.value,
+                  })
+                }
+                className="w-24 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">%</span>
+            </div>
           </div>
         </div>
 
