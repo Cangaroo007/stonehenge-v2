@@ -35,53 +35,71 @@ async function seedPricingSettings() {
 
   console.log(`  ✅ Pricing settings: ${settings.id}`);
 
-  // Service rates
+  // Service rates (base rates for ENGINEERED — other categories get multipliers)
   const serviceRates = [
-    { id: 'sr-cutting', serviceType: 'CUTTING', name: 'Cutting', description: 'Stone cutting per lineal metre', rate20mm: 17.50, rate40mm: 45.00, minimumCharge: 50.00 },
-    { id: 'sr-polishing', serviceType: 'POLISHING', name: 'Polishing', description: 'Edge polishing per lineal metre', rate20mm: 45.00, rate40mm: 115.00, minimumCharge: 50.00 },
-    { id: 'sr-installation', serviceType: 'INSTALLATION', name: 'Installation', description: 'Installation per square metre', rate20mm: 140.00, rate40mm: 170.00, minimumCharge: 200.00 },
-    { id: 'sr-waterfall-end', serviceType: 'WATERFALL_END', name: 'Waterfall End', description: 'Waterfall end return', rate20mm: 300.00, rate40mm: 650.00, minimumCharge: 300.00 },
-    { id: 'sr-templating', serviceType: 'TEMPLATING', name: 'Templating', description: 'On-site templating', rate20mm: 180.00, rate40mm: 180.00, minimumCharge: 180.00 },
-    { id: 'sr-delivery', serviceType: 'DELIVERY', name: 'Delivery', description: 'Delivery per trip', rate20mm: 150.00, rate40mm: 150.00, minimumCharge: 100.00 },
+    { serviceType: 'CUTTING',       name: 'Cutting',       description: 'Stone cutting per lineal metre',    rate20mm: 17.50,  rate40mm: 45.00,  minimumCharge: 50.00  },
+    { serviceType: 'POLISHING',     name: 'Polishing',     description: 'Edge polishing per lineal metre',   rate20mm: 45.00,  rate40mm: 115.00, minimumCharge: 50.00  },
+    { serviceType: 'INSTALLATION',  name: 'Installation',  description: 'Installation per square metre',     rate20mm: 140.00, rate40mm: 170.00, minimumCharge: 200.00 },
+    { serviceType: 'WATERFALL_END', name: 'Waterfall End', description: 'Waterfall end return',              rate20mm: 300.00, rate40mm: 650.00, minimumCharge: 300.00 },
+    { serviceType: 'TEMPLATING',    name: 'Templating',    description: 'On-site templating',                rate20mm: 180.00, rate40mm: 180.00, minimumCharge: 180.00 },
+    { serviceType: 'DELIVERY',      name: 'Delivery',      description: 'Delivery per trip',                 rate20mm: 150.00, rate40mm: 150.00, minimumCharge: 100.00 },
+    { serviceType: 'JOIN',          name: 'Join',          description: 'Join fabrication per lineal metre',  rate20mm: 80.00,  rate40mm: 80.00,  minimumCharge: 50.00  },
   ];
 
-  // Seed ENGINEERED rates only (baseline).
-  // Other fabrication categories are seeded via seed-category-service-rates.ts
-  // after the pricing calculator is updated to filter by category (11.0c).
+  // Material complexity multipliers relative to ENGINEERED baseline
+  const categoryMultipliers = {
+    ENGINEERED:      1.00,
+    NATURAL_HARD:    1.15,
+    NATURAL_SOFT:    1.10,
+    NATURAL_PREMIUM: 1.30,
+    SINTERED:        1.30,
+  };
+  const categories = Object.keys(categoryMultipliers);
+
+  let rateCount = 0;
   for (const rate of serviceRates) {
-    await prisma.service_rates.upsert({
-      where: {
-        pricing_settings_id_serviceType_fabricationCategory: {
+    for (const category of categories) {
+      const multiplier = categoryMultipliers[category];
+      const r20 = Math.round(rate.rate20mm * multiplier * 100) / 100;
+      const r40 = Math.round(rate.rate40mm * multiplier * 100) / 100;
+      const minCharge = Math.round(rate.minimumCharge * multiplier * 100) / 100;
+      const rateId = `sr-${rate.serviceType.toLowerCase()}-${category.toLowerCase()}`;
+
+      await prisma.service_rates.upsert({
+        where: {
+          pricing_settings_id_serviceType_fabricationCategory: {
+            pricing_settings_id: settings.id,
+            serviceType: rate.serviceType,
+            fabricationCategory: category,
+          },
+        },
+        update: {
+          name: rate.name,
+          description: rate.description,
+          rate20mm: r20,
+          rate40mm: r40,
+          minimumCharge: minCharge,
+          isActive: true,
+          updated_at: new Date(),
+        },
+        create: {
+          id: rateId,
           pricing_settings_id: settings.id,
           serviceType: rate.serviceType,
-          fabricationCategory: 'ENGINEERED',
+          fabricationCategory: category,
+          name: rate.name,
+          description: rate.description,
+          rate20mm: r20,
+          rate40mm: r40,
+          minimumCharge: minCharge,
+          isActive: true,
+          updated_at: new Date(),
         },
-      },
-      update: {
-        name: rate.name,
-        description: rate.description,
-        rate20mm: rate.rate20mm,
-        rate40mm: rate.rate40mm,
-        minimumCharge: rate.minimumCharge,
-        isActive: true,
-        updated_at: new Date(),
-      },
-      create: {
-        id: rate.id,
-        pricing_settings_id: settings.id,
-        serviceType: rate.serviceType,
-        fabricationCategory: 'ENGINEERED',
-        name: rate.name,
-        description: rate.description,
-        rate20mm: rate.rate20mm,
-        rate40mm: rate.rate40mm,
-        minimumCharge: rate.minimumCharge,
-        isActive: true,
-        updated_at: new Date(),
-      },
-    });
+      });
+      rateCount++;
+    }
   }
-  console.log(`  ✅ Service rates: ${serviceRates.length} rows (ENGINEERED baseline)`);
+  console.log(`  ✅ Service rates: ${rateCount} rows (${serviceRates.length} types × ${categories.length} categories)`);
 
   // Cutout rates
   const cutoutRates = [
