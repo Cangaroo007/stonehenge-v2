@@ -28,6 +28,16 @@ async function getData() {
   // Serialize Prisma Decimal types to JSON-safe values
   const serialized = JSON.parse(JSON.stringify({ customers, materials, pricingRules, edgeTypes }));
 
+  // Transform materials to add camelCase aliases expected by QuoteForm
+  serialized.materials = serialized.materials.map((m: any) => ({
+    ...m,
+    pricePerSqm: Number(m.price_per_sqm || 0),
+    pricePerSlab: m.price_per_slab ? Number(m.price_per_slab) : null,
+    isActive: m.is_active,
+    slabLengthMm: m.slab_length_mm,
+    slabWidthMm: m.slab_width_mm,
+  }));
+
   return { ...serialized, nextQuoteNumber };
 }
 
