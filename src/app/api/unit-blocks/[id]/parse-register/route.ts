@@ -14,7 +14,9 @@ import {
   parseFinishesRegister,
   type ParsedRegister,
   type ParsedUnit,
+  type DetectedProjectType,
 } from '@/lib/services/register-parser';
+import { UnitBlockProjectType } from '@prisma/client';
 import { v4 as uuidv4 } from 'uuid';
 
 const MAX_PDF_SIZE = 32 * 1024 * 1024; // 32MB
@@ -24,6 +26,26 @@ const ALLOWED_TYPES = [
   'image/jpeg',
   'image/jpg',
 ];
+
+/**
+ * Map AI-detected project type to Prisma enum values.
+ */
+function mapProjectType(detected: DetectedProjectType): UnitBlockProjectType {
+  switch (detected) {
+    case 'APARTMENTS':
+      return 'APARTMENTS';
+    case 'TOWNHOUSES':
+      return 'TOWNHOUSES';
+    case 'COMMERCIAL':
+      return 'COMMERCIAL';
+    case 'MIXED':
+      return 'MIXED_USE';
+    case 'VILLAS':
+    case 'UNKNOWN':
+    default:
+      return 'OTHER';
+  }
+}
 
 export async function POST(
   request: NextRequest,
@@ -133,18 +155,11 @@ async function handleParse(
 
   // Parse the document with Claude Vision
   const base64 = buffer.toString('base64');
-  let parsed: ParsedRegister;
-
-  if (file.type === 'application/pdf') {
-    // Send the PDF directly to Claude (native PDF support)
-    parsed = await parseFinishesRegister(base64, 'application/pdf');
-  } else {
-    // Send image directly
-    parsed = await parseFinishesRegister(base64, file.type);
-  }
+  const parsed = await parseFinishesRegister(base64, file.type);
 
   console.log(
-    `[ParseRegister] Parsed ${parsed.units.length} units from ${file.name} (confidence: ${parsed.confidence})`
+    `[ParseRegister] Parsed ${parsed.units.length} units from ${file.name} ` +
+      `(confidence: ${parsed.confidence}, type: ${parsed.projectType})`
   );
 
   return NextResponse.json({
@@ -222,7 +237,7 @@ async function handleConfirm(
     );
   }
 
-  // Bulk create units and update project totalUnits in a transaction
+  // Bulk create units and update project in a transaction
   const result = await prisma.$transaction(async (tx) => {
     const created = await tx.unit_block_units.createMany({
       data: unitsToCreate.map((unit) => ({
@@ -238,17 +253,32 @@ async function handleConfirm(
       })),
     });
 
+    // Update totalUnits count
     await tx.unit_block_projects.update({
       where: { id: projectId },
       data: { totalUnits: { increment: created.count } },
     });
 
-    // Update the finishesRegisterId on the project if a file was uploaded
+    // Link the finishes register file to the project
     if (fileId) {
       await tx.unit_block_projects.update({
         where: { id: projectId },
         data: { finishesRegisterId: fileId },
       });
+    }
+
+    // Update project type if AI detected one and project still has default
+    if (parsed.projectType && parsed.projectType !== 'UNKNOWN') {
+      const currentProject = await tx.unit_block_projects.findUnique({
+        where: { id: projectId },
+        select: { projectType: true },
+      });
+      if (currentProject?.projectType === 'APARTMENTS') {
+        await tx.unit_block_projects.update({
+          where: { id: projectId },
+          data: { projectType: mapProjectType(parsed.projectType) },
+        });
+      }
     }
 
     return created;
@@ -394,7 +424,9 @@ async function autoLinkFinishMappings(projectId: number): Promise<{
   // Build a lookup set: "templateId:finishLevel:colourScheme" and "templateId:finishLevel:*"
   const mappingKeys = new Set<string>();
   for (const m of mappings) {
-    mappingKeys.add(`${m.templateId}:${m.finishLevel}:${m.colourScheme ?? '*'}`);
+    mappingKeys.add(
+      `${m.templateId}:${m.finishLevel}:${m.colourScheme ?? '*'}`
+    );
     // Also add a wildcard key so we can check if at least a finish-level match exists
     mappingKeys.add(`${m.templateId}:${m.finishLevel}:*`);
   }

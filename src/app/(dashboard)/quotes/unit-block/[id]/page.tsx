@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
@@ -89,6 +89,28 @@ interface UnitBlockProject {
   createdAt: string;
 }
 
+// Register parser types
+interface ParsedUnit {
+  unitNumber: string;
+  level: number | null;
+  colourScheme: string | null;
+  finishLevel: string | null;
+  unitTypeCode: string | null;
+  saleStatus: string | null;
+  buyerChangeSpec: boolean;
+  additionalFields: Record<string, string>;
+}
+
+interface ParsedRegister {
+  projectName: string | null;
+  buildingName: string | null;
+  projectType: string;
+  detectedColumns: string[];
+  units: ParsedUnit[];
+  confidence: number;
+  notes: string | null;
+}
+
 const CHANGE_TYPES = [
   { value: 'MATERIAL_UPGRADE', label: 'Material Upgrade' },
   { value: 'EDGE_CHANGE', label: 'Edge Change' },
@@ -131,6 +153,16 @@ export default function UnitBlockDetailPage() {
   const [changeOriginalValue, setChangeOriginalValue] = useState('');
   const [changeNewValue, setChangeNewValue] = useState('');
   const [changeCostImpact, setChangeCostImpact] = useState('');
+
+  // Register upload state
+  const [registerFile, setRegisterFile] = useState<File | null>(null);
+  const [registerParsing, setRegisterParsing] = useState(false);
+  const [registerParsed, setRegisterParsed] = useState<ParsedRegister | null>(null);
+  const [registerFileId, setRegisterFileId] = useState<number | null>(null);
+  const [registerConfirming, setRegisterConfirming] = useState(false);
+  const [registerError, setRegisterError] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchProject = useCallback(async () => {
     try {
@@ -196,7 +228,7 @@ export default function UnitBlockDetailPage() {
         const data = await res.json();
         alert(data.error || 'Failed to add unit');
       }
-    } catch (err) {
+    } catch {
       alert('Failed to add unit');
     } finally {
       setAddingUnit(false);
@@ -270,11 +302,138 @@ export default function UnitBlockDetailPage() {
         const data = await res.json();
         alert(data.error || 'Failed to record change');
       }
-    } catch (err) {
+    } catch {
       alert('Failed to record change');
     } finally {
       setSubmittingChange(false);
     }
+  };
+
+  // --- Register upload handlers ---
+
+  const handleRegisterFileSelect = (file: File) => {
+    const allowed = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
+    if (!allowed.includes(file.type)) {
+      setRegisterError('Invalid file type. Please upload a PDF, PNG, or JPG file.');
+      return;
+    }
+    if (file.size > 32 * 1024 * 1024) {
+      setRegisterError('File too large. Maximum size is 32MB.');
+      return;
+    }
+    setRegisterFile(file);
+    setRegisterError(null);
+    setRegisterParsed(null);
+    setRegisterFileId(null);
+  };
+
+  const handleRegisterUpload = async () => {
+    if (!registerFile) return;
+    setRegisterParsing(true);
+    setRegisterError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', registerFile);
+
+      const res = await fetch(
+        `/api/unit-blocks/${projectId}/parse-register?action=parse`,
+        { method: 'POST', body: formData }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        setRegisterError(data.error || 'Failed to parse register');
+        return;
+      }
+
+      const data = await res.json();
+      setRegisterParsed(data.parsed);
+      setRegisterFileId(data.fileId);
+    } catch {
+      setRegisterError('Failed to upload and parse register');
+    } finally {
+      setRegisterParsing(false);
+    }
+  };
+
+  const handleRegisterConfirm = async () => {
+    if (!registerParsed) return;
+    setRegisterConfirming(true);
+    setRegisterError(null);
+
+    try {
+      const res = await fetch(
+        `/api/unit-blocks/${projectId}/parse-register?action=confirm`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            parsed: registerParsed,
+            fileId: registerFileId,
+          }),
+        }
+      );
+
+      if (!res.ok) {
+        const data = await res.json();
+        setRegisterError(data.error || 'Failed to create units');
+        return;
+      }
+
+      const data = await res.json();
+      alert(`Successfully created ${data.unitsCreated} units.${data.skipped?.length ? ` Skipped ${data.skipped.length} duplicates.` : ''}`);
+
+      // Reset register state and refresh project
+      setRegisterFile(null);
+      setRegisterParsed(null);
+      setRegisterFileId(null);
+      await fetchProject();
+      await fetchChangeReport();
+    } catch {
+      setRegisterError('Failed to confirm and create units');
+    } finally {
+      setRegisterConfirming(false);
+    }
+  };
+
+  const handleRegisterCancel = () => {
+    setRegisterFile(null);
+    setRegisterParsed(null);
+    setRegisterFileId(null);
+    setRegisterError(null);
+  };
+
+  const updateParsedUnit = (index: number, field: keyof ParsedUnit, value: string | number | boolean | null) => {
+    if (!registerParsed) return;
+    const updatedUnits = [...registerParsed.units];
+    updatedUnits[index] = { ...updatedUnits[index], [field]: value };
+    setRegisterParsed({ ...registerParsed, units: updatedUnits });
+  };
+
+  const removeParsedUnit = (index: number) => {
+    if (!registerParsed) return;
+    const updatedUnits = registerParsed.units.filter((_, i) => i !== index);
+    setRegisterParsed({ ...registerParsed, units: updatedUnits });
+  };
+
+  // --- Drag and drop handlers ---
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const file = e.dataTransfer.files[0];
+    if (file) handleRegisterFileSelect(file);
   };
 
   if (loading) return <div className="flex items-center justify-center min-h-[400px]"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary-600"></div></div>;
@@ -286,6 +445,11 @@ export default function UnitBlockDetailPage() {
   const grandTotal = Number(project.grandTotal || 0);
 
   const hasChanges = changeReport && changeReport.totalChanges > 0;
+
+  // Collect unique additionalFields keys from parsed data
+  const additionalFieldKeys = registerParsed
+    ? Array.from(new Set(registerParsed.units.flatMap((u) => Object.keys(u.additionalFields || {}))))
+    : [];
 
   return (
     <div className="space-y-6">
@@ -323,6 +487,262 @@ export default function UnitBlockDetailPage() {
             <div className="flex justify-between text-sm text-green-600"><span>Volume Discount:</span><span className="font-medium">-{formatCurrency(discount)}</span></div>
             <div className="flex justify-between text-lg font-semibold pt-3 border-t border-gray-200"><span>Grand Total (incl. GST):</span><span className="text-blue-600">{formatCurrency(grandTotal)}</span></div>
           </div>
+        </div>
+      </div>
+
+      {/* Finishes Register Upload Section */}
+      <div className="bg-white rounded-lg shadow">
+        <div className="p-6 border-b border-gray-200">
+          <h2 className="text-lg font-semibold text-gray-900">Upload Finishes Register</h2>
+          <p className="text-sm text-gray-500 mt-1">Upload a PDF register to bulk-import units. The AI will adaptively extract data from any register format.</p>
+        </div>
+
+        <div className="p-6">
+          {!registerParsed ? (
+            /* Upload area */
+            <div className="space-y-4">
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                onClick={() => fileInputRef.current?.click()}
+                className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+                  dragOver ? 'border-blue-400 bg-blue-50' :
+                  registerFile ? 'border-green-300 bg-green-50' :
+                  'border-gray-300 hover:border-gray-400'
+                }`}
+              >
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".pdf,.png,.jpg,.jpeg"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (file) handleRegisterFileSelect(file);
+                  }}
+                />
+                {registerFile ? (
+                  <div>
+                    <svg className="mx-auto h-10 w-10 text-green-500 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-900">{registerFile.name}</p>
+                    <p className="text-xs text-gray-500 mt-1">{(registerFile.size / 1024).toFixed(0)} KB &mdash; Click or drop to replace</p>
+                  </div>
+                ) : (
+                  <div>
+                    <svg className="mx-auto h-10 w-10 text-gray-400 mb-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-sm font-medium text-gray-700">Drop your Finishes Register here</p>
+                    <p className="text-xs text-gray-500 mt-1">PDF, PNG, or JPG up to 32MB</p>
+                  </div>
+                )}
+              </div>
+
+              {registerError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-700">{registerError}</p>
+                </div>
+              )}
+
+              {registerFile && (
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleRegisterUpload}
+                    disabled={registerParsing}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+                  >
+                    {registerParsing ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Parsing with AI...
+                      </>
+                    ) : (
+                      'Upload & Parse'
+                    )}
+                  </button>
+                  <button
+                    onClick={handleRegisterCancel}
+                    disabled={registerParsing}
+                    className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              )}
+            </div>
+          ) : (
+            /* Preview and confirm area */
+            <div className="space-y-4">
+              {/* Metadata bar */}
+              <div className="flex flex-wrap items-center gap-4 text-sm">
+                <span className="font-medium text-gray-900">{registerParsed.units.length} units found</span>
+                {registerParsed.projectType && registerParsed.projectType !== 'UNKNOWN' && (
+                  <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                    {registerParsed.projectType}
+                  </span>
+                )}
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                  registerParsed.confidence >= 0.9 ? 'bg-green-100 text-green-800' :
+                  registerParsed.confidence >= 0.7 ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-red-100 text-red-800'
+                }`}>
+                  {Math.round(registerParsed.confidence * 100)}% confidence
+                </span>
+                {registerParsed.projectName && (
+                  <span className="text-gray-500">Project: {registerParsed.projectName}</span>
+                )}
+              </div>
+
+              {/* Detected columns */}
+              {registerParsed.detectedColumns.length > 0 && (
+                <div className="text-xs text-gray-500">
+                  Detected columns: {registerParsed.detectedColumns.join(', ')}
+                </div>
+              )}
+
+              {/* Notes from AI */}
+              {registerParsed.notes && (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                  <p className="text-sm text-amber-800">{registerParsed.notes}</p>
+                </div>
+              )}
+
+              {registerError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+                  <p className="text-sm text-red-700">{registerError}</p>
+                </div>
+              )}
+
+              {/* Editable preview table */}
+              <div className="overflow-x-auto border border-gray-200 rounded-lg">
+                <table className="min-w-full divide-y divide-gray-200 text-sm">
+                  <thead className="bg-gray-50">
+                    <tr>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">#</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Unit</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Level</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Colour</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Finish</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Buyer Chg</th>
+                      {additionalFieldKeys.map((key) => (
+                        <th key={key} className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">{key}</th>
+                      ))}
+                      <th className="px-3 py-2 text-right text-xs font-medium text-gray-500 uppercase">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {registerParsed.units.map((unit, idx) => (
+                      <tr key={idx} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-400">{idx + 1}</td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.unitNumber}
+                            onChange={(e) => updateParsedUnit(idx, 'unitNumber', e.target.value)}
+                            className="w-20 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.level ?? ''}
+                            onChange={(e) => updateParsedUnit(idx, 'level', e.target.value ? parseInt(e.target.value, 10) || null : null)}
+                            className="w-14 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.unitTypeCode ?? ''}
+                            onChange={(e) => updateParsedUnit(idx, 'unitTypeCode', e.target.value || null)}
+                            className="w-16 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.colourScheme ?? ''}
+                            onChange={(e) => updateParsedUnit(idx, 'colourScheme', e.target.value || null)}
+                            className="w-24 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.finishLevel ?? ''}
+                            onChange={(e) => updateParsedUnit(idx, 'finishLevel', e.target.value || null)}
+                            className="w-24 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2">
+                          <input
+                            type="text"
+                            value={unit.saleStatus ?? ''}
+                            onChange={(e) => updateParsedUnit(idx, 'saleStatus', e.target.value || null)}
+                            className="w-24 px-1 py-0.5 border border-gray-200 rounded text-sm focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                          />
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          <input
+                            type="checkbox"
+                            checked={unit.buyerChangeSpec}
+                            onChange={(e) => updateParsedUnit(idx, 'buyerChangeSpec', e.target.checked)}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                        </td>
+                        {additionalFieldKeys.map((key) => (
+                          <td key={key} className="px-3 py-2 text-xs text-gray-600">
+                            {unit.additionalFields?.[key] ?? ''}
+                          </td>
+                        ))}
+                        <td className="px-3 py-2 text-right">
+                          <button
+                            onClick={() => removeParsedUnit(idx)}
+                            className="text-gray-400 hover:text-red-500"
+                            title="Remove unit"
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleRegisterConfirm}
+                  disabled={registerConfirming || registerParsed.units.length === 0}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg text-sm font-medium hover:bg-green-700 disabled:opacity-50 flex items-center gap-2"
+                >
+                  {registerConfirming ? (
+                    <>
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                      Creating units...
+                    </>
+                  ) : (
+                    `Create ${registerParsed.units.length} Units`
+                  )}
+                </button>
+                <button
+                  onClick={handleRegisterCancel}
+                  disabled={registerConfirming}
+                  className="px-4 py-2 text-gray-600 hover:text-gray-800 text-sm"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -428,7 +848,7 @@ export default function UnitBlockDetailPage() {
         <div className="divide-y divide-gray-200">
           {project.units.length === 0 ? (
             <div className="p-6 text-center text-gray-500">
-              No units added yet. Click &quot;Add Unit&quot; to get started.
+              No units added yet. Click &quot;Add Unit&quot; or upload a Finishes Register to get started.
             </div>
           ) : (
             project.units.map((unit, index) => {
@@ -458,6 +878,7 @@ export default function UnitBlockDetailPage() {
                           {unit.level != null ? `Level ${unit.level}` : ''}
                           {unit.unitTypeCode ? ` \u2022 Type ${unit.unitTypeCode}` : ''}
                           {unit.finishLevel ? ` \u2022 ${unit.finishLevel}` : ''}
+                          {unit.colourScheme ? ` \u2022 ${unit.colourScheme}` : ''}
                         </p>
                       </div>
                     </div>
