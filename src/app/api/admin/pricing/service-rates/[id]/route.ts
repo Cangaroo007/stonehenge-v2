@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/service-rates/[id] - Get single service rate
 export async function GET(
@@ -8,8 +7,6 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
-
     const { id } = await params;
 
     const rate = await prisma.service_rates.findUnique({
@@ -41,8 +38,6 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, ['ADMIN']);
-
     const { id } = await params;
     const body = await request.json();
 
@@ -77,8 +72,6 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    await requireAuth(request, ['ADMIN']);
-
     const { id } = await params;
 
     await prisma.service_rates.delete({

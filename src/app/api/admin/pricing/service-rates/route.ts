@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/service-rates - List all service rates
 // Optional query param: ?fabricationCategory=ENGINEERED (filter by category)
 export async function GET(request: NextRequest) {
   try {
-    await requireAuth(request, ['ADMIN', 'SALES_MANAGER']);
-
     const { searchParams } = new URL(request.url);
     const fabricationCategory = searchParams.get('fabricationCategory');
 
@@ -36,8 +33,6 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/pricing/service-rates - Create new service rate
 export async function POST(request: NextRequest) {
   try {
-    await requireAuth(request, ['ADMIN']);
-
     const body = await request.json();
 
     // Validate required fields
