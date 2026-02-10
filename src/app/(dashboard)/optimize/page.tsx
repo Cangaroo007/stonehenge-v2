@@ -35,6 +35,11 @@ interface QuotePiece {
   name: string;
   lengthMm: number;
   widthMm: number;
+  thicknessMm?: number;
+  edgeTop?: string | null;
+  edgeBottom?: string | null;
+  edgeLeft?: string | null;
+  edgeRight?: string | null;
   room?: { name: string };
 }
 
@@ -110,8 +115,13 @@ export default function OptimizePage() {
               width: String(piece.lengthMm),
               height: String(piece.widthMm),
               label: `${quote_rooms.name}: ${piece.name || 'Piece'}`,
-              thickness: String((piece as any).thicknessMm || 20),
-              finishedEdges: { top: false, bottom: false, left: false, right: false },
+              thickness: String(piece.thicknessMm || 20),
+              finishedEdges: {
+                top: !!piece.edgeTop,
+                bottom: !!piece.edgeBottom,
+                left: !!piece.edgeLeft,
+                right: !!piece.edgeRight,
+              },
             });
           });
         });
