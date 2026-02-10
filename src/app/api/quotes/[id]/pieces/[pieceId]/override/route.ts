@@ -6,12 +6,13 @@ import { logActivity } from '@/lib/audit';
 // POST /api/quotes/[id]/pieces/[pieceId]/override
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string; pieceId: string } }
+  { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const quoteId = parseInt(params.id);
-    const pieceId = parseInt(params.pieceId);
+    const { id, pieceId: pieceIdParam } = await params;
+    const quoteId = parseInt(id);
+    const pieceId = parseInt(pieceIdParam);
     
     if (isNaN(quoteId) || isNaN(pieceId)) {
       return NextResponse.json(
@@ -102,11 +103,12 @@ export async function POST(
 // DELETE /api/quotes/[id]/pieces/[pieceId]/override - Clear piece overrides
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string; pieceId: string } }
+  { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
     const user = await requireAuth(request);
-    const pieceId = parseInt(params.pieceId);
+    const { pieceId: pieceIdParam } = await params;
+    const pieceId = parseInt(pieceIdParam);
     
     if (isNaN(pieceId)) {
       return NextResponse.json(
