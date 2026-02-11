@@ -4,6 +4,36 @@ import { Prisma } from '@prisma/client';
 // QuoteChangeType is not yet in Prisma schema - define locally
 export type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_CLIENT' | 'CLIENT_APPROVED' | 'CLIENT_REJECTED' | 'CLIENT_VIEWED' | 'PRICING_RECALCULATED' | 'STATUS_CHANGED';
 
+// Fields that exist in the database but are not yet in the Prisma schema.
+// Used for double-cast pattern: `quote as unknown as QuoteExtendedFields`
+interface QuoteExtendedFields {
+  deliveryCost: number | null;
+  templatingCost: number | null;
+  overrideSubtotal: number | null;
+  overrideTotal: number | null;
+  overrideDeliveryCost: number | null;
+  overrideTemplatingCost: number | null;
+  overrideReason: string | null;
+  deliveryAddress: string | null;
+  deliveryDistanceKm: number | null;
+  templatingRequired: boolean;
+  templatingDistanceKm: number | null;
+}
+
+// quote_versions model is not yet in the Prisma schema.
+// This interface types the prisma client extension for that model.
+interface PrismaWithQuoteVersions {
+  $transaction: typeof prisma.$transaction;
+  quote_versions: {
+    create: (args: { data: Record<string, unknown> }) => Promise<{ id: number }>;
+    findUnique: (args: { where: Record<string, unknown> }) => Promise<{
+      id: number;
+      snapshotData: unknown;
+      version: number;
+    } | null>;
+  };
+}
+
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
   // Quote header info
@@ -138,6 +168,9 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     }
   }
 
+  // Double-cast to access fields not yet in Prisma schema
+  const ext = quote as unknown as QuoteExtendedFields;
+
   return {
     quote_number: quote.quote_number,
     status: quote.status,
@@ -190,23 +223,23 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
       tax_amount: Number(quote.tax_amount),
       total: Number(quote.total),
       calculated_total: quote.calculated_total ? Number(quote.calculated_total) : null,
-      // NOTE: delivery/templating/override fields are planned but not yet in schema - use `as any`
-      deliveryCost: (quote as any).deliveryCost ? Number((quote as any).deliveryCost) : null,
-      templatingCost: (quote as any).templatingCost ? Number((quote as any).templatingCost) : null,
+      // These fields exist in DB but not yet in Prisma schema — double-cast to access
+      deliveryCost: ext.deliveryCost ? Number(ext.deliveryCost) : null,
+      templatingCost: ext.templatingCost ? Number(ext.templatingCost) : null,
       overrides: {
-        overrideSubtotal: (quote as any).overrideSubtotal ? Number((quote as any).overrideSubtotal) : null,
-        overrideTotal: (quote as any).overrideTotal ? Number((quote as any).overrideTotal) : null,
-        overrideDeliveryCost: (quote as any).overrideDeliveryCost ? Number((quote as any).overrideDeliveryCost) : null,
-        overrideTemplatingCost: (quote as any).overrideTemplatingCost ? Number((quote as any).overrideTemplatingCost) : null,
-        overrideReason: (quote as any).overrideReason,
+        overrideSubtotal: ext.overrideSubtotal ? Number(ext.overrideSubtotal) : null,
+        overrideTotal: ext.overrideTotal ? Number(ext.overrideTotal) : null,
+        overrideDeliveryCost: ext.overrideDeliveryCost ? Number(ext.overrideDeliveryCost) : null,
+        overrideTemplatingCost: ext.overrideTemplatingCost ? Number(ext.overrideTemplatingCost) : null,
+        overrideReason: ext.overrideReason,
       },
     },
 
     delivery: {
-      deliveryAddress: (quote as any).deliveryAddress,
-      deliveryDistanceKm: (quote as any).deliveryDistanceKm ? Number((quote as any).deliveryDistanceKm) : null,
-      templatingRequired: (quote as any).templatingRequired,
-      templatingDistanceKm: (quote as any).templatingDistanceKm ? Number((quote as any).templatingDistanceKm) : null,
+      deliveryAddress: ext.deliveryAddress,
+      deliveryDistanceKm: ext.deliveryDistanceKm ? Number(ext.deliveryDistanceKm) : null,
+      templatingRequired: ext.templatingRequired,
+      templatingDistanceKm: ext.templatingDistanceKm ? Number(ext.templatingDistanceKm) : null,
     },
     
     notes: quote.notes,
@@ -616,9 +649,10 @@ export async function createQuoteVersion(
   );
 
   // Create version record and update quote in transaction
-  // NOTE: quote_versions model is not yet in Prisma schema - use `as any`
-  await (prisma as any).$transaction([
-    (prisma as any).quote_versions.create({
+  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
+  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
+  await prismaExt.$transaction([
+    prismaExt.quote_versions.create({
       data: {
         quoteId,
         version: newVersionNumber,
@@ -655,8 +689,9 @@ export async function createInitialVersion(
     (sum, r) => sum + r.pieces.length, 0
   );
 
-  // NOTE: quote_versions model is not yet in Prisma schema - use `as any`
-  await (prisma as any).quote_versions.create({
+  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
+  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
+  await prismaExt.quote_versions.create({
     data: {
       quoteId,
       version: 1,
@@ -682,8 +717,9 @@ export async function rollbackToVersion(
   reason?: string
 ): Promise<void> {
   // Get the target version's snapshot
-  // NOTE: quote_versions model is not yet in Prisma schema - use `as any`
-  const targetVersionRecord = await (prisma as any).quote_versions.findUnique({
+  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
+  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
+  const targetVersionRecord = await prismaExt.quote_versions.findUnique({
     where: {
       quoteId_version: {
         quoteId,

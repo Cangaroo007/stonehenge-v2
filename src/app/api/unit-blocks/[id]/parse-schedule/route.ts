@@ -18,6 +18,7 @@ import { matchParsedMaterials } from '@/lib/services/material-matcher';
 import type { MaterialMatch } from '@/lib/services/material-matcher';
 import { v4 as uuidv4 } from 'uuid';
 import { Prisma } from '@prisma/client';
+import { logger } from '@/lib/logger';
 
 const MAX_PDF_SIZE = 32 * 1024 * 1024; // 32MB
 const ALLOWED_TYPES = [
@@ -90,7 +91,7 @@ export async function POST(
       { status: 400 }
     );
   } catch (error) {
-    console.error('[ParseSchedule] Error:', error);
+    logger.error('[ParseSchedule] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to process schedule',
@@ -167,7 +168,7 @@ async function handleParse(
     materialMatches = await matchParsedMaterials(allSpecs);
   }
 
-  console.log(
+  logger.info(
     `[ParseSchedule] Parsed ${parsed.rooms.length} rooms with ${allSpecs.length} stone specs from ${file.name} (confidence: ${parsed.confidence})`
   );
 
@@ -324,7 +325,7 @@ async function handleConfirm(
     return { mappingsCreated };
   });
 
-  console.log(
+  logger.info(
     `[ParseSchedule] Created/updated ${result.mappingsCreated} finish tier mappings for project ${projectId} (${normalisedFinishLevel})`
   );
 

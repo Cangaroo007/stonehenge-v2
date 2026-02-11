@@ -3,6 +3,7 @@ import { getFromR2 } from '@/lib/storage/r2';
 import prisma from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { generateAndStoreThumbnail } from '@/lib/services/pdfThumbnail';
+import { logger } from '@/lib/logger';
 
 /**
  * POST /api/drawings/backfill-thumbnails
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
       orderBy: { uploadedAt: 'desc' },
     });
 
-    console.log(
+    logger.info(
       `[Backfill] Found ${drawings.length} PDF drawings without thumbnails`
     );
 
@@ -70,7 +71,7 @@ export async function POST(request: NextRequest) {
 
     for (const drawing of drawings) {
       try {
-        console.log(
+        logger.info(
           `[Backfill] Processing: ${drawing.filename} (${drawing.id})`
         );
 
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
           status: 'success',
         });
       } catch (err) {
-        console.error(
+        logger.error(
           `[Backfill] Failed for ${drawing.id}:`,
           err instanceof Error ? err.message : err
         );
@@ -114,7 +115,7 @@ export async function POST(request: NextRequest) {
     const failed = results.filter((r) => r.status === 'error').length;
     const duration = Date.now() - startTime;
 
-    console.log(
+    logger.info(
       `[Backfill] Complete: ${succeeded} succeeded, ${failed} failed in ${duration}ms`
     );
 
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
       results,
     });
   } catch (error) {
-    console.error('[Backfill] Error:', error);
+    logger.error('[Backfill] Error:', error);
     return NextResponse.json(
       {
         error:

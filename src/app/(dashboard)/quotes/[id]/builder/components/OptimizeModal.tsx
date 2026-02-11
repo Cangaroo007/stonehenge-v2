@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { OptimizationResult } from '@/types/slab-optimization';
 import { SlabResults } from '@/components/slab-optimizer';
 import { generateCutListCSV, downloadCSV } from '@/lib/services/cut-list-generator';
+import { logger } from '@/lib/logger';
 
 interface PieceInput {
   id: string;
@@ -92,8 +93,6 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
             const savedOptimization = await optimizationResponse.json();
             
             if (savedOptimization && savedOptimization.placements) {
-              console.log('✅ Loaded saved optimization from database');
-              
               // Restore slab settings
               setSlabWidth(String(savedOptimization.slabWidth || 3000));
               setSlabHeight(String(savedOptimization.slabHeight || 1400));
@@ -116,7 +115,6 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
           }
         } catch (err) {
           // No saved optimization found - that's okay
-          console.log('No saved optimization found (new optimization)');
         }
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Failed to load quote pieces');
@@ -182,8 +180,6 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
         throw new Error('Add at least one valid piece');
       }
 
-      console.log('🔄 Running optimization via API (will save to database)...');
-
       // Call API route to run optimization AND save to database
       const response = await fetch(`/api/quotes/${quoteId}/optimize`, {
         method: 'POST',
@@ -202,8 +198,7 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
       }
 
       const data = await response.json();
-      console.log('✅ Optimization saved to database:', data.optimization.id);
-      
+
       setResult(data.result);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Optimization failed');
@@ -262,7 +257,6 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
       }
 
       const importResult = await response.json();
-      console.log(`✅ Saved ${importResult.count} optimized pieces to quote`);
 
       // Call onSaved to refresh parent
       await onSaved();

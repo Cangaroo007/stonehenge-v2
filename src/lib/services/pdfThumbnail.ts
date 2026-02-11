@@ -8,6 +8,7 @@
 import sharp from 'sharp';
 import { uploadToR2, getFromR2 } from '@/lib/storage/r2';
 import prisma from '@/lib/db';
+import { logger } from '@/lib/logger';
 
 const THUMBNAIL_WIDTH = 400;
 const THUMBNAIL_QUALITY = 80;
@@ -72,13 +73,13 @@ export async function generateAndStoreThumbnail(
       data: { thumbnailKey },
     });
 
-    console.log(
+    logger.info(
       `[PDF Thumbnail] Generated thumbnail for drawing ${drawingId}: ${thumbnailKey} (${thumbnail.length} bytes)`
     );
 
     return thumbnailKey;
   } catch (error) {
-    console.error(
+    logger.error(
       `[PDF Thumbnail] Failed to generate thumbnail for drawing ${drawingId}:`,
       error
     );
