@@ -4,7 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
-import ScheduleParser from './ScheduleParser';
 import ScheduleUploader from './ScheduleUploader';
 import RegisterUploader from './RegisterUploader';
 import MappingReadiness from './MappingReadiness';
@@ -351,9 +350,6 @@ export default function UnitBlockDetailPage() {
 
       {/* Finishes Schedule Upload (multi-file, tabbed) */}
       <ScheduleUploader projectId={projectId} onMappingsSaved={fetchProject} />
-
-      {/* Finishes Schedule Parser (single-file legacy) */}
-      <ScheduleParser projectId={projectId} onMappingsCreated={fetchProject} />
 
       {/* Mapping Readiness Dashboard */}
       <MappingReadiness projectId={projectId} />

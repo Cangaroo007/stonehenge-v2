@@ -39,6 +39,11 @@ export async function GET(
           },
         },
         files: true,
+        templates: {
+          where: { isActive: true },
+          orderBy: { unitTypeCode: 'asc' },
+          select: { id: true, name: true, unitTypeCode: true },
+        },
         createdBy: {
           select: { id: true, name: true, email: true },
         },
