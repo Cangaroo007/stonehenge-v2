@@ -5,6 +5,8 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import ScheduleParser from './ScheduleParser';
+import ScheduleUploader from './ScheduleUploader';
+import RegisterUploader from './RegisterUploader';
 import MappingReadiness from './MappingReadiness';
 import BulkQuoteGenerator from './BulkQuoteGenerator';
 
@@ -344,7 +346,13 @@ export default function UnitBlockDetailPage() {
         </div>
       </div>
 
-      {/* Finishes Schedule Parser */}
+      {/* Finishes Register Upload (multi-file) */}
+      <RegisterUploader projectId={projectId} onUnitsCreated={fetchProject} />
+
+      {/* Finishes Schedule Upload (multi-file, tabbed) */}
+      <ScheduleUploader projectId={projectId} onMappingsSaved={fetchProject} />
+
+      {/* Finishes Schedule Parser (single-file legacy) */}
       <ScheduleParser projectId={projectId} onMappingsCreated={fetchProject} />
 
       {/* Mapping Readiness Dashboard */}
