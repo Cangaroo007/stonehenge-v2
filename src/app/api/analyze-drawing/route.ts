@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import Anthropic from '@anthropic-ai/sdk';
 import sharp from 'sharp';
+import { logger } from '@/lib/logger';
 
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
@@ -121,7 +122,7 @@ export async function POST(request: NextRequest) {
     let mimeType = file.type || 'image/png';
     const isPdf = isPdfFile(mimeType);
 
-    console.log(`[Analyze] Received file: ${file.name}, size: ${buffer.length} bytes, type: ${mimeType}, isPdf: ${isPdf}`);
+    logger.info(`[Analyze] Received file: ${file.name}, size: ${buffer.length} bytes, type: ${mimeType}, isPdf: ${isPdf}`);
 
     // Build the content block for Claude based on file type
     let fileContentBlock: Anthropic.Messages.ContentBlockParam;
@@ -138,7 +139,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`[Analyze] Sending PDF to Claude as document type (${buffer.length} bytes)`);
+      logger.info(`[Analyze] Sending PDF to Claude as document type (${buffer.length} bytes)`);
       const base64Pdf = buffer.toString('base64');
       fileContentBlock = {
         type: 'document',
@@ -151,14 +152,14 @@ export async function POST(request: NextRequest) {
     } else {
       // Images: compress if needed, then send as image type
       if (buffer.length > MAX_IMAGE_SIZE * 0.8) {
-        console.log(`[Analyze] Image size ${buffer.length} bytes exceeds threshold, compressing...`);
+        logger.info(`[Analyze] Image size ${buffer.length} bytes exceeds threshold, compressing...`);
         try {
           const compressed = await compressImage(buffer, mimeType);
           buffer = compressed.data;
           mimeType = compressed.mediaType;
-          console.log(`[Analyze] Compressed to ${buffer.length} bytes`);
+          logger.info(`[Analyze] Compressed to ${buffer.length} bytes`);
         } catch (compressionError) {
-          console.error('[Analyze] Image compression failed:', compressionError);
+          logger.error('[Analyze] Image compression failed:', compressionError);
           return NextResponse.json(
             {
               error: 'Image too large and compression failed',
@@ -180,7 +181,7 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      console.log(`[Analyze] Sending image to Claude as image type (${buffer.length} bytes, ${mimeType})`);
+      logger.info(`[Analyze] Sending image to Claude as image type (${buffer.length} bytes, ${mimeType})`);
       const base64Image = buffer.toString('base64');
       const mediaType = mimeType as 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
       fileContentBlock = {
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Claude API
-    console.log('[Analyze] Calling Claude API...');
+    logger.info('[Analyze] Calling Claude API...');
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-5-20250929',
       max_tokens: 4096,
@@ -239,7 +240,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Drawing analysis error:', error);
+    logger.error('Drawing analysis error:', error);
 
     // More detailed error response
     const errorMessage = error instanceof Error ? error.message : String(error);

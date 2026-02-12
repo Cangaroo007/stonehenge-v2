@@ -16,6 +16,7 @@ import {
   type ParsedUnit,
 } from '@/lib/services/register-parser';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/logger';
 
 const MAX_PDF_SIZE = 32 * 1024 * 1024; // 32MB
 const ALLOWED_TYPES = [
@@ -73,7 +74,7 @@ export async function POST(
       { status: 400 }
     );
   } catch (error) {
-    console.error('[ParseRegister] Error:', error);
+    logger.error('[ParseRegister] Error:', error);
     return NextResponse.json(
       {
         error: 'Failed to process register',
@@ -143,7 +144,7 @@ async function handleParse(
     parsed = await parseFinishesRegister(base64, file.type);
   }
 
-  console.log(
+  logger.info(
     `[ParseRegister] Parsed ${parsed.units.length} units from ${file.name} (confidence: ${parsed.confidence})`
   );
 
@@ -258,7 +259,7 @@ async function handleConfirm(
   const linkStats = await autoLinkTemplates(projectId);
   const mappingStats = await autoLinkFinishMappings(projectId);
 
-  console.log(
+  logger.info(
     `[ParseRegister] Created ${result.count} units for project ${projectId}. ` +
       `Templates linked: ${linkStats.linked}. Skipped: ${skipped.length}`
   );

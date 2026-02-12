@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getCurrentUser } from '@/lib/auth';
 import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
 import { v4 as uuidv4 } from 'uuid';
+import { logger } from '@/lib/logger';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
 const ALLOWED_TYPES = [
@@ -16,20 +17,16 @@ const ALLOWED_TYPES = [
  * Upload a drawing file to R2 storage
  */
 export async function POST(request: NextRequest) {
-  console.log('[Upload API] >>> POST /api/upload/drawing called');
-
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      console.log('[Upload API] Unauthorized - no current user');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     // Check R2 configuration early
     const r2Ready = isR2Configured();
-    console.log(`[Upload API] R2 configured: ${r2Ready}`);
     if (!r2Ready && process.env.NODE_ENV === 'production') {
-      console.error('[Upload API] ❌ R2 storage not configured in production!');
+      logger.error('[Upload API] R2 storage not configured in production');
       return NextResponse.json(
         { error: 'File storage not configured. Please contact support.' },
         { status: 503 }
@@ -40,15 +37,6 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null;
     const customerId = formData.get('customerId') as string | null;
     const quoteId = formData.get('quoteId') as string | null;
-
-    console.log('[Upload API] Received:', {
-      hasFile: !!file,
-      fileName: file?.name,
-      fileSize: file?.size,
-      fileType: file?.type,
-      customerId,
-      quoteId,
-    });
 
     if (!file) {
       return NextResponse.json({ error: 'No file provided' }, { status: 400 });
@@ -86,9 +74,8 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Upload to R2
-    console.log(`[Upload API] Uploading to R2: ${storageKey} (${buffer.length} bytes, ${file.type})`);
     await uploadToR2(storageKey, buffer, file.type);
-    console.log(`[Upload API] ✅ Upload successful: ${storageKey}`);
+    logger.info('[Upload API] Uploaded:', storageKey);
 
     return NextResponse.json({
       storageKey,
@@ -97,7 +84,7 @@ export async function POST(request: NextRequest) {
       fileSize: file.size,
     });
   } catch (error) {
-    console.error('[Upload API] ❌ Error uploading drawing:', error);
+    logger.error('[Upload API] Error uploading drawing:', error);
     const message = error instanceof Error ? error.message : 'Failed to upload drawing';
     return NextResponse.json(
       { error: message },

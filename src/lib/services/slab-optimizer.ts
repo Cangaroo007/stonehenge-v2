@@ -5,6 +5,7 @@ import {
   SlabResult,
   LaminationSummary
 } from '@/types/slab-optimization';
+import { logger } from '@/lib/logger';
 
 interface Rect {
   x: number;
@@ -219,7 +220,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   
   // Log for debugging (visible in server logs)
   if (allPieces.length > pieces.length) {
-    console.log(`[Optimizer] Input: ${pieces.length} pieces + ${allPieces.length - pieces.length} lamination strips = ${allPieces.length} total`);
+    logger.info(`[Optimizer] Input: ${pieces.length} pieces + ${allPieces.length - pieces.length} lamination strips = ${allPieces.length} total`);
   }
 
   // Sort pieces by area (largest first) for better packing

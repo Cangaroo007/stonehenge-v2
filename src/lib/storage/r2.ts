@@ -12,6 +12,7 @@ import {
   DeleteObjectCommand,
 } from '@aws-sdk/client-s3';
 import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+import { logger } from '@/lib/logger';
 
 // Build R2 endpoint from either R2_ENDPOINT or R2_ACCOUNT_ID
 function getR2Endpoint(): string | null {
@@ -30,17 +31,11 @@ function getR2Client(): S3Client | null {
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
 
-  console.log('[R2] getR2Client() called');
-  console.log('[R2] Endpoint:', endpoint ? '✅ configured' : '❌ missing');
-  console.log('[R2] Access Key:', accessKeyId ? '✅ configured' : '❌ missing');
-  console.log('[R2] Secret Key:', secretAccessKey ? '✅ configured' : '❌ missing');
-
   if (!endpoint || !accessKeyId || !secretAccessKey) {
-    console.warn('[R2] ⚠️ Missing R2 credentials. Set R2_ACCOUNT_ID (or R2_ENDPOINT), R2_ACCESS_KEY_ID, and R2_SECRET_ACCESS_KEY. Storage operations will be mocked.');
+    logger.warn('[R2] Missing R2 credentials. Storage operations will be mocked.');
     return null;
   }
 
-  console.log('[R2] ✅ All credentials present, creating S3Client');
   return new S3Client({
     region: 'auto',
     endpoint,
@@ -83,12 +78,11 @@ export async function uploadToR2(
   if (!client) {
     // In production, missing R2 credentials is an error - don't silently mock
     if (process.env.NODE_ENV === 'production') {
-      console.error('[R2] ❌ CRITICAL: R2 credentials not configured in production!');
-      console.error('[R2] Required env vars: R2_ACCOUNT_ID (or R2_ENDPOINT), R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY');
+      logger.error('[R2] R2 credentials not configured in production');
       throw new Error('R2 storage not configured. File upload unavailable.');
     }
     // Mock upload for development only
-    console.warn(`[R2] ⚠️ Mock upload (dev only): ${key} (${data.length} bytes)`);
+    logger.warn(`[R2] Mock upload (dev only): ${key} (${data.length} bytes)`);
     memoryStorage.set(key, { data, contentType });
     return;
   }
@@ -102,9 +96,9 @@ export async function uploadToR2(
         ContentType: contentType,
       })
     );
-    console.log(`[R2] ✅ Uploaded: ${key} (${data.length} bytes)`);
+    logger.info(`[R2] Uploaded: ${key} (${data.length} bytes)`);
   } catch (error) {
-    console.error(`[R2] ❌ Upload failed for ${key}:`, error);
+    logger.error(`[R2] Upload failed for ${key}:`, error);
     throw error;
   }
 }
@@ -119,13 +113,13 @@ export async function getFromR2(key: string): Promise<Buffer | null> {
 
   if (!client) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('[R2] ❌ Cannot retrieve file - R2 not configured in production');
+      logger.error('[R2] Cannot retrieve file - R2 not configured in production');
       return null;
     }
     // Mock retrieval for development
     const stored = memoryStorage.get(key);
     if (stored) {
-      console.log(`[R2] Mock retrieval: ${key}`);
+      logger.debug(`[R2] Mock retrieval: ${key}`);
       return stored.data;
     }
     return null;
@@ -149,7 +143,7 @@ export async function getFromR2(key: string): Promise<Buffer | null> {
     }
     return null;
   } catch (error) {
-    console.error(`[R2] Error getting ${key}:`, error);
+    logger.error(`[R2] Error getting ${key}:`, error);
     return null;
   }
 }
@@ -163,11 +157,11 @@ export async function deleteFromR2(storageKey: string): Promise<void> {
 
   if (!client) {
     if (process.env.NODE_ENV === 'production') {
-      console.error('[R2] ❌ Cannot delete file - R2 not configured in production');
+      logger.error('[R2] Cannot delete file - R2 not configured in production');
       return;
     }
     // Mock deletion for development
-    console.log(`[R2] Mock delete: ${storageKey}`);
+    logger.debug(`[R2] Mock delete: ${storageKey}`);
     memoryStorage.delete(storageKey);
     return;
   }
@@ -178,7 +172,7 @@ export async function deleteFromR2(storageKey: string): Promise<void> {
       Key: storageKey,
     })
   );
-  console.log(`[R2] Deleted: ${storageKey}`);
+  logger.info(`[R2] Deleted: ${storageKey}`);
 }
 
 /**
@@ -196,7 +190,7 @@ export async function getUploadUrl(
 
   if (!client) {
     // Return a mock URL for development
-    console.log(`[R2] Mock upload URL for: ${key}`);
+    logger.debug(`[R2] Mock upload URL for: ${key}`);
     return `/api/mock-upload?key=${encodeURIComponent(key)}`;
   }
 
@@ -218,20 +212,13 @@ export async function getDownloadUrl(
   key: string,
   expiresIn: number = 3600
 ): Promise<string> {
-  console.log('[R2] getDownloadUrl called for:', key);
   const client = getR2Client();
 
   if (!client) {
     // Return a mock URL for development (via our API)
-    console.warn('[R2] ⚠️ No R2 client available, returning mock URL');
-    console.warn('[R2] Check R2_ACCOUNT_ID, R2_ACCESS_KEY_ID, R2_SECRET_ACCESS_KEY');
+    logger.warn('[R2] No R2 client available, returning mock URL');
     return `/api/drawings/file?key=${encodeURIComponent(key)}`;
   }
-
-  console.log('[R2] Client available, generating presigned URL...');
-  console.log('[R2] Bucket:', BUCKET_NAME);
-  console.log('[R2] Key:', key);
-  console.log('[R2] Expires in:', expiresIn, 'seconds');
 
   try {
     const command = new GetObjectCommand({
@@ -240,11 +227,10 @@ export async function getDownloadUrl(
     });
 
     const url = await getSignedUrl(client, command, { expiresIn });
-    console.log('[R2] ✅ Presigned URL generated successfully');
-    console.log('[R2] URL length:', url.length, 'characters');
+    logger.debug('[R2] Presigned URL generated successfully');
     return url;
   } catch (error) {
-    console.error('[R2] ❌ Failed to generate presigned URL:', error);
+    logger.error('[R2] Failed to generate presigned URL:', error);
     throw error;
   }
 }

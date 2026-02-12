@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { SlabResults } from '@/components/slab-optimizer';
 import { OptimizationResult } from '@/types/slab-optimization';
+import { logger } from '@/lib/logger';
 
 interface OptimizationDisplayProps {
   quoteId: string;
@@ -24,7 +25,6 @@ export function OptimizationDisplay({ quoteId, refreshKey = 0 }: OptimizationDis
           const data = await response.json();
           
           if (data && data.placements) {
-            console.log('✅ Loaded saved optimization:', data.id);
             setOptimization(data);
             
             // Reconstruct result for SlabResults component
@@ -83,7 +83,6 @@ export function OptimizationDisplay({ quoteId, refreshKey = 0 }: OptimizationDis
           setResult(null);
         }
       } catch (err) {
-        console.log('No saved optimization found');
         setOptimization(null);
         setResult(null);
       } finally {

@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import EdgeSelector from './EdgeSelector';
+import { logger } from '@/lib/logger';
 
 interface EdgeType {
   id: string;
@@ -154,21 +155,14 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const compressImageIfNeeded = useCallback(async (file: File): Promise<File> => {
     // Only compress images, skip PDFs
     if (!file.type.startsWith('image/')) {
-      console.log('[Compression] Skipping compression for non-image file:', file.type);
       return file;
     }
 
     // If file is already small enough (< 3MB), no need to compress
     const fileSizeMB = file.size / (1024 * 1024);
     if (fileSizeMB < 3) {
-      console.log('[Compression] File is already small enough:', fileSizeMB.toFixed(2), 'MB');
       return file;
     }
-
-    console.log('[Compression] Compressing image...', {
-      originalSize: fileSizeMB.toFixed(2) + 'MB',
-      fileName: file.name
-    });
 
     try {
       const options = {
@@ -179,73 +173,37 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       };
 
       const compressedFile = await imageCompression(file, options);
-      const compressedSizeMB = compressedFile.size / (1024 * 1024);
-      
-      console.log('[Compression] Compression complete:', {
-        originalSize: fileSizeMB.toFixed(2) + 'MB',
-        compressedSize: compressedSizeMB.toFixed(2) + 'MB',
-        reduction: ((1 - compressedFile.size / file.size) * 100).toFixed(0) + '%'
-      });
 
       return compressedFile;
     } catch (error) {
-      console.error('[Compression] Failed to compress, using original:', error);
+      logger.error('[Compression] Failed to compress, using original:', error);
       return file; // Fall back to original if compression fails
     }
   }, []);
 
   // Upload file to R2 storage
   const uploadToStorage = useCallback(async (fileToUpload: File): Promise<UploadResult> => {
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('>>> [UPLOAD-ENTRY] uploadToStorage FUNCTION CALLED');
-    console.log('>>> File to upload:', { 
-      fileName: fileToUpload.name, 
-      fileSize: fileToUpload.size, 
-      fileType: fileToUpload.type,
-      customerId: customerId.toString(),
-      quoteId: quoteId
-    });
-
-    console.log('>>> [UPLOAD-1] Creating FormData...');
     const formData = new FormData();
     formData.append('file', fileToUpload);
     formData.append('customerId', customerId.toString());
     formData.append('quoteId', quoteId);
-    console.log('>>> [UPLOAD-2] ✅ FormData created successfully');
-    
-    console.log('>>> [UPLOAD-3] About to call fetch(/api/upload/drawing)...');
-    console.log('>>> [UPLOAD-3] THIS IS THE CRITICAL MOMENT - WATCH FOR THIS IN NETWORK TAB!');
-    
+
     try {
       const response = await fetch('/api/upload/drawing', {
         method: 'POST',
         body: formData,
       });
-      
-      console.log('>>> [UPLOAD-4] ✅ fetch() returned', { 
-        status: response.status, 
-        ok: response.ok, 
-        statusText: response.statusText,
-        url: response.url
-      });
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('>>> [UPLOAD-ERROR] Server returned error:', errorData);
+        logger.error('[DrawingImport] Upload error:', errorData);
         throw new Error(errorData.error || 'Failed to upload file');
       }
 
       const result = await response.json();
-      console.log('>>> [UPLOAD-5] ✅✅ Upload COMPLETELY SUCCESSFUL:', result);
-      console.log('═══════════════════════════════════════════════════════');
       return result;
     } catch (fetchError) {
-      console.error('>>> [UPLOAD-FATAL] fetch() threw an exception:', fetchError);
-      console.error('>>> Error details:', {
-        name: (fetchError as Error).name,
-        message: (fetchError as Error).message,
-        stack: (fetchError as Error).stack
-      });
+      logger.error('[DrawingImport] Upload failed:', fetchError);
       throw fetchError;
     }
   }, [customerId, quoteId]);
@@ -255,11 +213,6 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     upload: UploadResult,
     analysisData?: Record<string, unknown>
   ) => {
-    console.log('[SaveDrawing] 🔵 Starting database record creation...');
-    console.log('[SaveDrawing] Upload data:', upload);
-    console.log('[SaveDrawing] Quote ID:', quoteId);
-    console.log('[SaveDrawing] API URL:', `/api/quotes/${quoteId}/drawings`);
-    
     try {
       const response = await fetch(`/api/quotes/${quoteId}/drawings`, {
         method: 'POST',
@@ -270,40 +223,22 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         }),
       });
 
-      console.log('[SaveDrawing] Response received:', {
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText,
-      });
-
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('[SaveDrawing] ❌ API returned error:', errorData);
+        logger.error('[DrawingImport] Save drawing error:', errorData);
         throw new Error(errorData.error || 'Failed to save drawing record');
       }
 
       const result = await response.json();
-      console.log('[SaveDrawing] ✅ Database record created successfully:', result);
       return result;
     } catch (error) {
-      console.error('[SaveDrawing] ❌ FATAL ERROR:', error);
+      logger.error('[DrawingImport] Save drawing failed:', error);
       throw error;
     }
   }, [quoteId]);
 
   // Handle file selection
   const handleFile = useCallback(async (selectedFile: File) => {
-    console.log('═══════════════════════════════════════════════════════');
-    console.log('>>> [DEBUG-START] handleFile CALLED');
-    console.log('>>> File Details:', { 
-      fileName: selectedFile.name, 
-      fileSize: selectedFile.size, 
-      fileType: selectedFile.type,
-      quoteId,
-      customerId
-    });
-    console.log('═══════════════════════════════════════════════════════');
-    
     setFile(selectedFile);
     setError(null);
     setUploadProgress('uploading');
@@ -324,15 +259,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
     try {
       // Step 0: Compress image if needed
-      console.log('>>> [STEP-0] Checking if compression needed...');
       const fileToUpload = await compressImageIfNeeded(selectedFile);
       setAnalysisSteps(prev => prev.map((s, i) => i === 0 ? { ...s, done: true } : s));
       setAnalysisProgress(10);
       
       // Step 1: Upload to R2 storage
-      console.log('>>> [STEP-1] Starting R2 upload process');
-      console.log('>>> [STEP-1] Calling uploadToStorage with file:', fileToUpload.name);
-      
       if (!fileToUpload) {
         throw new Error('No file selected');
       }
@@ -341,9 +272,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         throw new Error(`Missing required IDs - quoteId: ${quoteId}, customerId: ${customerId}`);
       }
       
-      console.log('>>> [STEP-1] All validations passed, calling uploadToStorage NOW...');
       storedUploadResult = await uploadToStorage(fileToUpload);
-      console.log('>>> [STEP-1] ✅ uploadToStorage COMPLETED successfully:', storedUploadResult);
       setUploadResult(storedUploadResult);
       setAnalysisSteps(prev => prev.map((s, i) => i === 1 ? { ...s, done: true } : s));
       setAnalysisProgress(30);
@@ -363,7 +292,6 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       }, 1600);
 
       // Step 2: Call the analyze-drawing API (use compressed file for analysis too)
-      console.log('>>> [6] About to call analyze-drawing API');
       const formData = new FormData();
       formData.append('file', fileToUpload);
 
@@ -371,27 +299,23 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         method: 'POST',
         body: formData,
       });
-      console.log('>>> [7] analyze-drawing response', { status: response.status, ok: response.ok });
 
       clearInterval(progressInterval);
 
       if (!response.ok) {
         const errorData = await response.json();
-        console.error('>>> [ANALYZE-ERROR] Analysis failed:', errorData);
+        logger.error('[DrawingImport] Analysis failed:', errorData);
         throw new Error(errorData.details || errorData.error || 'Analysis failed');
       }
 
       const data = await response.json();
       analysisResult = data.analysis as AnalysisResult;
-      console.log('>>> [8] Analysis complete', { rooms: analysisResult?.rooms?.length, warnings: analysisResult?.warnings?.length });
 
       setAnalysisProgress(80);
       setUploadProgress('saving');
 
       // Step 3: Save drawing record with analysis data
-      console.log('>>> [9] About to save drawing record');
       await saveDrawingRecord(storedUploadResult, analysisResult as unknown as Record<string, unknown>);
-      console.log('>>> [10] Drawing saved successfully!');
       setAnalysisSteps(prev => prev.map((s, i) => i === 4 ? { ...s, done: true } : s));
       setAnalysisProgress(100);
       setUploadProgress('complete');
@@ -439,7 +363,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       setStep('review');
 
     } catch (err) {
-      console.error('>>> [ERROR] handleFile CAUGHT error:', err);
+      logger.error('[DrawingImport] handleFile error:', err);
       setError(err instanceof Error ? err.message : 'Failed to analyze drawing');
       setUploadProgress('error');
 
@@ -449,7 +373,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           await saveDrawingRecord(storedUploadResult);
           onDrawingsSaved?.();
         } catch (saveErr) {
-          console.error('>>> [ERROR] Failed to save drawing after analysis error:', saveErr);
+          logger.error('[DrawingImport] Failed to save drawing after analysis error:', saveErr);
         }
       }
 
@@ -474,36 +398,28 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    
-    console.log('>>> [DROP-EVENT] File dropped');
 
     if (e.dataTransfer.files && e.dataTransfer.files[0]) {
       const droppedFile = e.dataTransfer.files[0];
-      console.log('>>> [DROP-EVENT] File detected:', droppedFile.name, droppedFile.type);
-      
+
       if (isValidFileType(droppedFile)) {
-        console.log('>>> [DROP-EVENT] File type valid, calling handleFile');
         handleFile(droppedFile);
       } else {
-        console.error('>>> [DROP-EVENT] Invalid file type:', droppedFile.type);
+        logger.error('[DrawingImport] Invalid file type:', droppedFile.type);
         setError('Please upload a PDF, PNG, or JPG file.');
       }
     } else {
-      console.error('>>> [DROP-EVENT] No file found in drop event');
+      logger.error('[DrawingImport] No file found in drop event');
     }
   }, [handleFile]);
 
   // Handle file input change
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    console.log('>>> [FILE-INPUT] File input changed');
-    
     if (e.target.files && e.target.files[0]) {
       const selectedFile = e.target.files[0];
-      console.log('>>> [FILE-INPUT] File selected:', selectedFile.name, selectedFile.type);
-      console.log('>>> [FILE-INPUT] Calling handleFile...');
       handleFile(selectedFile);
     } else {
-      console.error('>>> [FILE-INPUT] No file selected');
+      logger.error('[DrawingImport] No file selected');
     }
   }, [handleFile]);
 
@@ -597,7 +513,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       onImportComplete(result.count);
 
     } catch (err) {
-      console.error('Import error:', err);
+      logger.error('[DrawingImport] Import error:', err);
       setError(err instanceof Error ? err.message : 'Failed to import pieces');
     } finally {
       setIsImporting(false);
@@ -661,7 +577,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       setTemplateSaveSuccess(true);
       setShowTemplateForm(false);
     } catch (err) {
-      console.error('Save template error:', err);
+      logger.error('[DrawingImport] Save template error:', err);
       setError(err instanceof Error ? err.message : 'Failed to save as template');
     } finally {
       setIsSavingTemplate(false);

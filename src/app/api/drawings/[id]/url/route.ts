@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDownloadUrl } from '@/lib/storage/r2';
 import prisma from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
+import { logger } from '@/lib/logger';
 
 /**
  * GET /api/drawings/[id]/url
@@ -11,16 +12,13 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  console.log('[Drawing URL API] 📸 === REQUEST RECEIVED ===');
-  
   try {
     const { id: drawingId } = await params;
-    console.log('[Drawing URL API] Drawing ID:', drawingId);
 
     // Check authentication
     const currentUser = await getCurrentUser();
     if (!currentUser) {
-      console.error('[Drawing URL API] ❌ Unauthorized');
+      logger.error('[Drawing URL API] Unauthorized');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -37,21 +35,12 @@ export async function GET(
     });
 
     if (!drawing) {
-      console.error('[Drawing URL API] ❌ Drawing not found:', drawingId);
+      logger.error('[Drawing URL API] Drawing not found:', drawingId);
       return NextResponse.json({ error: 'Drawing not found' }, { status: 404 });
     }
 
-    console.log('[Drawing URL API] Generating presigned URL for drawing:', { 
-      drawingId,
-      filename: drawing.filename,
-      storageKey: drawing.storageKey,
-      quoteId: drawing.quoteId,
-    });
-
     // Generate presigned URL (valid for 1 hour)
     const presignedUrl = await getDownloadUrl(drawing.storageKey, 3600);
-    
-    console.log('[Drawing URL API] ✅ Presigned URL generated successfully');
 
     return NextResponse.json({
       url: presignedUrl,
@@ -60,7 +49,7 @@ export async function GET(
       hasThumbnail: !!drawing.thumbnailKey,
     });
   } catch (error) {
-    console.error('[Drawing URL API] ❌ Error:', error);
+    logger.error('[Drawing URL API] Error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to generate URL' },
       { status: 500 }

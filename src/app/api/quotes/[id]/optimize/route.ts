@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
+import { logger } from '@/lib/logger';
 
 /**
  * Fetch operation-specific kerfs from machine_operation_defaults.
- * Returns a map of operationType → kerfWidthMm.
+ * Returns a map of operationType -> kerfWidthMm.
  */
 async function getOperationKerfs(): Promise<Record<string, number>> {
   try {
@@ -41,7 +42,7 @@ export async function GET(
 
     return NextResponse.json(optimization);
   } catch (error) {
-    console.error('Failed to fetch optimization:', error);
+    logger.error('Failed to fetch optimization:', error);
     return NextResponse.json(
       { error: 'Failed to fetch optimization' },
       { status: 500 }
@@ -76,11 +77,7 @@ export async function POST(
       allowRotation = true,
     } = body;
 
-    console.log(`[Optimize API] Starting optimization for quote ${quoteId}`);
-    console.log(`[Optimize API] Settings: ${slabWidth}x${slabHeight}mm, kerf: ${kerfWidth}mm, rotation: ${allowRotation}`);
-    if (Object.keys(operationKerfs).length > 0) {
-      console.log(`[Optimize API] Operation kerfs: ${JSON.stringify(operationKerfs)}`);
-    }
+    logger.info('[Optimize API] Starting optimization for quote', quoteId, 'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm');
 
     // Get quote with pieces
     const quote = await prisma.quotes.findUnique({
@@ -119,7 +116,6 @@ export async function POST(
       for (const et of edgeTypes) {
         edgeTypeMap.set(et.id, et.name);
       }
-      console.log(`[Optimize API] Resolved ${edgeTypeMap.size} edge type IDs to names`);
     }
 
     // Extract pieces from quote with thickness, finished edges, and resolved edge type names
@@ -165,8 +161,6 @@ export async function POST(
       );
     }
 
-    console.log(`[Optimize API] Processing ${pieces.length} pieces`);
-
     // Run optimization
     const result = optimizeSlabs({
       pieces,
@@ -176,10 +170,9 @@ export async function POST(
       allowRotation,
     });
 
-    console.log(`[Optimize API] Optimization complete: ${result.totalSlabs} slabs, ${result.wastePercent.toFixed(2)}% waste`);
+    logger.info(`[Optimize API] Optimization complete: ${result.totalSlabs} slabs, ${result.wastePercent.toFixed(2)}% waste`);
 
     // Save to database
-    console.log('[Optimize API] Saving optimization to database...');
     const optimization = await prisma.slab_optimizations.create({
       data: {
         id: crypto.randomUUID(),
@@ -196,7 +189,7 @@ export async function POST(
       } as any,
     });
 
-    console.log(`[Optimize API] ✅ Saved optimization ${optimization.id} to database`);
+    logger.info('[Optimize API] Saved optimization', optimization.id);
 
     // Verify save by reading it back
     const verification = await prisma.slab_optimizations.findUnique({
@@ -204,9 +197,7 @@ export async function POST(
     });
 
     if (!verification) {
-      console.error('[Optimize API] ❌ CRITICAL: Save verification failed - data not found!');
-    } else {
-      console.log(`[Optimize API] ✅ Verified: optimization ${verification.id} persisted successfully`);
+      logger.error('[Optimize API] CRITICAL: Save verification failed - data not found!');
     }
 
     return NextResponse.json({
@@ -215,7 +206,7 @@ export async function POST(
       operationKerfs,
     });
   } catch (error) {
-    console.error('[Optimize API] ❌ Failed to optimize:', error);
+    logger.error('[Optimize API] Failed to optimize:', error);
     return NextResponse.json(
       { error: 'Optimization failed', details: error instanceof Error ? error.message : 'Unknown error' },
       { status: 500 }

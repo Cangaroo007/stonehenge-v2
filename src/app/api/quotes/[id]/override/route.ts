@@ -2,6 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
+import { logger } from '@/lib/logger';
+
+// Fields that exist in the database but are not yet in the Prisma schema.
+// Used for double-cast pattern when reading/writing override fields.
+interface QuoteOverrideFields {
+  overrideSubtotal: number | null;
+  overrideTotal: number | null;
+  overrideDeliveryCost: number | null;
+  overrideTemplatingCost: number | null;
+  overrideReason: string | null;
+  overrideBy: number | null;
+  overrideAt: Date | null;
+  deliveryCost: number | null;
+  templatingCost: number | null;
+}
+
+// Typed update data for override fields (not yet in Prisma schema)
+interface QuoteOverrideUpdateData {
+  overrideSubtotal?: number | null;
+  overrideTotal?: number | null;
+  overrideDeliveryCost?: number | null;
+  overrideTemplatingCost?: number | null;
+  overrideReason?: string | null;
+  overrideBy?: number | null;
+  overrideAt?: Date | null;
+}
 
 // POST /api/quotes/[id]/override
 export async function POST(
@@ -12,16 +38,16 @@ export async function POST(
     const user = await requireAuth(request);
     const { id } = await params;
     const quoteId = parseInt(id);
-    
+
     if (isNaN(quoteId)) {
       return NextResponse.json(
         { error: 'Invalid quote ID' },
         { status: 400 }
       );
     }
-    
+
     const body = await request.json();
-    
+
     // Validate that at least one override is provided
     if (
       !body.overrideSubtotal &&
@@ -34,24 +60,29 @@ export async function POST(
         { status: 400 }
       );
     }
-    
+
     // Update quote with overrides (fields are planned schema additions)
+    const overrideData: QuoteOverrideUpdateData = {
+      overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
+      overrideTotal: body.overrideTotal !== undefined ? body.overrideTotal : undefined,
+      overrideDeliveryCost: body.overrideDeliveryCost !== undefined ? body.overrideDeliveryCost : undefined,
+      overrideTemplatingCost: body.overrideTemplatingCost !== undefined ? body.overrideTemplatingCost : undefined,
+      overrideReason: body.reason || null,
+      overrideBy: user.id,
+      overrideAt: new Date(),
+    };
+
     const quote = await prisma.quotes.update({
       where: { id: quoteId },
-      data: {
-        overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
-        overrideTotal: body.overrideTotal !== undefined ? body.overrideTotal : undefined,
-        overrideDeliveryCost: body.overrideDeliveryCost !== undefined ? body.overrideDeliveryCost : undefined,
-        overrideTemplatingCost: body.overrideTemplatingCost !== undefined ? body.overrideTemplatingCost : undefined,
-        overrideReason: body.reason || null,
-        overrideBy: user.id,
-        overrideAt: new Date()
-      } as any,
+      data: overrideData as unknown as Record<string, unknown>,
       include: {
         customers: true,
       }
     });
-    
+
+    // Double-cast to access override fields not yet in Prisma schema
+    const ext = quote as unknown as QuoteOverrideFields;
+
     // Log the override action
     await logActivity({
       userId: user.id,
@@ -66,11 +97,11 @@ export async function POST(
         reason: body.reason,
         originalSubtotal: Number(quote.subtotal),
         originalTotal: Number(quote.total),
-        originalDeliveryCost: (quote as any).deliveryCost ? Number((quote as any).deliveryCost) : null,
-        originalTemplatingCost: (quote as any).templatingCost ? Number((quote as any).templatingCost) : null
+        originalDeliveryCost: ext.deliveryCost ? Number(ext.deliveryCost) : null,
+        originalTemplatingCost: ext.templatingCost ? Number(ext.templatingCost) : null
       }
     });
-    
+
     return NextResponse.json({
       success: true,
       quote: {
@@ -79,19 +110,20 @@ export async function POST(
         subtotal: Number(quote.subtotal),
         total: Number(quote.total),
         calculated_total: quote.calculated_total ? Number(quote.calculated_total) : null,
-        overrideSubtotal: (quote as any).overrideSubtotal ? Number((quote as any).overrideSubtotal) : null,
-        overrideTotal: (quote as any).overrideTotal ? Number((quote as any).overrideTotal) : null,
-        overrideDeliveryCost: (quote as any).overrideDeliveryCost ? Number((quote as any).overrideDeliveryCost) : null,
-        overrideTemplatingCost: (quote as any).overrideTemplatingCost ? Number((quote as any).overrideTemplatingCost) : null,
-        overrideReason: (quote as any).overrideReason,
-        overrideBy: (quote as any).overrideByUser,
-        overrideAt: (quote as any).overrideAt
+        overrideSubtotal: ext.overrideSubtotal ? Number(ext.overrideSubtotal) : null,
+        overrideTotal: ext.overrideTotal ? Number(ext.overrideTotal) : null,
+        overrideDeliveryCost: ext.overrideDeliveryCost ? Number(ext.overrideDeliveryCost) : null,
+        overrideTemplatingCost: ext.overrideTemplatingCost ? Number(ext.overrideTemplatingCost) : null,
+        overrideReason: ext.overrideReason,
+        overrideBy: ext.overrideBy,
+        overrideAt: ext.overrideAt
       }
     });
-  } catch (error: any) {
-    console.error('Error applying quote override:', error);
+  } catch (error: unknown) {
+    logger.error('Error applying quote override:', error);
+    const message = error instanceof Error ? error.message : 'Failed to apply override';
     return NextResponse.json(
-      { error: error.message || 'Failed to apply override' },
+      { error: message },
       { status: 400 }
     );
   }
@@ -106,27 +138,29 @@ export async function DELETE(
     const user = await requireAuth(request);
     const { id } = await params;
     const quoteId = parseInt(id);
-    
+
     if (isNaN(quoteId)) {
       return NextResponse.json(
         { error: 'Invalid quote ID' },
         { status: 400 }
       );
     }
-    
+
+    const clearData: QuoteOverrideUpdateData = {
+      overrideSubtotal: null,
+      overrideTotal: null,
+      overrideDeliveryCost: null,
+      overrideTemplatingCost: null,
+      overrideReason: null,
+      overrideBy: null,
+      overrideAt: null,
+    };
+
     const quote = await prisma.quotes.update({
       where: { id: quoteId },
-      data: {
-        overrideSubtotal: null,
-        overrideTotal: null,
-        overrideDeliveryCost: null,
-        overrideTemplatingCost: null,
-        overrideReason: null,
-        overrideBy: null,
-        overrideAt: null
-      } as any
+      data: clearData as unknown as Record<string, unknown>,
     });
-    
+
     // Log the override removal
     await logActivity({
       userId: user.id,
@@ -137,15 +171,16 @@ export async function DELETE(
         quote_number: quote.quote_number
       }
     });
-    
+
     return NextResponse.json({
       success: true,
       message: 'Quote overrides cleared'
     });
-  } catch (error: any) {
-    console.error('Error clearing quote overrides:', error);
+  } catch (error: unknown) {
+    logger.error('Error clearing quote overrides:', error);
+    const message = error instanceof Error ? error.message : 'Failed to clear overrides';
     return NextResponse.json(
-      { error: error.message || 'Failed to clear overrides' },
+      { error: message },
       { status: 400 }
     );
   }
