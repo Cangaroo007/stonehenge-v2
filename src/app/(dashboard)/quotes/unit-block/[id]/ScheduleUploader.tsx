@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import MultiFileUpload, {
   type SelectedFile,
 } from '@/components/unit-block/MultiFileUpload';
@@ -75,6 +75,19 @@ interface MaterialOption {
   name: string;
 }
 
+interface EdgeOption {
+  id: string;
+  name: string;
+}
+
+interface ProductGroup {
+  product: string;
+  count: number;
+  specIds: string[];
+}
+
+type OpenDropdown = 'product' | 'material' | 'edge' | null;
+
 interface TemplateOption {
   id: number;
   name: string;
@@ -122,7 +135,13 @@ export default function ScheduleUploader({
   // Per-tab saving state
   const [savingTab, setSavingTab] = useState<number | null>(null);
 
-  /* ─── Fetch materials + templates on mount ─── */
+  // Bulk action toolbar state
+  const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
+  const [edgeOptions, setEdgeOptions] = useState<EdgeOption[]>([]);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const selectAllRef = useRef<HTMLInputElement>(null);
+
+  /* ─── Fetch materials + templates + edges on mount ─── */
 
   const fetchMaterials = useCallback(async () => {
     try {
@@ -161,10 +180,28 @@ export default function ScheduleUploader({
     }
   }, [projectId]);
 
+  const fetchEdgeTypes = useCallback(async () => {
+    try {
+      const res = await fetch('/api/admin/pricing/edge-types');
+      if (res.ok) {
+        const data = await res.json();
+        const edges = Array.isArray(data) ? data : [];
+        setEdgeOptions(
+          edges
+            .filter((e: { isActive: boolean }) => e.isActive)
+            .map((e: { id: string; name: string }) => ({ id: e.id, name: e.name }))
+        );
+      }
+    } catch {
+      // Edge options will be empty — use fallbacks
+    }
+  }, []);
+
   useEffect(() => {
     fetchMaterials();
     fetchTemplates();
-  }, [fetchMaterials, fetchTemplates]);
+    fetchEdgeTypes();
+  }, [fetchMaterials, fetchTemplates, fetchEdgeTypes]);
 
   /* ─── File selection handlers ─── */
 
@@ -409,6 +446,147 @@ export default function ScheduleUploader({
     []
   );
 
+  /* ─── Bulk action: get product groups for current tab ─── */
+
+  function getProductGroups(specs: ScheduleSpec[]): ProductGroup[] {
+    const map = new Map<string, string[]>();
+    specs.forEach((spec: ScheduleSpec) => {
+      const key = spec.aiDetectedProduct;
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(spec.id);
+    });
+    return Array.from(map.entries()).map(([product, specIds]) => ({
+      product,
+      count: specIds.length,
+      specIds,
+    }));
+  }
+
+  /* ─── Bulk action: select rows by same product ─── */
+
+  const handleSelectSameProduct = useCallback(
+    (groupIndex: number, specIds: string[]) => {
+      const idSet = new Set(specIds);
+      setGroups((prev: ScheduleGroup[]) => {
+        const updated = [...prev];
+        const group = { ...updated[groupIndex] };
+        group.specs = group.specs.map((s: ScheduleSpec) => ({
+          ...s,
+          selected: idSet.has(s.id),
+        }));
+        updated[groupIndex] = group;
+        return updated;
+      });
+      setOpenDropdown(null);
+    },
+    []
+  );
+
+  /* ─── Bulk action: apply material to selected rows ─── */
+
+  const handleBulkApplyMaterial = useCallback(
+    (groupIndex: number, materialId: number) => {
+      const mat = materials.find((m: MaterialOption) => m.id === materialId);
+      setGroups((prev: ScheduleGroup[]) => {
+        const updated = [...prev];
+        const group = { ...updated[groupIndex] };
+        group.specs = group.specs.map((s: ScheduleSpec) => {
+          if (!s.selected) return s;
+          return {
+            ...s,
+            matchedMaterialId: materialId,
+            matchedMaterialName: mat?.name ?? null,
+            matchConfidence: 'MANUAL' as const,
+            selected: false,
+          };
+        });
+        updated[groupIndex] = group;
+        return updated;
+      });
+      setOpenDropdown(null);
+    },
+    [materials]
+  );
+
+  /* ─── Bulk action: apply edge to selected rows ─── */
+
+  const handleBulkApplyEdge = useCallback(
+    (groupIndex: number, edgeName: string) => {
+      setGroups((prev: ScheduleGroup[]) => {
+        const updated = [...prev];
+        const group = { ...updated[groupIndex] };
+        group.specs = group.specs.map((s: ScheduleSpec) => {
+          if (!s.selected) return s;
+          return { ...s, edge: edgeName, selected: false };
+        });
+        updated[groupIndex] = group;
+        return updated;
+      });
+      setOpenDropdown(null);
+    },
+    []
+  );
+
+  /* ─── Deselect all rows in current tab ─── */
+
+  const handleDeselectAll = useCallback(
+    (groupIndex: number) => {
+      setGroups((prev: ScheduleGroup[]) => {
+        const updated = [...prev];
+        const group = { ...updated[groupIndex] };
+        group.specs = group.specs.map((s: ScheduleSpec) => ({
+          ...s,
+          selected: false,
+        }));
+        updated[groupIndex] = group;
+        return updated;
+      });
+    },
+    []
+  );
+
+  /* ─── Close dropdown on outside click ─── */
+
+  useEffect(() => {
+    if (!openDropdown) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [openDropdown]);
+
+  /* ─── Escape key: deselect all in current tab ─── */
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape' && step === 'review' && groups[activeTab]) {
+        handleDeselectAll(activeTab);
+        setOpenDropdown(null);
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown);
+    return () => document.removeEventListener('keydown', handleKeyDown);
+  }, [step, activeTab, groups, handleDeselectAll]);
+
+  /* ─── Indeterminate checkbox sync ─── */
+
+  useEffect(() => {
+    const currentGroup = groups[activeTab];
+    if (!selectAllRef.current || !currentGroup) return;
+    const selCount = currentGroup.specs.filter(
+      (s: ScheduleSpec) => s.selected
+    ).length;
+    const totCount = currentGroup.specs.length;
+    selectAllRef.current.indeterminate =
+      selCount > 0 && selCount < totCount;
+  }, [groups, activeTab]);
+
   /* ─── Template toggle ─── */
 
   const handleTemplateToggle = useCallback((templateId: number) => {
@@ -565,6 +743,25 @@ export default function ScheduleUploader({
   const unmappedCount = activeGroup
     ? activeGroup.specs.filter((s: ScheduleSpec) => !s.matchedMaterialId).length
     : 0;
+  const selectedCount = activeGroup
+    ? activeGroup.specs.filter((s: ScheduleSpec) => s.selected).length
+    : 0;
+  const totalSpecCount = activeGroup ? activeGroup.specs.length : 0;
+  const productGroups = activeGroup ? getProductGroups(activeGroup.specs) : [];
+
+  // Fallback edge options if API returned none
+  const displayEdgeOptions: EdgeOption[] =
+    edgeOptions.length > 0
+      ? edgeOptions
+      : [
+          { id: 'pencil-round', name: 'Pencil Round' },
+          { id: 'bullnose', name: 'Bullnose' },
+          { id: 'ogee', name: 'Ogee' },
+          { id: 'bevel', name: 'Bevel' },
+          { id: 'arris-2mm', name: 'Arris (2mm)' },
+          { id: '40mm-apron-mitred', name: '40mm Apron Mitred' },
+          { id: 'raw', name: 'Raw' },
+        ];
 
   return (
     <div className="bg-white rounded-lg shadow">
@@ -798,6 +995,169 @@ export default function ScheduleUploader({
                   </div>
                 )}
 
+                {/* ─── Bulk action toolbar ─── */}
+                {selectedCount > 0 && !activeGroup.saved && (
+                  <div
+                    ref={dropdownRef}
+                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 relative"
+                  >
+                    <span className="text-sm text-gray-700 font-medium whitespace-nowrap">
+                      Selected: {selectedCount} of {totalSpecCount}
+                    </span>
+
+                    {/* Select Same Product */}
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setOpenDropdown(
+                            openDropdown === 'product' ? null : 'product'
+                          )
+                        }
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50"
+                      >
+                        Select Same Product
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {openDropdown === 'product' && (
+                        <div className="absolute left-0 top-full mt-1 z-10 w-72 bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {productGroups.map(
+                            (pg: ProductGroup, i: number) => (
+                              <button
+                                key={i}
+                                onClick={() =>
+                                  handleSelectSameProduct(
+                                    activeTab,
+                                    pg.specIds
+                                  )
+                                }
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                              >
+                                <span className="block truncate">
+                                  {pg.product}
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  {pg.count} row
+                                  {pg.count !== 1 ? 's' : ''}
+                                </span>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Apply Material */}
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setOpenDropdown(
+                            openDropdown === 'material' ? null : 'material'
+                          )
+                        }
+                        disabled={selectedCount === 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply Material to {selectedCount} row
+                        {selectedCount !== 1 ? 's' : ''}
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {openDropdown === 'material' && (
+                        <div className="absolute left-0 top-full mt-1 z-10 w-64 bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {materials.length === 0 ? (
+                            <p className="px-3 py-2 text-xs text-gray-500">
+                              No materials available.
+                            </p>
+                          ) : (
+                            materials.map((mat: MaterialOption) => (
+                              <button
+                                key={mat.id}
+                                onClick={() =>
+                                  handleBulkApplyMaterial(activeTab, mat.id)
+                                }
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                              >
+                                {mat.name}
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Apply Edge */}
+                    <div className="relative">
+                      <button
+                        onClick={() =>
+                          setOpenDropdown(
+                            openDropdown === 'edge' ? null : 'edge'
+                          )
+                        }
+                        disabled={selectedCount === 0}
+                        className="inline-flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        Apply Edge
+                        <svg
+                          className="h-3 w-3"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M19 9l-7 7-7-7"
+                          />
+                        </svg>
+                      </button>
+                      {openDropdown === 'edge' && (
+                        <div className="absolute left-0 top-full mt-1 z-10 w-52 bg-white shadow-lg rounded-md border border-gray-200 max-h-60 overflow-y-auto">
+                          {displayEdgeOptions.map(
+                            (edge: EdgeOption) => (
+                              <button
+                                key={edge.id}
+                                onClick={() =>
+                                  handleBulkApplyEdge(
+                                    activeTab,
+                                    edge.name
+                                  )
+                                }
+                                className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-100 border-b border-gray-100 last:border-b-0"
+                              >
+                                {edge.name}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
                 {/* Mapping table */}
                 <div className="overflow-x-auto border border-gray-200 rounded-lg">
                   <table className="min-w-full divide-y divide-gray-200 text-sm">
@@ -805,6 +1165,7 @@ export default function ScheduleUploader({
                       <tr>
                         <th className="px-3 py-2 text-left">
                           <input
+                            ref={selectAllRef}
                             type="checkbox"
                             checked={
                               activeGroup.specs.length > 0 &&
@@ -844,9 +1205,11 @@ export default function ScheduleUploader({
                         <tr
                           key={spec.id}
                           className={
-                            spec.matchConfidence === 'NONE'
-                              ? 'bg-yellow-50'
-                              : ''
+                            spec.selected
+                              ? 'bg-amber-50'
+                              : spec.matchConfidence === 'NONE'
+                                ? 'bg-yellow-50'
+                                : ''
                           }
                         >
                           <td className="px-3 py-2">
