@@ -26,14 +26,15 @@ export async function GET(
           { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
+      select: { id: true, revision: true },
     });
 
     if (!quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch the specific version (quote_versions is a planned model)
-    const versionRecord = await (prisma as any).quote_versions.findUnique({
+    // Fetch the specific version
+    const versionRecord = await prisma.quote_versions.findUnique({
       where: {
         quoteId_version: {
           quoteId,
@@ -63,10 +64,10 @@ export async function GET(
       changeSummary: versionRecord.changeSummary,
       changes: versionRecord.changes,
       changedBy: versionRecord.changedByUser,
-      changedAt: versionRecord.changedAt,
+      changedAt: versionRecord.createdAt,
       rolledBackFromVersion: versionRecord.rolledBackFromVersion,
       snapshot: versionRecord.snapshotData,
-      isCurrent: versionRecord.version === (quote as any).revision,
+      isCurrent: versionRecord.version === quote.revision,
     });
   } catch (error) {
     console.error('Error fetching quote version:', error);

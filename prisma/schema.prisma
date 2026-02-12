@@ -441,6 +441,30 @@ model quote_views {
   @@index([user_id])
 }
 
+model quote_versions {
+  id                    String   @id @default(cuid())
+  quoteId               Int
+  version               Int
+  snapshotData          Json
+  changeType            String
+  changeReason          String?
+  changeSummary         String?
+  changes               Json?
+  changedBy             String?
+  changedByUserId       Int?
+  rolledBackFromVersion Int?
+  subtotal              Decimal? @db.Decimal(10, 2)
+  tax_amount            Decimal? @db.Decimal(10, 2)
+  totalAmount           Decimal? @db.Decimal(10, 2)
+  pieceCount            Int?
+  createdAt             DateTime @default(now())
+  quote                 quotes   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  changedByUser         user?    @relation(fields: [changedByUserId], references: [id])
+
+  @@unique([quoteId, version])
+  @@index([quoteId])
+}
+
 model quotes {
   id                     Int                     @id @default(autoincrement())
   quote_number           String                  @unique
@@ -475,6 +499,7 @@ model quotes {
   slab_optimizations     slab_optimizations[]
   unitBlockUnit          unit_block_units?
   buyerChangeSnapshots   buyer_change_snapshots[]
+  versions               quote_versions[]
 }
 
 model service_rates {
@@ -566,6 +591,7 @@ model user {
   companies          companies?         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers          customers?         @relation(fields: [customer_id], references: [id])
   unitBlockProjects  unit_block_projects[]
+  quote_versions     quote_versions[]
 
   @@map("users")
 }

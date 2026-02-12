@@ -43,12 +43,12 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch both versions (quote_versions is a planned model)
+    // Fetch both versions
     const [fromVersionRecord, toVersionRecord] = await Promise.all([
-      (prisma as any).quote_versions.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: fromVersion } },
       }),
-      (prisma as any).quote_versions.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: toVersion } },
       }),
     ]);
@@ -57,7 +57,7 @@ export async function GET(
       return NextResponse.json({ error: 'One or both versions not found' }, { status: 404 });
     }
 
-    // Compare snapshots
+    // Compare snapshots — double-cast Prisma JSON fields
     const fromSnapshot = fromVersionRecord.snapshotData as unknown as QuoteSnapshot;
     const toSnapshot = toVersionRecord.snapshotData as unknown as QuoteSnapshot;
     const differences = compareSnapshots(fromSnapshot, toSnapshot);
@@ -65,12 +65,12 @@ export async function GET(
     return NextResponse.json({
       fromVersion: {
         version: fromVersionRecord.version,
-        changedAt: fromVersionRecord.changedAt,
+        changedAt: fromVersionRecord.createdAt,
         snapshot: fromSnapshot,
       },
       toVersion: {
         version: toVersionRecord.version,
-        changedAt: toVersionRecord.changedAt,
+        changedAt: toVersionRecord.createdAt,
         snapshot: toSnapshot,
       },
       differences,

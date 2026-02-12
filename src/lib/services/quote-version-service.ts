@@ -20,20 +20,6 @@ interface QuoteExtendedFields {
   templatingDistanceKm: number | null;
 }
 
-// quote_versions model is not yet in the Prisma schema.
-// This interface types the prisma client extension for that model.
-interface PrismaWithQuoteVersions {
-  $transaction: typeof prisma.$transaction;
-  quote_versions: {
-    create: (args: { data: Record<string, unknown> }) => Promise<{ id: number }>;
-    findUnique: (args: { where: Record<string, unknown> }) => Promise<{
-      id: number;
-      snapshotData: unknown;
-      version: number;
-    } | null>;
-  };
-}
-
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
   // Quote header info
@@ -649,10 +635,8 @@ export async function createQuoteVersion(
   );
 
   // Create version record and update quote in transaction
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  await prismaExt.$transaction([
-    prismaExt.quote_versions.create({
+  await prisma.$transaction([
+    prisma.quote_versions.create({
       data: {
         quoteId,
         version: newVersionNumber,
@@ -689,9 +673,7 @@ export async function createInitialVersion(
     (sum, r) => sum + r.pieces.length, 0
   );
 
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  await prismaExt.quote_versions.create({
+  await prisma.quote_versions.create({
     data: {
       quoteId,
       version: 1,
@@ -717,9 +699,7 @@ export async function rollbackToVersion(
   reason?: string
 ): Promise<void> {
   // Get the target version's snapshot
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  const targetVersionRecord = await prismaExt.quote_versions.findUnique({
+  const targetVersionRecord = await prisma.quote_versions.findUnique({
     where: {
       quoteId_version: {
         quoteId,
