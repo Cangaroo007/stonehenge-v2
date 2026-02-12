@@ -135,6 +135,15 @@ export default function ScheduleUploader({
   // Per-tab saving state
   const [savingTab, setSavingTab] = useState<number | null>(null);
 
+  // Auto-generate flow state
+  const [showAutoGenPrompt, setShowAutoGenPrompt] = useState(false);
+  const [autoGenerating, setAutoGenerating] = useState(false);
+  const [autoGenMessage, setAutoGenMessage] = useState<{
+    type: 'success' | 'error';
+    text: string;
+  } | null>(null);
+  const [unitTypeCodes, setUnitTypeCodes] = useState<string[]>([]);
+
   // Bulk action toolbar state
   const [openDropdown, setOpenDropdown] = useState<OpenDropdown>(null);
   const [edgeOptions, setEdgeOptions] = useState<EdgeOption[]>([]);
@@ -173,6 +182,17 @@ export default function ScheduleUploader({
               })
             )
           );
+        }
+        // Extract unit type codes from units for auto-generate prompt
+        if (data.units) {
+          const codes = Array.from(
+            new Set(
+              (data.units as Array<{ unitTypeCode?: string | null }>)
+                .map((u) => u.unitTypeCode)
+                .filter((c): c is string => Boolean(c))
+            )
+          );
+          setUnitTypeCodes(codes.sort());
         }
       }
     } catch {
@@ -619,6 +639,12 @@ export default function ScheduleUploader({
         return;
       }
 
+      // If no templates exist, show auto-generate prompt instead of saving
+      if (templates.length === 0) {
+        setShowAutoGenPrompt(true);
+        return;
+      }
+
       if (selectedTemplateIds.length === 0) {
         setError('Select at least one template to apply these mappings to.');
         return;
@@ -670,7 +696,119 @@ export default function ScheduleUploader({
         setSavingTab(null);
       }
     },
-    [groups, selectedTemplateIds, projectId, onMappingsSaved]
+    [groups, selectedTemplateIds, templates.length, projectId, onMappingsSaved]
+  );
+
+  /* ─── Auto-generate templates + save mappings in one flow ─── */
+
+  const handleAutoGenerateAndSave = useCallback(
+    async (groupIndex: number) => {
+      const group = groups[groupIndex];
+      if (!group) return;
+
+      setAutoGenerating(true);
+      setAutoGenMessage(null);
+      setError(null);
+
+      try {
+        // 1. Call auto-generate endpoint with specs from the current tab
+        const autoGenRes = await fetch(
+          `/api/unit-blocks/${projectId}/auto-generate-templates`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              specs: group.specs.map((s: ScheduleSpec) => ({
+                room: s.room,
+                application: s.application,
+                thickness: s.thickness,
+                edge: s.edge,
+              })),
+            }),
+          }
+        );
+
+        if (!autoGenRes.ok) {
+          const autoGenData = await autoGenRes.json();
+          throw new Error(
+            autoGenData.error || 'Failed to auto-generate templates'
+          );
+        }
+
+        const autoGenResult = (await autoGenRes.json()) as {
+          templates: Array<{
+            templateId: number;
+            templateName: string;
+            unitTypeCode: string;
+            linkedUnitCount: number;
+          }>;
+          totalUnitsLinked: number;
+        };
+
+        const newTemplateIds = autoGenResult.templates.map(
+          (t) => t.templateId
+        );
+
+        // 2. Refresh templates list from the server
+        await fetchTemplates();
+
+        // 3. Auto-select all newly created templates
+        setSelectedTemplateIds(newTemplateIds);
+
+        // 4. Save the finish tier mappings using the new template IDs
+        const saveRes = await fetch(
+          `/api/unit-blocks/${projectId}/parse-schedule?action=confirm`,
+          {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              finishLevel: group.finishLevel.trim(),
+              colourScheme: group.colourScheme.trim() || null,
+              mappings: group.specs.map((s: ScheduleSpec) => ({
+                roomName: s.room,
+                application: s.application,
+                materialId: s.matchedMaterialId,
+                edgeProfile:
+                  s.edge !== '\u2014' ? s.edge.replace(/\s+/g, '_') : null,
+              })),
+              fileId: group.fileId,
+              templateIds: newTemplateIds,
+            }),
+          }
+        );
+
+        if (!saveRes.ok) {
+          const saveData = await saveRes.json();
+          throw new Error(saveData.error || 'Failed to save mappings');
+        }
+
+        // 5. Mark this group as saved
+        setGroups((prev: ScheduleGroup[]) => {
+          const updated = [...prev];
+          updated[groupIndex] = { ...updated[groupIndex], saved: true };
+          return updated;
+        });
+
+        // 6. Show success message
+        const templateCount = autoGenResult.templates.length;
+        const unitCount = autoGenResult.totalUnitsLinked;
+        setAutoGenMessage({
+          type: 'success',
+          text: `Created ${templateCount} template${templateCount !== 1 ? 's' : ''} and linked ${unitCount} unit${unitCount !== 1 ? 's' : ''}. Mappings saved for ${group.finishLevel}.`,
+        });
+        setShowAutoGenPrompt(false);
+
+        onMappingsSaved?.();
+      } catch (err) {
+        setAutoGenMessage({
+          type: 'error',
+          text: err instanceof Error ? err.message : 'Auto-generation failed',
+        });
+      } finally {
+        setAutoGenerating(false);
+      }
+    },
+    [groups, projectId, fetchTemplates, onMappingsSaved]
   );
 
   /* ─── Reset ─── */
@@ -683,6 +821,9 @@ export default function ScheduleUploader({
     setActiveTab(0);
     setError(null);
     setSelectedTemplateIds([]);
+    setShowAutoGenPrompt(false);
+    setAutoGenerating(false);
+    setAutoGenMessage(null);
   }, []);
 
   /* ─── Render helpers ─── */
@@ -907,7 +1048,11 @@ export default function ScheduleUploader({
                   return (
                     <button
                       key={i}
-                      onClick={() => setActiveTab(i)}
+                      onClick={() => {
+                        setActiveTab(i);
+                        setShowAutoGenPrompt(false);
+                        setAutoGenMessage(null);
+                      }}
                       className={`whitespace-nowrap py-3 px-1 text-sm font-medium border-b-2 transition-colors ${
                         isActive
                           ? 'border-amber-500 text-amber-600 font-semibold'
@@ -1283,16 +1428,88 @@ export default function ScheduleUploader({
                   </table>
                 </div>
 
-                {/* Template selection */}
+                {/* Auto-generate success/error message */}
+                {autoGenMessage && (
+                  <div
+                    className={`p-3 rounded-lg text-sm ${
+                      autoGenMessage.type === 'success'
+                        ? 'bg-green-50 border border-green-200 text-green-800'
+                        : 'bg-red-50 border border-red-200 text-red-800'
+                    }`}
+                  >
+                    {autoGenMessage.text}
+                  </div>
+                )}
+
+                {/* Template selection / auto-generate prompt */}
                 <div>
                   <h3 className="text-sm font-medium text-gray-900 mb-2">
                     Apply to Templates *
                   </h3>
-                  {templates.length === 0 ? (
+                  {templates.length === 0 && !showAutoGenPrompt ? (
                     <p className="text-xs text-gray-500">
-                      No templates found for this project. Create templates
-                      first.
+                      No templates found for this project. Click &ldquo;Save
+                      Mappings&rdquo; to auto-generate templates from the
+                      schedule.
                     </p>
+                  ) : templates.length === 0 && showAutoGenPrompt ? (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
+                      <p className="text-sm text-blue-800 font-medium">
+                        No templates exist for this project yet.
+                      </p>
+                      <p className="text-sm text-blue-700">
+                        Auto-generate templates from the detected stone
+                        specifications? Templates will be created with default
+                        dimensions for each unit type in your project. You can
+                        edit dimensions later.
+                      </p>
+                      {unitTypeCodes.length > 0 && (
+                        <div>
+                          <p className="text-sm text-blue-800 font-medium mb-1">
+                            Unit types to create templates for:
+                          </p>
+                          <div className="flex flex-wrap gap-1.5">
+                            {unitTypeCodes.map((code) => (
+                              <span
+                                key={code}
+                                className="bg-blue-100 text-blue-800 px-2 py-0.5 rounded text-sm"
+                              >
+                                {code}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {unitTypeCodes.length === 0 && (
+                        <p className="text-xs text-blue-600">
+                          Unit types will be discovered from the project
+                          register automatically.
+                        </p>
+                      )}
+                      <div className="flex items-center gap-3 pt-1">
+                        <button
+                          onClick={() =>
+                            handleAutoGenerateAndSave(activeTab)
+                          }
+                          disabled={autoGenerating || unmappedCount > 0}
+                          className="inline-flex items-center gap-2 px-4 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium"
+                        >
+                          {autoGenerating && (
+                            <div className="h-4 w-4 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                          )}
+                          {autoGenerating
+                            ? 'Generating\u2026'
+                            : 'Auto-Generate & Save Mappings'}
+                        </button>
+                        <button
+                          onClick={() => setShowAutoGenPrompt(false)}
+                          disabled={autoGenerating}
+                          className="text-sm text-blue-700 hover:text-blue-900 disabled:opacity-50"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
                   ) : (
                     <div className="space-y-2">
                       {templates.map((t: TemplateOption) => (
@@ -1327,15 +1544,16 @@ export default function ScheduleUploader({
                   >
                     Cancel
                   </button>
-                  {!activeGroup.saved && (
+                  {!activeGroup.saved && !showAutoGenPrompt && (
                     <button
                       onClick={() => handleSaveMappings(activeTab)}
                       disabled={
                         savingTab !== null ||
                         unmappedCount > 0 ||
-                        selectedTemplateIds.length === 0
+                        (templates.length > 0 &&
+                          selectedTemplateIds.length === 0)
                       }
-                      className="px-6 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 font-medium"
+                      className="px-6 py-2 text-sm bg-amber-500 text-white rounded-lg hover:bg-amber-600 disabled:opacity-50 font-medium"
                     >
                       {savingTab === activeTab
                         ? 'Saving\u2026'
