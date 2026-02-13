@@ -32,8 +32,8 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch the specific version (quote_versions is a planned model)
-    const versionRecord = await (prisma as any).quote_versions.findUnique({
+    // Fetch the specific version
+    const versionRecord = await prisma.quote_versions.findUnique({
       where: {
         quoteId_version: {
           quoteId,
@@ -66,7 +66,7 @@ export async function GET(
       changedAt: versionRecord.changedAt,
       rolledBackFromVersion: versionRecord.rolledBackFromVersion,
       snapshot: versionRecord.snapshotData,
-      isCurrent: versionRecord.version === (quote as any).revision,
+      isCurrent: versionRecord.version === quote.revision,
     });
   } catch (error) {
     console.error('Error fetching quote version:', error);

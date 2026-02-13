@@ -441,6 +441,29 @@ model quote_views {
   @@index([user_id])
 }
 
+model quote_versions {
+  id                    Int      @id @default(autoincrement())
+  quoteId               Int
+  version               Int
+  snapshotData          Json
+  changeType            String
+  changeReason          String?
+  changeSummary         String?
+  changes               Json?
+  changedByUserId       Int
+  rolledBackFromVersion Int?
+  subtotal              Decimal  @db.Decimal(10, 2)
+  tax_amount            Decimal  @db.Decimal(10, 2)
+  totalAmount           Decimal  @db.Decimal(10, 2)
+  pieceCount            Int
+  changedAt             DateTime @default(now())
+
+  quote                 quotes   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  changedByUser         user     @relation(fields: [changedByUserId], references: [id])
+
+  @@unique([quoteId, version])
+}
+
 model quotes {
   id                     Int                     @id @default(autoincrement())
   quote_number           String                  @unique
@@ -463,11 +486,30 @@ model quotes {
   calculated_at          DateTime?
   calculated_total       Decimal?                @db.Decimal(10, 2)
   calculation_breakdown  Json?
+
+  // Delivery & Templating
+  deliveryAddress        String?
+  deliveryDistanceKm     Decimal?                @db.Decimal(10, 2)
+  deliveryCost           Decimal?                @db.Decimal(10, 2)
+  templatingRequired     Boolean                 @default(false)
+  templatingDistanceKm   Decimal?                @db.Decimal(10, 2)
+  templatingCost         Decimal?                @db.Decimal(10, 2)
+
+  // Pricing overrides
+  overrideSubtotal       Decimal?                @db.Decimal(10, 2)
+  overrideTotal          Decimal?                @db.Decimal(10, 2)
+  overrideDeliveryCost   Decimal?                @db.Decimal(10, 2)
+  overrideTemplatingCost Decimal?                @db.Decimal(10, 2)
+  overrideReason         String?
+  overrideBy             Int?
+  overrideAt             DateTime?
+
   drawings               drawings[]
   quote_drawing_analyses quote_drawing_analyses?
   quote_files            quote_files[]
   quote_rooms            quote_rooms[]
   quote_signatures       quote_signatures?
+  quote_versions         quote_versions[]
   quote_views            quote_views[]
   user                   user?                   @relation(fields: [created_by], references: [id])
   customers              customers?              @relation(fields: [customer_id], references: [id])
@@ -560,6 +602,7 @@ model user {
   company_id         Int?
   audit_logs         audit_logs[]
   quote_signatures   quote_signatures[]
+  quote_versions     quote_versions[]
   quote_views        quote_views[]
   quotes             quotes[]
   user_permissions   user_permissions[]

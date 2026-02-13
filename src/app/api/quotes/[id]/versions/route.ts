@@ -32,8 +32,8 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch all versions (quote_versions is a planned model)
-    const versions = await (prisma as any).quote_versions.findMany({
+    // Fetch all versions
+    const versions = await prisma.quote_versions.findMany({
       where: { quoteId },
       orderBy: { version: 'desc' },
       include: {
@@ -52,7 +52,7 @@ export async function GET(
         id: quote.id,
         quote_number: quote.quote_number,
       },
-      versions: versions.map((v: any) => ({
+      versions: versions.map((v) => ({
         id: v.id,
         version: v.version,
         changeType: v.changeType,

@@ -42,7 +42,7 @@ export async function POST(
           { customers: { user: { some: { id: authResult.user.id } } } },
         ],
       },
-      select: { id: true },
+      select: { id: true, revision: true },
     });
 
     if (!quote) {
@@ -50,7 +50,7 @@ export async function POST(
     }
 
     // Check if already at this version
-    if ((quote as any).revision === versionNumber) {
+    if (quote.revision === versionNumber) {
       return NextResponse.json(
         { error: 'Quote is already at this version' },
         { status: 400 }
