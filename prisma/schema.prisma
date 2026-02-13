@@ -373,7 +373,7 @@ model quote_files {
 }
 
 model quote_pieces {
-  id                Int              @id @default(autoincrement())
+  id                Int                @id @default(autoincrement())
   room_id           Int
   material_id       Int?
   material_name     String?
@@ -381,24 +381,26 @@ model quote_pieces {
   length_mm         Int
   width_mm          Int
   thickness_mm      Int
-  area_sqm          Decimal          @db.Decimal(10, 4)
-  material_cost     Decimal          @default(0) @db.Decimal(10, 2)
-  features_cost     Decimal          @default(0) @db.Decimal(10, 2)
-  total_cost        Decimal          @default(0) @db.Decimal(10, 2)
-  sort_order        Int              @default(0)
-  cutouts           Json             @default("[]")
+  area_sqm          Decimal            @db.Decimal(10, 4)
+  material_cost     Decimal            @default(0) @db.Decimal(10, 2)
+  features_cost     Decimal            @default(0) @db.Decimal(10, 2)
+  total_cost        Decimal            @default(0) @db.Decimal(10, 2)
+  sort_order        Int                @default(0)
+  cutouts           Json               @default("[]")
   edge_bottom       String?
   edge_left         String?
   edge_right        String?
   edge_top          String?
-  name              String           @default("Piece")
-  lamination_method LaminationMethod @default(NONE)
-  isOversize        Boolean          @default(false)
-  joinCount         Int              @default(0)
+  name              String             @default("Piece")
+  lamination_method LaminationMethod   @default(NONE)
+  piece_type        PieceType          @default(BENCHTOP)
+  waterfall_join    WaterfallJoinType?
+  isOversize        Boolean            @default(false)
+  joinCount         Int                @default(0)
   joinLengthMm      Int?
   piece_features    piece_features[]
-  materials         materials?       @relation(fields: [material_id], references: [id])
-  quote_rooms       quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  materials         materials?         @relation(fields: [material_id], references: [id])
+  quote_rooms       quote_rooms        @relation(fields: [room_id], references: [id], onDelete: Cascade)
 }
 
 model quote_rooms {
@@ -644,8 +646,23 @@ enum MaterialPricingBasis {
 
 enum WaterfallPricingMethod {
   FIXED_PER_END
-  PER_LINEAR_METRE
-  INCLUDED_IN_SLAB
+  PER_LINEAR_METRE_HEIGHT
+}
+
+enum PieceType {
+  BENCHTOP
+  ISLAND
+  SPLASHBACK
+  WATERFALL
+  VANITY
+  SHELF
+  PANEL
+  OTHER
+}
+
+enum WaterfallJoinType {
+  MITRE
+  BUTT
 }
 
 enum Permission {
