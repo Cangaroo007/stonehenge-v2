@@ -651,8 +651,8 @@ export async function createQuoteVersion(
   // Create version record and update quote in transaction
   // quote_versions model is not yet in Prisma schema — double-cast to typed interface
   const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  await prismaExt.$transaction([
-    prismaExt.quote_versions.create({
+  await prisma.$transaction(async () => {
+    await prismaExt.quote_versions.create({
       data: {
         quoteId,
         version: newVersionNumber,
@@ -668,12 +668,12 @@ export async function createQuoteVersion(
         totalAmount: currentSnapshot.pricing.total,
         pieceCount,
       },
-    }),
-    prisma.quotes.update({
+    });
+    await prisma.quotes.update({
       where: { id: quoteId },
       data: { revision: newVersionNumber },
-    }),
-  ]);
+    });
+  });
 }
 
 /**

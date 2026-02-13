@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAuditLog, getClientIp, getUserAgent } from '@/lib/audit';
 import prisma from '@/lib/db';
 import crypto from 'crypto';
+import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 
 /**
  * POST /api/quotes/[id]/sign
@@ -66,6 +67,12 @@ export async function POST(
       );
     }
 
+    // Take snapshot before changes for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist yet in version system */ }
+
     // Capture legal compliance data
     const ipAddress = getClientIp(request.headers);
     const userAgent = getUserAgent(request.headers);
@@ -127,6 +134,13 @@ export async function POST(
       ipAddress,
       userAgent,
     });
+
+    // Record version snapshot after signing
+    try {
+      await createQuoteVersion(quoteId, currentUser.id, 'CLIENT_APPROVED', undefined, previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version after sign (non-blocking):', versionError);
+    }
 
     // TODO: Send confirmation email to customer and sales team
     // This would integrate with your email service (SendGrid, AWS SES, etc.)

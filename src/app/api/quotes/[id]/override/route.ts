@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 import { logger } from '@/lib/logger';
+import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 
 // Fields that exist in the database but are not yet in the Prisma schema.
 // Used for double-cast pattern when reading/writing override fields.
@@ -61,6 +62,12 @@ export async function POST(
       );
     }
 
+    // Take snapshot before changes for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist yet in version system */ }
+
     // Update quote with overrides (fields are planned schema additions)
     const overrideData: QuoteOverrideUpdateData = {
       overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
@@ -101,6 +108,13 @@ export async function POST(
         originalTemplatingCost: ext.templatingCost ? Number(ext.templatingCost) : null
       }
     });
+
+    // Record version snapshot after override
+    try {
+      await createQuoteVersion(quoteId, user.id, 'UPDATED', body.reason || 'Pricing override applied', previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version after override (non-blocking):', versionError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -146,6 +160,12 @@ export async function DELETE(
       );
     }
 
+    // Take snapshot before changes for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist yet in version system */ }
+
     const clearData: QuoteOverrideUpdateData = {
       overrideSubtotal: null,
       overrideTotal: null,
@@ -171,6 +191,13 @@ export async function DELETE(
         quote_number: quote.quote_number
       }
     });
+
+    // Record version snapshot after clearing overrides
+    try {
+      await createQuoteVersion(quoteId, user.id, 'UPDATED', 'Pricing overrides cleared', previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version after override clear (non-blocking):', versionError);
+    }
 
     return NextResponse.json({
       success: true,
