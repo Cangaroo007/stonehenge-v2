@@ -475,6 +475,51 @@ model quotes {
   slab_optimizations     slab_optimizations[]
   unitBlockUnit          unit_block_units?
   buyerChangeSnapshots   buyer_change_snapshots[]
+  versions               quote_versions[]
+
+  // Delivery & templating fields
+  deliveryCost             Decimal?  @db.Decimal(10, 2)
+  templatingCost           Decimal?  @db.Decimal(10, 2)
+  deliveryAddress          String?
+  deliveryDistanceKm       Decimal?  @db.Decimal(10, 2)
+  templatingRequired       Boolean   @default(false)
+  templatingDistanceKm     Decimal?  @db.Decimal(10, 2)
+
+  // Override fields
+  overrideSubtotal         Decimal?  @db.Decimal(10, 2)
+  overrideTotal            Decimal?  @db.Decimal(10, 2)
+  overrideDeliveryCost     Decimal?  @db.Decimal(10, 2)
+  overrideTemplatingCost   Decimal?  @db.Decimal(10, 2)
+  overrideReason           String?
+  overrideBy               Int?
+  overrideAt               DateTime?
+}
+
+model quote_versions {
+  id                    String   @id @default(cuid())
+  quoteId               Int
+  version               Int
+  snapshotData          Json
+  changeType            String
+  changeReason          String?
+  changeSummary         String?
+  changes               Json?
+  changedBy             String?
+  changedByUserId       Int?
+  changedAt             DateTime @default(now())
+  rolledBackFromVersion Int?
+  subtotal              Decimal? @db.Decimal(10, 2)
+  tax_amount            Decimal? @db.Decimal(10, 2)
+  totalAmount           Decimal? @db.Decimal(10, 2)
+  pieceCount            Int?
+
+  // Relations
+  quote                 quotes   @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  changedByUser         user?    @relation(fields: [changedByUserId], references: [id])
+
+  @@unique([quoteId, version])
+  @@index([quoteId])
+  @@map("quote_versions")
 }
 
 model service_rates {
@@ -566,6 +611,7 @@ model user {
   companies          companies?         @relation(fields: [company_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   customers          customers?         @relation(fields: [customer_id], references: [id])
   unitBlockProjects  unit_block_projects[]
+  quote_versions     quote_versions[]
 
   @@map("users")
 }

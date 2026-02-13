@@ -4,36 +4,6 @@ import { Prisma } from '@prisma/client';
 // QuoteChangeType is not yet in Prisma schema - define locally
 export type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_CLIENT' | 'CLIENT_APPROVED' | 'CLIENT_REJECTED' | 'CLIENT_VIEWED' | 'PRICING_RECALCULATED' | 'STATUS_CHANGED';
 
-// Fields that exist in the database but are not yet in the Prisma schema.
-// Used for double-cast pattern: `quote as unknown as QuoteExtendedFields`
-interface QuoteExtendedFields {
-  deliveryCost: number | null;
-  templatingCost: number | null;
-  overrideSubtotal: number | null;
-  overrideTotal: number | null;
-  overrideDeliveryCost: number | null;
-  overrideTemplatingCost: number | null;
-  overrideReason: string | null;
-  deliveryAddress: string | null;
-  deliveryDistanceKm: number | null;
-  templatingRequired: boolean;
-  templatingDistanceKm: number | null;
-}
-
-// quote_versions model is not yet in the Prisma schema.
-// This interface types the prisma client extension for that model.
-interface PrismaWithQuoteVersions {
-  $transaction: typeof prisma.$transaction;
-  quote_versions: {
-    create: (args: { data: Record<string, unknown> }) => Promise<{ id: number }>;
-    findUnique: (args: { where: Record<string, unknown> }) => Promise<{
-      id: number;
-      snapshotData: unknown;
-      version: number;
-    } | null>;
-  };
-}
-
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
   // Quote header info
@@ -41,7 +11,7 @@ export interface QuoteSnapshot {
   status: string;
   client_types: string | null;
   client_tiers: string | null;
-  
+
   // Customer info
   customer: {
     id: number;
@@ -49,14 +19,14 @@ export interface QuoteSnapshot {
     email: string | null;
     phone: string | null;
   } | null;
-  
+
   // Material info (if there's a common material)
   materials: {
     id: number;
     name: string;
     pricePerSqm: number;
   } | null;
-  
+
   // Rooms and pieces
   rooms: Array<{
     id: number;
@@ -71,6 +41,9 @@ export interface QuoteSnapshot {
       areaSqm: number;
       materialId: number | null;
       materialName: string | null;
+      materialCost: number;
+      featuresCost: number;
+      totalCost: number;
       edgeTop: string | null;
       edgeBottom: string | null;
       edgeLeft: string | null;
@@ -85,7 +58,7 @@ export interface QuoteSnapshot {
       }>;
     }>;
   }>;
-  
+
   // Pricing breakdown
   pricing: {
     subtotal: number;
@@ -95,7 +68,7 @@ export interface QuoteSnapshot {
     calculated_total: number | null;
     deliveryCost: number | null;
     templatingCost: number | null;
-    
+
     // Any overrides
     overrides: {
       overrideSubtotal: number | null;
@@ -105,7 +78,7 @@ export interface QuoteSnapshot {
       overrideReason: string | null;
     };
   };
-  
+
   // Delivery info
   delivery: {
     deliveryAddress: string | null;
@@ -113,7 +86,7 @@ export interface QuoteSnapshot {
     templatingRequired: boolean;
     templatingDistanceKm: number | null;
   };
-  
+
   // Metadata
   notes: string | null;
   internal_notes: string | null;
@@ -168,9 +141,6 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
     }
   }
 
-  // Double-cast to access fields not yet in Prisma schema
-  const ext = quote as unknown as QuoteExtendedFields;
-
   return {
     quote_number: quote.quote_number,
     status: quote.status,
@@ -183,9 +153,9 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
       email: quote.customers.email,
       phone: quote.customers.phone,
     } : null,
-    
+
     materials: commonMaterial,
-    
+
     rooms: quote.quote_rooms.map((room) => ({
       id: room.id,
       name: room.name,
@@ -216,32 +186,31 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
         })),
       })),
     })),
-    
+
     pricing: {
       subtotal: Number(quote.subtotal),
       tax_rate: Number(quote.tax_rate),
       tax_amount: Number(quote.tax_amount),
       total: Number(quote.total),
       calculated_total: quote.calculated_total ? Number(quote.calculated_total) : null,
-      // These fields exist in DB but not yet in Prisma schema — double-cast to access
-      deliveryCost: ext.deliveryCost ? Number(ext.deliveryCost) : null,
-      templatingCost: ext.templatingCost ? Number(ext.templatingCost) : null,
+      deliveryCost: quote.deliveryCost ? Number(quote.deliveryCost) : null,
+      templatingCost: quote.templatingCost ? Number(quote.templatingCost) : null,
       overrides: {
-        overrideSubtotal: ext.overrideSubtotal ? Number(ext.overrideSubtotal) : null,
-        overrideTotal: ext.overrideTotal ? Number(ext.overrideTotal) : null,
-        overrideDeliveryCost: ext.overrideDeliveryCost ? Number(ext.overrideDeliveryCost) : null,
-        overrideTemplatingCost: ext.overrideTemplatingCost ? Number(ext.overrideTemplatingCost) : null,
-        overrideReason: ext.overrideReason,
+        overrideSubtotal: quote.overrideSubtotal ? Number(quote.overrideSubtotal) : null,
+        overrideTotal: quote.overrideTotal ? Number(quote.overrideTotal) : null,
+        overrideDeliveryCost: quote.overrideDeliveryCost ? Number(quote.overrideDeliveryCost) : null,
+        overrideTemplatingCost: quote.overrideTemplatingCost ? Number(quote.overrideTemplatingCost) : null,
+        overrideReason: quote.overrideReason,
       },
     },
 
     delivery: {
-      deliveryAddress: ext.deliveryAddress,
-      deliveryDistanceKm: ext.deliveryDistanceKm ? Number(ext.deliveryDistanceKm) : null,
-      templatingRequired: ext.templatingRequired,
-      templatingDistanceKm: ext.templatingDistanceKm ? Number(ext.templatingDistanceKm) : null,
+      deliveryAddress: quote.deliveryAddress,
+      deliveryDistanceKm: quote.deliveryDistanceKm ? Number(quote.deliveryDistanceKm) : null,
+      templatingRequired: quote.templatingRequired,
+      templatingDistanceKm: quote.templatingDistanceKm ? Number(quote.templatingDistanceKm) : null,
     },
-    
+
     notes: quote.notes,
     internal_notes: quote.internal_notes,
     valid_until: quote.valid_until?.toISOString() ?? null,
@@ -269,9 +238,9 @@ export function compareSnapshots(
 
   // Compare customer
   if (oldSnapshot.customer?.id !== newSnapshot.customer?.id) {
-    changes['customer'] = { 
-      old: oldSnapshot.customer?.name ?? null, 
-      new: newSnapshot.customer?.name ?? null 
+    changes['customer'] = {
+      old: oldSnapshot.customer?.name ?? null,
+      new: newSnapshot.customer?.name ?? null
     };
   }
 
@@ -287,9 +256,9 @@ export function compareSnapshots(
   const pricingFields = ['subtotal', 'tax_amount', 'total'] as const;
   for (const field of pricingFields) {
     if (oldSnapshot.pricing[field] !== newSnapshot.pricing[field]) {
-      changes[`pricing.${field}`] = { 
-        old: oldSnapshot.pricing[field], 
-        new: newSnapshot.pricing[field] 
+      changes[`pricing.${field}`] = {
+        old: oldSnapshot.pricing[field],
+        new: newSnapshot.pricing[field]
       };
     }
   }
@@ -307,24 +276,24 @@ export function compareSnapshots(
 
   // Compare room counts
   if (oldSnapshot.rooms.length !== newSnapshot.rooms.length) {
-    changes['roomCount'] = { 
-      old: oldSnapshot.rooms.length, 
-      new: newSnapshot.rooms.length 
+    changes['roomCount'] = {
+      old: oldSnapshot.rooms.length,
+      new: newSnapshot.rooms.length
     };
   }
 
   // Compare delivery
   if (oldSnapshot.delivery.deliveryAddress !== newSnapshot.delivery.deliveryAddress) {
-    changes['deliveryAddress'] = { 
-      old: oldSnapshot.delivery.deliveryAddress, 
-      new: newSnapshot.delivery.deliveryAddress 
+    changes['deliveryAddress'] = {
+      old: oldSnapshot.delivery.deliveryAddress,
+      new: newSnapshot.delivery.deliveryAddress
     };
   }
 
   if (oldSnapshot.delivery.templatingRequired !== newSnapshot.delivery.templatingRequired) {
-    changes['templatingRequired'] = { 
-      old: oldSnapshot.delivery.templatingRequired, 
-      new: newSnapshot.delivery.templatingRequired 
+    changes['templatingRequired'] = {
+      old: oldSnapshot.delivery.templatingRequired,
+      new: newSnapshot.delivery.templatingRequired
     };
   }
 
@@ -619,7 +588,7 @@ export async function createQuoteVersion(
 ): Promise<void> {
   // Get current snapshot
   const currentSnapshot = await createQuoteSnapshot(quoteId);
-  
+
   // Get the quote's current version number
   const quote = await prisma.quotes.findUnique({
     where: { id: quoteId },
@@ -648,11 +617,9 @@ export async function createQuoteVersion(
     (sum, r) => sum + r.pieces.length, 0
   );
 
-  // Create version record and update quote in transaction
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  await prismaExt.$transaction([
-    prismaExt.quote_versions.create({
+  // Create version record and update quote in an interactive transaction
+  await prisma.$transaction(async (tx) => {
+    await tx.quote_versions.create({
       data: {
         quoteId,
         version: newVersionNumber,
@@ -668,12 +635,13 @@ export async function createQuoteVersion(
         totalAmount: currentSnapshot.pricing.total,
         pieceCount,
       },
-    }),
-    prisma.quotes.update({
+    });
+
+    await tx.quotes.update({
       where: { id: quoteId },
       data: { revision: newVersionNumber },
-    }),
-  ]);
+    });
+  });
 }
 
 /**
@@ -684,14 +652,12 @@ export async function createInitialVersion(
   userId: number
 ): Promise<void> {
   const snapshot = await createQuoteSnapshot(quoteId);
-  
+
   const pieceCount = snapshot.rooms.reduce(
     (sum, r) => sum + r.pieces.length, 0
   );
 
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  await prismaExt.quote_versions.create({
+  await prisma.quote_versions.create({
     data: {
       quoteId,
       version: 1,
@@ -717,9 +683,7 @@ export async function rollbackToVersion(
   reason?: string
 ): Promise<void> {
   // Get the target version's snapshot
-  // quote_versions model is not yet in Prisma schema — double-cast to typed interface
-  const prismaExt = prisma as unknown as PrismaWithQuoteVersions;
-  const targetVersionRecord = await prismaExt.quote_versions.findUnique({
+  const targetVersionRecord = await prisma.quote_versions.findUnique({
     where: {
       quoteId_version: {
         quoteId,
@@ -772,9 +736,9 @@ export async function rollbackToVersion(
                 area_sqm: piece.areaSqm,
                 material_id: piece.materialId,
                 material_name: piece.materialName,
-                material_cost: (piece as Record<string, unknown>).materialCost as number ?? 0,
-                features_cost: (piece as Record<string, unknown>).featuresCost as number ?? 0,
-                total_cost: (piece as Record<string, unknown>).totalCost as number ?? 0,
+                material_cost: piece.materialCost ?? 0,
+                features_cost: piece.featuresCost ?? 0,
+                total_cost: piece.totalCost ?? 0,
                 sort_order: 0,
                 edge_top: piece.edgeTop,
                 edge_bottom: piece.edgeBottom,

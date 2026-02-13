@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import type { quote_versions, user } from '@prisma/client';
+
+type VersionWithUser = quote_versions & {
+  changedByUser: Pick<user, 'id' | 'name' | 'email'> | null;
+};
 
 // GET - List all versions for a quote
 export async function GET(
@@ -32,8 +37,8 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch all versions (quote_versions is a planned model)
-    const versions = await (prisma as any).quote_versions.findMany({
+    // Fetch all versions
+    const versions = await prisma.quote_versions.findMany({
       where: { quoteId },
       orderBy: { version: 'desc' },
       include: {
@@ -52,7 +57,7 @@ export async function GET(
         id: quote.id,
         quote_number: quote.quote_number,
       },
-      versions: versions.map((v: any) => ({
+      versions: versions.map((v: VersionWithUser) => ({
         id: v.id,
         version: v.version,
         changeType: v.changeType,

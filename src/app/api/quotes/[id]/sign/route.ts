@@ -3,6 +3,7 @@ import { getCurrentUser } from '@/lib/auth';
 import { createAuditLog, getClientIp, getUserAgent } from '@/lib/audit';
 import prisma from '@/lib/db';
 import crypto from 'crypto';
+import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 
 /**
  * POST /api/quotes/[id]/sign
@@ -105,6 +106,12 @@ export async function POST(
       },
     });
 
+    // Capture snapshot before status change for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist in version system yet */ }
+
     // Update quote status to ACCEPTED
     await prisma.quotes.update({
       where: { id: quoteId },
@@ -127,6 +134,13 @@ export async function POST(
       ipAddress,
       userAgent,
     });
+
+    // Record version snapshot for the signing event
+    try {
+      await createQuoteVersion(quoteId, currentUser.id, 'CLIENT_APPROVED', 'Quote signed', previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version (non-blocking):', versionError);
+    }
 
     // TODO: Send confirmation email to customer and sales team
     // This would integrate with your email service (SendGrid, AWS SES, etc.)
