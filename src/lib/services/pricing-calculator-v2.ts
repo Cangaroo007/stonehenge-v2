@@ -96,6 +96,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
 
   if (settings) {
     return {
+      pricingSettingsId: settings.id,
       organisationId: settings.organisation_id,
       materialPricingBasis: settings.material_pricing_basis,
       cuttingUnit: settings.cutting_unit,
@@ -107,6 +108,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       mitredMultiplier: Number(settings.mitred_multiplier),
       wasteFactorPercent: Number(settings.waste_factor_percent),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent),
+      cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
     };
   }
 
@@ -299,10 +301,13 @@ export async function calculateQuotePrice(
   const pricingContext = await loadPricingContext('1');
 
   // Get pricing data
-  const [edgeTypes, cutoutTypes, serviceRates] = await Promise.all([
+  const [edgeTypes, cutoutTypes, serviceRates, cutoutCategoryRates] = await Promise.all([
     prisma.edge_types.findMany({ where: { isActive: true } }),
     prisma.cutout_types.findMany({ where: { isActive: true } }),
     prisma.service_rates.findMany({ where: { isActive: true } }),
+    prisma.cutout_category_rates.findMany({
+      where: { pricingSettingsId: pricingContext.pricingSettingsId },
+    }),
   ]);
 
   // Validate required service rates exist — never silently return $0
@@ -342,9 +347,13 @@ export async function calculateQuotePrice(
   // Calculate edge costs with thickness variants
   const edgeData = calculateEdgeCostV2(allPieces, edgeTypes);
 
-  // Calculate cutout costs with categories and minimums
-  // NOTE: cutout_types schema may not have `category` yet - cast as any
-  const cutoutData = calculateCutoutCostV2(allPieces, cutoutTypes as any);
+  // Calculate cutout costs with category-aware rates and thickness multiplier
+  const cutoutData = calculateCutoutCostV2(
+    allPieces,
+    cutoutTypes as any,
+    cutoutCategoryRates,
+    pricingContext
+  );
 
   // Calculate service costs (cutting, polishing, installation, waterfall)
   const serviceData = calculateServiceCosts(allPieces, edgeData.totalLinearMeters, serviceRates, pricingContext);
@@ -378,7 +387,8 @@ export async function calculateQuotePrice(
         cutoutTypeMap,
         fabricationDiscountPct,
         pricingContext,
-        pieceFabCategory
+        pieceFabCategory,
+        cutoutCategoryRates
       )
     );
   }
@@ -672,11 +682,14 @@ function calculateEdgeCostV2(
 }
 
 /**
- * Calculate cutout costs with categories and minimum charges
+ * Calculate cutout costs with category-aware rates, thickness multiplier, and minimum charges.
+ * Category rate takes priority over base rate; falls back to base rate when no category rate exists.
  */
 function calculateCutoutCostV2(
   pieces: Array<{
     cutouts: unknown; // JSON array
+    thickness_mm: number;
+    materials: unknown;
   }>,
   cutoutTypes: Array<{
     id: string;
@@ -684,21 +697,44 @@ function calculateCutoutCostV2(
     category: string;
     baseRate: { toNumber: () => number };
     minimumCharge: { toNumber: () => number } | null;
-  }>
+  }>,
+  cutoutCategoryRates: Array<{
+    cutoutTypeId: string;
+    fabricationCategory: string;
+    rate: { toNumber: () => number } | number;
+  }>,
+  pricingContext: PricingContext
 ): { items: CutoutBreakdown[]; subtotal: number } {
-  const cutoutTotals = new Map<string, { quantity: number; cutoutType: typeof cutoutTypes[number] }>();
+  // Group cutouts by cutoutTypeId + fabricationCategory to handle different material categories
+  const cutoutTotals = new Map<string, {
+    quantity: number;
+    cutoutType: typeof cutoutTypes[number];
+    fabricationCategory: string;
+    maxThickness: number;
+  }>();
 
   for (const piece of pieces) {
     const cutouts = Array.isArray(piece.cutouts) ? piece.cutouts :
                     (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
 
+    const fabCategory: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+
     for (const cutout of cutouts) {
       const cutoutType = cutoutTypes.find(ct => ct.id === cutout.typeId || ct.name === cutout.type);
       if (!cutoutType) continue;
 
-      const existing = cutoutTotals.get(cutoutType.id) || { quantity: 0, cutoutType };
+      const key = `${cutoutType.id}__${fabCategory}`;
+      const existing = cutoutTotals.get(key) || {
+        quantity: 0,
+        cutoutType,
+        fabricationCategory: fabCategory,
+        maxThickness: 0,
+      };
       existing.quantity += cutout.quantity || 1;
-      cutoutTotals.set(cutoutType.id, existing);
+      existing.maxThickness = Math.max(existing.maxThickness, piece.thickness_mm);
+      cutoutTotals.set(key, existing);
     }
   }
 
@@ -706,8 +742,32 @@ function calculateCutoutCostV2(
   let subtotal = 0;
 
   for (const [, data] of Array.from(cutoutTotals.entries())) {
-    const basePrice = data.cutoutType.baseRate.toNumber();
-    let itemSubtotal = data.quantity * basePrice;
+    // Try category-specific rate first
+    const categoryCutoutRate = cutoutCategoryRates.find(
+      r => r.cutoutTypeId === data.cutoutType.id
+        && r.fabricationCategory === data.fabricationCategory
+    );
+
+    const basePrice = categoryCutoutRate
+      ? (typeof categoryCutoutRate.rate === 'number'
+          ? categoryCutoutRate.rate
+          : categoryCutoutRate.rate.toNumber())
+      : data.cutoutType.baseRate.toNumber(); // fallback to flat rate
+
+    if (!categoryCutoutRate && basePrice === 0) {
+      console.warn(
+        `No category rate or base rate found for cutout type "${data.cutoutType.name}" ` +
+        `(${data.cutoutType.id}) in category ${data.fabricationCategory}. Cost will be $0.`
+      );
+    }
+
+    // Apply thickness multiplier for pieces > 20mm (from 11.1a)
+    const thicknessMultiplier = data.maxThickness > 20
+      ? pricingContext.cutoutThicknessMultiplier
+      : 1.0;
+
+    const appliedPrice = roundToTwo(basePrice * thicknessMultiplier);
+    let itemSubtotal = data.quantity * appliedPrice;
 
     // Apply minimum charge
     const minCharge = data.cutoutType.minimumCharge?.toNumber() || 0;
@@ -717,10 +777,10 @@ function calculateCutoutCostV2(
 
     items.push({
       cutoutTypeId: data.cutoutType.id,
-      cutoutTypeName: `${data.cutoutType.name} (${data.cutoutType.category})`,
+      cutoutTypeName: data.cutoutType.name,
       quantity: data.quantity,
       basePrice: roundToTwo(basePrice),
-      appliedPrice: roundToTwo(basePrice),
+      appliedPrice,
       subtotal: roundToTwo(itemSubtotal),
     });
 
@@ -1030,7 +1090,12 @@ function calculatePiecePricing(
   }>,
   fabricationDiscountPct: number,
   pricingContext: PricingContext,
-  fabricationCategory: string = 'ENGINEERED'
+  fabricationCategory: string = 'ENGINEERED',
+  cutoutCategoryRates: Array<{
+    cutoutTypeId: string;
+    fabricationCategory: string;
+    rate: { toNumber: () => number } | number;
+  }> = []
 ): PiecePricingBreakdown {
   const thickness = piece.thickness_mm;
   const isThick = thickness > 20;
@@ -1163,7 +1228,7 @@ function calculatePiecePricing(
     });
   }
 
-  // Cutout costs
+  // Cutout costs — category-aware rates with thickness multiplier
   const cutoutBreakdowns: PiecePricingBreakdown['fabrication']['cutouts'] = [];
   const cutoutsArray = Array.isArray(piece.cutouts)
     ? piece.cutouts
@@ -1173,7 +1238,30 @@ function calculatePiecePricing(
     const cutoutType = cutoutTypes.get(cutout.typeId) ?? findCutoutByName(cutoutTypes, cutout.type);
     if (!cutoutType) continue;
 
-    const rate = cutoutType.baseRate.toNumber();
+    // Try category-specific rate first, fall back to base rate
+    const categoryCutoutRate = cutoutCategoryRates.find(
+      r => r.cutoutTypeId === cutoutType.id
+        && r.fabricationCategory === fabricationCategory
+    );
+
+    const baseRate = categoryCutoutRate
+      ? (typeof categoryCutoutRate.rate === 'number'
+          ? categoryCutoutRate.rate
+          : categoryCutoutRate.rate.toNumber())
+      : cutoutType.baseRate.toNumber();
+
+    if (!categoryCutoutRate && baseRate === 0) {
+      console.warn(
+        `No category rate or base rate for cutout "${cutoutType.name}" in category ${fabricationCategory}. Cost will be $0.`
+      );
+    }
+
+    // Apply thickness multiplier for pieces > 20mm
+    const thicknessMultiplier = thickness > 20
+      ? pricingContext.cutoutThicknessMultiplier
+      : 1.0;
+
+    const rate = roundToTwo(baseRate * thicknessMultiplier);
     const quantity = cutout.quantity || 1;
     let baseAmount = roundToTwo(quantity * rate);
 
