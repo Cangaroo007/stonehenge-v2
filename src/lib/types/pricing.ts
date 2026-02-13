@@ -52,6 +52,16 @@ export interface CutoutBreakdown {
   subtotal: number;
 }
 
+export interface ServiceBreakdown {
+  serviceType: string;
+  fabricationCategory?: string;
+  name: string;
+  quantity: number;
+  unit: string;
+  rate: number;
+  subtotal: number;
+}
+
 export interface AppliedRule {
   ruleId: string;
   ruleName: string;
@@ -92,6 +102,11 @@ export interface CalculationResult {
       items: CutoutBreakdown[];
       subtotal: number;
       discount: number;
+      total: number;
+    };
+    services?: {
+      items: ServiceBreakdown[];
+      subtotal: number;
       total: number;
     };
     delivery?: {

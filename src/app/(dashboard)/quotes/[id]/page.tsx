@@ -68,6 +68,7 @@ export default async function QuoteDetailPage({
     tax_amount: Number(quote.tax_amount),
     total: Number(quote.total),
     notes: quote.notes,
+    calculation_breakdown: quote.calculation_breakdown as ServerQuoteData['calculation_breakdown'],
     created_at: quote.created_at.toISOString(),
     valid_until: quote.valid_until ? quote.valid_until.toISOString() : null,
     customers: quote.customers
