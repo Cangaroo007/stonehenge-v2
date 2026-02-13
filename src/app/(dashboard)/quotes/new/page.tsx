@@ -1,7 +1,7 @@
 import prisma from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { generateQuoteNumber } from '@/lib/utils';
-import QuoteForm from '@/components/QuoteForm';
+import NewQuoteClient from './NewQuoteClient';
 
 export const dynamic = 'force-dynamic';
 
@@ -45,19 +45,13 @@ export default async function NewQuotePage() {
   const [data, user] = await Promise.all([getData(), getCurrentUser()]);
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-gray-900">New Quote</h1>
-      </div>
-
-      <QuoteForm
-        customers={data.customers}
-        materials={data.materials}
-        pricingRules={data.pricingRules}
-        edgeTypes={data.edgeTypes}
-        nextQuoteNumber={data.nextQuoteNumber}
-        userId={user?.id}
-      />
-    </div>
+    <NewQuoteClient
+      customers={data.customers}
+      materials={data.materials}
+      pricingRules={data.pricingRules}
+      edgeTypes={data.edgeTypes}
+      nextQuoteNumber={data.nextQuoteNumber}
+      userId={user?.id}
+    />
   );
 }
