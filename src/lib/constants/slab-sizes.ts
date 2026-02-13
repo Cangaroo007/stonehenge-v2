@@ -71,6 +71,37 @@ export function getSlabSize(materialCategory: string): SlabSize {
 }
 
 /**
+ * Map a FabricationCategory enum value to a SLAB_SIZES key.
+ */
+const FABRICATION_CATEGORY_MAP: Record<string, string> = {
+  ENGINEERED: 'ENGINEERED_QUARTZ_JUMBO',
+  NATURAL_HARD: 'NATURAL_STONE',
+  NATURAL_SOFT: 'NATURAL_STONE',
+  NATURAL_PREMIUM: 'NATURAL_STONE',
+  SINTERED: 'PORCELAIN',
+};
+
+/**
+ * Get the default slab length (longer dimension) for a fabrication category.
+ * Returns lengthMm from SLAB_SIZES.
+ */
+export function getDefaultSlabLength(fabricationCategory: string | null | undefined): number | undefined {
+  if (!fabricationCategory) return undefined;
+  const key = FABRICATION_CATEGORY_MAP[fabricationCategory];
+  return key ? SLAB_SIZES[key]?.lengthMm : undefined;
+}
+
+/**
+ * Get the default slab width (shorter dimension) for a fabrication category.
+ * Returns widthMm from SLAB_SIZES.
+ */
+export function getDefaultSlabWidth(fabricationCategory: string | null | undefined): number | undefined {
+  if (!fabricationCategory) return undefined;
+  const key = FABRICATION_CATEGORY_MAP[fabricationCategory];
+  return key ? SLAB_SIZES[key]?.widthMm : undefined;
+}
+
+/**
  * Get max usable dimensions (accounting for edge trim)
  */
 export function getMaxUsableDimensions(slabSize: SlabSize, edgeTrimMm: number = 20): {
