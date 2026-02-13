@@ -12,6 +12,7 @@ export interface PricingOptions {
 }
 
 export interface PricingContext {
+  pricingSettingsId: string;
   organisationId: string;
   materialPricingBasis: MaterialPricingBasis;
   cuttingUnit: ServiceUnit;
@@ -23,6 +24,7 @@ export interface PricingContext {
   mitredMultiplier: number;
   wasteFactorPercent: number;
   grainMatchingSurchargePercent: number;
+  cutoutThicknessMultiplier: number;
 }
 
 export interface DiscountBreakdown {

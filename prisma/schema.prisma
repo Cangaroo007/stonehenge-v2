@@ -117,15 +117,29 @@ model cutout_rates {
 }
 
 model cutout_types {
-  id                   String                 @id
-  name                 String                 @unique
+  id                   String                      @id
+  name                 String                      @unique
   description          String?
-  baseRate             Decimal                @db.Decimal(10, 2)
-  isActive             Boolean                @default(true)
-  sortOrder            Int                    @default(0)
-  createdAt            DateTime               @default(now())
+  baseRate             Decimal                     @db.Decimal(10, 2)
+  isActive             Boolean                     @default(true)
+  sortOrder            Int                         @default(0)
+  createdAt            DateTime                    @default(now())
   updatedAt            DateTime
   pricing_rule_cutouts pricing_rule_cutouts[]
+  categoryRates        cutout_category_rates[]
+}
+
+model cutout_category_rates {
+  id                  Int                 @id @default(autoincrement())
+  cutoutTypeId        String              @map("cutout_type_id")
+  cutoutType          cutout_types        @relation(fields: [cutoutTypeId], references: [id], onDelete: Cascade)
+  fabricationCategory FabricationCategory @map("fabrication_category")
+  rate                Decimal             @default(0) @db.Decimal(10, 2)
+  pricingSettingsId   String              @map("pricing_settings_id")
+  pricingSettings     pricing_settings    @relation(fields: [pricingSettingsId], references: [id])
+
+  @@unique([cutoutTypeId, fabricationCategory, pricingSettingsId])
+  @@map("cutout_category_rates")
 }
 
 model drawings {
@@ -344,6 +358,7 @@ model pricing_settings {
   created_at                       DateTime               @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
+  cutoutCategoryRates              cutout_category_rates[]
   service_rates                    service_rates[]
 }
 
