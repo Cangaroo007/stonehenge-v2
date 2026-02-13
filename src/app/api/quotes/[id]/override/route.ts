@@ -3,31 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireAuthLegacy as requireAuth } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 import { logger } from '@/lib/logger';
-
-// Fields that exist in the database but are not yet in the Prisma schema.
-// Used for double-cast pattern when reading/writing override fields.
-interface QuoteOverrideFields {
-  overrideSubtotal: number | null;
-  overrideTotal: number | null;
-  overrideDeliveryCost: number | null;
-  overrideTemplatingCost: number | null;
-  overrideReason: string | null;
-  overrideBy: number | null;
-  overrideAt: Date | null;
-  deliveryCost: number | null;
-  templatingCost: number | null;
-}
-
-// Typed update data for override fields (not yet in Prisma schema)
-interface QuoteOverrideUpdateData {
-  overrideSubtotal?: number | null;
-  overrideTotal?: number | null;
-  overrideDeliveryCost?: number | null;
-  overrideTemplatingCost?: number | null;
-  overrideReason?: string | null;
-  overrideBy?: number | null;
-  overrideAt?: Date | null;
-}
+import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 
 // POST /api/quotes/[id]/override
 export async function POST(
@@ -61,27 +37,28 @@ export async function POST(
       );
     }
 
-    // Update quote with overrides (fields are planned schema additions)
-    const overrideData: QuoteOverrideUpdateData = {
-      overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
-      overrideTotal: body.overrideTotal !== undefined ? body.overrideTotal : undefined,
-      overrideDeliveryCost: body.overrideDeliveryCost !== undefined ? body.overrideDeliveryCost : undefined,
-      overrideTemplatingCost: body.overrideTemplatingCost !== undefined ? body.overrideTemplatingCost : undefined,
-      overrideReason: body.reason || null,
-      overrideBy: user.id,
-      overrideAt: new Date(),
-    };
+    // Capture snapshot before changes for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist in version system yet */ }
 
+    // Update quote with overrides
     const quote = await prisma.quotes.update({
       where: { id: quoteId },
-      data: overrideData as unknown as Record<string, unknown>,
+      data: {
+        overrideSubtotal: body.overrideSubtotal !== undefined ? body.overrideSubtotal : undefined,
+        overrideTotal: body.overrideTotal !== undefined ? body.overrideTotal : undefined,
+        overrideDeliveryCost: body.overrideDeliveryCost !== undefined ? body.overrideDeliveryCost : undefined,
+        overrideTemplatingCost: body.overrideTemplatingCost !== undefined ? body.overrideTemplatingCost : undefined,
+        overrideReason: body.reason || null,
+        overrideBy: user.id,
+        overrideAt: new Date(),
+      },
       include: {
         customers: true,
       }
     });
-
-    // Double-cast to access override fields not yet in Prisma schema
-    const ext = quote as unknown as QuoteOverrideFields;
 
     // Log the override action
     await logActivity({
@@ -97,10 +74,17 @@ export async function POST(
         reason: body.reason,
         originalSubtotal: Number(quote.subtotal),
         originalTotal: Number(quote.total),
-        originalDeliveryCost: ext.deliveryCost ? Number(ext.deliveryCost) : null,
-        originalTemplatingCost: ext.templatingCost ? Number(ext.templatingCost) : null
+        originalDeliveryCost: quote.deliveryCost ? Number(quote.deliveryCost) : null,
+        originalTemplatingCost: quote.templatingCost ? Number(quote.templatingCost) : null
       }
     });
+
+    // Record version snapshot
+    try {
+      await createQuoteVersion(quoteId, user.id, 'UPDATED', 'Override applied', previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version (non-blocking):', versionError);
+    }
 
     return NextResponse.json({
       success: true,
@@ -110,13 +94,13 @@ export async function POST(
         subtotal: Number(quote.subtotal),
         total: Number(quote.total),
         calculated_total: quote.calculated_total ? Number(quote.calculated_total) : null,
-        overrideSubtotal: ext.overrideSubtotal ? Number(ext.overrideSubtotal) : null,
-        overrideTotal: ext.overrideTotal ? Number(ext.overrideTotal) : null,
-        overrideDeliveryCost: ext.overrideDeliveryCost ? Number(ext.overrideDeliveryCost) : null,
-        overrideTemplatingCost: ext.overrideTemplatingCost ? Number(ext.overrideTemplatingCost) : null,
-        overrideReason: ext.overrideReason,
-        overrideBy: ext.overrideBy,
-        overrideAt: ext.overrideAt
+        overrideSubtotal: quote.overrideSubtotal ? Number(quote.overrideSubtotal) : null,
+        overrideTotal: quote.overrideTotal ? Number(quote.overrideTotal) : null,
+        overrideDeliveryCost: quote.overrideDeliveryCost ? Number(quote.overrideDeliveryCost) : null,
+        overrideTemplatingCost: quote.overrideTemplatingCost ? Number(quote.overrideTemplatingCost) : null,
+        overrideReason: quote.overrideReason,
+        overrideBy: quote.overrideBy,
+        overrideAt: quote.overrideAt
       }
     });
   } catch (error: unknown) {
@@ -146,19 +130,23 @@ export async function DELETE(
       );
     }
 
-    const clearData: QuoteOverrideUpdateData = {
-      overrideSubtotal: null,
-      overrideTotal: null,
-      overrideDeliveryCost: null,
-      overrideTemplatingCost: null,
-      overrideReason: null,
-      overrideBy: null,
-      overrideAt: null,
-    };
+    // Capture snapshot before changes for version diff
+    let previousSnapshot;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch { /* quote may not exist in version system yet */ }
 
     const quote = await prisma.quotes.update({
       where: { id: quoteId },
-      data: clearData as unknown as Record<string, unknown>,
+      data: {
+        overrideSubtotal: null,
+        overrideTotal: null,
+        overrideDeliveryCost: null,
+        overrideTemplatingCost: null,
+        overrideReason: null,
+        overrideBy: null,
+        overrideAt: null,
+      },
     });
 
     // Log the override removal
@@ -171,6 +159,13 @@ export async function DELETE(
         quote_number: quote.quote_number
       }
     });
+
+    // Record version snapshot
+    try {
+      await createQuoteVersion(quoteId, user.id, 'UPDATED', 'Override removed', previousSnapshot);
+    } catch (versionError) {
+      console.error('Error creating version (non-blocking):', versionError);
+    }
 
     return NextResponse.json({
       success: true,

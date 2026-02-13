@@ -43,12 +43,12 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch both versions (quote_versions is a planned model)
+    // Fetch both versions
     const [fromVersionRecord, toVersionRecord] = await Promise.all([
-      (prisma as any).quote_versions.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: fromVersion } },
       }),
-      (prisma as any).quote_versions.findUnique({
+      prisma.quote_versions.findUnique({
         where: { quoteId_version: { quoteId, version: toVersion } },
       }),
     ]);

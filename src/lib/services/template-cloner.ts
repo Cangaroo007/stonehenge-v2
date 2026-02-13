@@ -24,6 +24,7 @@ import type {
   CloneByFinishOptions,
 } from '@/lib/types/unit-templates';
 import { calculateQuotePrice } from './pricing-calculator-v2';
+import { createInitialVersion } from './quote-version-service';
 
 export interface CloneOptions {
   templateId: number;
@@ -309,6 +310,13 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
   } catch (pricingError) {
     // Pricing may fail if settings aren't configured — still return the created quote
     console.warn('Template cloner: pricing calculation failed, quote created without pricing:', pricingError);
+  }
+
+  // Create initial version for version history
+  try {
+    await createInitialVersion(result.quoteId, options.customerId);
+  } catch (versionError) {
+    console.warn('Template cloner: initial version creation failed (non-blocking):', versionError);
   }
 
   return {
