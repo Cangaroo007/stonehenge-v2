@@ -25,6 +25,10 @@ import { CutoutType, PieceCutout } from './builder/components/CutoutSelector';
 import VersionHistoryTab from '@/components/quotes/VersionHistoryTab';
 import type { CalculationResult } from '@/lib/types/pricing';
 
+// Expandable cost breakdown components
+import PieceRow from '@/components/quotes/PieceRow';
+import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
+
 // View-mode components
 import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
@@ -163,6 +167,7 @@ export interface ServerQuoteData {
   tax_amount: number;
   total: number;
   notes: string | null;
+  calculation_breakdown: CalculationResult | null;
   created_at: string;
   valid_until: string | null;
   customers: {
@@ -689,6 +694,9 @@ export default function QuoteDetailClient({
         ? `${serverData.customers.name} (${serverData.customers.company})`
         : serverData.customers?.name ?? null);
 
+  // Stored calculation breakdown for view mode
+  const viewCalculation: CalculationResult | null = serverData.calculation_breakdown ?? null;
+
   // Calculated total for header
   const headerTotal = calculation
     ? calculation.total * 1.1  // Include GST
@@ -982,6 +990,46 @@ export default function QuoteDetailClient({
           ))}
         </div>
 
+        {/* Expandable Cost Breakdown (view mode) */}
+        {viewCalculation && viewCalculation.breakdown?.pieces && viewCalculation.breakdown.pieces.length > 0 && (
+          <div className="card">
+            <div className="p-4 border-b border-gray-200">
+              <h3 className="text-lg font-semibold">Cost Breakdown</h3>
+            </div>
+            <div className="p-4 space-y-2">
+              {(viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => (
+                <PieceRow
+                  key={pb.pieceId}
+                  piece={{
+                    id: pb.pieceId,
+                    name: pb.pieceName,
+                    lengthMm: pb.dimensions.lengthMm,
+                    widthMm: pb.dimensions.widthMm,
+                    thicknessMm: pb.dimensions.thicknessMm,
+                    materialName: null,
+                    edgeTop: null,
+                    edgeBottom: null,
+                    edgeLeft: null,
+                    edgeRight: null,
+                  }}
+                  breakdown={pb}
+                  mode="view"
+                />
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Quote-Level Cost Sections (view mode) */}
+        {viewCalculation && (
+          <div className="card p-4">
+            <QuoteLevelCostSections
+              calculation={viewCalculation}
+              mode="view"
+            />
+          </div>
+        )}
+
         {/* Notes */}
         {serverData.notes && (
           <div className="card p-6">
@@ -1097,6 +1145,54 @@ export default function QuoteDetailClient({
             />
           )}
         </div>
+
+        {/* Expandable Cost Breakdown per Piece */}
+        {calculation?.breakdown?.pieces && calculation.breakdown.pieces.length > 0 && (
+          <div className="card">
+            <div className="p-4 border-b border-gray-200">
+              <h2 className="text-lg font-semibold">Cost Breakdown</h2>
+            </div>
+            <div className="p-4 space-y-2">
+              {(calculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => {
+                const matchedPiece = pieces.find(p => p.id === pb.pieceId);
+                return (
+                  <PieceRow
+                    key={pb.pieceId}
+                    piece={{
+                      id: pb.pieceId,
+                      name: pb.pieceName,
+                      lengthMm: pb.dimensions.lengthMm,
+                      widthMm: pb.dimensions.widthMm,
+                      thicknessMm: pb.dimensions.thicknessMm,
+                      materialName: matchedPiece?.materialName ?? null,
+                      edgeTop: matchedPiece?.edgeTop ?? null,
+                      edgeBottom: matchedPiece?.edgeBottom ?? null,
+                      edgeLeft: matchedPiece?.edgeLeft ?? null,
+                      edgeRight: matchedPiece?.edgeRight ?? null,
+                    }}
+                    breakdown={pb}
+                    machines={machines}
+                    machineOperationDefaults={machineOperationDefaults}
+                    mode="edit"
+                    onMachineChange={(pieceId, operationType, machineId) => {
+                      handleMachineOverride(operationType, machineId);
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Quote-Level Cost Sections */}
+        {calculation && (
+          <div className="card p-4">
+            <QuoteLevelCostSections
+              calculation={calculation}
+              mode="edit"
+            />
+          </div>
+        )}
       </div>
     );
   };
