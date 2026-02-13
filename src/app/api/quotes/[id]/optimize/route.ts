@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 import { logger } from '@/lib/logger';
+import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 
 /**
  * Fetch operation-specific kerfs from machine_operation_defaults.
@@ -71,21 +72,19 @@ export async function POST(
 
     // Use INITIAL_CUT kerf as the default for slab nesting (primary cuts)
     const {
-      slabWidth = 3000,
-      slabHeight = 1400,
       kerfWidth = initialCutKerf,
       allowRotation = true,
     } = body;
 
-    logger.info('[Optimize API] Starting optimization for quote', quoteId, 'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm');
-
-    // Get quote with pieces
+    // Get quote with pieces and their materials
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       include: {
         quote_rooms: {
           include: {
-            quote_pieces: true,
+            quote_pieces: {
+              include: { materials: true },
+            },
           },
         },
       },
@@ -94,6 +93,32 @@ export async function POST(
     if (!quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
+
+    // Resolve primary material from first piece that has one
+    type QuotePiece = { materials: { slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string; name: string } | null };
+    const primaryMaterial = quote.quote_rooms
+      .flatMap((r: { quote_pieces: QuotePiece[] }) => r.quote_pieces)
+      .find((p: QuotePiece) => p.materials)?.materials;
+
+    // Slab dimension fallback chain:
+    //   1. Explicit body value from the client
+    //   2. Material record's slab dimensions (length → optimizer width, width → optimizer height)
+    //   3. Default for the material's fabrication category (from SLAB_SIZES)
+    //   4. Ultimate fallback: 3200 × 1600 (jumbo engineered quartz)
+    const slabWidth = body.slabWidth
+      ?? primaryMaterial?.slab_length_mm
+      ?? getDefaultSlabLength(primaryMaterial?.fabrication_category)
+      ?? 3200;
+    const slabHeight = body.slabHeight
+      ?? primaryMaterial?.slab_width_mm
+      ?? getDefaultSlabWidth(primaryMaterial?.fabrication_category)
+      ?? 1600;
+
+    logger.info('[Optimize API] Starting optimization for quote', quoteId,
+      'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm',
+      'material:', primaryMaterial?.name ?? 'none',
+      'source:', body.slabWidth ? 'user-provided' : primaryMaterial?.slab_length_mm ? 'material-record' : primaryMaterial?.fabrication_category ? 'category-default' : 'ultimate-fallback'
+    );
 
     // Collect all unique edge type IDs from pieces for name resolution
     const allEdgeTypeIds = new Set<string>();
