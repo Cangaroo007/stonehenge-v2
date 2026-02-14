@@ -399,7 +399,7 @@ export default function PricingSummary({
                   <div key={edge.edgeTypeId} className="flex justify-between text-gray-600">
                     <span>{edge.edgeTypeName}:</span>
                     <span>
-                      {(Number(edge.linearMeters) || 0).toFixed(1)} lm \u00D7 {formatCurrency(edge.appliedRate)} = {formatCurrency(edge.subtotal)}
+                      {(Number(edge.linearMeters) || 0).toFixed(1)} Lm \u00D7 {formatCurrency(edge.appliedRate)} = {formatCurrency(edge.subtotal)}
                     </span>
                   </div>
                 ))}
@@ -661,7 +661,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Cutting */}
           {piece.fabrication.cutting && piece.fabrication.cutting.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Cutting ({piece.fabrication.cutting.quantity.toFixed(1)} {piece.fabrication.cutting.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'lm'} × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
+              <span>Cutting ({piece.fabrication.cutting.quantity.toFixed(1)} {piece.fabrication.cutting.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'Lm'} × {formatCurrency(piece.fabrication.cutting.rate)}):</span>
               <span>
                 {piece.fabrication.cutting.discount > 0 ? (
                   <span>
@@ -678,7 +678,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Polishing */}
           {piece.fabrication.polishing && piece.fabrication.polishing.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
-              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
+              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'Lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
               <span>
                 {piece.fabrication.polishing.discount > 0 ? (
                   <span>
@@ -695,7 +695,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Edges */}
           {piece.fabrication.edges.length > 0 && piece.fabrication.edges.map((edge, idx) => (
             <div key={`${edge.side}-${idx}`} className="flex justify-between text-gray-600">
-              <span>{edge.edgeTypeName} ({edge.side}, {edge.linearMeters.toFixed(1)} lm):</span>
+              <span>{edge.edgeTypeName} ({edge.side}, {edge.linearMeters.toFixed(1)} Lm):</span>
               <span>
                 {edge.discount > 0 ? (
                   <span>
@@ -720,18 +720,22 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
           {/* Oversize / Join Details */}
           {piece.oversize?.isOversize && (
             <div className="pt-1 mt-1 border-t border-amber-200 space-y-1">
+              {piece.oversize.joinCost > 0 && (
               <div className="flex justify-between text-amber-700">
                 <span>
-                  Join ({piece.oversize.joinCount} join{piece.oversize.joinCount !== 1 ? 's' : ''}) — {piece.oversize.joinLengthLm.toFixed(1)} lm × {formatCurrency(piece.oversize.joinRate)}/lm:
+                  Join ({piece.oversize.joinCount} join{piece.oversize.joinCount !== 1 ? 's' : ''}) — {piece.oversize.joinLengthLm.toFixed(1)} Lm × {formatCurrency(piece.oversize.joinRate)}/Lm:
                 </span>
                 <span>{formatCurrency(piece.oversize.joinCost)}</span>
               </div>
+              )}
+              {piece.oversize.grainMatchingSurcharge > 0 && (
               <div className="flex justify-between text-amber-700">
                 <span>
                   + {(piece.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}% Grain Matching Surcharge:
                 </span>
                 <span>{formatCurrency(piece.oversize.grainMatchingSurcharge)}</span>
               </div>
+              )}
               {piece.oversize.warnings.length > 0 && (
                 <div className="text-amber-600 text-[10px] italic">
                   {piece.oversize.warnings.map((w, idx) => (
@@ -742,9 +746,9 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
             </div>
           )}
 
-          {/* Piece subtotal */}
-          <div className="flex justify-between font-medium text-gray-800 pt-1 border-t border-gray-200">
-            <span>Piece Total:</span>
+          {/* Fabrication total */}
+          <div className="flex justify-between font-bold text-gray-800 pt-1 border-t border-gray-200">
+            <span>Fabrication Total:</span>
             <span>{formatCurrency(piece.pieceTotal)}</span>
           </div>
         </div>

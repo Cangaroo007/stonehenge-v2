@@ -245,7 +245,7 @@ export default function EdgeSelector({
                         )}
                         {availableTypes.map((type) => (
                           <option key={type.id} value={type.id}>
-                            {type.name} (${type.baseRate}/lm){type.category !== 'polish' ? ` - ${type.category}` : ''}
+                            {type.name} (${type.baseRate}/Lm){type.category !== 'polish' ? ` - ${type.category}` : ''}
                           </option>
                         ))}
                       </select>
@@ -271,7 +271,7 @@ export default function EdgeSelector({
               <div className="flex justify-between text-sm">
                 <span className="text-gray-600">Total Polish:</span>
                 <span className="font-medium text-gray-900">
-                  {calculations.totalMeters.toFixed(2)} lm
+                  {calculations.totalMeters.toFixed(2)} Lm
                 </span>
               </div>
               <div className="flex justify-between text-sm">
