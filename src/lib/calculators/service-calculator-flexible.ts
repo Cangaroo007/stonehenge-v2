@@ -47,6 +47,7 @@ interface PieceInput {
   thicknessMm: number;
   edges: Partial<Record<'top' | 'bottom' | 'left' | 'right', string | null>>;
   weightKg?: number;
+  waterfallHeightMm?: number | null;
 }
 
 interface ServiceCalculationOptions {
@@ -54,6 +55,7 @@ interface ServiceCalculationOptions {
   service_rates: ServiceRate[];
   fabricationDiscountPercent?: number;
   taxRate?: Decimal;
+  waterfallPricingMethod?: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
 }
 
 interface DistanceCalculation {
@@ -375,24 +377,48 @@ export class FlexibleServiceCalculator {
     const rate = this.rateMap.get('WATERFALL_END');
     if (!rate) return null;
 
-    // Count pieces with waterfall edges
-    let waterfallCount = 0;
+    const waterfallMethod = this.options.waterfallPricingMethod ?? 'FIXED_PER_END';
 
-    for (const piece of pieces) {
-      // Check if any edge is a waterfall type
-      const hasWaterfall = Object.values(piece.edges).some(
+    // INCLUDED_IN_SLAB: no separate charge
+    if (waterfallMethod === 'INCLUDED_IN_SLAB') return null;
+
+    // Identify pieces with waterfall edges
+    const waterfallPieces = pieces.filter(piece =>
+      Object.values(piece.edges).some(
         edge => edge && (edge.includes('WATERFALL') || edge.includes('waterfall'))
-      );
-      if (hasWaterfall) waterfallCount++;
-    }
+      )
+    );
 
-    if (waterfallCount === 0) return null;
+    if (waterfallPieces.length === 0) return null;
 
-    const quantity = new Decimal(waterfallCount);
     const avgThickness = pieces.reduce((sum, p) => sum + p.thicknessMm, 0) / pieces.length;
     const ratePerUnit = this.selectRateByThickness(rate, avgThickness);
 
-    const subtotal = quantity.times(ratePerUnit);
+    if (waterfallMethod === 'PER_LINEAR_METRE') {
+      // Rate × height (in linear metres) per waterfall piece
+      let totalHeightLm = new Decimal(0);
+      for (const wf of waterfallPieces) {
+        const heightMm = wf.waterfallHeightMm ?? 900; // default 900mm
+        totalHeightLm = totalHeightLm.plus(new Decimal(heightMm).dividedBy(1000));
+      }
+
+      let subtotal = totalHeightLm.times(ratePerUnit);
+      subtotal = this.applyMinimumCharge(subtotal, rate);
+
+      return this.createServiceItem(
+        'WATERFALL_END',
+        rate.name,
+        totalHeightLm,
+        'linear m',
+        ratePerUnit,
+        subtotal
+      );
+    }
+
+    // FIXED_PER_END (default): count × rate per end
+    const quantity = new Decimal(waterfallPieces.length);
+    let subtotal = quantity.times(ratePerUnit);
+    subtotal = this.applyMinimumCharge(subtotal, rate);
 
     return this.createServiceItem(
       'WATERFALL_END',

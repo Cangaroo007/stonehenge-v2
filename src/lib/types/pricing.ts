@@ -3,7 +3,7 @@
  * Types for the quote pricing calculation service
  */
 
-import type { MaterialPricingBasis, ServiceUnit } from '@prisma/client';
+import type { MaterialPricingBasis, ServiceUnit, WaterfallPricingMethod } from '@prisma/client';
 
 export interface PricingOptions {
   customerId?: string;
@@ -25,6 +25,7 @@ export interface PricingContext {
   wasteFactorPercent: number;
   grainMatchingSurchargePercent: number;
   cutoutThicknessMultiplier: number;
+  waterfallPricingMethod: WaterfallPricingMethod;
 }
 
 export interface DiscountBreakdown {
