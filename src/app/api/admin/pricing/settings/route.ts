@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
         gstRate: '0.1000',
         wasteFactorPercent: '15.00',
         grainMatchingSurchargePercent: '15.00',
+        cutoutThicknessMultiplier: '1.00',
+        waterfallPricingMethod: 'FIXED_PER_END',
         organisationId
       });
     }
@@ -48,6 +50,8 @@ export async function GET(request: NextRequest) {
       gstRate: Number(settings.gst_rate).toFixed(4),
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
+      cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
+      waterfallPricingMethod: settings.waterfall_pricing_method,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -148,6 +152,14 @@ export async function PUT(request: NextRequest) {
 
     let settings;
 
+    const validWaterfallMethods = ['FIXED_PER_END', 'PER_LINEAR_METRE', 'INCLUDED_IN_SLAB'];
+    if (body.waterfallPricingMethod && !validWaterfallMethods.includes(body.waterfallPricingMethod)) {
+      return NextResponse.json(
+        { error: 'Invalid waterfallPricingMethod value' },
+        { status: 400 }
+      );
+    }
+
     if (existingSettings) {
       // Update existing settings
       settings = await prisma.pricing_settings.update({
@@ -162,6 +174,8 @@ export async function PUT(request: NextRequest) {
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : undefined,
           waste_factor_percent: body.wasteFactorPercent !== undefined ? parseFloat(body.wasteFactorPercent) : undefined,
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent !== undefined ? parseFloat(body.grainMatchingSurchargePercent) : undefined,
+          cutout_thickness_multiplier: body.cutoutThicknessMultiplier !== undefined ? parseFloat(body.cutoutThicknessMultiplier) : undefined,
+          waterfall_pricing_method: body.waterfallPricingMethod || undefined,
           updated_at: new Date(),
         }
       });
@@ -180,6 +194,8 @@ export async function PUT(request: NextRequest) {
           gst_rate: body.gstRate ? parseFloat(body.gstRate) : 0.1,
           waste_factor_percent: body.wasteFactorPercent ? parseFloat(body.wasteFactorPercent) : 15.0,
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent ? parseFloat(body.grainMatchingSurchargePercent) : 15.0,
+          cutout_thickness_multiplier: body.cutoutThicknessMultiplier ? parseFloat(body.cutoutThicknessMultiplier) : 1.0,
+          waterfall_pricing_method: body.waterfallPricingMethod || 'FIXED_PER_END',
           updated_at: new Date(),
         }
       });
@@ -198,6 +214,8 @@ export async function PUT(request: NextRequest) {
       gstRate: Number(settings.gst_rate).toFixed(4),
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
+      cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
+      waterfallPricingMethod: settings.waterfall_pricing_method,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };
