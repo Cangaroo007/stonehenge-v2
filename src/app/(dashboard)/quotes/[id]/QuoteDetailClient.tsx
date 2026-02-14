@@ -508,6 +508,35 @@ export default function QuoteDetailClient({
     };
   }, []);
 
+  // ── Auto-calculate pricing independent of sidebar visibility ──────────────
+  // PricingSummary (in sidebar) handles calculation when the sidebar is open,
+  // but the sidebar starts collapsed. This ensures pricing runs regardless.
+  useEffect(() => {
+    if (mode !== 'edit' || editLoading || !editDataLoaded.current) return;
+    // When sidebar is open, PricingSummary handles calculation
+    if (sidebarOpen) return;
+
+    let cancelled = false;
+    const calculate = async () => {
+      try {
+        const res = await fetch(`/api/quotes/${quoteIdStr}/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          handleCalculationUpdate(data);
+        }
+      } catch (err) {
+        console.error('Auto-calculation failed:', err);
+      }
+    };
+
+    calculate();
+    return () => { cancelled = true; };
+  }, [mode, editLoading, sidebarOpen, quoteIdStr, refreshTrigger, handleCalculationUpdate]);
+
   // ── Customer dropdown: close on click outside ────────────────────────────
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
@@ -1184,7 +1213,13 @@ export default function QuoteDetailClient({
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {room.quote_pieces.map((piece) => {
-                      const fabricationCost = Number(piece.features_cost);
+                      // Prefer live calculation breakdown over stale DB per-piece cost
+                      const viewPieceBreakdown = viewCalculation?.breakdown?.pieces?.find(
+                        (pb: import('@/lib/types/pricing').PiecePricingBreakdown) => pb.pieceId === piece.id
+                      );
+                      const fabricationCost = viewPieceBreakdown
+                        ? viewPieceBreakdown.pieceTotal
+                        : Number(piece.features_cost);
                       return (
                         <tr key={piece.id}>
                           <td className="table-cell font-medium">
@@ -1197,7 +1232,7 @@ export default function QuoteDetailClient({
                               (<AreaDisplay sqm={Number(piece.area_sqm)} />)
                             </span>
                           </td>
-                          <td className="table-cell">{piece.material_name || '-'}</td>
+                          <td className="table-cell">{piece.materials?.name || piece.material_name || '-'}</td>
                           <td className="table-cell">
                             {piece.piece_features.length > 0 ? (
                               <ul className="text-sm">
