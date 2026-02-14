@@ -179,7 +179,7 @@ export default function PricingSummary({
               }`}
               title="Show discounts per line item"
             >
-              Itemized
+              Itemised
             </button>
             <button
               onClick={() => setDiscountDisplayMode('TOTAL_ONLY')}

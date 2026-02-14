@@ -246,7 +246,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
     // Initialize progress steps
     setAnalysisSteps([
-      { label: 'Optimizing image', done: false },
+      { label: 'Optimising image', done: false },
       { label: 'Uploading to storage', done: false },
       { label: 'Detecting pieces', done: false },
       { label: 'Extracting dimensions', done: false },

@@ -987,6 +987,11 @@ function calculateServiceCosts(
   const items: ServiceBreakdown[] = [];
   let subtotal = 0;
 
+  // No pieces → no service costs
+  if (pieces.length === 0) {
+    return { items, subtotal: 0 };
+  }
+
   // Pre-compute shared aggregates
   const totalAreaM2 = pieces.reduce((sum, p) => sum + (p.length_mm * p.width_mm) / 1_000_000, 0);
   const totalPerimeterLm = pieces.reduce((sum, p) => sum + 2 * (p.length_mm + p.width_mm) / 1000, 0);

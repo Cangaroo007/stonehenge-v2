@@ -102,7 +102,7 @@ export function OptimizationDisplay({ quoteId, refreshKey = 0 }: OptimizationDis
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            <span className="text-sm">Checking for optimization...</span>
+            <span className="text-sm">Checking for optimisation...</span>
           </div>
         </div>
       </div>
@@ -117,8 +117,8 @@ export function OptimizationDisplay({ quoteId, refreshKey = 0 }: OptimizationDis
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
                   d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
           </svg>
-          <p className="text-sm font-medium">No slab optimization yet</p>
-          <p className="text-xs mt-1">Click "Optimize Slabs" to create an optimization</p>
+          <p className="text-sm font-medium">No slab optimisation yet</p>
+          <p className="text-xs mt-1">Click &quot;Optimise Slabs&quot; to create an optimisation</p>
         </div>
       </div>
     );
@@ -133,7 +133,7 @@ export function OptimizationDisplay({ quoteId, refreshKey = 0 }: OptimizationDis
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                   d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
           </svg>
-          <h3 className="font-semibold text-gray-900">Slab Optimization</h3>
+          <h3 className="font-semibold text-gray-900">Slab Optimisation</h3>
           <span className="text-xs text-gray-500">
             {new Date(optimization.createdAt).toLocaleDateString()} at{' '}
             {new Date(optimization.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}

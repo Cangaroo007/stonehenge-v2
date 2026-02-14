@@ -242,7 +242,7 @@ export default function QuoteDetailClient({
   // ── Layout state ──────────────────────────────────────────────────────────
   const [mode, setMode] = useState<QuoteMode>(initialMode);
   const [activeTab, setActiveTab] = useState<QuoteTab>('pieces');
-  const [sidebarOpen, setSidebarOpen] = useState(initialMode === 'edit');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   // ── Edit-mode state (from builder) ────────────────────────────────────────
   const [editQuote, setEditQuote] = useState<EditQuote | null>(null);
@@ -1369,15 +1369,41 @@ export default function QuoteDetailClient({
       </QuoteLayout>
 
       {/* Drawing Import Modal */}
-      {showDrawingImport && editQuote?.customer && (
-        <DrawingImport
-          quoteId={quoteIdStr}
-          customerId={editQuote.customer.id}
-          edgeTypes={edgeTypes}
-          onImportComplete={handleImportComplete}
-          onDrawingsSaved={handleDrawingsSaved}
-          onClose={() => setShowDrawingImport(false)}
-        />
+      {showDrawingImport && editQuote && (
+        editQuote.customer ? (
+          <DrawingImport
+            quoteId={quoteIdStr}
+            customerId={editQuote.customer.id}
+            edgeTypes={edgeTypes}
+            onImportComplete={handleImportComplete}
+            onDrawingsSaved={handleDrawingsSaved}
+            onClose={() => setShowDrawingImport(false)}
+          />
+        ) : (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex items-start gap-3 mb-4">
+                <svg className="h-6 w-6 text-amber-500 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900">Customer Required</h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Please assign a customer to this quote before importing a drawing. The drawing upload requires a customer to be linked.
+                  </p>
+                </div>
+              </div>
+              <div className="flex justify-end">
+                <button
+                  onClick={() => setShowDrawingImport(false)}
+                  className="btn-primary"
+                >
+                  OK
+                </button>
+              </div>
+            </div>
+          </div>
+        )
       )}
     </>
   );
