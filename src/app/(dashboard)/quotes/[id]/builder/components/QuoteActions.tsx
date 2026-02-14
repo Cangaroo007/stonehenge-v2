@@ -290,7 +290,7 @@ export default function QuoteActions({
         </div>
       )}
 
-      {/* Slab Optimizer Modal */}
+      {/* Slab Optimiser Modal */}
       {showOptimizer && (
         <OptimizeModal
           quoteId={quoteId}

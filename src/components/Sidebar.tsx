@@ -10,7 +10,7 @@ const navigation = [
   { name: 'Unit Block', href: '/quotes/unit-block', icon: BuildingIcon },
   { name: 'Customers', href: '/customers', icon: UsersIcon },
   { name: 'Materials', href: '/materials', icon: SwatchIcon },
-  { name: 'Optimizer', href: '/optimize', icon: SquaresIcon },
+  { name: 'Optimiser', href: '/optimize', icon: SquaresIcon },
   { name: 'Pricing', href: '/admin/pricing', icon: AdjustmentsIcon },
   { name: 'Users', href: '/admin/users', icon: UserGroupIcon },
   { name: 'Settings', href: '/settings', icon: CogIcon },

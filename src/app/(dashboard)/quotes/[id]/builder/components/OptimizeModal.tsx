@@ -282,7 +282,7 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
       <div className="bg-white rounded-lg shadow-xl max-w-7xl w-full max-h-[90vh] overflow-hidden flex flex-col">
         {/* Header */}
         <div className="p-6 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-bold text-gray-900">Slab Optimizer</h2>
+          <h2 className="text-xl font-bold text-gray-900">Slab Optimiser</h2>
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-600 transition-colors"

@@ -285,7 +285,7 @@ export default function OptimizePage() {
   return (
     <div className="max-w-7xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">
-        Slab Optimizer
+        Slab Optimiser
       </h1>
 
       <div className="grid lg:grid-cols-2 gap-6">

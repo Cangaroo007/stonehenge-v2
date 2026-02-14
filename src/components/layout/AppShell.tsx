@@ -38,7 +38,7 @@ const navigation: NavigationItem[] = [
   { name: 'Templates', href: '/templates', icon: ClipboardList },
   { name: 'Customers', href: '/customers', icon: UserCircle },
   { name: 'Materials', href: '/materials', icon: Layers },
-  { name: 'Optimizer', href: '/optimize', icon: Square },
+  { name: 'Optimiser', href: '/optimize', icon: Square },
   { name: 'Pricing', href: '/admin/pricing', icon: Sliders },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },

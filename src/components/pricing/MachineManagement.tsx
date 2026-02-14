@@ -495,7 +495,7 @@ function MachineModal({ machine, onSave, onClose }: MachineModalProps) {
               required
             />
             <p className="text-xs text-zinc-500 mt-1">
-              Blade width for this machine (used by Slab Optimizer)
+              Blade width for this machine (used by Slab Optimiser)
             </p>
           </div>
 
