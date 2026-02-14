@@ -129,6 +129,50 @@ export async function POST(
       }
     }
 
+    // Material → Edge compatibility check
+    const edgeCompatibilityWarnings: string[] = [];
+    if (materialId) {
+      const material = await prisma.materials.findUnique({
+        where: { id: materialId },
+        select: { fabrication_category: true },
+      });
+
+      if (material) {
+        const edgeIds = Array.from(new Set(
+          [edgeTop, edgeBottom, edgeLeft, edgeRight].filter(Boolean) as string[]
+        ));
+
+        if (edgeIds.length > 0) {
+          const pricingSettings = await prisma.pricing_settings.findFirst();
+          if (pricingSettings) {
+            const compatibilityRules = await prisma.material_edge_compatibility.findMany({
+              where: {
+                pricingSettingsId: pricingSettings.id,
+                fabricationCategory: material.fabrication_category,
+                edgeTypeId: { in: edgeIds },
+              },
+              include: { edgeType: { select: { name: true } } },
+            });
+
+            for (const rule of compatibilityRules) {
+              if (!rule.isAllowed) {
+                return NextResponse.json(
+                  {
+                    error: rule.warningMessage || `${rule.edgeType.name} is not available for ${rule.fabricationCategory} materials.`,
+                    code: 'EDGE_MATERIAL_INCOMPATIBLE',
+                  },
+                  { status: 400 }
+                );
+              }
+              if (rule.warningMessage) {
+                edgeCompatibilityWarnings.push(rule.warningMessage);
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Find or create the room
     let room = await prisma.quote_rooms.findFirst({
       where: {
@@ -221,6 +265,7 @@ export async function POST(
       areaSqm: Number(pieceAny.area_sqm || 0),
       materialCost: Number(pieceAny.material_cost || 0),
       featuresCost: Number(pieceAny.features_cost || 0),
+      ...(edgeCompatibilityWarnings.length > 0 && { edgeCompatibilityWarnings }),
     });
   } catch (error) {
     console.error('Error creating piece:', error);
