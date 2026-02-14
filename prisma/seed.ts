@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { seedCategoryRates } from './seed-category-rates';
 
 const prisma = new PrismaClient();
 
@@ -738,6 +739,11 @@ async function main() {
     });
   }
   console.log('✅ Created settings');
+
+  // ============================================
+  // SEED CATEGORY-AWARE PRICING TABLES
+  // ============================================
+  await seedCategoryRates(prisma);
 
   console.log('');
   console.log('🎉 Seeding complete!');
