@@ -28,6 +28,7 @@ import type { CalculationResult } from '@/lib/types/pricing';
 // Expandable cost breakdown components
 import PieceRow from '@/components/quotes/PieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
+import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 
 // View-mode components
 import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
@@ -934,15 +935,12 @@ export default function QuoteDetailClient({
                       <th className="table-header">Dimensions</th>
                       <th className="table-header">Material</th>
                       <th className="table-header">Features</th>
-                      <th className="table-header text-right">Base Price</th>
-                      <th className="table-header text-right">Tier Discount</th>
-                      <th className="table-header text-right">Final Cost</th>
+                      <th className="table-header text-right">Fabrication</th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {room.quote_pieces.map((piece) => {
-                      const baseCost = Number(piece.material_cost) + Number(piece.features_cost);
-                      const discount = baseCost - Number(piece.total_cost);
+                      const fabricationCost = Number(piece.features_cost);
                       return (
                         <tr key={piece.id}>
                           <td className="table-cell font-medium">
@@ -969,16 +967,8 @@ export default function QuoteDetailClient({
                               '-'
                             )}
                           </td>
-                          <td className="table-cell text-right text-sm text-gray-600">
-                            {formatCurrency(baseCost)}
-                          </td>
-                          <td className="table-cell text-right text-sm">
-                            <span className={discount > 0 ? 'text-green-600' : 'text-gray-400'}>
-                              {discount > 0 ? '-' : ''}{formatCurrency(discount)}
-                            </span>
-                          </td>
                           <td className="table-cell text-right font-medium">
-                            {formatCurrency(Number(piece.total_cost))}
+                            {formatCurrency(fabricationCost)}
                           </td>
                         </tr>
                       );
@@ -1017,6 +1007,19 @@ export default function QuoteDetailClient({
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Material Cost Section (view mode — quote level) */}
+        {viewCalculation?.breakdown?.materials && (
+          <div className="card p-4 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <MaterialCostSection
+              materials={viewCalculation.breakdown.materials}
+              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
+            />
           </div>
         )}
 
@@ -1181,6 +1184,19 @@ export default function QuoteDetailClient({
                 );
               })}
             </div>
+          </div>
+        )}
+
+        {/* Material Cost Section (edit mode — quote level) */}
+        {calculation?.breakdown?.materials && (
+          <div className="card p-4 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <MaterialCostSection
+              materials={calculation.breakdown.materials}
+              pieceCount={pieces.length}
+            />
           </div>
         )}
 

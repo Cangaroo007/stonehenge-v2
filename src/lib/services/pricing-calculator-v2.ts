@@ -24,6 +24,7 @@ import type {
   EdgeBreakdown,
   CutoutBreakdown,
   MaterialBreakdown,
+  MaterialGroupBreakdown,
   PricingRuleWithOverrides,
   PiecePricingBreakdown,
 } from '@/lib/types/pricing';
@@ -130,7 +131,12 @@ export function calculateMaterialCost(
     length_mm: number;
     width_mm: number;
     thickness_mm: number;
+    material_id?: number | null;
     materials: {
+      id?: number;
+      name?: string;
+      slab_length_mm?: number | null;
+      slab_width_mm?: number | null;
       price_per_sqm: { toNumber: () => number };
       price_per_slab?: { toNumber: () => number } | null;
       price_per_square_metre?: { toNumber: () => number } | null;
@@ -139,7 +145,8 @@ export function calculateMaterialCost(
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
   slabCount?: number,
-  wasteFactorPercent?: number
+  wasteFactorPercent?: number,
+  slabCountFromOptimiser?: boolean
 ): MaterialBreakdown {
   let totalAreaM2 = 0;
   let subtotal = 0;
@@ -212,6 +219,15 @@ export function calculateMaterialCost(
     appliedWastePercent = clampedWaste;
   }
 
+  // Extract material metadata from the first piece with a material
+  const firstMaterial = pieces.find(p => p.materials)?.materials;
+  const materialName = (firstMaterial as unknown as { name?: string } | null)?.name;
+  const slabLengthMm = (firstMaterial as unknown as { slab_length_mm?: number | null } | null)?.slab_length_mm ?? undefined;
+  const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
+
+  // Build per-material groupings for multi-material quotes
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm);
+
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
     baseRate: effectiveRate,
@@ -227,7 +243,113 @@ export function calculateMaterialCost(
       : undefined,
     wasteFactorPercent: appliedWastePercent,
     adjustedAreaM2,
+    materialName,
+    slabLengthMm: slabLengthMm ?? undefined,
+    slabWidthMm: slabWidthMm ?? undefined,
+    slabCountFromOptimiser: slabCountFromOptimiser ?? false,
+    byMaterial: byMaterial.length > 1 ? byMaterial : undefined,
   };
+}
+
+/**
+ * Group pieces by material and calculate per-material breakdowns.
+ * Only meaningful when multiple materials are used in a quote.
+ */
+function buildMaterialGroupings(
+  pieces: Parameters<typeof calculateMaterialCost>[0],
+  pricingBasis: MaterialPricingBasis,
+  slabCount: number | undefined,
+  wasteFactorPercent: number | undefined,
+  slabCountFromOptimiser: boolean | undefined,
+  defaultSlabLengthMm: number | null | undefined,
+  defaultSlabWidthMm: number | null | undefined,
+): MaterialGroupBreakdown[] {
+  // Group pieces by materialId
+  const groups = new Map<number, {
+    materialId: number;
+    materialName: string;
+    slabLengthMm: number | undefined;
+    slabWidthMm: number | undefined;
+    slabPrice: number;
+    ratePerSqm: number;
+    totalAreaM2: number;
+  }>();
+
+  for (const piece of pieces) {
+    const mat = piece.materials;
+    if (!mat) continue;
+    const matId = (mat as unknown as { id?: number }).id ?? 0;
+    const matName = (mat as unknown as { name?: string }).name ?? 'Unknown';
+    const slabLenMm = (mat as unknown as { slab_length_mm?: number | null }).slab_length_mm ?? undefined;
+    const slabWMm = (mat as unknown as { slab_width_mm?: number | null }).slab_width_mm ?? undefined;
+    const slabPrice = mat.price_per_slab?.toNumber() ?? 0;
+    const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
+    const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
+
+    const existing = groups.get(matId);
+    if (existing) {
+      existing.totalAreaM2 += areaSqm;
+    } else {
+      groups.set(matId, {
+        materialId: matId,
+        materialName: matName,
+        slabLengthMm: slabLenMm,
+        slabWidthMm: slabWMm,
+        slabPrice,
+        ratePerSqm,
+        totalAreaM2: areaSqm,
+      });
+    }
+  }
+
+  const result: MaterialGroupBreakdown[] = [];
+  const groupValues = Array.from(groups.values());
+  for (const group of groupValues) {
+    const areaM2 = roundToTwo(group.totalAreaM2);
+
+    let totalCost: number;
+    let groupSlabCount: number | undefined;
+    let groupAdjustedArea: number | undefined;
+    let groupWaste: number | undefined;
+
+    if (pricingBasis === 'PER_SLAB') {
+      // For per-slab, estimate slab count per material using naive calculation
+      const slabAreaM2 = (group.slabLengthMm ?? defaultSlabLengthMm ?? 3000)
+        * (group.slabWidthMm ?? defaultSlabWidthMm ?? 1400) / 1_000_000;
+      // If we only have one material group and optimiser gave us a count, use that
+      if (groups.size === 1 && slabCount !== undefined) {
+        groupSlabCount = slabCount;
+      } else {
+        groupSlabCount = Math.ceil(areaM2 / slabAreaM2);
+      }
+      totalCost = roundToTwo(groupSlabCount * group.slabPrice);
+    } else {
+      // PER_SQUARE_METRE
+      const waste = wasteFactorPercent ?? 0;
+      const wasteMultiplier = 1 + Math.max(0, Math.min(50, waste)) / 100;
+      groupAdjustedArea = roundToTwo(areaM2 * wasteMultiplier);
+      groupWaste = waste;
+      totalCost = roundToTwo(areaM2 * group.ratePerSqm * wasteMultiplier);
+    }
+
+    result.push({
+      materialId: group.materialId,
+      materialName: group.materialName,
+      pricingBasis,
+      totalAreaM2: areaM2,
+      slabCount: groupSlabCount,
+      slabRate: group.slabPrice > 0 ? group.slabPrice : undefined,
+      slabLengthMm: group.slabLengthMm,
+      slabWidthMm: group.slabWidthMm,
+      slabCountFromOptimiser: groups.size === 1 ? (slabCountFromOptimiser ?? false) : false,
+      wasteFactorPercent: groupWaste,
+      adjustedAreaM2: groupAdjustedArea,
+      ratePerSqm: group.ratePerSqm > 0 ? group.ratePerSqm : undefined,
+      totalCost,
+    });
+  }
+
+  return result;
 }
 
 /**
@@ -331,6 +453,7 @@ export async function calculateQuotePrice(
 
   // Get slab count from latest optimization (for PER_SLAB pricing)
   let slabCount: number | undefined;
+  let slabCountFromOptimiser = false;
   if (pricingContext.materialPricingBasis === 'PER_SLAB') {
     const optimization = await prisma.slab_optimizations.findFirst({
       where: { quoteId: quoteIdNum },
@@ -338,6 +461,7 @@ export async function calculateQuotePrice(
       select: { totalSlabs: true },
     });
     slabCount = optimization?.totalSlabs;
+    slabCountFromOptimiser = slabCount !== undefined;
   }
 
   // Calculate material costs with pricing basis and waste factor
@@ -345,7 +469,8 @@ export async function calculateQuotePrice(
     allPieces,
     pricingContext.materialPricingBasis,
     slabCount,
-    pricingContext.wasteFactorPercent
+    pricingContext.wasteFactorPercent,
+    slabCountFromOptimiser
   );
 
   // Calculate edge costs with thickness variants
