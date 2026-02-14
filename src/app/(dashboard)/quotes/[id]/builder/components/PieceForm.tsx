@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import { useUnits } from '@/lib/contexts/UnitContext';
 import { getDimensionUnitLabel, formatAreaFromSqm } from '@/lib/utils/units';
 import EdgeSelector from './EdgeSelector';
@@ -120,6 +120,16 @@ export default function PieceForm({
   const [lengthMm, setLengthMm] = useState(piece?.lengthMm?.toString() || '');
   const [widthMm, setWidthMm] = useState(piece?.widthMm?.toString() || '');
   const [thicknessMm, setThicknessMm] = useState(piece?.thicknessMm || 20);
+  const [thicknessMode, setThicknessMode] = useState<'20mm' | '40mm' | 'custom'>(() => {
+    const t = piece?.thicknessMm || 20;
+    if (t === 20) return '20mm';
+    if (t === 40) return '40mm';
+    return 'custom';
+  });
+  const [customThickness, setCustomThickness] = useState<string>(() => {
+    const t = piece?.thicknessMm || 20;
+    return t !== 20 && t !== 40 ? t.toString() : '';
+  });
   const [materialId, setMaterialId] = useState<number | null>(piece?.materialId || null);
   const [roomName, setRoomName] = useState(piece?.quote_rooms?.name || 'Kitchen');
   const [machineProfileId, setMachineProfileId] = useState<string | null>(
@@ -145,6 +155,16 @@ export default function PieceForm({
       setLengthMm(piece.lengthMm.toString());
       setWidthMm(piece.widthMm.toString());
       setThicknessMm(piece.thicknessMm);
+      if (piece.thicknessMm === 20) {
+        setThicknessMode('20mm');
+        setCustomThickness('');
+      } else if (piece.thicknessMm === 40) {
+        setThicknessMode('40mm');
+        setCustomThickness('');
+      } else {
+        setThicknessMode('custom');
+        setCustomThickness(piece.thicknessMm.toString());
+      }
       setMaterialId(piece.materialId);
       setRoomName(piece.quote_rooms.name);
       setMachineProfileId(piece.machineProfileId || defaultMachineId || null);
@@ -161,6 +181,8 @@ export default function PieceForm({
       setLengthMm('');
       setWidthMm('');
       setThicknessMm(20);
+      setThicknessMode('20mm');
+      setCustomThickness('');
       setMaterialId(null);
       setRoomName('Kitchen');
       setMachineProfileId(defaultMachineId || null);
@@ -181,6 +203,37 @@ export default function PieceForm({
   // Get selected machine info
   const selectedMachine = machines.find(m => m.id === machineProfileId);
 
+  const handleThicknessMode = (mode: '20mm' | '40mm' | 'custom') => {
+    setThicknessMode(mode);
+    if (mode === '20mm') {
+      setThicknessMm(20);
+      setCustomThickness('');
+    } else if (mode === '40mm') {
+      setThicknessMm(40);
+      setCustomThickness('');
+    }
+    setErrors((prev: Record<string, string>) => {
+      const next = { ...prev };
+      delete next.thicknessMm;
+      return next;
+    });
+  };
+
+  const handleCustomThicknessChange = (value: string) => {
+    setCustomThickness(value);
+    const num = parseInt(value);
+    if (!isNaN(num) && num >= 20) {
+      setThicknessMm(num);
+      if (num === 20) {
+        setThicknessMode('20mm');
+        setCustomThickness('');
+      } else if (num === 40) {
+        setThicknessMode('40mm');
+        setCustomThickness('');
+      }
+    }
+  };
+
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -196,6 +249,15 @@ export default function PieceForm({
     const width = parseInt(widthMm);
     if (!widthMm || isNaN(width) || width <= 0) {
       newErrors.widthMm = 'Width must be greater than 0';
+    }
+
+    if (thicknessMode === 'custom') {
+      const t = parseInt(customThickness);
+      if (!customThickness || isNaN(t)) {
+        newErrors.thicknessMm = 'Please enter a thickness value';
+      } else if (t < 20) {
+        newErrors.thicknessMm = 'Thickness must be at least 20mm';
+      }
     }
 
     setErrors(newErrors);
@@ -296,6 +358,74 @@ export default function PieceForm({
       <div className="bg-gray-50 rounded-lg p-3 text-sm">
         <span className="text-gray-600">Calculated Area: </span>
         <span className="font-medium">{formatAreaFromSqm(parseFloat(area) || 0, unitSystem)}</span>
+      </div>
+
+      {/* Thickness — Segmented Control */}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">
+          Thickness
+        </label>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+            <button
+              type="button"
+              onClick={() => handleThicknessMode('20mm')}
+              className={`px-3 py-1.5 text-sm font-medium transition-colors ${
+                thicknessMode === '20mm'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              20mm
+            </button>
+            <button
+              type="button"
+              onClick={() => handleThicknessMode('40mm')}
+              className={`px-3 py-1.5 text-sm font-medium border-l border-gray-300 transition-colors ${
+                thicknessMode === '40mm'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              40mm
+            </button>
+            <button
+              type="button"
+              onClick={() => handleThicknessMode('custom')}
+              className={`px-3 py-1.5 text-sm font-medium border-l border-gray-300 transition-colors ${
+                thicknessMode === 'custom'
+                  ? 'bg-gray-900 text-white'
+                  : 'bg-white text-gray-700 hover:bg-gray-50'
+              }`}
+            >
+              Custom &#9656;
+            </button>
+          </div>
+          {thicknessMode === 'custom' && (
+            <input
+              type="number"
+              value={customThickness}
+              onChange={(e) => handleCustomThicknessChange(e.target.value)}
+              placeholder="e.g. 60"
+              min={20}
+              step={1}
+              className={`w-24 px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                errors.thicknessMm ? 'border-red-500' : 'border-gray-300'
+              }`}
+            />
+          )}
+        </div>
+        {thicknessMm > 20 && (
+          <p className="mt-1.5 text-xs text-purple-600">
+            Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
+          </p>
+        )}
+        {thicknessMode === 'custom' && customThickness && parseInt(customThickness) >= 20 && parseInt(customThickness) % 20 !== 0 && (
+          <p className="mt-1 text-xs text-amber-600">
+            Non-standard thickness — not divisible by 20mm
+          </p>
+        )}
+        {errors.thicknessMm && <p className="mt-1 text-sm text-red-500">{errors.thicknessMm}</p>}
       </div>
 
       {/* Machine Profile Selection */}
@@ -428,25 +558,6 @@ export default function PieceForm({
           onChange={setCutouts}
         />
       )}
-
-      {/* Thickness */}
-      <div>
-        <label htmlFor="thicknessMm" className="block text-sm font-medium text-gray-700 mb-1">
-          Thickness
-        </label>
-        <select
-          id="thicknessMm"
-          value={thicknessMm}
-          onChange={(e) => setThicknessMm(parseInt(e.target.value))}
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-        >
-          {(thicknessOptions.length > 0 ? thicknessOptions : DEFAULT_THICKNESS_OPTIONS).map((option) => (
-            <option key={option.id} value={option.value}>
-              {option.name}
-            </option>
-          ))}
-        </select>
-      </div>
 
       {/* Material */}
       <div>

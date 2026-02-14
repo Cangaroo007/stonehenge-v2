@@ -232,6 +232,14 @@ export default function PieceRow({
         {/* Thickness */}
         <span className="text-xs text-gray-500 flex-shrink-0">
           {piece.thicknessMm}mm
+          {piece.thicknessMm > 20 && (() => {
+            const layers = Math.floor((piece.thicknessMm - 20) / 20);
+            const method = breakdown?.fabrication?.lamination?.method;
+            if (piece.thicknessMm === 40) {
+              return <span> — {method || 'Laminated'}</span>;
+            }
+            return <span> — {method || 'Laminated'} ({layers} layer{layers !== 1 ? 's' : ''})</span>;
+          })()}
         </span>
 
         {/* Material */}
