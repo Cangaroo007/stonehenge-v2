@@ -51,6 +51,12 @@ export async function PUT(
     if (data.fabricationCategory) {
       updateData.fabrication_category = data.fabricationCategory;
     }
+    if (data.slabLengthMm !== undefined) {
+      updateData.slab_length_mm = data.slabLengthMm === null || data.slabLengthMm === '' ? null : parseInt(String(data.slabLengthMm));
+    }
+    if (data.slabWidthMm !== undefined) {
+      updateData.slab_width_mm = data.slabWidthMm === null || data.slabWidthMm === '' ? null : parseInt(String(data.slabWidthMm));
+    }
 
     const material = await prisma.materials.update({
       where: { id: parseInt(id) },

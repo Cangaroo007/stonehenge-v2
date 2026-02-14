@@ -8,7 +8,9 @@ const tabs = [
   { name: 'Settings', href: '/admin/pricing/settings' },
   { name: 'Service Rates', href: '/admin/pricing/services' },
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
-  { name: 'Materials', href: '/admin/pricing' },
+  { name: 'Edge Rates', href: '/admin/pricing/edges' },
+  { name: 'Materials', href: '/admin/pricing/materials' },
+  { name: 'Configuration', href: '/admin/pricing' },
 ];
 
 export default function PricingLayout({

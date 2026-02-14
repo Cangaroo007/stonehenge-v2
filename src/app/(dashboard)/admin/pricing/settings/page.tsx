@@ -15,6 +15,7 @@ interface PricingSettings {
   unitSystem: 'METRIC' | 'IMPERIAL';
   currency: string;
   gstRate: string;
+  waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
 }
 
 export default function PricingSettingsPage() {
@@ -28,7 +29,8 @@ export default function PricingSettingsPage() {
     installationUnit: 'SQUARE_METRE',
     unitSystem: 'METRIC',
     currency: 'AUD',
-    gstRate: '0.1000'
+    gstRate: '0.1000',
+    waterfallPricingMethod: 'FIXED_PER_END',
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -357,6 +359,68 @@ export default function PricingSettingsPage() {
               />
               <span className="text-sm text-gray-500">%</span>
             </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Waterfall Pricing Method */}
+        <div className="space-y-2">
+          <label className="block text-sm font-medium text-gray-700">
+            Waterfall Pricing Method
+          </label>
+          <p className="text-xs text-gray-500 mb-2">
+            Choose how waterfall ends are priced when a benchtop includes a waterfall return.
+          </p>
+          <div className="space-y-3">
+            <label className="flex items-start">
+              <input
+                type="radio"
+                name="waterfallPricingMethod"
+                value="FIXED_PER_END"
+                checked={settings.waterfallPricingMethod === 'FIXED_PER_END'}
+                onChange={(e) => setSettings({ ...settings, waterfallPricingMethod: e.target.value as 'FIXED_PER_END' })}
+                className="mr-2 mt-0.5"
+              />
+              <div>
+                <span className="text-sm font-medium">Fixed Per End</span>
+                <p className="text-xs text-gray-500">
+                  Each waterfall end is charged a flat rate regardless of height.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start">
+              <input
+                type="radio"
+                name="waterfallPricingMethod"
+                value="PER_LINEAR_METRE"
+                checked={settings.waterfallPricingMethod === 'PER_LINEAR_METRE'}
+                onChange={(e) => setSettings({ ...settings, waterfallPricingMethod: e.target.value as 'PER_LINEAR_METRE' })}
+                className="mr-2 mt-0.5"
+              />
+              <div>
+                <span className="text-sm font-medium">Per Lineal Metre of Height</span>
+                <p className="text-xs text-gray-500">
+                  Rate is charged per lineal metre of waterfall height. Short returns cost less than full-height drops.
+                </p>
+              </div>
+            </label>
+            <label className="flex items-start">
+              <input
+                type="radio"
+                name="waterfallPricingMethod"
+                value="INCLUDED_IN_SLAB"
+                checked={settings.waterfallPricingMethod === 'INCLUDED_IN_SLAB'}
+                onChange={(e) => setSettings({ ...settings, waterfallPricingMethod: e.target.value as 'INCLUDED_IN_SLAB' })}
+                className="mr-2 mt-0.5"
+              />
+              <div>
+                <span className="text-sm font-medium">Included in Slab</span>
+                <p className="text-xs text-gray-500">
+                  Waterfall cost is included in the slab price with no additional charge.
+                </p>
+              </div>
+            </label>
           </div>
         </div>
 
