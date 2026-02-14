@@ -1,57 +1,63 @@
+import { redirect } from 'next/navigation';
 import prisma from '@/lib/db';
 import { getCurrentUser } from '@/lib/auth';
 import { generateQuoteNumber } from '@/lib/utils';
-import NewQuoteClient from './NewQuoteClient';
+import { createInitialVersion } from '@/lib/services/quote-version-service';
 
 export const dynamic = 'force-dynamic';
 
-async function getData() {
-  const [customers, materials, pricingRules, edgeTypes, lastQuote] = await Promise.all([
-    prisma.customers.findMany({
-      orderBy: { name: 'asc' },
-      include: {
-        client_tiers: true,
-        client_types: true,
-      },
-    }),
-    prisma.materials.findMany({ where: { is_active: true }, orderBy: { name: 'asc' } }),
-    prisma.pricing_rules.findMany({ where: { is_active: true }, orderBy: { category: 'asc' } }),
-    prisma.edge_types.findMany({
-      where: { isActive: { not: false } }, // Include true and null (treat null as active)
-      orderBy: { sortOrder: 'asc' },
-    }),
+/**
+ * /quotes/new — creates an empty draft quote server-side and redirects to
+ * the unified quote detail page in edit mode.
+ *
+ * Accepts optional ?customerId=<id> to pre-assign a customer.
+ *
+ * This ensures all quote editing flows through QuoteLayout → QuoteDetailClient,
+ * eliminating the parallel QuoteForm rendering path (Route Consolidation 12.4).
+ */
+export default async function NewQuotePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ customerId?: string }>;
+}) {
+  const { customerId: customerIdParam } = await searchParams;
+  const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
+
+  const [user, lastQuote] = await Promise.all([
+    getCurrentUser(),
     prisma.quotes.findFirst({ orderBy: { quote_number: 'desc' } }),
   ]);
 
-  const nextQuoteNumber = generateQuoteNumber(lastQuote?.quote_number || null);
+  const quoteNumber = generateQuoteNumber(lastQuote?.quote_number || null);
 
-  // Serialize Prisma Decimal types to JSON-safe values
-  const serialized = JSON.parse(JSON.stringify({ customers, materials, pricingRules, edgeTypes }));
+  // Create a minimal draft quote with one default room
+  const quote = await prisma.quotes.create({
+    data: {
+      quote_number: quoteNumber,
+      customer_id: customerId && !isNaN(customerId) ? customerId : null,
+      status: 'draft',
+      subtotal: 0,
+      tax_rate: 10,
+      tax_amount: 0,
+      total: 0,
+      valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      created_by: user?.id ?? null,
+      updated_at: new Date(),
+      quote_rooms: {
+        create: {
+          name: 'Room 1',
+          sort_order: 0,
+        },
+      },
+    },
+  });
 
-  // Transform materials to add camelCase aliases expected by QuoteForm
-  serialized.materials = serialized.materials.map((m: any) => ({
-    ...m,
-    pricePerSqm: Number(m.price_per_sqm || 0),
-    pricePerSlab: m.price_per_slab ? Number(m.price_per_slab) : null,
-    isActive: m.is_active,
-    slabLengthMm: m.slab_length_mm,
-    slabWidthMm: m.slab_width_mm,
-  }));
+  // Create initial version for version history (non-blocking)
+  try {
+    await createInitialVersion(quote.id, user?.id ?? 1);
+  } catch (e) {
+    console.error('Error creating initial version (non-blocking):', e);
+  }
 
-  return { ...serialized, nextQuoteNumber };
-}
-
-export default async function NewQuotePage() {
-  const [data, user] = await Promise.all([getData(), getCurrentUser()]);
-
-  return (
-    <NewQuoteClient
-      customers={data.customers}
-      materials={data.materials}
-      pricingRules={data.pricingRules}
-      edgeTypes={data.edgeTypes}
-      nextQuoteNumber={data.nextQuoteNumber}
-      userId={user?.id}
-    />
-  );
+  redirect(`/quotes/${quote.id}?mode=edit`);
 }
