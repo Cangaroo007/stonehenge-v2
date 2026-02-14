@@ -109,6 +109,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       wasteFactorPercent: Number(settings.waste_factor_percent),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
+      waterfallPricingMethod: settings.waterfall_pricing_method,
     };
   }
 
@@ -853,7 +854,7 @@ function applyMinimumCharge(
  * Reads configured units from pricingContext to determine quantity basis.
  */
 function calculateServiceCosts(
-  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string; materials?: { fabrication_category: string } | null }>,
+  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string; waterfall_height_mm?: number | null; materials?: { fabrication_category: string } | null }>,
   totalEdgeLinearMeters: number,
   serviceRates: ServiceRateRecord[],
   pricingContext: PricingContext
@@ -1011,6 +1012,67 @@ function calculateServiceCosts(
       subtotal: roundToTwo(totalLaminationCost),
     });
     subtotal += totalLaminationCost;
+  }
+
+  // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
+  const waterfallPieces = pieces.filter(p => {
+    const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
+    return edges.some(e => e && (e.includes('WATERFALL') || e.includes('waterfall')));
+  });
+
+  if (waterfallPieces.length > 0) {
+    // Look up WATERFALL_END rate — skip silently if not configured (optional service)
+    const waterfallRateRecord = serviceRates.find(r => {
+      if (r.serviceType !== 'WATERFALL_END') return false;
+      return r.fabricationCategory === primaryCategory;
+    }) ?? serviceRates.find(r => r.serviceType === 'WATERFALL_END');
+
+    if (waterfallRateRecord) {
+      const waterfallMethod = pricingContext.waterfallPricingMethod ?? 'FIXED_PER_END';
+      const waterfallRateVal = avgThickness > 20
+        ? waterfallRateRecord.rate40mm.toNumber()
+        : waterfallRateRecord.rate20mm.toNumber();
+
+      if (waterfallMethod === 'FIXED_PER_END') {
+        // Existing behaviour: count × rate per end
+        const waterfallCount = waterfallPieces.length;
+        const cost = applyMinimumCharge(waterfallCount * waterfallRateVal, waterfallRateRecord);
+
+        items.push({
+          serviceType: 'WATERFALL_END',
+          name: waterfallRateRecord.name,
+          quantity: waterfallCount,
+          unit: 'EACH',
+          rate: waterfallRateVal,
+          subtotal: roundToTwo(cost),
+        });
+        subtotal += cost;
+      } else if (waterfallMethod === 'PER_LINEAR_METRE') {
+        // New: rate × height (in linear metres) per waterfall piece
+        let totalWaterfallCost = 0;
+        let totalHeightLm = 0;
+
+        for (const wf of waterfallPieces) {
+          const heightMm = wf.waterfall_height_mm ?? 900; // default 900mm if not specified
+          const heightLm = heightMm / 1000;
+          totalWaterfallCost += heightLm * waterfallRateVal;
+          totalHeightLm += heightLm;
+        }
+
+        totalWaterfallCost = applyMinimumCharge(totalWaterfallCost, waterfallRateRecord);
+
+        items.push({
+          serviceType: 'WATERFALL_END',
+          name: waterfallRateRecord.name,
+          quantity: roundToTwo(totalHeightLm),
+          unit: 'LINEAR_METRE',
+          rate: waterfallRateVal,
+          subtotal: roundToTwo(totalWaterfallCost),
+        });
+        subtotal += totalWaterfallCost;
+      }
+      // INCLUDED_IN_SLAB: no separate charge — waterfall cost is absorbed into slab price
+    }
   }
 
   return { items, subtotal };

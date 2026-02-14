@@ -443,6 +443,7 @@ model quote_pieces {
   isOversize        Boolean          @default(false)
   joinCount         Int              @default(0)
   joinLengthMm      Int?
+  waterfall_height_mm Int?
   piece_features    piece_features[]
   materials         materials?       @relation(fields: [material_id], references: [id])
   quote_rooms       quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
