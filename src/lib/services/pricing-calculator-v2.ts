@@ -301,11 +301,14 @@ export async function calculateQuotePrice(
   const pricingContext = await loadPricingContext('1');
 
   // Get pricing data
-  const [edgeTypes, cutoutTypes, serviceRates, cutoutCategoryRates] = await Promise.all([
+  const [edgeTypes, cutoutTypes, serviceRates, cutoutCategoryRates, edgeCategoryRates] = await Promise.all([
     prisma.edge_types.findMany({ where: { isActive: true } }),
     prisma.cutout_types.findMany({ where: { isActive: true } }),
     prisma.service_rates.findMany({ where: { isActive: true } }),
     prisma.cutout_category_rates.findMany({
+      where: { pricingSettingsId: pricingContext.pricingSettingsId },
+    }),
+    prisma.edge_type_category_rates.findMany({
       where: { pricingSettingsId: pricingContext.pricingSettingsId },
     }),
   ]);
@@ -388,7 +391,8 @@ export async function calculateQuotePrice(
         fabricationDiscountPct,
         pricingContext,
         pieceFabCategory,
-        cutoutCategoryRates
+        cutoutCategoryRates,
+        edgeCategoryRates
       )
     );
   }
@@ -1095,6 +1099,12 @@ function calculatePiecePricing(
     cutoutTypeId: string;
     fabricationCategory: string;
     rate: { toNumber: () => number } | number;
+  }> = [],
+  edgeCategoryRates: Array<{
+    edgeTypeId: string;
+    fabricationCategory: string;
+    rate20mm: { toNumber: () => number } | number;
+    rate40mm: { toNumber: () => number } | number;
   }> = []
 ): PiecePricingBreakdown {
   const thickness = piece.thickness_mm;
@@ -1188,8 +1198,22 @@ function calculatePiecePricing(
     const edgeType = edgeTypes.get(edgeTypeId);
     if (!edgeType) continue;
 
+    // Try category-specific rate first, fall back to flat rate from edge_types
+    const categoryEdgeRate = edgeCategoryRates.find(
+      r => r.edgeTypeId === edgeTypeId
+        && r.fabricationCategory === fabricationCategory
+    );
+
     let rate: number;
-    if (!isThick && edgeType.rate20mm) {
+    if (categoryEdgeRate) {
+      const catRate20 = typeof categoryEdgeRate.rate20mm === 'number'
+        ? categoryEdgeRate.rate20mm
+        : categoryEdgeRate.rate20mm.toNumber();
+      const catRate40 = typeof categoryEdgeRate.rate40mm === 'number'
+        ? categoryEdgeRate.rate40mm
+        : categoryEdgeRate.rate40mm.toNumber();
+      rate = isThick ? catRate40 : catRate20;
+    } else if (!isThick && edgeType.rate20mm) {
       rate = edgeType.rate20mm.toNumber();
     } else if (isThick && edgeType.rate40mm) {
       rate = edgeType.rate40mm.toNumber();
