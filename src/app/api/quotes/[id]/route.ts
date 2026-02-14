@@ -154,7 +154,23 @@ export async function PUT(
     } catch { /* quote may not exist yet in version system */ }
 
     // Handle calculation save (partial update)
-    if (data.saveCalculation && data.calculation) {
+    if (data.saveCalculation) {
+      if (!data.calculation) {
+        // No calculation data yet — not an error, return current quote
+        const quote = await prisma.quotes.findUnique({
+          where: { id: quoteId },
+          include: {
+            customers: {
+              include: {
+                client_types: true,
+                client_tiers: true,
+              },
+            },
+            price_books: true,
+          },
+        });
+        return NextResponse.json(quote);
+      }
       const GST_RATE = 0.10;
       const subtotal = data.calculation.total;
       const gst = subtotal * GST_RATE;
@@ -207,6 +223,15 @@ export async function PUT(
       if (data.projectName !== undefined) updateFields.project_name = data.projectName;
       if (data.projectAddress !== undefined) updateFields.project_address = data.projectAddress;
       if (data.notes !== undefined) updateFields.notes = data.notes;
+      // Delivery & templating fields
+      if (data.deliveryAddress !== undefined) updateFields.deliveryAddress = data.deliveryAddress;
+      if (data.deliveryDistanceKm !== undefined) updateFields.deliveryDistanceKm = data.deliveryDistanceKm;
+      if (data.deliveryCost !== undefined) updateFields.deliveryCost = data.deliveryCost;
+      if (data.overrideDeliveryCost !== undefined) updateFields.overrideDeliveryCost = data.overrideDeliveryCost;
+      if (data.templatingRequired !== undefined) updateFields.templatingRequired = data.templatingRequired;
+      if (data.templatingDistanceKm !== undefined) updateFields.templatingDistanceKm = data.templatingDistanceKm;
+      if (data.templatingCost !== undefined) updateFields.templatingCost = data.templatingCost;
+      if (data.overrideTemplatingCost !== undefined) updateFields.overrideTemplatingCost = data.overrideTemplatingCost;
 
       if (Object.keys(updateFields).length === 0) {
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
