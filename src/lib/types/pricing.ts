@@ -85,6 +85,31 @@ export interface MaterialBreakdown {
   slabRate?: number;
   wasteFactorPercent?: number;
   adjustedAreaM2?: number;
+  /** Material name for display */
+  materialName?: string;
+  /** Slab dimensions from the material record (mm) */
+  slabLengthMm?: number;
+  slabWidthMm?: number;
+  /** Whether slab count is from optimiser (true) or naive estimate (false) */
+  slabCountFromOptimiser?: boolean;
+  /** Per-material breakdowns when multiple materials are used */
+  byMaterial?: MaterialGroupBreakdown[];
+}
+
+export interface MaterialGroupBreakdown {
+  materialId: number;
+  materialName: string;
+  pricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE';
+  totalAreaM2: number;
+  slabCount?: number;
+  slabRate?: number;
+  slabLengthMm?: number;
+  slabWidthMm?: number;
+  slabCountFromOptimiser?: boolean;
+  wasteFactorPercent?: number;
+  adjustedAreaM2?: number;
+  ratePerSqm?: number;
+  totalCost: number;
 }
 
 export interface CalculationResult {
