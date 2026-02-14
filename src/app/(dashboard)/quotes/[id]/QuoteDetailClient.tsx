@@ -92,6 +92,8 @@ interface EditQuote {
   id: number;
   quote_number: string;
   project_name: string | null;
+  project_address: string | null;
+  notes: string | null;
   status: string;
   subtotal: number;
   total: number;
@@ -104,6 +106,14 @@ interface EditQuote {
   } | null;
   price_books?: { id: string; name: string } | null;
   rooms: QuoteRoom[];
+}
+
+interface CustomerOption {
+  id: number;
+  name: string;
+  company: string | null;
+  client_types?: { id: string; name: string } | null;
+  client_tiers?: { id: string; name: string } | null;
 }
 
 interface Material {
@@ -268,6 +278,12 @@ export default function QuoteDetailClient({
   const [discountDisplayMode, setDiscountDisplayMode] = useState<'ITEMIZED' | 'TOTAL_ONLY'>('ITEMIZED');
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
 
+  // Customer dropdown state
+  const [customersList, setCustomersList] = useState<CustomerOption[]>([]);
+  const [customerSearch, setCustomerSearch] = useState('');
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const customerDropdownRef = useRef<HTMLDivElement>(null);
+
   // Machine Profile state
   const [machines, setMachines] = useState<MachineOption[]>([]);
   const [defaultMachineId, setDefaultMachineId] = useState<string | null>(null);
@@ -406,6 +422,17 @@ export default function QuoteDetailClient({
     }
   }, []);
 
+  const fetchCustomers = useCallback(async () => {
+    try {
+      const response = await fetch('/api/customers');
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      const data = await response.json();
+      setCustomersList(data);
+    } catch (err) {
+      console.error('Error fetching customers:', err);
+    }
+  }, []);
+
   // Get effective kerf width
   const getEffectiveKerfWidth = useCallback((): number => {
     const overrideMachineId = machineOverrides['INITIAL_CUT'];
@@ -467,9 +494,10 @@ export default function QuoteDetailClient({
         fetchThicknessOptions(),
         fetchMachines(),
         fetchMachineOperationDefaults(),
+        fetchCustomers(),
       ]).then(() => setEditLoading(false));
     }
-  }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults]);
+  }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers]);
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -479,6 +507,96 @@ export default function QuoteDetailClient({
       }
     };
   }, []);
+
+  // ── Customer dropdown: close on click outside ────────────────────────────
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (customerDropdownRef.current && !customerDropdownRef.current.contains(e.target as Node)) {
+        setShowCustomerDropdown(false);
+        // Reset search text to selected customer name
+        if (editQuote?.customer) {
+          setCustomerSearch(
+            editQuote.customer.company
+              ? `${editQuote.customer.name} (${editQuote.customer.company})`
+              : editQuote.customer.name
+          );
+        } else {
+          setCustomerSearch('');
+        }
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [editQuote?.customer]);
+
+  // Initialise customer search text when editQuote loads
+  useEffect(() => {
+    if (editQuote?.customer) {
+      setCustomerSearch(
+        editQuote.customer.company
+          ? `${editQuote.customer.name} (${editQuote.customer.company})`
+          : editQuote.customer.name
+      );
+    } else {
+      setCustomerSearch('');
+    }
+  }, [editQuote?.customer]);
+
+  // ── Metadata save handler ───────────────────────────────────────────────
+  const handleMetadataSave = useCallback(async (
+    updates: Record<string, unknown>,
+    refetchAfter = false,
+  ) => {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteIdStr}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!response.ok) throw new Error('Failed to update quote');
+      if (refetchAfter) {
+        await fetchQuote();
+      }
+      markAsChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to update quote');
+      await fetchQuote(); // Revert on error
+    } finally {
+      setSaving(false);
+    }
+  }, [quoteIdStr, fetchQuote, markAsChanged]);
+
+  // ── Customer selection handler ──────────────────────────────────────────
+  const handleCustomerSelect = useCallback(async (customer: CustomerOption | null) => {
+    setShowCustomerDropdown(false);
+    if (customer) {
+      setCustomerSearch(
+        customer.company
+          ? `${customer.name} (${customer.company})`
+          : customer.name
+      );
+    } else {
+      setCustomerSearch('');
+    }
+    // Optimistic update
+    setEditQuote(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        customer: customer
+          ? {
+              id: customer.id,
+              name: customer.name,
+              company: customer.company,
+              client_types: customer.client_types,
+              client_tiers: customer.client_tiers,
+            }
+          : null,
+      };
+    });
+    await handleMetadataSave({ customerId: customer?.id ?? null }, true);
+  }, [handleMetadataSave]);
 
   // ── Edit-mode handlers ────────────────────────────────────────────────────
 
@@ -683,6 +801,16 @@ export default function QuoteDetailClient({
 
   const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
 
+  // Filtered customers for dropdown
+  const filteredCustomers = customersList.filter(c => {
+    if (!customerSearch) return true;
+    const search = customerSearch.toLowerCase();
+    return (
+      c.name.toLowerCase().includes(search) ||
+      (c.company && c.company.toLowerCase().includes(search))
+    );
+  });
+
   // Resolve display values for the header — use edit data when available
   const displayQuoteNumber = editQuote?.quote_number ?? serverData.quote_number;
   const displayProjectName = editQuote?.project_name ?? serverData.project_name;
@@ -702,6 +830,147 @@ export default function QuoteDetailClient({
   const headerTotal = calculation
     ? calculation.total * 1.1  // Include GST
     : null;
+
+  // ── Metadata section (shown between header and action buttons) ───────────
+
+  const renderMetadataSection = () => {
+    if (mode === 'edit' && editQuote) {
+      return (
+        <div className="card p-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Customer — searchable dropdown */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+              <div className="relative" ref={customerDropdownRef}>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customerSearch}
+                    onChange={(e) => {
+                      setCustomerSearch(e.target.value);
+                      setShowCustomerDropdown(true);
+                    }}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    placeholder="Select customer"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                  {editQuote.customer && (
+                    <button
+                      type="button"
+                      onClick={() => handleCustomerSelect(null)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                      title="Clear customer"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+                {showCustomerDropdown && (
+                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                    {filteredCustomers.length > 0 ? (
+                      filteredCustomers.map(c => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleCustomerSelect(c)}
+                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b border-gray-50 ${
+                            editQuote.customer?.id === c.id ? 'bg-primary-50 text-primary-700' : ''
+                          }`}
+                        >
+                          <span className="font-medium">{c.name}</span>
+                          {c.company && <span className="text-gray-500 ml-1">({c.company})</span>}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-2 text-sm text-gray-500">No customers found</div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Project Name */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+              <input
+                type="text"
+                value={editQuote.project_name || ''}
+                onChange={(e) =>
+                  setEditQuote(prev => prev ? { ...prev, project_name: e.target.value } : null)
+                }
+                onBlur={() => handleMetadataSave({ projectName: editQuote.project_name })}
+                placeholder="Enter project name"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              />
+            </div>
+          </div>
+
+          {/* Project Address — full width */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Project Address</label>
+            <input
+              type="text"
+              value={editQuote.project_address || ''}
+              onChange={(e) =>
+                setEditQuote(prev => prev ? { ...prev, project_address: e.target.value } : null)
+              }
+              onBlur={() => handleMetadataSave({ projectAddress: editQuote.project_address })}
+              placeholder="Enter project address"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            />
+          </div>
+
+          {/* Notes */}
+          <div className="mt-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+            <textarea
+              value={editQuote.notes || ''}
+              onChange={(e) =>
+                setEditQuote(prev => prev ? { ...prev, notes: e.target.value } : null)
+              }
+              onBlur={() => handleMetadataSave({ notes: editQuote.notes })}
+              placeholder="Enter notes (visible on quote)"
+              rows={2}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+            />
+          </div>
+        </div>
+      );
+    }
+
+    // View mode — display metadata as read-only text
+    return (
+      <div className="card p-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div>
+            <p className="text-sm text-gray-500">Customer</p>
+            <p className="font-medium">{serverData.customers?.name || '-'}</p>
+            {serverData.customers?.company && (
+              <p className="text-sm text-gray-500">{serverData.customers.company}</p>
+            )}
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Project Name</p>
+            <p className="font-medium">{serverData.project_name || '-'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Project Address</p>
+            <p className="font-medium">{serverData.project_address || '-'}</p>
+          </div>
+          <div>
+            <p className="text-sm text-gray-500">Created</p>
+            <p className="font-medium">{formatDate(serverData.created_at)}</p>
+          </div>
+        </div>
+        {serverData.notes && (
+          <div className="mt-3">
+            <p className="text-sm text-gray-500">Notes</p>
+            <p className="text-gray-600 text-sm whitespace-pre-wrap">{serverData.notes}</p>
+          </div>
+        )}
+      </div>
+    );
+  };
 
   // ── View-mode action buttons ──────────────────────────────────────────────
 
@@ -758,31 +1027,6 @@ export default function QuoteDetailClient({
     // Pieces & Pricing tab (view mode)
     return (
       <div className="space-y-6">
-        {/* Quote Info */}
-        <div className="card p-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div>
-              <p className="text-sm text-gray-500">Customer</p>
-              <p className="font-medium">{serverData.customers?.name || '-'}</p>
-              {serverData.customers?.company && (
-                <p className="text-sm text-gray-500">{serverData.customers.company}</p>
-              )}
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Project Address</p>
-              <p className="font-medium">{serverData.project_address || '-'}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Created</p>
-              <p className="font-medium">{formatDate(serverData.created_at)}</p>
-            </div>
-            <div>
-              <p className="text-sm text-gray-500">Valid Until</p>
-              <p className="font-medium">{serverData.valid_until ? formatDate(serverData.valid_until) : '-'}</p>
-            </div>
-          </div>
-        </div>
-
         {/* View Tracking */}
         <QuoteViewTracker quoteId={serverData.id} showHistory={true} />
 
@@ -1033,13 +1277,6 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* Notes */}
-        {serverData.notes && (
-          <div className="card p-6">
-            <h3 className="text-sm font-medium text-gray-700 mb-2">Notes</h3>
-            <p className="text-gray-600 whitespace-pre-wrap">{serverData.notes}</p>
-          </div>
-        )}
       </div>
     );
   };
@@ -1353,6 +1590,7 @@ export default function QuoteDetailClient({
         showModeToggle={true}
         saving={mode === 'edit' ? saving : false}
         hasUnsavedChanges={mode === 'edit' ? hasUnsavedChanges : false}
+        metadataContent={renderMetadataSection()}
         actionButtons={mode === 'view' ? viewActionButtons : editActionButtons}
         activeTab={activeTab}
         onTabChange={setActiveTab}

@@ -199,13 +199,22 @@ export async function PUT(
       return NextResponse.json(quote);
     }
 
-    // Handle status-only update
-    if (data.status && !data.rooms) {
+    // Handle partial update (metadata, status, notes — no room rebuild)
+    if (!data.rooms) {
+      const updateFields: Record<string, unknown> = {};
+      if (data.status !== undefined) updateFields.status = data.status;
+      if (data.customerId !== undefined) updateFields.customer_id = data.customerId;
+      if (data.projectName !== undefined) updateFields.project_name = data.projectName;
+      if (data.projectAddress !== undefined) updateFields.project_address = data.projectAddress;
+      if (data.notes !== undefined) updateFields.notes = data.notes;
+
+      if (Object.keys(updateFields).length === 0) {
+        return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
+      }
+
       const quote = await prisma.quotes.update({
         where: { id: quoteId },
-        data: {
-          status: data.status,
-        },
+        data: updateFields,
         include: {
           customers: {
             include: {
@@ -219,7 +228,8 @@ export async function PUT(
 
       // Record version
       try {
-        await createQuoteVersion(quoteId, userId, 'STATUS_CHANGED', undefined, previousSnapshot);
+        const changeType = data.status ? 'STATUS_CHANGED' : 'UPDATED';
+        await createQuoteVersion(quoteId, userId, changeType, undefined, previousSnapshot);
       } catch (versionError) {
         console.error('Error creating version (non-blocking):', versionError);
       }

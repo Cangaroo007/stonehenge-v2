@@ -28,6 +28,9 @@ interface QuoteLayoutProps {
   /** Unsaved changes indicator */
   hasUnsavedChanges?: boolean;
 
+  /** Metadata section rendered between header and action buttons */
+  metadataContent?: React.ReactNode;
+
   /** Action buttons rendered in the header bar — contextual based on mode */
   actionButtons?: React.ReactNode;
 
@@ -67,6 +70,7 @@ export default function QuoteLayout({
   showModeToggle = true,
   saving = false,
   hasUnsavedChanges = false,
+  metadataContent,
   actionButtons,
   activeTab,
   onTabChange,
@@ -163,6 +167,9 @@ export default function QuoteLayout({
           )}
         </div>
       </div>
+
+      {/* ── Metadata Section ── */}
+      {metadataContent}
 
       {/* ── Action Buttons ── */}
       {actionButtons && (
