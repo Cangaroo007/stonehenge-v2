@@ -100,29 +100,90 @@ export default function CutoutSelector({
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount);
 
+  // Collapsed state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   // Active cutout types for dropdown
   const activeCutoutTypes = useMemo(
     () => cutoutTypes.filter(t => t.isActive).sort((a, b) => a.sortOrder - b.sortOrder),
     [cutoutTypes]
   );
 
+  // Build summary line for collapsed state
+  const summaryLine = useMemo(() => {
+    if (cutouts.length === 0) {
+      return { text: 'No cutouts', cost: null };
+    }
+
+    // Group cutouts by type with total quantity
+    const grouped: Record<string, { name: string; qty: number }> = {};
+    cutouts.forEach((cutout) => {
+      const name = getCutoutTypeName(cutout.cutoutTypeId);
+      if (grouped[cutout.cutoutTypeId]) {
+        grouped[cutout.cutoutTypeId].qty += cutout.quantity;
+      } else {
+        grouped[cutout.cutoutTypeId] = { name, qty: cutout.quantity };
+      }
+    });
+
+    const parts = Object.values(grouped).map(
+      (g) => `${g.name} \u00d7${g.qty}`
+    );
+
+    return {
+      text: parts.join(', '),
+      cost: totalCost,
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cutouts, cutoutTypes, totalCost]);
+
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       {/* Header */}
       <div className="bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between">
-        <h3 className="text-sm font-semibold text-gray-700">Cutouts</h3>
-        {!isAdding && (
-          <button
-            type="button"
-            onClick={() => setIsAdding(true)}
-            className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+        <button
+          type="button"
+          onClick={() => setIsCollapsed(!isCollapsed)}
+          className="flex items-center gap-2 hover:text-gray-900 transition-colors"
+        >
+          <svg
+            className={`h-3.5 w-3.5 text-gray-500 transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
           >
-            + Add Cutout
-          </button>
-        )}
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <h3 className="text-sm font-semibold text-gray-700">Cutouts</h3>
+        </button>
+        <div className="flex items-center gap-3">
+          {isCollapsed && summaryLine.cost !== null && summaryLine.cost > 0 && (
+            <span className="text-sm font-medium tabular-nums text-gray-900">
+              {formatCurrency(summaryLine.cost)}
+            </span>
+          )}
+          {!isCollapsed && !isAdding && (
+            <button
+              type="button"
+              onClick={() => setIsAdding(true)}
+              className="text-sm text-primary-600 hover:text-primary-700 font-medium"
+            >
+              + Add Cutout
+            </button>
+          )}
+        </div>
       </div>
 
-      <div className="p-4">
+      {/* Summary line when collapsed */}
+      {isCollapsed && (
+        <div className="px-4 py-2 bg-gray-50/50">
+          <p className={`text-sm ${summaryLine.cost !== null ? 'text-gray-600' : 'text-gray-400 italic'}`}>
+            {summaryLine.text}
+          </p>
+        </div>
+      )}
+
+      {!isCollapsed && <div className="p-4">
         {/* Cutout List */}
         {cutouts.length > 0 && (
           <div className="space-y-2 mb-4">
@@ -278,7 +339,7 @@ export default function CutoutSelector({
             </div>
           </div>
         )}
-      </div>
+      </div>}
     </div>
   );
 }
