@@ -156,6 +156,20 @@ model edge_type_category_rates {
   @@map("edge_type_category_rates")
 }
 
+model material_edge_compatibility {
+  id                  Int                 @id @default(autoincrement())
+  fabricationCategory FabricationCategory @map("fabrication_category")
+  edgeTypeId          String              @map("edge_type_id")
+  edgeType            edge_types          @relation("EdgeCompatibility", fields: [edgeTypeId], references: [id], onDelete: Cascade)
+  isAllowed           Boolean             @default(true) @map("is_allowed")
+  warningMessage      String?             @map("warning_message")
+  pricingSettingsId   String              @map("pricing_settings_id")
+  pricingSettings     pricing_settings    @relation(fields: [pricingSettingsId], references: [id])
+
+  @@unique([fabricationCategory, edgeTypeId, pricingSettingsId])
+  @@map("material_edge_compatibility")
+}
+
 model drawings {
   id           String    @id
   filename     String
@@ -194,6 +208,7 @@ model edge_types {
   isCurved           Boolean              @default(false)
   pricing_rule_edges pricing_rule_edges[]
   categoryRates      edge_type_category_rates[]
+  compatibility      material_edge_compatibility[] @relation("EdgeCompatibility")
 }
 
 model machine_profiles {
@@ -375,6 +390,7 @@ model pricing_settings {
   cutout_rates                     cutout_rates[]
   cutoutCategoryRates              cutout_category_rates[]
   edgeCategoryRates                edge_type_category_rates[]
+  edgeCompatibility                material_edge_compatibility[]
   service_rates                    service_rates[]
 }
 

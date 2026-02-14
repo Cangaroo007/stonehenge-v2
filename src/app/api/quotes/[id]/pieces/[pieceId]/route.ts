@@ -137,6 +137,56 @@ export async function PUT(
       }
     }
 
+    // Material → Edge compatibility check
+    const edgeCompatibilityWarnings: string[] = [];
+    const effectiveMatId = materialId !== undefined ? materialId : currentPiece.material_id;
+    if (effectiveMatId) {
+      const matForCompat = await prisma.materials.findUnique({
+        where: { id: effectiveMatId },
+        select: { fabrication_category: true },
+      });
+
+      if (matForCompat) {
+        const effectiveEdgeIds = Array.from(new Set(
+          [
+            edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
+            edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
+            edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
+            edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+          ].filter(Boolean) as string[]
+        ));
+
+        if (effectiveEdgeIds.length > 0) {
+          const pricingSettings = await prisma.pricing_settings.findFirst();
+          if (pricingSettings) {
+            const compatibilityRules = await prisma.material_edge_compatibility.findMany({
+              where: {
+                pricingSettingsId: pricingSettings.id,
+                fabricationCategory: matForCompat.fabrication_category,
+                edgeTypeId: { in: effectiveEdgeIds },
+              },
+              include: { edgeType: { select: { name: true } } },
+            });
+
+            for (const rule of compatibilityRules) {
+              if (!rule.isAllowed) {
+                return NextResponse.json(
+                  {
+                    error: rule.warningMessage || `${rule.edgeType.name} is not available for ${rule.fabricationCategory} materials.`,
+                    code: 'EDGE_MATERIAL_INCOMPATIBLE',
+                  },
+                  { status: 400 }
+                );
+              }
+              if (rule.warningMessage) {
+                edgeCompatibilityWarnings.push(rule.warningMessage);
+              }
+            }
+          }
+        }
+      }
+    }
+
     // Handle room change if needed
     let roomId = currentPiece.room_id;
     if (roomName && roomName !== currentPiece.quote_rooms.name) {
@@ -241,6 +291,7 @@ export async function PUT(
       areaSqm: Number(pu.area_sqm || 0),
       materialCost: Number(pu.material_cost || 0),
       featuresCost: Number(pu.features_cost || 0),
+      ...(edgeCompatibilityWarnings.length > 0 && { edgeCompatibilityWarnings }),
     });
   } catch (error) {
     console.error('Error updating piece:', error);
