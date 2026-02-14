@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useState, useMemo } from 'react';
 
 interface EdgeType {
   id: string;
@@ -121,18 +121,79 @@ export default function EdgeSelector({
   // Format meters display
   const formatMeters = (mm: number) => (mm / 1000).toFixed(2);
 
+  // Collapsed state
+  const [isCollapsed, setIsCollapsed] = useState(false);
+
   // Format currency
   const formatCurrency = (amount: number) =>
     new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(amount);
 
+  // Build summary line for collapsed state
+  const summaryLine = useMemo(() => {
+    const selectedEdges: string[] = [];
+    let primaryTypeName: string | null = null;
+
+    edges.forEach((edge) => {
+      const edgeTypeId = edgeSelections[edge.key];
+      if (edgeTypeId) {
+        selectedEdges.push(edge.label);
+        if (!primaryTypeName) {
+          const edgeType = edgeTypes.find((t) => t.id === edgeTypeId);
+          if (edgeType) primaryTypeName = edgeType.name;
+        }
+      }
+    });
+
+    if (selectedEdges.length === 0) {
+      return { text: 'No polished edges', cost: null };
+    }
+
+    const parts = [selectedEdges.join(', ')];
+    if (primaryTypeName) parts.push(primaryTypeName);
+    parts.push(`${calculations.totalMeters.toFixed(2)} Lm`);
+
+    return {
+      text: parts.join(' \u2014 '),
+      cost: calculations.totalCost,
+    };
+  }, [edges, edgeSelections, edgeTypes, calculations]);
+
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
       {/* Header */}
-      <div className="bg-gray-50 px-4 py-2 border-b border-gray-200">
-        <h3 className="text-sm font-semibold text-gray-700">Edge Polish Selection</h3>
-      </div>
+      <button
+        type="button"
+        onClick={() => setIsCollapsed(!isCollapsed)}
+        className="w-full bg-gray-50 px-4 py-2 border-b border-gray-200 flex items-center justify-between hover:bg-gray-100 transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <svg
+            className={`h-3.5 w-3.5 text-gray-500 transform transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          <h3 className="text-sm font-semibold text-gray-700">Edge Polish Selection</h3>
+        </div>
+        {isCollapsed && summaryLine.cost !== null && (
+          <span className="text-sm font-medium tabular-nums text-gray-900">
+            {formatCurrency(summaryLine.cost)}
+          </span>
+        )}
+      </button>
 
-      <div className="p-4">
+      {/* Summary line when collapsed */}
+      {isCollapsed && (
+        <div className="px-4 py-2 bg-gray-50/50">
+          <p className={`text-sm ${summaryLine.cost !== null ? 'text-gray-600' : 'text-gray-400 italic'}`}>
+            {summaryLine.text}
+          </p>
+        </div>
+      )}
+
+      {!isCollapsed && <div className="p-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {/* Left Side - Visual Diagram */}
           <div className="flex items-center justify-center">
@@ -291,7 +352,7 @@ export default function EdgeSelector({
             Select the edges that require polishing.
           </p>
         </div>
-      </div>
+      </div>}
     </div>
   );
 }

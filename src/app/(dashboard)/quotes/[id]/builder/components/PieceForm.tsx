@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useUnits } from '@/lib/contexts/UnitContext';
 import { getDimensionUnitLabel, formatAreaFromSqm } from '@/lib/utils/units';
 import EdgeSelector from './EdgeSelector';
@@ -135,6 +135,7 @@ export default function PieceForm({
     Array.isArray(piece?.cutouts) ? piece.cutouts : []
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [laminationCollapsed, setLaminationCollapsed] = useState(false);
 
   // Update form when piece changes
   useEffect(() => {
@@ -363,30 +364,58 @@ export default function PieceForm({
 
         if (mitreStrips.length === 0) return null;
 
+        // Build lamination summary
+        const totalLm = mitreStrips.reduce((sum, s) => sum + s.lengthMm / 1000, 0);
+        const summaryText = `${thicknessMm}mm Mitred \u2014 ${mitreStrips.length} strip${mitreStrips.length !== 1 ? 's' : ''} \u2014 ${totalLm.toFixed(2)} Lm`;
+
         return (
-          <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
-            <h4 className="text-sm font-semibold text-purple-800 mb-2 flex items-center gap-1">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-              Lamination Strips (Auto-Calculated)
-            </h4>
-            <div className="space-y-1 text-sm">
-              {mitreStrips.map(strip => (
-                <div key={strip.side} className="flex justify-between text-purple-700">
-                  <span>{strip.side} Mitre Strip:</span>
-                  <span className="font-medium">
-                    {strip.lengthMm} x {strip.stripWidth}mm
-                    <span className="text-purple-500 text-xs ml-1">
-                      ({thicknessMm}+{kerfMm}+5)
-                    </span>
-                  </span>
+          <div className="bg-purple-50 border border-purple-200 rounded-lg overflow-hidden">
+            <button
+              type="button"
+              onClick={() => setLaminationCollapsed(!laminationCollapsed)}
+              className="w-full px-3 py-2 flex items-center justify-between hover:bg-purple-100/50 transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <svg
+                  className={`h-3.5 w-3.5 text-purple-500 transform transition-transform ${laminationCollapsed ? '' : 'rotate-90'}`}
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+                <h4 className="text-sm font-semibold text-purple-800 flex items-center gap-1">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                  </svg>
+                  Lamination Strips (Auto-Calculated)
+                </h4>
+              </div>
+            </button>
+            {laminationCollapsed ? (
+              <div className="px-3 py-2 border-t border-purple-200/50">
+                <p className="text-sm text-purple-600">{summaryText}</p>
+              </div>
+            ) : (
+              <div className="px-3 pb-3 pt-1">
+                <div className="space-y-1 text-sm">
+                  {mitreStrips.map(strip => (
+                    <div key={strip.side} className="flex justify-between text-purple-700">
+                      <span>{strip.side} Mitre Strip:</span>
+                      <span className="font-medium">
+                        {strip.lengthMm} x {strip.stripWidth}mm
+                        <span className="text-purple-500 text-xs ml-1">
+                          ({thicknessMm}+{kerfMm}+5)
+                        </span>
+                      </span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-            <p className="text-xs text-purple-500 mt-2">
-              Strips auto-added to Optimiser required piece list
-            </p>
+                <p className="text-xs text-purple-500 mt-2">
+                  Strips auto-added to Optimiser required piece list
+                </p>
+              </div>
+            )}
           </div>
         );
       })()}
