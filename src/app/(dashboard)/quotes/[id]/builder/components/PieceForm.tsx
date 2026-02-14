@@ -385,7 +385,7 @@ export default function PieceForm({
               ))}
             </div>
             <p className="text-xs text-purple-500 mt-2">
-              Strips auto-added to Optimizer required piece list
+              Strips auto-added to Optimiser required piece list
             </p>
           </div>
         );

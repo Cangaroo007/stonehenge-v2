@@ -83,7 +83,7 @@ export default function CommandMenu({ user }: CommandMenuProps) {
     },
     {
       id: 'optimizer',
-      label: 'Go to Slab Optimizer',
+      label: 'Go to Slab Optimiser',
       description: 'Optimize slab layouts',
       icon: Square,
       action: () => router.push('/optimize'),
