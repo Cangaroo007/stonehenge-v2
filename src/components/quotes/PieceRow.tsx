@@ -3,6 +3,9 @@
 import { useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
+import InlinePieceEditor from './InlinePieceEditor';
+import type { InlinePieceData } from './InlinePieceEditor';
+import type { CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -22,6 +25,41 @@ interface MachineOperationDefault {
     name: string;
     kerfWidthMm: number;
   };
+}
+
+interface InlineEditMaterial {
+  id: number;
+  name: string;
+  collection: string | null;
+  pricePerSqm: number;
+}
+
+interface InlineEditEdgeType {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  baseRate: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface InlineEditThicknessOption {
+  id: string;
+  name: string;
+  value: number;
+  multiplier: number;
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface InlineEditData {
+  materials: InlineEditMaterial[];
+  edgeTypes: InlineEditEdgeType[];
+  cutoutTypes: CutoutType[];
+  thicknessOptions: InlineEditThicknessOption[];
+  roomNames: string[];
 }
 
 interface PieceRowProps {
@@ -48,6 +86,14 @@ interface PieceRowProps {
   mode: 'view' | 'edit';
   /** Callback when machine assignment changes (edit mode) */
   onMachineChange?: (pieceId: number, operationType: string, machineId: string) => void;
+  /** Full piece data for inline editing (optional, edit mode only) */
+  fullPiece?: InlinePieceData;
+  /** Reference data for inline editing (optional, edit mode only) */
+  editData?: InlineEditData;
+  /** Callback when piece is saved via inline editor */
+  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+  /** Whether a save operation is in progress */
+  savingPiece?: boolean;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -206,11 +252,17 @@ export default function PieceRow({
   machineOperationDefaults = [],
   mode,
   onMachineChange,
+  fullPiece,
+  editData,
+  onSavePiece,
+  savingPiece = false,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
+  const [editExpanded, setEditExpanded] = useState(true);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const edgeBadges = getEdgeBadges(piece);
+  const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
 
   return (
     <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
@@ -414,6 +466,36 @@ export default function PieceRow({
           <p className="text-xs text-gray-400 italic">
             Awaiting calculation\u2026
           </p>
+        </div>
+      )}
+
+      {/* ── Inline Edit Section (edit mode only) ── */}
+      {l1Expanded && canInlineEdit && (
+        <div className="border-t border-gray-200">
+          {/* Section header with collapse toggle */}
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditExpanded(!editExpanded); }}
+            className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
+          >
+            <ChevronIcon expanded={editExpanded} />
+            Edit Piece
+          </button>
+
+          {/* Editor content */}
+          {editExpanded && (
+            <div className="px-4 pb-4 pt-3">
+              <InlinePieceEditor
+                piece={fullPiece}
+                materials={editData.materials}
+                edgeTypes={editData.edgeTypes}
+                cutoutTypes={editData.cutoutTypes}
+                thicknessOptions={editData.thicknessOptions}
+                roomNames={editData.roomNames}
+                onSave={onSavePiece}
+                saving={savingPiece}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
