@@ -699,6 +699,29 @@ export default function QuoteDetailClient({
     }
   };
 
+  const handleInlineSavePiece = useCallback(async (pieceId: number, data: Record<string, unknown>, roomName: string) => {
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...data, roomName }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to save piece');
+      }
+      await fetchQuote();
+      triggerRecalculate();
+      autoReOptimize();
+      markAsChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save piece');
+    } finally {
+      setSaving(false);
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, autoReOptimize, markAsChanged]);
+
   const handleDeletePiece = async (pieceId: number) => {
     if (!confirm('Are you sure you want to delete this piece?')) return;
     setSaving(true);
@@ -829,6 +852,15 @@ export default function QuoteDetailClient({
     : null;
 
   const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
+
+  // Inline edit data bundle for PieceRow inline editor
+  const inlineEditData = {
+    materials,
+    edgeTypes,
+    cutoutTypes,
+    thicknessOptions,
+    roomNames,
+  };
 
   // Filtered customers for dropdown
   const filteredCustomers = customersList.filter(c => {
@@ -1452,6 +1484,24 @@ export default function QuoteDetailClient({
                     onMachineChange={(pieceId, operationType, machineId) => {
                       handleMachineOverride(operationType, machineId);
                     }}
+                    fullPiece={matchedPiece ? {
+                      id: matchedPiece.id,
+                      name: matchedPiece.name,
+                      lengthMm: matchedPiece.lengthMm,
+                      widthMm: matchedPiece.widthMm,
+                      thicknessMm: matchedPiece.thicknessMm,
+                      materialId: matchedPiece.materialId,
+                      materialName: matchedPiece.materialName,
+                      edgeTop: matchedPiece.edgeTop,
+                      edgeBottom: matchedPiece.edgeBottom,
+                      edgeLeft: matchedPiece.edgeLeft,
+                      edgeRight: matchedPiece.edgeRight,
+                      cutouts: matchedPiece.cutouts,
+                      quote_rooms: matchedPiece.quote_rooms,
+                    } : undefined}
+                    editData={inlineEditData}
+                    onSavePiece={handleInlineSavePiece}
+                    savingPiece={saving}
                   />
                 );
               })}
