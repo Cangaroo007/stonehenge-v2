@@ -264,6 +264,36 @@ function PieceVisualEditorSection({
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
+  // In view mode, piece edge IDs may be null because serverData doesn't include them.
+  // Extract edge IDs from the breakdown (which stores edgeTypeId per side).
+  const resolvedEdges = useMemo(() => {
+    if (piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight) {
+      return { edgeTop: piece.edgeTop, edgeBottom: piece.edgeBottom, edgeLeft: piece.edgeLeft, edgeRight: piece.edgeRight };
+    }
+    if (!breakdown?.fabrication?.edges) {
+      return { edgeTop: null, edgeBottom: null, edgeLeft: null, edgeRight: null };
+    }
+    const result: Record<string, string | null> = { edgeTop: null, edgeBottom: null, edgeLeft: null, edgeRight: null };
+    for (const e of breakdown.fabrication.edges) {
+      const key = `edge${e.side.charAt(0).toUpperCase()}${e.side.slice(1)}`;
+      if (key in result) result[key] = e.edgeTypeId;
+    }
+    return result as { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
+  }, [piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, breakdown]);
+
+  // In view mode, editData.edgeTypes is unavailable so resolveEdgeName returns undefined.
+  // Build a synthetic edge types list from breakdown data for name resolution.
+  const resolvedEdgeTypes = useMemo(() => {
+    if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
+      return editData.edgeTypes;
+    }
+    if (!breakdown?.fabrication?.edges) return [];
+    const seen = new Set<string>();
+    return breakdown.fabrication.edges
+      .filter(e => { if (seen.has(e.edgeTypeId)) return false; seen.add(e.edgeTypeId); return true; })
+      .map(e => ({ id: e.edgeTypeId, name: e.edgeTypeName }));
+  }, [editData?.edgeTypes, breakdown]);
+
   // Map cutouts to display format
   const cutoutDisplays = useMemo(() => {
     if (!fullPiece || !Array.isArray(fullPiece.cutouts)) return [];
@@ -392,11 +422,11 @@ function PieceVisualEditorSection({
       <PieceVisualEditor
         lengthMm={piece.lengthMm}
         widthMm={piece.widthMm}
-        edgeTop={piece.edgeTop}
-        edgeBottom={piece.edgeBottom}
-        edgeLeft={piece.edgeLeft}
-        edgeRight={piece.edgeRight}
-        edgeTypes={editData?.edgeTypes ?? []}
+        edgeTop={resolvedEdges.edgeTop}
+        edgeBottom={resolvedEdges.edgeBottom}
+        edgeLeft={resolvedEdges.edgeLeft}
+        edgeRight={resolvedEdges.edgeRight}
+        edgeTypes={resolvedEdgeTypes}
         cutouts={displayCutouts}
         joinAtMm={joinAtMm}
         isEditMode={isEditMode}
