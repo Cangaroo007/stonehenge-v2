@@ -29,6 +29,8 @@ import type { CalculationResult } from '@/lib/types/pricing';
 import PieceRow from '@/components/quotes/PieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
+import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
+import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 
 // View-mode components
 import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
@@ -264,6 +266,7 @@ export default function QuoteDetailClient({
   const [rooms, setRooms] = useState<QuoteRoom[]>([]);
   const [selectedPieceId, setSelectedPieceId] = useState<number | null>(null);
   const [isAddingPiece, setIsAddingPiece] = useState(false);
+  const [addingInlinePiece, setAddingInlinePiece] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -636,9 +639,16 @@ export default function QuoteDetailClient({
   };
 
   const handleAddPiece = () => {
+    setAddingInlinePiece(true);
+    setSelectedPieceId(null);
+    setIsAddingPiece(false);
+  };
+
+  const handleAddPieceSidebar = () => {
     setSelectedPieceId(null);
     setIsAddingPiece(true);
     setSidebarOpen(true);
+    setAddingInlinePiece(false);
   };
 
   const handleCancelForm = () => {
@@ -702,14 +712,24 @@ export default function QuoteDetailClient({
   const handleInlineSavePiece = useCallback(async (pieceId: number, data: Record<string, unknown>, roomName: string) => {
     setSaving(true);
     try {
-      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-        method: 'PUT',
+      // pieceId === 0 means creating a new piece (inline add)
+      const isCreate = pieceId === 0;
+      const url = isCreate
+        ? `/api/quotes/${quoteIdStr}/pieces`
+        : `/api/quotes/${quoteIdStr}/pieces/${pieceId}`;
+      const method = isCreate ? 'POST' : 'PUT';
+
+      const response = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ ...data, roomName }),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save piece');
+      }
+      if (isCreate) {
+        setAddingInlinePiece(false);
       }
       await fetchQuote();
       triggerRecalculate();
@@ -1424,6 +1444,13 @@ export default function QuoteDetailClient({
               <button onClick={handleAddPiece} className="btn-primary text-sm">
                 + Add Piece
               </button>
+              <button
+                onClick={handleAddPieceSidebar}
+                className="text-xs text-gray-500 hover:text-gray-700 underline"
+                title="Add piece using the sidebar form"
+              >
+                sidebar
+              </button>
             </div>
           </div>
           {viewMode === 'list' ? (
@@ -1450,6 +1477,39 @@ export default function QuoteDetailClient({
               onDeletePiece={handleDeletePiece}
               onDuplicatePiece={handleDuplicatePiece}
             />
+          )}
+
+          {/* Inline Add Piece Editor */}
+          {addingInlinePiece && (
+            <div className="border-t border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">Add New Piece</h3>
+              <InlinePieceEditor
+                piece={{
+                  id: 0,
+                  name: '',
+                  lengthMm: 1000,
+                  widthMm: 600,
+                  thicknessMm: 20,
+                  materialId: null,
+                  materialName: null,
+                  edgeTop: null,
+                  edgeBottom: null,
+                  edgeLeft: null,
+                  edgeRight: null,
+                  cutouts: [],
+                  quote_rooms: { id: 0, name: 'Kitchen' },
+                } as InlinePieceData}
+                materials={materials}
+                edgeTypes={edgeTypes}
+                cutoutTypes={cutoutTypes}
+                thicknessOptions={thicknessOptions}
+                roomNames={roomNames}
+                onSave={handleInlineSavePiece}
+                saving={saving}
+                isNew
+                onCancel={() => setAddingInlinePiece(false)}
+              />
+            </div>
           )}
         </div>
 

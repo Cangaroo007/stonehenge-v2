@@ -31,11 +31,13 @@ interface EdgeCalculationOptions {
 }
 
 // Map edge sides to their corresponding dimensions
+// Top/bottom are horizontal edges → span the piece length
+// Left/right are vertical edges → span the piece width
 const EDGE_DIMENSION_MAP: Record<EdgeSide, keyof Dimensions> = {
-  top: 'widthMm',
-  bottom: 'widthMm',
-  left: 'lengthMm',
-  right: 'lengthMm',
+  top: 'lengthMm',
+  bottom: 'lengthMm',
+  left: 'widthMm',
+  right: 'widthMm',
 };
 
 interface Dimensions {
@@ -293,10 +295,10 @@ export const EdgeCalculations = {
   ): Decimal {
     let total = 0;
     if (edges.top || edges.bottom) {
-      total += (edges.top ? widthMm : 0) + (edges.bottom ? widthMm : 0);
+      total += (edges.top ? lengthMm : 0) + (edges.bottom ? lengthMm : 0);
     }
     if (edges.left || edges.right) {
-      total += (edges.left ? lengthMm : 0) + (edges.right ? lengthMm : 0);
+      total += (edges.left ? widthMm : 0) + (edges.right ? widthMm : 0);
     }
     return new Decimal(total).dividedBy(1000); // in meters
   },

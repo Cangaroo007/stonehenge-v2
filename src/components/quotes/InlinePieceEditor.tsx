@@ -66,6 +66,10 @@ export interface InlinePieceEditorProps {
   roomNames: string[];
   onSave: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
   saving: boolean;
+  /** When true, renders in "create new piece" mode with a name field */
+  isNew?: boolean;
+  /** Called when the user cancels creating a new piece */
+  onCancel?: () => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -92,8 +96,11 @@ export default function InlinePieceEditor({
   roomNames,
   onSave,
   saving,
+  isNew = false,
+  onCancel,
 }: InlinePieceEditorProps) {
   // ── Local form state ────────────────────────────────────────────────────
+  const [pieceName, setPieceName] = useState(piece.name || '');
   const [lengthMm, setLengthMm] = useState(piece.lengthMm.toString());
   const [widthMm, setWidthMm] = useState(piece.widthMm.toString());
   const [thicknessMm, setThicknessMm] = useState(piece.thicknessMm);
@@ -122,6 +129,7 @@ export default function InlinePieceEditor({
 
   // ── Reset form when piece changes ───────────────────────────────────────
   useEffect(() => {
+    setPieceName(piece.name || '');
     setLengthMm(piece.lengthMm.toString());
     setWidthMm(piece.widthMm.toString());
     setThicknessMm(piece.thicknessMm);
@@ -186,6 +194,10 @@ export default function InlinePieceEditor({
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
 
+    if (isNew && !pieceName.trim()) {
+      newErrors.pieceName = 'Name is required';
+    }
+
     const length = parseInt(lengthMm);
     if (!lengthMm || isNaN(length) || length <= 0) {
       newErrors.lengthMm = 'Length must be greater than 0';
@@ -214,20 +226,31 @@ export default function InlinePieceEditor({
 
     const selectedMaterial = materials.find(m => m.id === materialId);
 
+    // Auto-set lamination method based on thickness
+    const laminationMethod = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
+
+    const payload: Record<string, unknown> = {
+      lengthMm: parseInt(lengthMm),
+      widthMm: parseInt(widthMm),
+      thicknessMm,
+      laminationMethod,
+      materialId,
+      materialName: selectedMaterial?.name || null,
+      edgeTop: edgeSelections.edgeTop,
+      edgeBottom: edgeSelections.edgeBottom,
+      edgeLeft: edgeSelections.edgeLeft,
+      edgeRight: edgeSelections.edgeRight,
+      cutouts,
+    };
+
+    // Include name for new pieces
+    if (isNew) {
+      payload.name = pieceName.trim();
+    }
+
     onSave(
       piece.id,
-      {
-        lengthMm: parseInt(lengthMm),
-        widthMm: parseInt(widthMm),
-        thicknessMm,
-        materialId,
-        materialName: selectedMaterial?.name || null,
-        edgeTop: edgeSelections.edgeTop,
-        edgeBottom: edgeSelections.edgeBottom,
-        edgeLeft: edgeSelections.edgeLeft,
-        edgeRight: edgeSelections.edgeRight,
-        cutouts,
-      },
+      payload,
       roomName
     );
   };
@@ -239,6 +262,26 @@ export default function InlinePieceEditor({
 
   return (
     <div className="space-y-4">
+      {/* Name field (new piece only) */}
+      {isNew && (
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Piece Name
+          </label>
+          <input
+            type="text"
+            value={pieceName}
+            onChange={(e) => setPieceName(e.target.value)}
+            placeholder="e.g. Main Kitchen Benchtop"
+            className={`w-full max-w-sm px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+              errors.pieceName ? 'border-red-500' : 'border-gray-300'
+            }`}
+            onClick={(e) => e.stopPropagation()}
+          />
+          {errors.pieceName && <p className="mt-0.5 text-xs text-red-500">{errors.pieceName}</p>}
+        </div>
+      )}
+
       {/* Row 1: Dimensions + Thickness + Material */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {/* Dimensions */}
@@ -408,14 +451,26 @@ export default function InlinePieceEditor({
             ))}
           </select>
         </div>
-        <button
-          type="button"
-          onClick={(e) => { e.stopPropagation(); handleSave(); }}
-          disabled={saving}
-          className="px-4 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-        >
-          {saving ? 'Saving...' : 'Save Changes'}
-        </button>
+        <div className="flex items-center gap-2">
+          {isNew && onCancel && (
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onCancel(); }}
+              disabled={saving}
+              className="px-4 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); handleSave(); }}
+            disabled={saving}
+            className="px-4 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {saving ? 'Saving...' : isNew ? 'Create Piece' : 'Save Changes'}
+          </button>
+        </div>
       </div>
     </div>
   );
