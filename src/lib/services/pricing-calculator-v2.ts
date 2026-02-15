@@ -804,10 +804,10 @@ function calculateEdgeCostV2(
 
   for (const piece of pieces) {
     const edges = [
-      { id: piece.edge_top, length: piece.width_mm },
-      { id: piece.edge_bottom, length: piece.width_mm },
-      { id: piece.edge_left, length: piece.length_mm },
-      { id: piece.edge_right, length: piece.length_mm },
+      { id: piece.edge_top, length: piece.length_mm },
+      { id: piece.edge_bottom, length: piece.length_mm },
+      { id: piece.edge_left, length: piece.width_mm },
+      { id: piece.edge_right, length: piece.width_mm },
     ];
 
     for (const edge of edges) {
@@ -1097,10 +1097,10 @@ function calculateServiceCosts(
 
     for (const piece of pieces) {
       const edgeLengths = [
-        piece.edge_top ? piece.width_mm : 0,
-        piece.edge_bottom ? piece.width_mm : 0,
-        piece.edge_left ? piece.length_mm : 0,
-        piece.edge_right ? piece.length_mm : 0,
+        piece.edge_top ? piece.length_mm : 0,
+        piece.edge_bottom ? piece.length_mm : 0,
+        piece.edge_left ? piece.width_mm : 0,
+        piece.edge_right ? piece.width_mm : 0,
       ];
       const pieceEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
       if (pieceEdgeLm <= 0) continue;
@@ -1172,10 +1172,10 @@ function calculateServiceCosts(
     const { rate: polishRate20mm } = getServiceRate(serviceRates, 'POLISHING', 20, pieceCategory);
 
     const edgeLengths = [
-      piece.edge_top ? piece.width_mm : 0,
-      piece.edge_bottom ? piece.width_mm : 0,
-      piece.edge_left ? piece.length_mm : 0,
-      piece.edge_right ? piece.length_mm : 0,
+      piece.edge_top ? piece.length_mm : 0,
+      piece.edge_bottom ? piece.length_mm : 0,
+      piece.edge_left ? piece.width_mm : 0,
+      piece.edge_right ? piece.width_mm : 0,
     ];
     const pieceFinishedEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
     if (pieceFinishedEdgeLm <= 0) continue;
@@ -1381,12 +1381,12 @@ function calculatePiecePricing(
   const cuttingDiscount = roundToTwo(cuttingBase * (fabricationDiscountPct / 100));
   const cuttingTotal = roundToTwo(cuttingBase - cuttingDiscount);
 
-  // Edge sides mapping: top/bottom use width_mm, left/right use length_mm
+  // Edge sides mapping: top/bottom use length_mm (horizontal), left/right use width_mm (vertical)
   const edgeSides: Array<{ side: 'top' | 'bottom' | 'left' | 'right'; lengthMm: number; edgeTypeId: string | null }> = [
-    { side: 'top', lengthMm: piece.width_mm, edgeTypeId: piece.edge_top },
-    { side: 'bottom', lengthMm: piece.width_mm, edgeTypeId: piece.edge_bottom },
-    { side: 'left', lengthMm: piece.length_mm, edgeTypeId: piece.edge_left },
-    { side: 'right', lengthMm: piece.length_mm, edgeTypeId: piece.edge_right },
+    { side: 'top', lengthMm: piece.length_mm, edgeTypeId: piece.edge_top },
+    { side: 'bottom', lengthMm: piece.length_mm, edgeTypeId: piece.edge_bottom },
+    { side: 'left', lengthMm: piece.width_mm, edgeTypeId: piece.edge_left },
+    { side: 'right', lengthMm: piece.width_mm, edgeTypeId: piece.edge_right },
   ];
 
   // Polishing: use tenant's configured polishing_unit
