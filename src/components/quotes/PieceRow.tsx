@@ -1,11 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import InlinePieceEditor from './InlinePieceEditor';
 import type { InlinePieceData } from './InlinePieceEditor';
-import type { CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
+import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
+import PieceVisualEditor from './PieceVisualEditor';
+import type { EdgeSide } from './PieceVisualEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -243,6 +245,171 @@ function CostLine({
   );
 }
 
+// ── Piece Visual Editor Section ─────────────────────────────────────────────
+
+function PieceVisualEditorSection({
+  piece,
+  fullPiece,
+  editData,
+  breakdown,
+  mode,
+  onSavePiece,
+}: {
+  piece: PieceRowProps['piece'];
+  fullPiece?: InlinePieceData;
+  editData?: InlineEditData;
+  breakdown?: PiecePricingBreakdown;
+  mode: 'view' | 'edit';
+  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+}) {
+  const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
+
+  // Map cutouts to display format
+  const cutoutDisplays = useMemo(() => {
+    if (!fullPiece || !Array.isArray(fullPiece.cutouts)) return [];
+    const cutoutTypes = editData?.cutoutTypes ?? [];
+    return fullPiece.cutouts.map((c: PieceCutout) => {
+      const ct = cutoutTypes.find((t) => t.id === c.cutoutTypeId);
+      return {
+        id: c.id,
+        typeId: c.cutoutTypeId,
+        typeName: ct?.name ?? c.cutoutTypeId,
+        quantity: c.quantity,
+      };
+    });
+  }, [fullPiece, editData?.cutoutTypes]);
+
+  // Also build cutout display from breakdown for view mode when fullPiece is not available
+  const breakdownCutouts = useMemo(() => {
+    if (fullPiece) return []; // prefer fullPiece data
+    if (!breakdown) return [];
+    return breakdown.fabrication.cutouts.map((c, idx) => ({
+      id: `bd_${c.cutoutTypeId}_${idx}`,
+      typeId: c.cutoutTypeId,
+      typeName: c.cutoutTypeName,
+      quantity: c.quantity,
+    }));
+  }, [fullPiece, breakdown]);
+
+  const displayCutouts = fullPiece ? cutoutDisplays : breakdownCutouts;
+
+  // Determine if piece is mitred
+  const isMitred = breakdown?.fabrication?.lamination?.method === 'Mitred'
+    || breakdown?.fabrication?.lamination?.method === 'MITRED';
+
+  // Join position for oversize
+  const joinAtMm = useMemo(() => {
+    if (!breakdown?.oversize?.isOversize) return undefined;
+    // Default join at midpoint if specific position not available
+    return Math.round(piece.lengthMm / 2);
+  }, [breakdown, piece.lengthMm]);
+
+  // Edge change handler — saves via existing onSavePiece flow
+  const handleEdgeChange = useCallback(
+    (side: EdgeSide, profileId: string | null) => {
+      if (!fullPiece || !onSavePiece) return;
+      const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
+        'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: edgeKey === 'edgeTop' ? profileId : fullPiece.edgeTop,
+          edgeBottom: edgeKey === 'edgeBottom' ? profileId : fullPiece.edgeBottom,
+          edgeLeft: edgeKey === 'edgeLeft' ? profileId : fullPiece.edgeLeft,
+          edgeRight: edgeKey === 'edgeRight' ? profileId : fullPiece.edgeRight,
+          cutouts: fullPiece.cutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Cutout add handler
+  const handleCutoutAdd = useCallback(
+    (cutoutTypeId: string) => {
+      if (!fullPiece || !onSavePiece) return;
+      const newCutout: PieceCutout = {
+        id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        cutoutTypeId,
+        quantity: 1,
+      };
+      const updatedCutouts = [...(fullPiece.cutouts || []), newCutout];
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: updatedCutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Cutout remove handler
+  const handleCutoutRemove = useCallback(
+    (cutoutId: string) => {
+      if (!fullPiece || !onSavePiece) return;
+      const updatedCutouts = (fullPiece.cutouts || []).filter(
+        (c: PieceCutout) => c.id !== cutoutId
+      );
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: updatedCutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  return (
+    <div className="px-4 py-3 border-t border-gray-100">
+      <PieceVisualEditor
+        lengthMm={piece.lengthMm}
+        widthMm={piece.widthMm}
+        edgeTop={piece.edgeTop}
+        edgeBottom={piece.edgeBottom}
+        edgeLeft={piece.edgeLeft}
+        edgeRight={piece.edgeRight}
+        edgeTypes={editData?.edgeTypes ?? []}
+        cutouts={displayCutouts}
+        joinAtMm={joinAtMm}
+        isEditMode={isEditMode}
+        isMitred={isMitred}
+        onEdgeChange={isEditMode ? handleEdgeChange : undefined}
+        onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
+        onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
+        cutoutTypes={editData?.cutoutTypes ?? []}
+      />
+    </div>
+  );
+}
+
 // ── Main PieceRow Component ─────────────────────────────────────────────────
 
 export default function PieceRow({
@@ -320,6 +487,18 @@ export default function PieceRow({
           {formatCurrency(pieceTotal)}
         </span>
       </button>
+
+      {/* ── Piece Visual Editor (SVG diagram) ── */}
+      {l1Expanded && (
+        <PieceVisualEditorSection
+          piece={piece}
+          fullPiece={fullPiece}
+          editData={editData}
+          breakdown={breakdown}
+          mode={mode}
+          onSavePiece={onSavePiece}
+        />
+      )}
 
       {/* ── Level 1: Cost Breakdown ── */}
       {l1Expanded && breakdown && (
