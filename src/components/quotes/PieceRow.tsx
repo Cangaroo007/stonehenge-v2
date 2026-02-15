@@ -387,6 +387,32 @@ function PieceVisualEditorSection({
     [fullPiece, onSavePiece, piece.id]
   );
 
+  // Build edge type lookup from breakdown for view mode (when editData is unavailable)
+  const breakdownEdgeTypes = useMemo(() => {
+    if (editData?.edgeTypes?.length) return []; // editData takes precedence
+    if (!breakdown) return [];
+    const seen = new Set<string>();
+    return breakdown.fabrication.edges
+      .filter(e => {
+        if (seen.has(e.edgeTypeId)) return false;
+        seen.add(e.edgeTypeId);
+        return true;
+      })
+      .map(e => ({
+        id: e.edgeTypeId,
+        name: e.edgeTypeName,
+        description: null,
+        category: '',
+        baseRate: e.rate,
+        isActive: true,
+        sortOrder: 0,
+      }));
+  }, [editData, breakdown]);
+
+  const resolvedEdgeTypes = editData?.edgeTypes?.length
+    ? editData.edgeTypes
+    : breakdownEdgeTypes;
+
   return (
     <div className="px-4 py-3 border-t border-gray-100">
       <PieceVisualEditor
@@ -396,7 +422,7 @@ function PieceVisualEditorSection({
         edgeBottom={piece.edgeBottom}
         edgeLeft={piece.edgeLeft}
         edgeRight={piece.edgeRight}
-        edgeTypes={editData?.edgeTypes ?? []}
+        edgeTypes={resolvedEdgeTypes}
         cutouts={displayCutouts}
         joinAtMm={joinAtMm}
         isEditMode={isEditMode}

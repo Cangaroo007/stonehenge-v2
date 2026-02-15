@@ -1318,7 +1318,11 @@ export default function QuoteDetailClient({
               <h3 className="text-lg font-semibold">Cost Breakdown</h3>
             </div>
             <div className="p-4 space-y-2">
-              {(viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => (
+              {(viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => {
+                // Extract edge type IDs from breakdown so SVG can display profiles
+                const edgeById = (side: string) =>
+                  pb.fabrication.edges.find(e => e.side === side)?.edgeTypeId ?? null;
+                return (
                 <PieceRow
                   key={pb.pieceId}
                   piece={{
@@ -1328,15 +1332,16 @@ export default function QuoteDetailClient({
                     widthMm: pb.dimensions.widthMm,
                     thicknessMm: pb.dimensions.thicknessMm,
                     materialName: null,
-                    edgeTop: null,
-                    edgeBottom: null,
-                    edgeLeft: null,
-                    edgeRight: null,
+                    edgeTop: edgeById('top'),
+                    edgeBottom: edgeById('bottom'),
+                    edgeLeft: edgeById('left'),
+                    edgeRight: edgeById('right'),
                   }}
                   breakdown={pb}
                   mode="view"
                 />
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
