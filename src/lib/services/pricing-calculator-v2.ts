@@ -15,6 +15,12 @@
 
 import prisma from '@/lib/db';
 import { calculateCutPlan } from './multi-slab-calculator';
+import {
+  calculateDistance,
+  getDeliveryZone,
+  calculateDeliveryCost as calculateDeliveryCostFn,
+  calculateTemplatingCost as calculateTemplatingCostFn,
+} from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
 import type {
   PricingOptions,
@@ -28,6 +34,18 @@ import type {
   PricingRuleWithOverrides,
   PiecePricingBreakdown,
 } from '@/lib/types/pricing';
+
+// Hardcoded delivery zones matching seed data (shared with /api/distance/calculate)
+const DELIVERY_ZONES = [
+  { id: '1', name: 'Local', maxDistanceKm: 30, baseCharge: 50.0, ratePerKm: 2.5, isActive: true },
+  { id: '2', name: 'Regional', maxDistanceKm: 100, baseCharge: 75.0, ratePerKm: 3.0, isActive: true },
+  { id: '3', name: 'Remote', maxDistanceKm: 500, baseCharge: 100.0, ratePerKm: 3.5, isActive: true },
+];
+
+const TEMPLATING_RATE = { id: '1', baseCharge: 150.0, ratePerKm: 2.0 };
+
+const COMPANY_ADDRESS =
+  process.env.COMPANY_ADDRESS || '20 Hitech Drive, KUNDA PARK Queensland 4556, Australia';
 
 // Grain matching surcharge rate is now tenant-configurable via pricing_settings.
 // See pricingContext.grainMatchingSurchargePercent (stored as percentage, e.g. 15.0 = 15%).
@@ -221,7 +239,10 @@ export function calculateMaterialCost(
 
   // Extract material metadata from the first piece with a material
   const firstMaterial = pieces.find(p => p.materials)?.materials;
-  const materialName = (firstMaterial as unknown as { name?: string } | null)?.name;
+  const materialName = (firstMaterial as unknown as { name?: string } | null)?.name
+    // Fallback to denormalized material_name field on the piece
+    || (pieces.find(p => (p as unknown as { material_name?: string | null }).material_name) as unknown as { material_name?: string })?.material_name
+    || undefined;
   const slabLengthMm = (firstMaterial as unknown as { slab_length_mm?: number | null } | null)?.slab_length_mm ?? undefined;
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
@@ -462,6 +483,21 @@ export async function calculateQuotePrice(
     });
     slabCount = optimization?.totalSlabs;
     slabCountFromOptimiser = slabCount !== undefined;
+
+    // Estimate slab count from piece areas when no optimization exists
+    if (slabCount === undefined && allPieces.length > 0) {
+      const firstMat = allPieces.find((p: { materials?: unknown }) => p.materials)?.materials as unknown as
+        { slab_length_mm?: number | null; slab_width_mm?: number | null } | null;
+      if (firstMat?.slab_length_mm && firstMat?.slab_width_mm) {
+        const slabAreaM2 = (firstMat.slab_length_mm * firstMat.slab_width_mm) / 1_000_000;
+        const totalPieceArea = allPieces.reduce(
+          (sum: number, p: { length_mm: number; width_mm: number }) => sum + (p.length_mm * p.width_mm) / 1_000_000, 0
+        );
+        if (slabAreaM2 > 0) {
+          slabCount = Math.ceil(totalPieceArea / slabAreaM2);
+        }
+      }
+    }
   }
 
   // Calculate material costs with pricing basis and waste factor
@@ -601,28 +637,52 @@ export async function calculateQuotePrice(
   }
 
   // Calculate delivery cost
-  // NOTE: delivery/templating fields are planned but not yet in schema - use `as any`
+  // Delivery/templating fields are in schema but use `as any` for safety with Prisma types
   const quoteAny = quote as any;
+  const deliveryAddress = quoteAny.deliveryAddress || quote.project_address || null;
+  let deliveryDistanceKm = quoteAny.deliveryDistanceKm ? Number(quoteAny.deliveryDistanceKm) : null;
+  let calculatedDeliveryCost = quoteAny.deliveryCost ? Number(quoteAny.deliveryCost) : null;
+  let calculatedTemplatingCost = quoteAny.templatingCost ? Number(quoteAny.templatingCost) : null;
+  let deliveryZoneName: string | null = null;
+
+  // Auto-calculate delivery/templating when address exists but costs haven't been saved
+  if (deliveryAddress && calculatedDeliveryCost === null) {
+    try {
+      const distResult = await calculateDistance(COMPANY_ADDRESS, deliveryAddress);
+      deliveryDistanceKm = distResult.distanceKm;
+
+      const zone = getDeliveryZone(distResult.distanceKm, DELIVERY_ZONES);
+      if (zone) {
+        deliveryZoneName = zone.name;
+        calculatedDeliveryCost = roundToTwo(calculateDeliveryCostFn(distResult.distanceKm, zone));
+      }
+
+      calculatedTemplatingCost = roundToTwo(calculateTemplatingCostFn(distResult.distanceKm, TEMPLATING_RATE));
+    } catch (error) {
+      console.error('Auto-delivery calculation failed:', error);
+    }
+  }
+
   const deliveryBreakdown = {
-    address: quoteAny.deliveryAddress,
-    distanceKm: quoteAny.deliveryDistanceKm ? Number(quoteAny.deliveryDistanceKm) : null,
-    zone: quoteAny.deliveryZone?.name || null,
-    calculatedCost: quoteAny.deliveryCost ? Number(quoteAny.deliveryCost) : null,
+    address: deliveryAddress,
+    distanceKm: deliveryDistanceKm,
+    zone: deliveryZoneName || quoteAny.deliveryZone?.name || null,
+    calculatedCost: calculatedDeliveryCost,
     overrideCost: quoteAny.overrideDeliveryCost ? Number(quoteAny.overrideDeliveryCost) : null,
     finalCost: quoteAny.overrideDeliveryCost
       ? Number(quoteAny.overrideDeliveryCost)
-      : (quoteAny.deliveryCost ? Number(quoteAny.deliveryCost) : 0),
+      : (calculatedDeliveryCost ?? 0),
   };
 
   // Calculate templating cost
   const templatingBreakdown = {
     required: quoteAny.templatingRequired,
-    distanceKm: quoteAny.templatingDistanceKm ? Number(quoteAny.templatingDistanceKm) : null,
-    calculatedCost: quoteAny.templatingCost ? Number(quoteAny.templatingCost) : null,
+    distanceKm: quoteAny.templatingDistanceKm ? Number(quoteAny.templatingDistanceKm) : deliveryDistanceKm,
+    calculatedCost: calculatedTemplatingCost,
     overrideCost: quoteAny.overrideTemplatingCost ? Number(quoteAny.overrideTemplatingCost) : null,
     finalCost: quoteAny.overrideTemplatingCost
       ? Number(quoteAny.overrideTemplatingCost)
-      : (quoteAny.templatingCost ? Number(quoteAny.templatingCost) : 0),
+      : (calculatedTemplatingCost ?? 0),
   };
 
   // Calculate initial subtotal
