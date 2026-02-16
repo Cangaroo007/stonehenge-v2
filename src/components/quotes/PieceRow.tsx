@@ -573,13 +573,17 @@ export default function PieceRow({
         onClick={() => setL1Expanded(!l1Expanded)}
         className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50/50 transition-colors cursor-pointer"
       >
-        <div className="flex items-start gap-2">
+        <div className="flex items-start gap-3">
           <ChevronIcon expanded={l1Expanded} className="flex-shrink-0 mt-1 text-gray-400" />
+          {pieceNumber != null && (
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white font-bold text-lg flex-shrink-0">
+              {pieceNumber}
+            </span>
+          )}
           <div className="flex-1 min-w-0">
             {/* Line 1: Name + Cost */}
             <div className="flex items-center justify-between gap-3">
               <span className="font-medium text-gray-900 truncate">
-                {pieceNumber != null && <span className="text-gray-400 font-mono text-sm mr-1.5">{pieceNumber}.</span>}
                 {displayName}
               </span>
               <div className="flex items-center gap-2 flex-shrink-0">
