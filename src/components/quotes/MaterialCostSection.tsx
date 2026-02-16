@@ -68,7 +68,7 @@ function PerSlabDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakd
       />
       {isEstimate && (
         <p className="text-xs text-amber-600 italic">
-          Run optimiser for exact slab count
+          Estimated — exact count updates automatically when pieces are saved
         </p>
       )}
     </div>

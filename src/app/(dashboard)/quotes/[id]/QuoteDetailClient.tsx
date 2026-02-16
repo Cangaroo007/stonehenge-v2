@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
+import { useAutoSlabOptimiser } from '@/hooks/useAutoSlabOptimiser';
 import { useUnits } from '@/lib/contexts/UnitContext';
 import { formatAreaFromSqm } from '@/lib/utils/units';
 import { formatCurrency, formatDate } from '@/lib/utils';
@@ -275,7 +276,6 @@ export default function QuoteDetailClient({
   const [showDrawingImport, setShowDrawingImport] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
-  const [optimizationRefreshKey, setOptimizationRefreshKey] = useState(0);
   const [discountDisplayMode, setDiscountDisplayMode] = useState<'ITEMIZED' | 'TOTAL_ONLY'>('ITEMIZED');
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
 
@@ -291,8 +291,6 @@ export default function QuoteDetailClient({
   const [machineOperationDefaults, setMachineOperationDefaults] = useState<MachineOperationDefault[]>([]);
   const [machineOverrides, setMachineOverrides] = useState<Record<string, string>>({});
 
-  // Auto re-optimisation ref
-  const reOptimizeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const editDataLoaded = useRef(false);
 
   // ── Mode change handler ───────────────────────────────────────────────────
@@ -447,40 +445,41 @@ export default function QuoteDetailClient({
     return defaultMachine?.kerfWidthMm ?? 8;
   }, [machineOverrides, machineOperationDefaults, machines, defaultMachineId]);
 
-  // Debounced auto re-optimisation
-  const autoReOptimize = useCallback(() => {
-    if (reOptimizeTimeoutRef.current) {
-      clearTimeout(reOptimizeTimeoutRef.current);
-    }
-    reOptimizeTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/quotes/${quoteIdStr}/optimize`);
-        if (!response.ok) return;
-        const saved = await response.json();
-        if (!saved || !saved.placements) return;
-        await fetch(`/api/quotes/${quoteIdStr}/optimize`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            slabWidth: saved.slabWidth || 3000,
-            slabHeight: saved.slabHeight || 1400,
-            kerfWidth: getEffectiveKerfWidth(),
-            allowRotation: true,
-          }),
-        });
-        setOptimizationRefreshKey(n => n + 1);
-      } catch (err) {
-        console.error('Auto re-optimisation failed:', err);
-      }
-    }, 1000);
-  }, [quoteIdStr, getEffectiveKerfWidth]);
+  // ── Background slab optimiser ─────────────────────────────────────────────
+  // Stable fingerprint data for the hook (only fields that affect slab layout)
+  const piecesForOptimiser = useMemo(
+    () =>
+      pieces.map((p) => ({
+        id: p.id,
+        lengthMm: p.lengthMm,
+        widthMm: p.widthMm,
+        thicknessMm: p.thicknessMm,
+        materialId: p.materialId,
+        edgeTop: p.edgeTop,
+        edgeBottom: p.edgeBottom,
+        edgeLeft: p.edgeLeft,
+        edgeRight: p.edgeRight,
+      })),
+    [pieces]
+  );
+
+  const {
+    optimisationRefreshKey,
+    isOptimising,
+    triggerOptimise,
+  } = useAutoSlabOptimiser({
+    quoteId: quoteIdStr,
+    pieces: piecesForOptimiser,
+    enabled: mode === 'edit' && !editLoading && editDataLoaded.current,
+    getKerfWidth: getEffectiveKerfWidth,
+  });
 
   // Machine override handler
   const handleMachineOverride = useCallback((operationType: string, machineId: string) => {
     setMachineOverrides(prev => ({ ...prev, [operationType]: machineId }));
     triggerRecalculate();
-    autoReOptimize();
-  }, [triggerRecalculate, autoReOptimize]);
+    triggerOptimise();
+  }, [triggerRecalculate, triggerOptimise]);
 
   // Track quote view on page load
   useEffect(() => {
@@ -504,15 +503,6 @@ export default function QuoteDetailClient({
       ]).then(() => setEditLoading(false));
     }
   }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers]);
-
-  // Cleanup timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (reOptimizeTimeoutRef.current) {
-        clearTimeout(reOptimizeTimeoutRef.current);
-      }
-    };
-  }, []);
 
   // ── Auto-calculate pricing independent of sidebar visibility ──────────────
   // PricingSummary (in sidebar) handles calculation when the sidebar is open,
@@ -674,13 +664,13 @@ export default function QuoteDetailClient({
         p.id === pieceId ? { ...p, ...updates } : p
       ));
       triggerRecalculate();
-      autoReOptimize();
+      triggerOptimise();
       markAsChanged();
     } catch (err) {
       console.error('Failed to update piece:', err);
       await fetchQuote();
     }
-  }, [quoteIdStr, triggerRecalculate, autoReOptimize, markAsChanged, fetchQuote]);
+  }, [quoteIdStr, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -703,7 +693,7 @@ export default function QuoteDetailClient({
       setSelectedPieceId(null);
       setIsAddingPiece(false);
       triggerRecalculate();
-      autoReOptimize();
+      triggerOptimise();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
@@ -736,14 +726,14 @@ export default function QuoteDetailClient({
       }
       await fetchQuote();
       triggerRecalculate();
-      autoReOptimize();
+      triggerOptimise();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
     } finally {
       setSaving(false);
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, autoReOptimize, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
   const handleDeletePiece = async (pieceId: number) => {
     if (!confirm('Are you sure you want to delete this piece?')) return;
@@ -754,7 +744,7 @@ export default function QuoteDetailClient({
       await fetchQuote();
       if (selectedPieceId === pieceId) setSelectedPieceId(null);
       triggerRecalculate();
-      autoReOptimize();
+      triggerOptimise();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete piece');
@@ -776,7 +766,7 @@ export default function QuoteDetailClient({
       setSelectedPieceId(newPiece.id);
       setIsAddingPiece(false);
       triggerRecalculate();
-      autoReOptimize();
+      triggerOptimise();
       markAsChanged();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to duplicate piece');
@@ -849,11 +839,11 @@ export default function QuoteDetailClient({
     setShowDrawingImport(false);
     await fetchQuote();
     triggerRecalculate();
-    autoReOptimize();
+    triggerOptimise();
     markAsChanged();
     setImportSuccessMessage(`Imported ${count} piece${count !== 1 ? 's' : ''} from drawing`);
     setTimeout(() => setImportSuccessMessage(null), 5000);
-  }, [fetchQuote, triggerRecalculate, autoReOptimize, markAsChanged]);
+  }, [fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
   const handleDrawingsSaved = useCallback(() => {
     setDrawingsRefreshKey(n => n + 1);
@@ -1085,9 +1075,7 @@ export default function QuoteDetailClient({
       calculation={calculation}
       onSave={handleSaveQuote}
       onStatusChange={handleStatusChange}
-      onOptimizationSaved={() => setOptimizationRefreshKey(n => n + 1)}
       saving={saving}
-      kerfWidth={getEffectiveKerfWidth()}
     />
   ) : null;
 
@@ -1109,7 +1097,15 @@ export default function QuoteDetailClient({
     }
 
     if (activeTab === 'optimiser') {
-      return <OptimizationDisplay quoteId={quoteIdStr} refreshKey={0} />;
+      return (
+        <OptimizationDisplay
+          quoteId={quoteIdStr}
+          refreshKey={0}
+          isOptimising={false}
+          hasPieces={serverData.quote_rooms.some(r => r.quote_pieces.length > 0)}
+          hasMaterial={serverData.quote_rooms.some(r => r.quote_pieces.some(p => !!p.material_name))}
+        />
+      );
     }
 
     // Pieces & Pricing tab (view mode)
@@ -1408,7 +1404,15 @@ export default function QuoteDetailClient({
     }
 
     if (activeTab === 'optimiser') {
-      return <OptimizationDisplay quoteId={quoteIdStr} refreshKey={optimizationRefreshKey} />;
+      return (
+        <OptimizationDisplay
+          quoteId={quoteIdStr}
+          refreshKey={optimisationRefreshKey}
+          isOptimising={isOptimising}
+          hasPieces={pieces.length > 0}
+          hasMaterial={pieces.some(p => !!p.materialId)}
+        />
+      );
     }
 
     // Pieces & Pricing tab (edit mode)
