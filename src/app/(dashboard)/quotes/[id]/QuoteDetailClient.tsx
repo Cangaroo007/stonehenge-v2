@@ -1542,6 +1542,7 @@ export default function QuoteDetailClient({
             <MaterialCostSection
               materials={viewCalculation.breakdown.materials}
               pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
+              mode="view"
             />
           </div>
         )}
@@ -1989,6 +1990,15 @@ export default function QuoteDetailClient({
             <MaterialCostSection
               materials={calculation.breakdown.materials}
               pieceCount={pieces.length}
+              mode="edit"
+              materialMarginAdjustPercent={
+                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
+              }
+              onMarginAdjustChange={(percent) => {
+                if (quoteOptions.activeOption) {
+                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
+                }
+              }}
             />
           </div>
         )}

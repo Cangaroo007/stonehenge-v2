@@ -9,6 +9,8 @@ export interface PricingOptions {
   customerId?: string;
   priceBookId?: string;
   forceRecalculate?: boolean;
+  /** Per-quote option material margin adjustment (additive to base margin) */
+  materialMarginAdjustPercent?: number;
 }
 
 export interface PricingContext {
@@ -92,6 +94,19 @@ export interface MaterialBreakdown {
   slabWidthMm?: number;
   /** Whether slab count is from optimiser (true) or naive estimate (false) */
   slabCountFromOptimiser?: boolean;
+  /** Margin breakdown — present when margin system is active */
+  margin?: {
+    /** Base margin percent (from material override or supplier default) */
+    baseMarginPercent: number;
+    /** Per-quote-option adjustment percent */
+    adjustmentPercent: number;
+    /** Effective margin percent = base + adjustment */
+    effectiveMarginPercent: number;
+    /** Total cost price before margin */
+    costSubtotal: number;
+    /** Total margin amount added */
+    marginAmount: number;
+  };
   /** Per-material breakdowns when multiple materials are used */
   byMaterial?: MaterialGroupBreakdown[];
 }
@@ -110,6 +125,14 @@ export interface MaterialGroupBreakdown {
   adjustedAreaM2?: number;
   ratePerSqm?: number;
   totalCost: number;
+  /** Per-material margin data */
+  margin?: {
+    baseMarginPercent: number;
+    adjustmentPercent: number;
+    effectiveMarginPercent: number;
+    costSubtotal: number;
+    marginAmount: number;
+  };
 }
 
 export interface CalculationResult {

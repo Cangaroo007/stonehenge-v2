@@ -54,9 +54,16 @@ export async function calculateOptionPricing(
     throw new Error('Option does not belong to this quote');
   }
 
+  // Extract per-option material margin adjustment
+  const materialMarginAdjustPercent = option.material_margin_adjust_percent
+    ? Number(option.material_margin_adjust_percent)
+    : 0;
+
   // For base option, just run the normal calculator
   if (option.isBase || option.overrides.length === 0) {
-    const result = await calculateQuotePrice(String(quoteId));
+    const result = await calculateQuotePrice(String(quoteId), {
+      materialMarginAdjustPercent,
+    });
     await storeOptionTotals(optionId, result);
     return result;
   }
@@ -126,7 +133,9 @@ export async function calculateOptionPricing(
     }
 
     // Run the standard pricing calculator on the modified pieces
-    const result = await calculateQuotePrice(String(quoteId));
+    const result = await calculateQuotePrice(String(quoteId), {
+      materialMarginAdjustPercent,
+    });
 
     // Store cached totals on the option
     await storeOptionTotals(optionId, result);

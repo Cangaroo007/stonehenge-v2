@@ -31,6 +31,8 @@ export interface QuoteOption {
   discountAmount: number | null;
   gstAmount: number | null;
   total: number | null;
+  /** Per-quote material margin adjustment percent (additive to base margin) */
+  material_margin_adjust_percent: number;
   overrides: QuoteOptionOverride[];
 }
 
@@ -76,6 +78,8 @@ interface UseQuoteOptionsResult {
   removeOverride: (optionId: number, overrideId: number) => Promise<void>;
   /** Recalculate a single option's pricing */
   recalculateOption: (optionId: number) => Promise<CalculationResult | null>;
+  /** Update the material margin adjustment for an option */
+  updateMarginAdjustment: (optionId: number, percent: number) => Promise<void>;
   /** Recalculate all options (after base piece changes) */
   recalculateAllOptions: () => Promise<void>;
   /** Get overrides map for a specific option: pieceId -> override */
@@ -265,6 +269,25 @@ export function useQuoteOptions({
     }
   }, [quoteId, fetchOptions]);
 
+  const updateMarginAdjustment = useCallback(async (optionId: number, percent: number) => {
+    try {
+      setError(null);
+      const res = await fetch(`/api/quotes/${quoteId}/options/${optionId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialMarginAdjustPercent: percent }),
+      });
+      if (!res.ok) throw new Error('Failed to update margin adjustment');
+      await fetchOptions();
+      // Auto-recalculate after margin change
+      await recalculateOption(optionId);
+    } catch (err) {
+      if (mountedRef.current) {
+        setError(err instanceof Error ? err.message : 'Failed to update margin adjustment');
+      }
+    }
+  }, [quoteId, fetchOptions, recalculateOption]);
+
   const recalculateAllOptions = useCallback(async () => {
     if (options.length === 0) return;
     setIsRecalculating(true);
@@ -316,6 +339,7 @@ export function useQuoteOptions({
     setOverrides,
     removeOverride,
     recalculateOption,
+    updateMarginAdjustment,
     recalculateAllOptions,
     getOverrideMap,
     pieceHasOverride,

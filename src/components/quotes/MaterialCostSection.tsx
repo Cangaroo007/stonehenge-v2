@@ -10,6 +10,12 @@ interface MaterialCostSectionProps {
   materials: MaterialBreakdown;
   /** Total number of pieces in the quote */
   pieceCount: number;
+  /** Current mode — margin details are hidden in view mode */
+  mode?: 'view' | 'edit';
+  /** Current per-quote-option material margin adjustment */
+  materialMarginAdjustPercent?: number;
+  /** Called when margin adjustment changes (edit mode only) */
+  onMarginAdjustChange?: (percent: number) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -38,14 +44,37 @@ function DetailRow({ label, value }: { label: string; value: React.ReactNode }) 
   );
 }
 
+// ── Margin Detail (edit mode only) ──────────────────────────────────────────
+
+function MarginDetail({ margin }: { margin: NonNullable<MaterialBreakdown['margin']> }) {
+  return (
+    <div className="space-y-1 pt-1 border-t border-dashed border-gray-200 mt-2">
+      <DetailRow
+        label="Cost subtotal"
+        value={formatCurrency(margin.costSubtotal)}
+      />
+      <DetailRow
+        label={`Margin (${margin.effectiveMarginPercent.toFixed(1)}%)`}
+        value={`+${formatCurrency(margin.marginAmount)}`}
+      />
+      {margin.adjustmentPercent !== 0 && (
+        <div className="text-xs text-gray-400">
+          Base: {margin.baseMarginPercent}% + Adjustment: {margin.adjustmentPercent > 0 ? '+' : ''}{margin.adjustmentPercent}%
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Per-Slab Detail ─────────────────────────────────────────────────────────
 
-function PerSlabDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakdown }) {
+function PerSlabDetail({ data, showMargin }: { data: MaterialBreakdown | MaterialGroupBreakdown; showMargin?: boolean }) {
   const count = data.slabCount ?? 0;
   const rate = 'slabRate' in data ? (data.slabRate ?? 0) : 0;
   const total = 'totalCost' in data ? data.totalCost : data.total;
   const isEstimate = !data.slabCountFromOptimiser;
   const totalArea = data.totalAreaM2 ?? 0;
+  const margin = data.margin;
 
   return (
     <div className="space-y-2">
@@ -71,19 +100,23 @@ function PerSlabDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakd
           Estimated — exact count updates automatically when pieces are saved
         </p>
       )}
+      {showMargin && margin && margin.effectiveMarginPercent !== 0 && (
+        <MarginDetail margin={margin} />
+      )}
     </div>
   );
 }
 
 // ── Per m² Detail ───────────────────────────────────────────────────────────
 
-function PerSqmDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakdown }) {
+function PerSqmDetail({ data, showMargin }: { data: MaterialBreakdown | MaterialGroupBreakdown; showMargin?: boolean }) {
   const wastePct = data.wasteFactorPercent ?? 0;
   const wasteFactor = 1 + wastePct / 100;
   const ratePerSqm = 'ratePerSqm' in data ? (data.ratePerSqm ?? 0) : ('appliedRate' in data ? data.appliedRate : 0);
   const total = 'totalCost' in data ? data.totalCost : data.total;
   const totalArea = data.totalAreaM2 ?? 0;
   const adjustedArea = data.adjustedAreaM2 ?? 0;
+  const margin = data.margin;
 
   return (
     <div className="space-y-2">
@@ -107,13 +140,16 @@ function PerSqmDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakdo
           value={`${adjustedArea.toFixed(2)} m\u00B2`}
         />
       )}
+      {showMargin && margin && margin.effectiveMarginPercent !== 0 && (
+        <MarginDetail margin={margin} />
+      )}
     </div>
   );
 }
 
 // ── Single Material Sub-Section ─────────────────────────────────────────────
 
-function MaterialSubSection({ group }: { group: MaterialGroupBreakdown }) {
+function MaterialSubSection({ group, showMargin }: { group: MaterialGroupBreakdown; showMargin?: boolean }) {
   const [expanded, setExpanded] = useState(false);
   const isSlab = group.pricingBasis === 'PER_SLAB';
   const summaryText = isSlab
@@ -135,8 +171,41 @@ function MaterialSubSection({ group }: { group: MaterialGroupBreakdown }) {
       </button>
       {expanded && (
         <div className="px-3 pb-3 pt-1 border-t border-gray-100 text-xs text-gray-600">
-          {isSlab ? <PerSlabDetail data={group} /> : <PerSqmDetail data={group} />}
+          {isSlab ? <PerSlabDetail data={group} showMargin={showMargin} /> : <PerSqmDetail data={group} showMargin={showMargin} />}
         </div>
+      )}
+    </div>
+  );
+}
+
+// ── Margin Adjustment Input ────────────────────────────────────────────────
+
+function MarginAdjustmentInput({
+  value,
+  onChange,
+  margin,
+}: {
+  value: number;
+  onChange: (percent: number) => void;
+  margin?: MaterialBreakdown['margin'];
+}) {
+  return (
+    <div className="pt-2 border-t border-gray-200">
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-gray-500">Margin adjustment:</label>
+        <input
+          type="number"
+          step="0.5"
+          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
+          value={value}
+          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
+        />
+        <span className="text-xs text-gray-500">%</span>
+      </div>
+      {margin && (
+        <p className="text-xs text-gray-400 mt-1">
+          Effective: {margin.effectiveMarginPercent.toFixed(1)}% = {margin.baseMarginPercent}% base {value >= 0 ? '+' : ''} {value}% adjustment
+        </p>
       )}
     </div>
   );
@@ -144,8 +213,15 @@ function MaterialSubSection({ group }: { group: MaterialGroupBreakdown }) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 
-export default function MaterialCostSection({ materials, pieceCount }: MaterialCostSectionProps) {
+export default function MaterialCostSection({
+  materials,
+  pieceCount,
+  mode = 'view',
+  materialMarginAdjustPercent,
+  onMarginAdjustChange,
+}: MaterialCostSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const isEditMode = mode === 'edit';
 
   // Empty state: no pieces
   if (pieceCount === 0) {
@@ -193,7 +269,7 @@ export default function MaterialCostSection({ materials, pieceCount }: MaterialC
             // Multiple materials: show sub-sections
             <div className="space-y-2">
               {materials.byMaterial!.map((group) => (
-                <MaterialSubSection key={group.materialId} group={group} />
+                <MaterialSubSection key={group.materialId} group={group} showMargin={isEditMode} />
               ))}
               <div className="flex justify-between items-center pt-2 border-t border-gray-200 text-sm font-bold text-gray-800">
                 <span>Total Material Cost</span>
@@ -206,12 +282,23 @@ export default function MaterialCostSection({ materials, pieceCount }: MaterialC
               <h4 className="text-sm font-medium text-gray-700 mb-2">
                 {materialName}
               </h4>
-              {isSlab ? <PerSlabDetail data={materials} /> : <PerSqmDetail data={materials} />}
+              {isSlab
+                ? <PerSlabDetail data={materials} showMargin={isEditMode} />
+                : <PerSqmDetail data={materials} showMargin={isEditMode} />}
               <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200 text-sm font-bold text-gray-800">
                 <span>Total Material Cost</span>
                 <span className="tabular-nums">{formatCurrency(total)}</span>
               </div>
             </div>
+          )}
+
+          {/* Margin adjustment input — edit mode only */}
+          {isEditMode && onMarginAdjustChange && (
+            <MarginAdjustmentInput
+              value={materialMarginAdjustPercent ?? 0}
+              onChange={onMarginAdjustChange}
+              margin={materials.margin}
+            />
           )}
         </div>
       )}
