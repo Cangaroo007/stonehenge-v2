@@ -2239,7 +2239,7 @@ export default function QuoteDetailClient({
         {mode === 'view' ? renderViewContent() : renderEditContent()}
       </QuoteLayout>
 
-      {/* Quote Cost Summary Bar — sticky bottom */}
+      {/* Quote Cost Summary Bar — scrolls with page */}
       {(mode === 'edit' ? calculation : viewCalculation) && (
         <QuoteCostSummaryBar
           calculation={(mode === 'edit' ? calculation : viewCalculation)!}
