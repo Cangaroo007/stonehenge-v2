@@ -11,8 +11,6 @@ import QuoteLayout from '@/components/quotes/QuoteLayout';
 import type { QuoteMode, QuoteTab } from '@/components/quotes/QuoteLayout';
 
 // Builder sub-components
-import PieceList from './builder/components/PieceList';
-import RoomGrouping from './builder/components/RoomGrouping';
 import PieceForm from './builder/components/PieceForm';
 import PricingSummary from './builder/components/PricingSummary';
 import QuoteActions from './builder/components/QuoteActions';
@@ -34,7 +32,6 @@ import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
 
 // View-mode components
-import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
 import ManufacturingExportButton from './components/ManufacturingExportButton';
 import QuoteViewTracker from './components/QuoteViewTracker';
@@ -1246,101 +1243,104 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* Rooms and Pieces */}
-        <div className="space-y-4">
-          {serverData.quote_rooms.map((room) => (
-            <div key={room.id} className="card">
-              <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl">
-                <h3 className="text-lg font-semibold">{room.name}</h3>
+        {/* Unified Pieces Section (view mode) */}
+        <div className="card">
+          <div className="p-4 border-b border-gray-200">
+            <div className="flex items-center gap-4">
+              <h2 className="text-lg font-semibold">Pieces</h2>
+              {/* View Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setViewMode('list')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'list'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  List
+                </button>
+                <button
+                  onClick={() => setViewMode('rooms')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'rooms'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  By Room
+                </button>
               </div>
-              <div className="overflow-x-auto">
-                <table className="min-w-full divide-y divide-gray-200">
-                  <thead className="bg-gray-50">
-                    <tr>
-                      <th className="table-header">Description</th>
-                      <th className="table-header">Dimensions</th>
-                      <th className="table-header">Material</th>
-                      <th className="table-header">Features</th>
-                      <th className="table-header text-right">Fabrication</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {room.quote_pieces.map((piece) => {
-                      // Prefer live calculation breakdown over stale DB per-piece cost
-                      const viewPieceBreakdown = viewCalculation?.breakdown?.pieces?.find(
-                        (pb: import('@/lib/types/pricing').PiecePricingBreakdown) => pb.pieceId === piece.id
-                      );
-                      const fabricationCost = viewPieceBreakdown
-                        ? viewPieceBreakdown.pieceTotal
-                        : Number(piece.features_cost);
-                      return (
-                        <tr key={piece.id}>
-                          <td className="table-cell font-medium">
-                            {piece.description || piece.name || 'Unnamed piece'}
-                          </td>
-                          <td className="table-cell">
-                            <DimensionsDisplay lengthMm={piece.length_mm} widthMm={piece.width_mm} thicknessMm={piece.thickness_mm} />
-                            <br />
-                            <span className="text-xs text-gray-500">
-                              (<AreaDisplay sqm={Number(piece.area_sqm)} />)
-                            </span>
-                          </td>
-                          <td className="table-cell">{piece.materials?.name || piece.material_name || '-'}</td>
-                          <td className="table-cell">
-                            {piece.piece_features.length > 0 ? (
-                              <ul className="text-sm">
-                                {piece.piece_features.map((f) => (
-                                  <li key={f.id}>
-                                    {f.quantity}× {f.name}
-                                  </li>
-                                ))}
-                              </ul>
-                            ) : (
-                              '-'
-                            )}
-                          </td>
-                          <td className="table-cell text-right font-medium">
-                            {formatCurrency(fabricationCost)}
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Expandable Cost Breakdown (view mode) */}
-        {viewCalculation && viewCalculation.breakdown?.pieces && viewCalculation.breakdown.pieces.length > 0 && (
-          <div id="cost-breakdown" className="card">
-            <div className="p-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold">Cost Breakdown</h3>
-            </div>
-            <div className="p-4 space-y-2">
-              {(viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => (
-                <PieceRow
-                  key={pb.pieceId}
-                  piece={{
-                    id: pb.pieceId,
-                    name: pb.pieceName,
-                    lengthMm: pb.dimensions.lengthMm,
-                    widthMm: pb.dimensions.widthMm,
-                    thicknessMm: pb.dimensions.thicknessMm,
-                    materialName: null,
-                    edgeTop: null,
-                    edgeBottom: null,
-                    edgeLeft: null,
-                    edgeRight: null,
-                  }}
-                  breakdown={pb}
-                  mode="view"
-                />
-              ))}
             </div>
           </div>
-        )}
+          <div className="p-4 space-y-2">
+            {(() => {
+              // Build breakdown map from viewCalculation
+              const viewBreakdownMap = new Map<number, import('@/lib/types/pricing').PiecePricingBreakdown>();
+              if (viewCalculation?.breakdown?.pieces) {
+                for (const pb of viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]) {
+                  viewBreakdownMap.set(pb.pieceId, pb);
+                }
+              }
+
+              // Flatten all pieces from server data with room info
+              const allViewPieces = serverData.quote_rooms.flatMap(room =>
+                room.quote_pieces.map(piece => ({
+                  ...piece,
+                  roomName: room.name,
+                  roomId: room.id,
+                }))
+              );
+
+              const renderViewPieceCard = (piece: typeof allViewPieces[0]) => {
+                const pb = viewBreakdownMap.get(piece.id);
+                return (
+                  <PieceRow
+                    key={piece.id}
+                    piece={{
+                      id: piece.id,
+                      name: piece.name || 'Unnamed piece',
+                      description: piece.description,
+                      lengthMm: piece.length_mm,
+                      widthMm: piece.width_mm,
+                      thicknessMm: piece.thickness_mm,
+                      materialName: piece.materials?.name || piece.material_name || null,
+                      edgeTop: null,
+                      edgeBottom: null,
+                      edgeLeft: null,
+                      edgeRight: null,
+                      roomName: piece.roomName,
+                    }}
+                    breakdown={pb}
+                    mode="view"
+                  />
+                );
+              };
+
+              if (viewMode === 'list') {
+                return allViewPieces.length > 0 ? (
+                  allViewPieces.map(renderViewPieceCard)
+                ) : (
+                  <p className="text-center text-gray-500 py-8">No pieces in this quote</p>
+                );
+              }
+
+              // By Room view
+              return serverData.quote_rooms.map(room => {
+                const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
+                if (roomPieces.length === 0) return null;
+                return (
+                  <div key={room.id} className="space-y-2">
+                    <h3 className="text-sm font-semibold text-gray-600 px-1">
+                      {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                    </h3>
+                    {roomPieces.map(renderViewPieceCard)}
+                  </div>
+                );
+              });
+            })()}
+          </div>
+        </div>
 
         {/* Material Cost Section (view mode — quote level) */}
         {viewCalculation?.breakdown?.materials && (
@@ -1401,9 +1401,67 @@ export default function QuoteDetailClient({
     }
 
     // Pieces & Pricing tab (edit mode)
+    // Build a breakdown map for quick lookup
+    const breakdownMap = new Map<number, import('@/lib/types/pricing').PiecePricingBreakdown>();
+    if (calculation?.breakdown?.pieces) {
+      for (const pb of calculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]) {
+        breakdownMap.set(pb.pieceId, pb);
+      }
+    }
+
+    const renderEditPieceCard = (p: QuotePiece) => {
+      const pb = breakdownMap.get(p.id);
+      return (
+        <PieceRow
+          key={p.id}
+          piece={{
+            id: p.id,
+            name: p.name,
+            description: p.description,
+            lengthMm: p.lengthMm,
+            widthMm: p.widthMm,
+            thicknessMm: p.thicknessMm,
+            materialName: p.materialName,
+            edgeTop: p.edgeTop,
+            edgeBottom: p.edgeBottom,
+            edgeLeft: p.edgeLeft,
+            edgeRight: p.edgeRight,
+            roomName: p.quote_rooms?.name,
+          }}
+          breakdown={pb}
+          machines={machines}
+          machineOperationDefaults={machineOperationDefaults}
+          mode="edit"
+          onMachineChange={(_pieceId, operationType, machineId) => {
+            handleMachineOverride(operationType, machineId);
+          }}
+          fullPiece={{
+            id: p.id,
+            name: p.name,
+            lengthMm: p.lengthMm,
+            widthMm: p.widthMm,
+            thicknessMm: p.thicknessMm,
+            materialId: p.materialId,
+            materialName: p.materialName,
+            edgeTop: p.edgeTop,
+            edgeBottom: p.edgeBottom,
+            edgeLeft: p.edgeLeft,
+            edgeRight: p.edgeRight,
+            cutouts: p.cutouts || [],
+            quote_rooms: p.quote_rooms,
+          }}
+          editData={inlineEditData}
+          onSavePiece={handleInlineSavePiece}
+          savingPiece={saving}
+          onDelete={handleDeletePiece}
+          onDuplicate={handleDuplicatePiece}
+        />
+      );
+    };
+
     return (
       <div className="space-y-6">
-        {/* Pieces Card */}
+        {/* Pieces Card — unified PieceRow cards */}
         <div className="card">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-4">
@@ -1454,31 +1512,40 @@ export default function QuoteDetailClient({
               </button>
             </div>
           </div>
-          {viewMode === 'list' ? (
-            <PieceList
-              pieces={pieces}
-              selectedPieceId={selectedPieceId}
-              onSelectPiece={handleSelectPiece}
-              onDeletePiece={handleDeletePiece}
-              onDuplicatePiece={handleDuplicatePiece}
-              onReorder={handleReorder}
-              onPieceUpdate={handlePieceUpdate}
-              getKerfForPiece={getKerfForPiece}
-              machines={machines}
-              defaultMachineId={defaultMachineId}
-              calculation={calculation}
-              discountDisplayMode={discountDisplayMode}
-              edgeTypes={edgeTypes}
-            />
-          ) : (
-            <RoomGrouping
-              pieces={pieces}
-              selectedPieceId={selectedPieceId}
-              onSelectPiece={handleSelectPiece}
-              onDeletePiece={handleDeletePiece}
-              onDuplicatePiece={handleDuplicatePiece}
-            />
-          )}
+
+          {/* Unified piece cards */}
+          <div className="p-4 space-y-2">
+            {viewMode === 'list' ? (
+              pieces.length > 0 ? (
+                pieces.map(renderEditPieceCard)
+              ) : (
+                <div className="py-8 text-center text-gray-500">
+                  <p className="mb-2">No pieces added yet</p>
+                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
+                </div>
+              )
+            ) : (
+              rooms.length > 0 ? (
+                rooms.map(room => {
+                  const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                  if (roomPieces.length === 0) return null;
+                  return (
+                    <div key={room.id} className="space-y-2">
+                      <h3 className="text-sm font-semibold text-gray-600 px-1">
+                        {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                      </h3>
+                      {roomPieces.map(renderEditPieceCard)}
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="py-8 text-center text-gray-500">
+                  <p className="mb-2">No pieces added yet</p>
+                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
+                </div>
+              )
+            )}
+          </div>
 
           {/* Inline Add Piece Editor */}
           {addingInlinePiece && (
@@ -1513,62 +1580,6 @@ export default function QuoteDetailClient({
             </div>
           )}
         </div>
-
-        {/* Expandable Cost Breakdown per Piece */}
-        {calculation?.breakdown?.pieces && calculation.breakdown.pieces.length > 0 && (
-          <div id="cost-breakdown" className="card">
-            <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">Cost Breakdown</h2>
-            </div>
-            <div className="p-4 space-y-2">
-              {(calculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]).map((pb) => {
-                const matchedPiece = pieces.find(p => p.id === pb.pieceId);
-                return (
-                  <PieceRow
-                    key={pb.pieceId}
-                    piece={{
-                      id: pb.pieceId,
-                      name: pb.pieceName,
-                      lengthMm: pb.dimensions.lengthMm,
-                      widthMm: pb.dimensions.widthMm,
-                      thicknessMm: pb.dimensions.thicknessMm,
-                      materialName: matchedPiece?.materialName ?? null,
-                      edgeTop: matchedPiece?.edgeTop ?? null,
-                      edgeBottom: matchedPiece?.edgeBottom ?? null,
-                      edgeLeft: matchedPiece?.edgeLeft ?? null,
-                      edgeRight: matchedPiece?.edgeRight ?? null,
-                    }}
-                    breakdown={pb}
-                    machines={machines}
-                    machineOperationDefaults={machineOperationDefaults}
-                    mode="edit"
-                    onMachineChange={(pieceId, operationType, machineId) => {
-                      handleMachineOverride(operationType, machineId);
-                    }}
-                    fullPiece={matchedPiece ? {
-                      id: matchedPiece.id,
-                      name: matchedPiece.name,
-                      lengthMm: matchedPiece.lengthMm,
-                      widthMm: matchedPiece.widthMm,
-                      thicknessMm: matchedPiece.thicknessMm,
-                      materialId: matchedPiece.materialId,
-                      materialName: matchedPiece.materialName,
-                      edgeTop: matchedPiece.edgeTop,
-                      edgeBottom: matchedPiece.edgeBottom,
-                      edgeLeft: matchedPiece.edgeLeft,
-                      edgeRight: matchedPiece.edgeRight,
-                      cutouts: matchedPiece.cutouts,
-                      quote_rooms: matchedPiece.quote_rooms,
-                    } : undefined}
-                    editData={inlineEditData}
-                    onSavePiece={handleInlineSavePiece}
-                    savingPiece={saving}
-                  />
-                );
-              })}
-            </div>
-          </div>
-        )}
 
         {/* Material Cost Section (edit mode — quote level) */}
         {calculation?.breakdown?.materials && (
