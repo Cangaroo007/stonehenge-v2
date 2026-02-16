@@ -469,6 +469,7 @@ export default function QuoteDetailClient({
   const {
     optimisationRefreshKey,
     isOptimising,
+    optimiserError,
     triggerOptimise,
   } = useAutoSlabOptimiser({
     quoteId: quoteIdStr,
@@ -1440,6 +1441,7 @@ export default function QuoteDetailClient({
           isOptimising={isOptimising}
           hasPieces={pieces.length > 0}
           hasMaterial={pieces.some(p => !!p.materialId)}
+          optimiserError={optimiserError}
         />
       );
     }

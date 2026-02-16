@@ -13,6 +13,8 @@ interface OptimizationDisplayProps {
   hasPieces?: boolean;
   /** Whether any piece has a material assigned */
   hasMaterial?: boolean;
+  /** Non-null when the last optimisation attempt failed */
+  optimiserError?: string | null;
 }
 
 export function OptimizationDisplay({
@@ -21,6 +23,7 @@ export function OptimizationDisplay({
   isOptimising = false,
   hasPieces = true,
   hasMaterial = true,
+  optimiserError = null,
 }: OptimizationDisplayProps) {
   const [optimization, setOptimization] = useState<any>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
@@ -180,6 +183,11 @@ export function OptimizationDisplay({
   if (!optimization || !result) {
     return (
       <div className="card p-4">
+        {optimiserError && (
+          <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+            ⚠️ {optimiserError} — slab count may be outdated
+          </div>
+        )}
         <div className="text-center py-12 text-gray-500">
           <svg className="h-12 w-12 mx-auto mb-3 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -198,6 +206,11 @@ export function OptimizationDisplay({
 
   return (
     <div className="card">
+      {optimiserError && (
+        <div className="text-sm text-amber-600 bg-amber-50 border-b border-amber-200 px-4 py-2">
+          ⚠️ {optimiserError} — slab count may be outdated
+        </div>
+      )}
       {/* Header with optimising indicator */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
