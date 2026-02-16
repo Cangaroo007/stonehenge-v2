@@ -27,11 +27,14 @@ const LAMINATION_STRIP_WIDTH_DEFAULT = 60; // mm - standard laminated strip widt
 const LAMINATION_STRIP_WIDTH_MITRE = 40; // mm - mitred strip width (~40mm + kerf = 48mm)
 const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
 
-// Internal type for pieces during optimization (includes lamination data)
+// Internal type for pieces during optimization (includes lamination and segment data)
 type OptimizationPiece = OptimizationInput['pieces'][0] & {
   isLaminationStrip?: boolean;
   parentPieceId?: string;
   stripPosition?: 'top' | 'bottom' | 'left' | 'right';
+  isSegment?: boolean;
+  segmentIndex?: number;
+  totalSegments?: number;
 };
 
 /**
@@ -185,6 +188,107 @@ function generateLaminationSummary(
 }
 
 /**
+ * Pre-process oversize pieces by splitting them into segments that fit on a slab.
+ * Uses the same splitting logic as multi-slab-calculator but operates within the
+ * optimizer's coordinate system (width/height with explicit slab dimensions).
+ *
+ * Pieces that already fit are passed through unchanged.
+ * Oversize pieces are split into segments labelled "(Part 1/N)", "(Part 2/N)", etc.
+ */
+function preprocessOversizePieces(
+  pieces: OptimizationPiece[],
+  slabWidth: number,
+  slabHeight: number,
+  kerfWidth: number,
+  allowRotation: boolean
+): { processed: OptimizationPiece[]; warnings: string[] } {
+  const processed: OptimizationPiece[] = [];
+  const warnings: string[] = [];
+
+  for (const piece of pieces) {
+    const pw = piece.width + kerfWidth;
+    const ph = piece.height + kerfWidth;
+
+    const fitsNormal = pw <= slabWidth && ph <= slabHeight;
+    const fitsRotated = allowRotation &&
+                        (piece.canRotate !== false) &&
+                        ph <= slabWidth && pw <= slabHeight;
+
+    if (fitsNormal || fitsRotated) {
+      processed.push(piece);
+      continue;
+    }
+
+    // Skip lamination strips that are somehow oversize (shouldn't happen)
+    if (piece.isLaminationStrip) {
+      warnings.push(`Lamination strip "${piece.label}" exceeds slab dimensions — skipped`);
+      continue;
+    }
+
+    // Piece is oversize — split into segments.
+    // Orient the piece so its longer dimension maps to the slab's longer axis to minimise segments.
+    const maxDim = Math.max(slabWidth, slabHeight) - kerfWidth;
+    const minDim = Math.min(slabWidth, slabHeight) - kerfWidth;
+
+    const pieceLong = Math.max(piece.width, piece.height);
+    const pieceShort = Math.min(piece.width, piece.height);
+    const isWidthLonger = piece.width >= piece.height;
+
+    const longSegments = pieceLong > maxDim ? Math.ceil(pieceLong / maxDim) : 1;
+    const shortSegments = pieceShort > minDim ? Math.ceil(pieceShort / minDim) : 1;
+
+    // Map back to width/height segment counts
+    const wSegments = isWidthLonger ? longSegments : shortSegments;
+    const hSegments = isWidthLonger ? shortSegments : longSegments;
+    const totalSegments = wSegments * hSegments;
+
+    const segmentWidth = Math.ceil(piece.width / wSegments);
+    const segmentHeight = Math.ceil(piece.height / hSegments);
+
+    const joinCount = (wSegments - 1) * hSegments + (hSegments - 1) * wSegments;
+    warnings.push(
+      `"${piece.label}" (${piece.width}×${piece.height}mm) exceeds slab dimensions — split into ${totalSegments} segment(s) requiring ${joinCount} join(s)`
+    );
+
+    let segmentIndex = 0;
+    for (let row = 0; row < hSegments; row++) {
+      for (let col = 0; col < wSegments; col++) {
+        const isLastCol = col === wSegments - 1;
+        const isLastRow = row === hSegments - 1;
+
+        const thisWidth = isLastCol
+          ? piece.width - segmentWidth * (wSegments - 1)
+          : segmentWidth;
+        const thisHeight = isLastRow
+          ? piece.height - segmentHeight * (hSegments - 1)
+          : segmentHeight;
+
+        processed.push({
+          id: `${piece.id}-seg-${segmentIndex}`,
+          width: thisWidth,
+          height: thisHeight,
+          label: `${piece.label} (Part ${segmentIndex + 1}/${totalSegments})`,
+          canRotate: piece.canRotate,
+          thickness: piece.thickness,
+          // Clear finishedEdges on segments — lamination for split pieces needs manual review
+          finishedEdges: undefined,
+          edgeTypeNames: undefined,
+          // Segment tracking
+          isSegment: true,
+          parentPieceId: piece.id,
+          segmentIndex,
+          totalSegments,
+        });
+
+        segmentIndex++;
+      }
+    }
+  }
+
+  return { processed, warnings };
+}
+
+/**
  * Main optimization function using First Fit Decreasing algorithm
  */
 export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
@@ -203,24 +307,42 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     };
   }
 
+  const inputPieceCount = pieces.length;
+
+  // ── Step 1: Pre-process oversize pieces ───────────────────────────────────
+  // Split any piece that exceeds slab dimensions into segments that fit.
+  // This MUST happen before FFD to prevent pieces being silently dropped.
+  const { processed: normalizedPieces, warnings } = preprocessOversizePieces(
+    pieces as OptimizationPiece[],
+    slabWidth,
+    slabHeight,
+    kerfWidth,
+    allowRotation,
+  );
+
+  if (warnings.length > 0) {
+    logger.info(`[Optimizer] Oversize preprocessing: ${warnings.join('; ')}`);
+  }
+
   // Store original pieces for reference (before adding strips)
-  const originalPieces: OptimizationPiece[] = Array.from(pieces);
-  
-  // Generate lamination strips for all 40mm+ pieces
+  const originalPieces: OptimizationPiece[] = Array.from(normalizedPieces);
+
+  // ── Step 2: Generate lamination strips for all 40mm+ pieces ───────────────
   const allPieces: OptimizationPiece[] = [];
-  
-  for (const piece of pieces) {
+
+  for (const piece of normalizedPieces) {
     // Add the main piece
-    allPieces.push(piece as OptimizationPiece);
-    
+    allPieces.push(piece);
+
     // Generate and add lamination strips if needed
-    const strips = generateLaminationStrips(piece as OptimizationPiece, kerfWidth);
+    // (segments have finishedEdges cleared, so no strips are generated for them)
+    const strips = generateLaminationStrips(piece, kerfWidth);
     allPieces.push(...strips);
   }
-  
+
   // Log for debugging (visible in server logs)
-  if (allPieces.length > pieces.length) {
-    logger.info(`[Optimizer] Input: ${pieces.length} pieces + ${allPieces.length - pieces.length} lamination strips = ${allPieces.length} total`);
+  if (allPieces.length > normalizedPieces.length) {
+    logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} lamination strips = ${allPieces.length} total`);
   }
 
   // Sort pieces by area (largest first) for better packing
@@ -328,6 +450,35 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // Generate lamination summary
   const laminationSummary = generateLaminationSummary(originalPieces, allPieces);
 
+  // ── Piece count invariant check ───────────────────────────────────────────
+  // Every input piece must appear in the output — either placed or explicitly unplaced.
+  // Oversize splitting means placed count can exceed input count, but nothing should be lost.
+  if (unplacedPieces.length > 0) {
+    logger.error(
+      `[Optimizer] UNPLACED PIECES (${unplacedPieces.length}):`,
+      unplacedPieces
+    );
+    warnings.push(
+      `${unplacedPieces.length} piece(s) could not be placed on any slab`
+    );
+  }
+
+  // Count non-strip, non-segment placed pieces to verify against input
+  const placedMainPieces = placements.filter(
+    (p) => !p.isLaminationStrip
+  ).length;
+  const totalAccountedFor = placedMainPieces + unplacedPieces.length;
+  // normalizedPieces includes segments, so total should match
+  const expectedCount = originalPieces.filter((p) => !p.isLaminationStrip).length;
+  if (totalAccountedFor !== expectedCount) {
+    logger.error(
+      `[Optimizer] PIECE COUNT MISMATCH: ${inputPieceCount} input → ${expectedCount} after preprocessing → ${totalAccountedFor} accounted for (placed: ${placedMainPieces}, unplaced: ${unplacedPieces.length}). ${expectedCount - totalAccountedFor} piece(s) lost!`
+    );
+    warnings.push(
+      `Piece count mismatch: ${expectedCount - totalAccountedFor} piece(s) unaccounted for`
+    );
+  }
+
   return {
     placements,
     slabs: slabResults,
@@ -337,6 +488,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     wastePercent: totalSlabArea > 0 ? (totalWasteArea / totalSlabArea) * 100 : 0,
     unplacedPieces,
     laminationSummary,
+    warnings: warnings.length > 0 ? warnings : undefined,
   };
 }
 
@@ -400,6 +552,10 @@ function placePiece(
     isLaminationStrip: piece.isLaminationStrip,
     parentPieceId: piece.parentPieceId,
     stripPosition: piece.stripPosition,
+    // Include segment data if this is a split segment
+    isSegment: piece.isSegment,
+    segmentIndex: piece.segmentIndex,
+    totalSegments: piece.totalSegments,
   };
 
   slab.placements.push(placement);

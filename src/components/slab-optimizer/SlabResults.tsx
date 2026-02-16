@@ -66,6 +66,20 @@ export function SlabResults({ result, slabWidth, slabHeight }: SlabResultsProps)
         )}
       </div>
 
+      {/* Optimizer warnings (oversize splits, etc.) */}
+      {result.warnings && result.warnings.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <h4 className="font-medium text-amber-900 mb-2">Optimizer Notices</h4>
+          <ul className="space-y-1">
+            {result.warnings.map((warning, i) => (
+              <li key={i} className="text-sm text-amber-700">
+                {warning}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Lamination Summary */}
       {result.laminationSummary && result.laminationSummary.totalStrips > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
@@ -113,12 +127,20 @@ export function SlabResults({ result, slabWidth, slabHeight }: SlabResultsProps)
       {/* Unplaced warning */}
       {result.unplacedPieces.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
-          <p className="text-red-800 font-medium">
-            ⚠️ {result.unplacedPieces.length} piece(s) could not be placed
-          </p>
+          <h4 className="text-red-800 font-medium">
+            {result.unplacedPieces.length} piece(s) could not be placed
+          </h4>
           <p className="text-red-600 text-sm mt-1">
-            These pieces are too large for the slab dimensions.
+            These pieces exceed slab dimensions and need manual review.
+            The slab count and material cost below may be underestimated.
           </p>
+          <ul className="mt-2 space-y-1">
+            {result.unplacedPieces.map((id) => (
+              <li key={id} className="text-sm text-red-700">
+                Piece ID: {id}
+              </li>
+            ))}
+          </ul>
         </div>
       )}
 
@@ -147,17 +169,21 @@ export function SlabResults({ result, slabWidth, slabHeight }: SlabResultsProps)
             <div className="mt-3 flex flex-wrap gap-2">
               {slab.placements.map((p, i) => {
                 const isLamination = p.isLaminationStrip === true;
+                const isSegment = p.isSegment === true;
                 return (
                   <span
                     key={p.pieceId}
                     className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                      isLamination 
-                        ? 'bg-gray-300 text-gray-700 border border-gray-400' 
+                      isLamination
+                        ? 'bg-gray-300 text-gray-700 border border-gray-400'
+                        : isSegment
+                        ? 'text-white border-2 border-dashed border-white/50'
                         : 'text-white'
                     }`}
                     style={isLamination ? {} : { backgroundColor: PIECE_COLORS[i % PIECE_COLORS.length] }}
                   >
                     {isLamination && '▦ '}
+                    {isSegment && '⊞ '}
                     {p.label} ({p.width}×{p.height})
                     {p.rotated && ' ↻'}
                   </span>

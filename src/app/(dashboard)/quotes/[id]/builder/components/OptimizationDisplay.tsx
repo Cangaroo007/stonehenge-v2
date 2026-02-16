@@ -40,21 +40,34 @@ export function OptimizationDisplay({
           if (data && data.placements) {
             setOptimization(data);
 
+            // Handle both old format (array) and new format (object with items/unplacedPieces)
+            const rawPlacements = data.placements;
+            const placementsArray = Array.isArray(rawPlacements)
+              ? rawPlacements
+              : rawPlacements.items || [];
+            const unplacedPieceIds: string[] = Array.isArray(rawPlacements)
+              ? []
+              : rawPlacements.unplacedPieces || [];
+            const optimizerWarnings: string[] = Array.isArray(rawPlacements)
+              ? []
+              : rawPlacements.warnings || [];
+
             // Reconstruct result for SlabResults component
             const reconstructedResult: OptimizationResult = {
-              placements: data.placements,
+              placements: placementsArray,
               slabs: [],
               totalSlabs: data.totalSlabs,
               totalUsedArea: 0,
               totalWasteArea: data.totalWaste,
               wastePercent: Number(data.wastePercent),
-              unplacedPieces: [],
+              unplacedPieces: unplacedPieceIds,
               laminationSummary: data.laminationSummary,
+              warnings: optimizerWarnings.length > 0 ? optimizerWarnings : undefined,
             };
 
             // Group placements by slab
-            const slabMap = new Map<number, typeof data.placements>();
-            data.placements.forEach((placement: any) => {
+            const slabMap = new Map<number, typeof placementsArray>();
+            placementsArray.forEach((placement: any) => {
               const slabIndex = placement.slabIndex;
               if (!slabMap.has(slabIndex)) {
                 slabMap.set(slabIndex, []);
@@ -81,7 +94,7 @@ export function OptimizationDisplay({
                 };
               });
 
-            reconstructedResult.totalUsedArea = data.placements.reduce(
+            reconstructedResult.totalUsedArea = placementsArray.reduce(
               (sum: number, p: any) => sum + (p.width * p.height),
               0
             );
