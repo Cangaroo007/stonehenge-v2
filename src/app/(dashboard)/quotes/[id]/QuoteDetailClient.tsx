@@ -1284,7 +1284,8 @@ export default function QuoteDetailClient({
               }
 
               // Flatten all pieces from server data with room info
-              const allViewPieces = serverData.quote_rooms.flatMap(room =>
+
+              const allViewPieces = (serverData.quote_rooms ?? []).flatMap(room =>
                 room.quote_pieces.map(piece => ({
                   ...piece,
                   roomName: room.name,
@@ -1326,7 +1327,7 @@ export default function QuoteDetailClient({
               }
 
               // By Room view
-              return serverData.quote_rooms.map(room => {
+              return (serverData.quote_rooms ?? []).map(room => {
                 const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
                 if (roomPieces.length === 0) return null;
                 return (
@@ -1764,7 +1765,7 @@ export default function QuoteDetailClient({
       </QuoteLayout>
 
       {/* Quote Cost Summary Bar — sticky bottom */}
-      {(calculation || viewCalculation) && (
+      {(mode === 'edit' ? calculation : viewCalculation) && (
         <QuoteCostSummaryBar
           calculation={(mode === 'edit' ? calculation : viewCalculation)!}
         />

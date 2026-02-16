@@ -87,6 +87,11 @@ export default function QuoteLevelCostSections({
   onDeliveryAddressChange,
   onTemplatingToggle,
 }: QuoteLevelCostSectionsProps) {
+  // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
+  if (!calculation.breakdown) {
+    return null;
+  }
+
   const delivery = calculation.breakdown.delivery;
   const templating = calculation.breakdown.templating;
 
@@ -246,9 +251,9 @@ function aggregateInstallation(calculation: CalculationResult): InstallationAggr
   let totalCost = 0;
   let totalArea = 0;
 
-  const pieces = calculation.breakdown.pieces ?? [];
+  const pieces = calculation.breakdown?.pieces ?? [];
   for (const piece of pieces) {
-    if (piece.fabrication.installation && piece.fabrication.installation.total > 0) {
+    if (piece.fabrication?.installation && piece.fabrication.installation.total > 0) {
       const inst = piece.fabrication.installation;
       items.push({
         pieceName: piece.pieceName,
