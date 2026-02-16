@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { CalculationResult } from '@/lib/types/pricing';
-import { OptimizeModal } from './OptimizeModal';
 
 interface QuoteActionsProps {
   quoteId: string;
@@ -10,9 +9,7 @@ interface QuoteActionsProps {
   calculation: CalculationResult | null;
   onSave: () => Promise<void>;
   onStatusChange?: (newStatus: string) => Promise<void>;
-  onOptimizationSaved?: () => void;
   saving?: boolean;
-  kerfWidth?: number;
 }
 
 export default function QuoteActions({
@@ -21,14 +18,11 @@ export default function QuoteActions({
   calculation,
   onSave,
   onStatusChange,
-  onOptimizationSaved,
   saving = false,
-  kerfWidth = 8,
 }: QuoteActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [showOptimizer, setShowOptimizer] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -177,18 +171,6 @@ export default function QuoteActions({
         )}
       </button>
 
-      {/* Optimize Slabs Button */}
-      <button
-        onClick={() => setShowOptimizer(true)}
-        className="btn-secondary flex items-center gap-2"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-        </svg>
-        Optimise Slabs
-      </button>
-
       {/* Send to Customer Button */}
       <button
         onClick={handleSendToCustomer}
@@ -288,19 +270,6 @@ export default function QuoteActions({
             )}
           </p>
         </div>
-      )}
-
-      {/* Slab Optimiser Modal */}
-      {showOptimizer && (
-        <OptimizeModal
-          quoteId={quoteId}
-          onClose={() => setShowOptimizer(false)}
-          onSaved={() => {
-            setShowOptimizer(false);
-            onOptimizationSaved?.(); // Trigger refresh of OptimizationDisplay
-          }}
-          defaultKerfWidth={kerfWidth}
-        />
       )}
     </div>
   );
