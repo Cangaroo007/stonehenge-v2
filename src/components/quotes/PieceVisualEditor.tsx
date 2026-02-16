@@ -61,8 +61,8 @@ export interface PieceVisualEditorProps {
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
-const SVG_PADDING = 60;
-const MAX_HEIGHT = 250;
+const SVG_PADDING = 80;
+const MAX_HEIGHT = 300;
 const EDGE_HIT_WIDTH = 16;
 
 /** Colour by edge profile name */
@@ -234,6 +234,12 @@ export default function PieceVisualEditor({
 
   // ── Edge rendering data ───────────────────────────────────────────────
 
+  // Whether to use compact labels for small pieces
+  const isCompact = useMemo(
+    () => Math.min(lengthMm, widthMm) < 300,
+    [lengthMm, widthMm]
+  );
+
   const edgeDefs = useMemo(() => {
     const { x, y, innerW, innerH } = layout;
     return {
@@ -243,7 +249,7 @@ export default function PieceVisualEditor({
         x2: x + innerW,
         y2: y,
         labelX: x + innerW / 2,
-        labelY: y - 8,
+        labelY: y - 24,
         lengthMm: lengthMm,
       },
       bottom: {
@@ -252,7 +258,7 @@ export default function PieceVisualEditor({
         x2: x + innerW,
         y2: y + innerH,
         labelX: x + innerW / 2,
-        labelY: y + innerH + 16,
+        labelY: y + innerH + 28,
         lengthMm: lengthMm,
       },
       left: {
@@ -260,7 +266,7 @@ export default function PieceVisualEditor({
         y1: y,
         x2: x,
         y2: y + innerH,
-        labelX: x - 8,
+        labelX: x - 24,
         labelY: y + innerH / 2,
         lengthMm: widthMm,
       },
@@ -269,7 +275,7 @@ export default function PieceVisualEditor({
         y1: y,
         x2: x + innerW,
         y2: y + innerH,
-        labelX: x + innerW + 8,
+        labelX: x + innerW + 24,
         labelY: y + innerH / 2,
         lengthMm: widthMm,
       },
@@ -379,7 +385,7 @@ export default function PieceVisualEditor({
     >
       <svg
         viewBox={`0 0 ${layout.svgW} ${layout.svgH}`}
-        className="w-full"
+        className="w-full max-w-lg"
         style={{ maxHeight: MAX_HEIGHT }}
         preserveAspectRatio="xMidYMid meet"
       >
@@ -408,7 +414,7 @@ export default function PieceVisualEditor({
             />
             <text
               x={joinLineX}
-              y={layout.y - 8}
+              y={layout.y - 40}
               textAnchor="middle"
               className="text-[8px] fill-amber-600"
             >
@@ -457,7 +463,7 @@ export default function PieceVisualEditor({
                 />
               )}
 
-              {/* Edge label */}
+              {/* Edge profile label — outside the rectangle, separate from dimensions */}
               <text
                 x={def.labelX}
                 y={def.labelY}
@@ -465,35 +471,35 @@ export default function PieceVisualEditor({
                 dominantBaseline={isHorizontal ? (side === 'top' ? 'auto' : 'hanging') : 'middle'}
                 className={`select-none ${
                   isFinished
-                    ? 'text-[10px] font-medium'
+                    ? 'text-[10px] font-semibold'
                     : 'text-[9px]'
                 }`}
                 fill={colour}
               >
                 {isFinished
-                  ? `${code} (${def.lengthMm}mm)`
+                  ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
                   : 'RAW'}
               </text>
             </g>
           );
         })}
 
-        {/* Dimension labels */}
+        {/* Dimension labels — just outside the rectangle, between rect and edge profile labels */}
         <text
           x={layout.x + layout.innerW / 2}
-          y={layout.y - 24}
+          y={layout.y - 10}
           textAnchor="middle"
-          className="text-[9px] fill-gray-400"
+          className="text-[10px] fill-gray-500 font-medium"
         >
           {lengthMm}mm
         </text>
         <text
-          x={layout.x - 28}
+          x={layout.x - 10}
           y={layout.y + layout.innerH / 2}
           textAnchor="middle"
           dominantBaseline="middle"
-          className="text-[9px] fill-gray-400"
-          transform={`rotate(-90, ${layout.x - 28}, ${layout.y + layout.innerH / 2})`}
+          className="text-[10px] fill-gray-500 font-medium"
+          transform={`rotate(-90, ${layout.x - 10}, ${layout.y + layout.innerH / 2})`}
         >
           {widthMm}mm
         </text>

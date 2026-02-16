@@ -120,6 +120,7 @@ export default function MaterialView({
           <thead className="bg-gray-50 border-b">
             <tr>
               {isEditMode && <th className="w-10 px-3 py-2"></th>}
+              <th className="w-12 px-3 py-2 font-medium text-gray-700">#</th>
               <th className="text-left px-3 py-2 font-medium text-gray-700">Piece</th>
               <th className="text-left px-3 py-2 font-medium text-gray-700">Dimensions</th>
               <th className="text-left px-3 py-2 font-medium text-gray-700 w-16">Thick.</th>
@@ -128,7 +129,7 @@ export default function MaterialView({
             </tr>
           </thead>
           <tbody className="divide-y">
-            {pieces.map((piece) => {
+            {pieces.map((piece, index) => {
               const pieceIdStr = String(piece.id);
               const hasMaterial = piece.materialId !== null;
 
@@ -149,6 +150,11 @@ export default function MaterialView({
                       />
                     </td>
                   )}
+                  <td className="px-3 py-2">
+                    <span className="inline-flex items-center justify-center w-8 h-8 rounded-md bg-gray-900 text-white font-bold text-sm">
+                      {index + 1}
+                    </span>
+                  </td>
                   <td className="px-3 py-2">
                     <div className="font-medium text-gray-900">
                       {piece.name || 'Unnamed Piece'}
@@ -205,7 +211,7 @@ export default function MaterialView({
             })}
             {pieces.length === 0 && (
               <tr>
-                <td colSpan={isEditMode ? 6 : 5} className="px-3 py-8 text-center text-gray-500">
+                <td colSpan={isEditMode ? 7 : 6} className="px-3 py-8 text-center text-gray-500">
                   No pieces in this quote
                 </td>
               </tr>
