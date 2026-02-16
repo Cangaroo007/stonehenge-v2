@@ -1284,6 +1284,7 @@ export default function QuoteDetailClient({
               }
 
               // Flatten all pieces from server data with room info
+
               const allViewPieces = (serverData.quote_rooms ?? []).flatMap(room =>
                 room.quote_pieces.map(piece => ({
                   ...piece,
