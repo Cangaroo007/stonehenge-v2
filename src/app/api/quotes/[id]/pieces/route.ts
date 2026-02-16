@@ -23,6 +23,8 @@ export async function GET(
           orderBy: { sort_order: 'asc' },
           include: {
             materials: true,
+            sourceRelationships: true,
+            targetRelationships: true,
           },
         },
       },

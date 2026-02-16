@@ -109,6 +109,8 @@ export async function GET(
               include: {
                 piece_features: true,
                 materials: true,
+                sourceRelationships: true,
+                targetRelationships: true,
               },
             },
           },

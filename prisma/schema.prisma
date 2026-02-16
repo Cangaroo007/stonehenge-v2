@@ -465,9 +465,11 @@ model quote_pieces {
   joinCount         Int              @default(0)
   joinLengthMm      Int?
   waterfall_height_mm Int?
-  piece_features    piece_features[]
-  materials         materials?       @relation(fields: [material_id], references: [id])
-  quote_rooms       quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  piece_features      piece_features[]
+  materials           materials?           @relation(fields: [material_id], references: [id])
+  quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sourceRelationships piece_relationships[] @relation("source_relationships")
+  targetRelationships piece_relationships[] @relation("target_relationships")
 }
 
 model quote_rooms {
@@ -1205,4 +1207,26 @@ model unit_block_files {
   createdAt DateTime @default(now())
 
   @@map("unit_block_files")
+}
+
+model piece_relationships {
+  id             Int          @id @default(autoincrement())
+
+  // The 'parent' piece (typically the main benchtop)
+  source_piece_id Int
+  sourcePiece     quote_pieces @relation("source_relationships", fields: [source_piece_id], references: [id], onDelete: Cascade)
+
+  // The 'child' piece (waterfall, splashback, etc.)
+  target_piece_id Int
+  targetPiece     quote_pieces @relation("target_relationships", fields: [target_piece_id], references: [id], onDelete: Cascade)
+
+  // Relationship type: WATERFALL, SPLASHBACK, RETURN_END, MITRE_JOIN, BUTT_JOIN, etc.
+  relation_type   String
+
+  // Which side of the source piece (top, bottom, left, right)
+  side            String?
+
+  created_at      DateTime @default(now())
+
+  @@unique([source_piece_id, target_piece_id])
 }
