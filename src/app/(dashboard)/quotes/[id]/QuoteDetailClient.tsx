@@ -206,6 +206,7 @@ export interface ServerQuoteData {
       width_mm: number;
       thickness_mm: number;
       area_sqm: number;
+      material_id: number | null;
       material_name: string | null;
       material_cost: number;
       features_cost: number;
@@ -286,6 +287,9 @@ export default function QuoteDetailClient({
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
   const calculationRef = useRef<CalculationResult | null>(null);
+  const [viewCalculation, setViewCalculation] = useState<CalculationResult | null>(
+    (serverData.calculation_breakdown as CalculationResult | null) ?? null
+  );
   const [showDrawingImport, setShowDrawingImport] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
@@ -582,6 +586,33 @@ export default function QuoteDetailClient({
     calculate();
     return () => { cancelled = true; };
   }, [mode, editLoading, sidebarOpen, quoteIdStr, refreshTrigger, handleCalculationUpdate]);
+
+  // ── Fresh calculation for view mode ────────────────────────────────────────
+  // The stored calculation_breakdown may be stale. Fetch a fresh calculation
+  // so view mode shows accurate material cost, slab counts, and totals.
+  useEffect(() => {
+    if (mode !== 'view') return;
+
+    let cancelled = false;
+    const calculate = async () => {
+      try {
+        const res = await fetch(`/api/quotes/${quoteIdStr}/calculate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        if (!cancelled && res.ok) {
+          const data = await res.json();
+          setViewCalculation(data);
+        }
+      } catch {
+        // Keep the server-provided calculation_breakdown as fallback
+      }
+    };
+
+    calculate();
+    return () => { cancelled = true; };
+  }, [mode, quoteIdStr]);
 
   // ── Customer dropdown: close on click outside ────────────────────────────
   useEffect(() => {
@@ -1018,9 +1049,6 @@ export default function QuoteDetailClient({
         ? `${serverData.customers.name} (${serverData.customers.company})`
         : serverData.customers?.name ?? null);
 
-  // Stored calculation breakdown for view mode
-  const viewCalculation: CalculationResult | null = serverData.calculation_breakdown ?? null;
-
   // Calculated total for header
   const headerTotal = calculation
     ? calculation.total * 1.1  // Include GST
@@ -1433,7 +1461,7 @@ export default function QuoteDetailClient({
                   lengthMm: p.length_mm,
                   widthMm: p.width_mm,
                   thicknessMm: p.thickness_mm,
-                  materialId: null as number | null,
+                  materialId: p.material_id ?? null,
                   materialName: p.materials?.name || p.material_name || null,
                   materialCost: p.material_cost || 0,
                   roomName: p.roomName,

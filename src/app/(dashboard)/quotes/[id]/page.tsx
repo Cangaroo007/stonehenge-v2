@@ -89,6 +89,7 @@ export default async function QuoteDetailPage({
         width_mm: piece.width_mm,
         thickness_mm: piece.thickness_mm,
         area_sqm: Number(piece.area_sqm),
+        material_id: piece.material_id,
         material_name: piece.material_name,
         material_cost: Number(piece.material_cost),
         features_cost: Number(piece.features_cost),
