@@ -120,6 +120,7 @@ export function SlabCanvas({
           const height = placement.height * scale;
           const isHighlighted = highlightPieceId === placement.pieceId;
           const isLaminationStrip = placement.isLaminationStrip === true;
+          const isSegment = placement.isSegment === true;
 
           return (
             <g key={`${placement.pieceId}-${index}`}>
@@ -130,8 +131,9 @@ export function SlabCanvas({
                 width={width}
                 height={height}
                 fill={isLaminationStrip ? 'url(#laminationPattern)' : getColorForPiece(index)}
-                stroke={isHighlighted ? '#000' : isLaminationStrip ? '#9CA3AF' : '#333'}
-                strokeWidth={isHighlighted ? 3 : 1}
+                stroke={isHighlighted ? '#000' : isLaminationStrip ? '#9CA3AF' : isSegment ? '#FFF' : '#333'}
+                strokeWidth={isHighlighted ? 3 : isSegment ? 2 : 1}
+                strokeDasharray={isSegment ? '6 3' : undefined}
                 opacity={isLaminationStrip ? 0.7 : 0.85}
                 className="transition-opacity hover:opacity-100"
               />
@@ -242,6 +244,10 @@ export function SlabCanvas({
             <rect width="16" height="16" fill="url(#legendPattern)" />
           </svg>
           <span>Lamination Strips (40mm+)</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <div className="w-4 h-4 bg-blue-500 border-2 border-dashed border-white rounded-sm" style={{ borderColor: '#fff', outline: '1px solid #333' }}></div>
+          <span>Joined Segment</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>

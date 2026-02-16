@@ -20,10 +20,14 @@ export interface Placement {
   height: number;
   rotated: boolean;
   label: string;
-  // NEW: Lamination tracking
+  // Lamination tracking
   isLaminationStrip?: boolean;
   parentPieceId?: string;
   stripPosition?: 'top' | 'bottom' | 'left' | 'right';
+  // Oversize piece segment tracking
+  isSegment?: boolean;
+  segmentIndex?: number;
+  totalSegments?: number;
   // Machine/cutting info
   machineName?: string;
   kerfWidthMm?: number;
@@ -62,8 +66,10 @@ export interface OptimizationResult {
   totalWasteArea: number;
   wastePercent: number;
   unplacedPieces: string[];
-  // NEW: Lamination summary
+  // Lamination summary
   laminationSummary?: LaminationSummary;
+  // Warnings from the optimizer (oversize splits, etc.)
+  warnings?: string[];
 }
 
 // Edge type info for each edge (used to determine strip width)

@@ -195,9 +195,30 @@ export async function POST(
       allowRotation,
     });
 
-    logger.info(`[Optimize API] Optimization complete: ${result.totalSlabs} slabs, ${result.wastePercent.toFixed(2)}% waste`);
+    // Piece count validation at the API level
+    const totalPiecesIn = pieces.length;
+    const placedMainPieces = result.placements.filter(
+      (p: { isLaminationStrip?: boolean }) => !p.isLaminationStrip
+    ).length;
+    const unplacedCount = result.unplacedPieces.length;
 
-    // Save to database
+    if (unplacedCount > 0) {
+      logger.error(
+        `[Optimize API] ${unplacedCount} piece(s) could not be placed for quote ${quoteId}:`,
+        result.unplacedPieces
+      );
+    }
+
+    if (result.warnings && result.warnings.length > 0) {
+      logger.info(`[Optimize API] Warnings: ${result.warnings.join('; ')}`);
+    }
+
+    logger.info(
+      `[Optimize API] Optimization complete: ${result.totalSlabs} slabs, ${result.wastePercent.toFixed(2)}% waste, ${totalPiecesIn} input pieces → ${placedMainPieces} placed + ${unplacedCount} unplaced`
+    );
+
+    // Save to database — wrap placements in an object to include unplacedPieces and warnings
+    // (the slab_optimizations table has a single Json column for placements)
     const optimization = await prisma.slab_optimizations.create({
       data: {
         id: crypto.randomUUID(),
@@ -208,7 +229,12 @@ export async function POST(
         totalSlabs: result.totalSlabs,
         totalWaste: result.totalWasteArea,
         wastePercent: result.wastePercent,
-        placements: result.placements as object,
+        placements: {
+          items: result.placements,
+          unplacedPieces: result.unplacedPieces,
+          warnings: result.warnings || [],
+          inputPieceCount: totalPiecesIn,
+        } as object,
         laminationSummary: result.laminationSummary as object || null,
         updatedAt: new Date(),
       } as any,
