@@ -147,7 +147,7 @@ export default function QuoteCostSummaryBar({
             <CostItem
               label="Fabrication"
               amount={fabricationTotal}
-              onClick={() => handleClick('cost-breakdown')}
+              onClick={() => handleClick('pieces-section')}
             />
             <CostItem
               label="Material"
@@ -194,7 +194,7 @@ export default function QuoteCostSummaryBar({
         <CostItem
           label="Fabrication"
           amount={fabricationTotal}
-          onClick={() => handleClick('cost-breakdown')}
+          onClick={() => handleClick('pieces-section')}
         />
         <CostItem
           label="Material"

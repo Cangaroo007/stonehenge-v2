@@ -96,6 +96,20 @@ interface PieceRowProps {
   onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
   /** Whether a save operation is in progress */
   savingPiece?: boolean;
+  /** 1-based piece index for display numbering */
+  index?: number;
+  /** Room name for display in collapsed header */
+  roomName?: string;
+  /** Whether to show action buttons (edit mode) */
+  showActions?: boolean;
+  /** Callback to select piece for sidebar editing */
+  onSelectPiece?: (pieceId: number) => void;
+  /** Callback to delete piece */
+  onDeletePiece?: (pieceId: number) => void;
+  /** Callback to duplicate piece */
+  onDuplicatePiece?: (pieceId: number) => void;
+  /** Whether this piece is currently selected */
+  isSelected?: boolean;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -156,6 +170,66 @@ function getEdgeBadges(piece: PieceRowProps['piece']): string[] {
   if (piece.edgeLeft) badges.push('L');
   if (piece.edgeRight) badges.push('R');
   return badges;
+}
+
+/** Build a human-readable edge summary from breakdown data, e.g. "T (Pencil Round), L (Pencil Round)" */
+function getEdgeProfileSummary(
+  piece: PieceRowProps['piece'],
+  breakdown?: PiecePricingBreakdown,
+  editData?: InlineEditData,
+): string {
+  const sides: Array<{ key: 'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight'; label: string; side: string }> = [
+    { key: 'edgeTop', label: 'T', side: 'top' },
+    { key: 'edgeBottom', label: 'B', side: 'bottom' },
+    { key: 'edgeLeft', label: 'L', side: 'left' },
+    { key: 'edgeRight', label: 'R', side: 'right' },
+  ];
+
+  const parts: string[] = [];
+  for (const { key, label, side } of sides) {
+    const edgeId = piece[key];
+    if (!edgeId) continue;
+
+    // Try to resolve profile name from editData edge types
+    let profileName: string | null = null;
+    if (editData?.edgeTypes) {
+      const et = editData.edgeTypes.find(e => e.id === edgeId);
+      if (et) profileName = et.name;
+    }
+    // Fallback: resolve from breakdown
+    if (!profileName && breakdown?.fabrication?.edges) {
+      const be = breakdown.fabrication.edges.find(e => e.side === side);
+      if (be) profileName = be.edgeTypeName;
+    }
+
+    parts.push(profileName ? `${label} (${profileName})` : label);
+  }
+  return parts.length > 0 ? `Edges: ${parts.join(', ')}` : '';
+}
+
+/** Build cutout summary from breakdown data, e.g. "1× Tap Hole, 2× Sink Cutout" */
+function getCutoutSummary(
+  breakdown?: PiecePricingBreakdown,
+  fullPiece?: InlinePieceData,
+  editData?: InlineEditData,
+): string {
+  // Try breakdown data first (available in both view and edit mode)
+  if (breakdown?.fabrication?.cutouts && breakdown.fabrication.cutouts.length > 0) {
+    return 'Cutouts: ' + breakdown.fabrication.cutouts
+      .map(c => `${c.quantity}\u00D7 ${c.cutoutTypeName}`)
+      .join(', ');
+  }
+  // Fallback: from fullPiece data
+  if (fullPiece?.cutouts && fullPiece.cutouts.length > 0) {
+    const cutoutTypes = editData?.cutoutTypes ?? [];
+    return 'Cutouts: ' + (fullPiece.cutouts as PieceCutout[])
+      .map(c => {
+        const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
+        return `${c.quantity}\u00D7 ${ct?.name ?? c.cutoutTypeId}`;
+      })
+      .join(', ');
+  }
+  return '';
 }
 
 // ── Cost Line Component (Level 1 + Level 2) ────────────────────────────────
@@ -453,70 +527,124 @@ export default function PieceRow({
   editData,
   onSavePiece,
   savingPiece = false,
+  index,
+  roomName,
+  showActions = false,
+  onSelectPiece,
+  onDeletePiece,
+  onDuplicatePiece,
+  isSelected = false,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const [editExpanded, setEditExpanded] = useState(true);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
-  const edgeBadges = getEdgeBadges(piece);
+  const edgeProfileSummary = getEdgeProfileSummary(piece, breakdown, editData);
+  const cutoutSummary = getCutoutSummary(breakdown, fullPiece, editData);
   const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
 
   return (
-    <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-lg border ${
+      isSelected
+        ? 'border-primary-400 ring-2 ring-primary-200 bg-primary-50/30'
+        : isOversize
+          ? 'border-amber-200 bg-amber-50/50'
+          : 'border-gray-200 bg-white'
+    }`}>
       {/* ── Collapsed Header ── */}
-      <button
+      <div
         onClick={() => setL1Expanded(!l1Expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50/50 transition-colors"
+        className="cursor-pointer px-4 py-3 hover:bg-gray-50/50 transition-colors"
       >
-        <ChevronIcon expanded={l1Expanded} className="flex-shrink-0" />
+        <div className="flex items-start justify-between gap-3">
+          {/* Left side: chevron + piece info */}
+          <div className="flex items-start gap-3 min-w-0 flex-1">
+            <div className="flex items-center gap-2 flex-shrink-0 mt-0.5">
+              <ChevronIcon expanded={l1Expanded} />
+              {index != null && (
+                <span className="text-xs text-gray-400 font-medium w-5 text-right">#{index}</span>
+              )}
+            </div>
+            <div className="min-w-0">
+              {/* Row 1: Name (with optional room prefix) + badges */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-medium text-gray-900 text-sm truncate">
+                  {roomName ? `${roomName}: ` : ''}{piece.name}
+                </span>
+                {isOversize && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 flex-shrink-0">
+                    OVERSIZE
+                  </span>
+                )}
+              </div>
+              {/* Row 2: Specs line */}
+              <div className="text-xs text-gray-500 mt-0.5">
+                {piece.lengthMm} &times; {piece.widthMm} mm
+                {' \u00B7 '}{piece.thicknessMm}mm
+                {piece.thicknessMm > 20 && (() => {
+                  const method = breakdown?.fabrication?.lamination?.method;
+                  return <span> ({method || 'Laminated'})</span>;
+                })()}
+                {piece.materialName && <span>{' \u00B7 '}{piece.materialName}</span>}
+              </div>
+              {/* Row 3: Edges + Cutouts */}
+              {(edgeProfileSummary || cutoutSummary) && (
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {edgeProfileSummary}
+                  {edgeProfileSummary && cutoutSummary && ' \u00B7 '}
+                  {cutoutSummary}
+                </div>
+              )}
+            </div>
+          </div>
 
-        {/* Name */}
-        <span className="font-medium text-gray-900 truncate min-w-0">{piece.name}</span>
+          {/* Right side: price + action buttons */}
+          <div className="flex items-center gap-3 flex-shrink-0">
+            <span className="text-sm font-semibold text-gray-900 tabular-nums">
+              {formatCurrency(pieceTotal)}
+            </span>
 
-        {/* Dimensions */}
-        <span className="text-xs text-gray-500 flex-shrink-0">
-          {piece.lengthMm} x {piece.widthMm} mm
-        </span>
-
-        {/* Thickness */}
-        <span className="text-xs text-gray-500 flex-shrink-0">
-          {piece.thicknessMm}mm
-          {piece.thicknessMm > 20 && (() => {
-            const layers = Math.floor((piece.thicknessMm - 20) / 20);
-            const method = breakdown?.fabrication?.lamination?.method;
-            if (piece.thicknessMm === 40) {
-              return <span> — {method || 'Laminated'}</span>;
-            }
-            return <span> — {method || 'Laminated'} ({layers} layer{layers !== 1 ? 's' : ''})</span>;
-          })()}
-        </span>
-
-        {/* Material */}
-        {piece.materialName && (
-          <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 flex-shrink-0 truncate max-w-[120px]">
-            {piece.materialName}
-          </span>
-        )}
-
-        {/* Edge badges */}
-        {edgeBadges.length > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 flex-shrink-0">
-            {edgeBadges.join(', ')}
-          </span>
-        )}
-
-        {/* Oversize badge */}
-        {isOversize && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 flex-shrink-0">
-            OVERSIZE
-          </span>
-        )}
-
-        {/* Total price — pushed right */}
-        <span className="ml-auto font-medium text-gray-900 tabular-nums flex-shrink-0">
-          {formatCurrency(pieceTotal)}
-        </span>
-      </button>
+            {/* Action buttons (edit mode only) */}
+            {showActions && mode === 'edit' && (
+              <div className="flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                {onSelectPiece && (
+                  <button
+                    onClick={() => onSelectPiece(piece.id)}
+                    className="p-1 text-gray-400 hover:text-primary-600"
+                    title="Edit in sidebar"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                    </svg>
+                  </button>
+                )}
+                {onDuplicatePiece && (
+                  <button
+                    onClick={() => onDuplicatePiece(piece.id)}
+                    className="p-1 text-gray-400 hover:text-gray-600"
+                    title="Duplicate piece"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  </button>
+                )}
+                {onDeletePiece && (
+                  <button
+                    onClick={() => onDeletePiece(piece.id)}
+                    className="p-1 text-red-400 hover:text-red-600"
+                    title="Delete piece"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                    </svg>
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       {/* ── Piece Visual Editor (SVG diagram) ── */}
       {l1Expanded && (
