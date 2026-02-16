@@ -102,6 +102,8 @@ export function useAutoSlabOptimiser({
           slabWidth = saved.slabWidth;
           slabHeight = saved.slabHeight;
         }
+      } else if (getRes.status !== 404) {
+        console.warn(`[SlabOptimiser] Failed to fetch existing optimisation (${getRes.status}), using defaults`);
       }
 
       // Run the optimisation

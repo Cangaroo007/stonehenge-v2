@@ -1448,7 +1448,7 @@ export default function QuoteDetailClient({
           refreshKey={optimisationRefreshKey}
           isOptimising={isOptimising}
           hasPieces={pieces.length > 0}
-          hasMaterial={pieces.some(p => !!p.materialId)}
+          hasMaterial={pieces.some(p => !!p.materialId || !!p.materialName)}
           optimiserError={optimiserError}
         />
       );

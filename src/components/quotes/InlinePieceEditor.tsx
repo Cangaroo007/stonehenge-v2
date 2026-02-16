@@ -229,6 +229,9 @@ export default function InlinePieceEditor({
     // Auto-set lamination method based on thickness
     const laminationMethod = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
 
+    // For existing pieces, edges and cutouts are managed via PieceVisualEditor —
+    // pass through the current piece prop values to avoid overriding them with
+    // potentially stale local state.
     const payload: Record<string, unknown> = {
       lengthMm: parseInt(lengthMm),
       widthMm: parseInt(widthMm),
@@ -236,11 +239,11 @@ export default function InlinePieceEditor({
       laminationMethod,
       materialId,
       materialName: selectedMaterial?.name || null,
-      edgeTop: edgeSelections.edgeTop,
-      edgeBottom: edgeSelections.edgeBottom,
-      edgeLeft: edgeSelections.edgeLeft,
-      edgeRight: edgeSelections.edgeRight,
-      cutouts,
+      edgeTop: isNew ? edgeSelections.edgeTop : piece.edgeTop,
+      edgeBottom: isNew ? edgeSelections.edgeBottom : piece.edgeBottom,
+      edgeLeft: isNew ? edgeSelections.edgeLeft : piece.edgeLeft,
+      edgeRight: isNew ? edgeSelections.edgeRight : piece.edgeRight,
+      cutouts: isNew ? cutouts : piece.cutouts,
     };
 
     // Include name for new pieces
@@ -403,8 +406,8 @@ export default function InlinePieceEditor({
         </div>
       </div>
 
-      {/* Edges */}
-      {parsedLength > 0 && parsedWidth > 0 && (
+      {/* Edges — only shown for new pieces; existing pieces use PieceVisualEditor SVG */}
+      {isNew && parsedLength > 0 && parsedWidth > 0 && (
         <div
           className="relative"
           style={{ zIndex: 100, isolation: 'isolate' }}
@@ -421,8 +424,8 @@ export default function InlinePieceEditor({
         </div>
       )}
 
-      {/* Cutouts */}
-      {cutoutTypes.length > 0 && (
+      {/* Cutouts — only shown for new pieces; existing pieces use PieceVisualEditor SVG */}
+      {isNew && cutoutTypes.length > 0 && (
         <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
           <CutoutSelector
             cutouts={cutouts}
