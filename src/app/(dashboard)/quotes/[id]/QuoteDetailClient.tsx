@@ -17,6 +17,7 @@ import PricingSummary from './builder/components/PricingSummary';
 import QuoteActions from './builder/components/QuoteActions';
 import DrawingImport from './builder/components/DrawingImport';
 import { DrawingReferencePanel } from './builder/components/DrawingReferencePanel';
+import DrawingsAccordion from '@/components/quotes/DrawingsAccordion';
 import DeliveryTemplatingCard from './builder/components/DeliveryTemplatingCard';
 import { OptimizationDisplay } from './builder/components/OptimizationDisplay';
 import MachineDetailsPanel from './builder/components/MachineDetailsPanel';
@@ -1260,6 +1261,9 @@ export default function QuoteDetailClient({
     // Pieces & Pricing tab (view mode)
     return (
       <div className="space-y-6">
+        {/* Drawings Accordion */}
+        <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+
         {/* Signature Section */}
         <QuoteSignatureSection
           quoteId={serverData.id}
@@ -1701,6 +1705,9 @@ export default function QuoteDetailClient({
 
     return (
       <div className="space-y-6">
+        {/* Drawings Accordion */}
+        <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+
         {/* Option Tabs — only shown when options exist */}
         {hasOptions && (
           <OptionTabsBar
