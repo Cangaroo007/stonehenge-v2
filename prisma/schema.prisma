@@ -903,6 +903,32 @@ enum UnitStatus {
   ON_HOLD
 }
 
+model edge_profile_templates {
+  id                 String   @id @default(cuid())
+  companyId          Int      @map("company_id")
+  name               String
+  description        String?
+
+  // Edge assignments (edge type IDs)
+  edgeTop            String?  @map("edge_top")
+  edgeBottom         String?  @map("edge_bottom")
+  edgeLeft           String?  @map("edge_left")
+  edgeRight          String?  @map("edge_right")
+
+  // Scope
+  isBuiltIn          Boolean  @default(false) @map("is_built_in")
+  isShared           Boolean  @default(true)  @map("is_shared")
+  createdById        Int?     @map("created_by_id")
+
+  // Piece type hint
+  suggestedPieceType String?  @map("suggested_piece_type")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt      @map("updated_at")
+
+  @@map("edge_profile_templates")
+}
+
 model unit_block_projects {
   id          Int                  @id @default(autoincrement())
   name        String

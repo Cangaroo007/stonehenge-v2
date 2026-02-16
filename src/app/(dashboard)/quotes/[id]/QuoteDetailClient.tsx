@@ -863,6 +863,61 @@ export default function QuoteDetailClient({
     }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
+  // Bulk edge apply — applies edge profile template to all pieces in room or quote
+  const handleBulkEdgeApply = useCallback(async (
+    edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
+    scope: 'room' | 'quote',
+    sourcePieceId: number
+  ) => {
+    try {
+      // Find which pieces to update based on scope
+      let targetPieceIds: number[] = [];
+
+      if (scope === 'room') {
+        // Find the room of the source piece, then get all piece IDs in that room
+        const sourcePiece = pieces.find(p => p.id === sourcePieceId);
+        if (sourcePiece?.quote_rooms?.id) {
+          targetPieceIds = pieces
+            .filter(p => p.quote_rooms?.id === sourcePiece.quote_rooms?.id && p.id !== sourcePieceId)
+            .map(p => p.id);
+        }
+      } else {
+        // All pieces in quote except the source
+        targetPieceIds = pieces
+          .filter(p => p.id !== sourcePieceId)
+          .map(p => p.id);
+      }
+
+      if (targetPieceIds.length === 0) return;
+
+      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds: targetPieceIds, edges }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to bulk update edges');
+      }
+
+      const result = await response.json() as { updated: number; skipped: number; skippedReasons: string[] };
+
+      // Refresh data
+      await fetchQuote();
+      triggerRecalculate();
+      triggerOptimise();
+      markAsChanged();
+
+      // Show skip reasons if any
+      if (result.skippedReasons.length > 0) {
+        setError(`Updated ${result.updated} pieces. ${result.skippedReasons.join('. ')}`);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to bulk update edges');
+    }
+  }, [pieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
     setSaving(true);
@@ -1667,6 +1722,8 @@ export default function QuoteDetailClient({
             savingPiece={saving}
             onDelete={handleDeletePiece}
             onDuplicate={handleDuplicatePiece}
+            quoteId={quoteId}
+            onBulkEdgeApply={handleBulkEdgeApply}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (

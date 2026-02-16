@@ -104,6 +104,14 @@ interface PieceRowProps {
   onDelete?: (pieceId: number) => void;
   /** Duplicate callback (edit mode) */
   onDuplicate?: (pieceId: number) => void;
+  /** Quote ID for bulk edge operations */
+  quoteId?: number;
+  /** Callback for bulk edge apply (scope: 'room' | 'quote') */
+  onBulkEdgeApply?: (
+    edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
+    scope: 'room' | 'quote',
+    pieceId: number
+  ) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -352,6 +360,7 @@ function PieceVisualEditorSection({
   breakdown,
   mode,
   onSavePiece,
+  onBulkEdgeApply,
 }: {
   piece: PieceRowProps['piece'];
   fullPiece?: InlinePieceData;
@@ -359,6 +368,11 @@ function PieceVisualEditorSection({
   breakdown?: PiecePricingBreakdown;
   mode: 'view' | 'edit';
   onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+  onBulkEdgeApply?: (
+    edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
+    scope: 'room' | 'quote',
+    pieceId: number
+  ) => void;
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -515,6 +529,40 @@ function PieceVisualEditorSection({
     [fullPiece, onSavePiece, piece.id]
   );
 
+  // Multi-edge change handler — saves all changed edges at once
+  const handleEdgesChange = useCallback(
+    (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => {
+      if (!fullPiece || !onSavePiece) return;
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: edges.top !== undefined ? edges.top : fullPiece.edgeTop,
+          edgeBottom: edges.bottom !== undefined ? edges.bottom : fullPiece.edgeBottom,
+          edgeLeft: edges.left !== undefined ? edges.left : fullPiece.edgeLeft,
+          edgeRight: edges.right !== undefined ? edges.right : fullPiece.edgeRight,
+          cutouts: fullPiece.cutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Bulk apply handler — delegates to parent
+  const handleBulkApply = useCallback(
+    (edges: { top: string | null; bottom: string | null; left: string | null; right: string | null }, scope: 'room' | 'quote') => {
+      if (onBulkEdgeApply) {
+        onBulkEdgeApply(edges, scope, piece.id);
+      }
+    },
+    [onBulkEdgeApply, piece.id]
+  );
+
   return (
     <div className="px-4 py-3 border-t border-gray-100">
       <PieceVisualEditor
@@ -530,9 +578,11 @@ function PieceVisualEditorSection({
         isEditMode={isEditMode}
         isMitred={isMitred}
         onEdgeChange={isEditMode ? handleEdgeChange : undefined}
+        onEdgesChange={isEditMode ? handleEdgesChange : undefined}
         onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
         onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
         cutoutTypes={editData?.cutoutTypes ?? []}
+        onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
       />
     </div>
   );
@@ -554,6 +604,7 @@ export default function PieceRow({
   savingPiece = false,
   onDelete,
   onDuplicate,
+  onBulkEdgeApply,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -681,6 +732,7 @@ export default function PieceRow({
           breakdown={breakdown}
           mode={mode}
           onSavePiece={onSavePiece}
+          onBulkEdgeApply={onBulkEdgeApply}
         />
       )}
 
