@@ -57,6 +57,9 @@ export async function PUT(
     if (data.slabWidthMm !== undefined) {
       updateData.slab_width_mm = data.slabWidthMm === null || data.slabWidthMm === '' ? null : parseInt(String(data.slabWidthMm));
     }
+    if (data.marginOverridePercent !== undefined) {
+      updateData.margin_override_percent = data.marginOverridePercent === null ? null : parseFloat(String(data.marginOverridePercent));
+    }
 
     const material = await prisma.materials.update({
       where: { id: parseInt(id) },

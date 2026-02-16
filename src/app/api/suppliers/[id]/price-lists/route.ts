@@ -5,6 +5,51 @@ import { parsePriceListPdf } from '@/lib/services/price-list-parser';
 import { previewPriceListUpdate } from '@/lib/services/price-list-applier';
 import { uploadToR2 } from '@/lib/storage/r2';
 
+export async function GET(
+  _request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const { id: supplierId } = await params;
+
+    // Verify supplier belongs to user's company
+    const supplier = await prisma.suppliers.findFirst({
+      where: { id: supplierId, company_id: auth.user.companyId },
+    });
+
+    if (!supplier) {
+      return NextResponse.json({ error: 'Supplier not found' }, { status: 404 });
+    }
+
+    const uploads = await prisma.price_list_uploads.findMany({
+      where: { supplier_id: supplierId, company_id: auth.user.companyId },
+      orderBy: { uploaded_at: 'desc' },
+      select: {
+        id: true,
+        file_name: true,
+        uploaded_at: true,
+        status: true,
+        materials_created: true,
+        materials_updated: true,
+        materials_discontinued: true,
+        materials_skipped: true,
+        processed_at: true,
+        error_message: true,
+      },
+    });
+
+    return NextResponse.json(uploads);
+  } catch (error) {
+    console.error('Error fetching price list uploads:', error);
+    return NextResponse.json({ error: 'Failed to fetch uploads' }, { status: 500 });
+  }
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }

@@ -5,6 +5,11 @@ export async function GET() {
   try {
     const materials = await prisma.materials.findMany({
       orderBy: [{ collection: 'asc' }, { name: 'asc' }],
+      include: {
+        supplier: {
+          select: { id: true, name: true, default_margin_percent: true },
+        },
+      },
     });
     // Add camelCase aliases for client components
     const transformed = materials.map((m: any) => ({

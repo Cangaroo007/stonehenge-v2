@@ -20,6 +20,7 @@ import {
   Sliders,
   UserCircle,
   ClipboardList,
+  Truck,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -29,6 +30,7 @@ interface NavigationItem {
   name: string;
   href: string;
   icon: React.ComponentType<{ className?: string }>;
+  indent?: boolean;
 }
 
 const navigation: NavigationItem[] = [
@@ -38,6 +40,7 @@ const navigation: NavigationItem[] = [
   { name: 'Templates', href: '/templates', icon: ClipboardList },
   { name: 'Customers', href: '/customers', icon: UserCircle },
   { name: 'Materials', href: '/materials', icon: Layers },
+  { name: 'Suppliers', href: '/materials/suppliers', icon: Truck, indent: true },
   { name: 'Optimiser', href: '/optimize', icon: Square },
   { name: 'Pricing', href: '/admin/pricing', icon: Sliders },
   { name: 'Users', href: '/admin/users', icon: Users },
@@ -71,7 +74,15 @@ export default function AppShell({ children, user }: AppShellProps) {
   }
 
   const isActive = (href: string) => {
-    return pathname === href || pathname.startsWith(`${href}/`);
+    if (pathname === href) return true;
+    if (!pathname.startsWith(`${href}/`)) return false;
+    // Prevent parent items highlighting when a child sub-link is active
+    // e.g. /materials should not be active when on /materials/suppliers/*
+    const childLinks = navigation.filter((n) => n.indent && n.href.startsWith(`${href}/`));
+    for (const child of childLinks) {
+      if (pathname === child.href || pathname.startsWith(`${child.href}/`)) return false;
+    }
+    return true;
   };
 
   return (
@@ -117,7 +128,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-            
+
             return (
               <Link
                 key={item.name}
@@ -128,11 +139,12 @@ export default function AppShell({ children, user }: AppShellProps) {
                   active
                     ? 'bg-zinc-800 text-primary-600'
                     : 'text-zinc-400 hover:text-text-inverse',
-                  collapsed && 'justify-center'
+                  collapsed && 'justify-center',
+                  item.indent && !collapsed && 'pl-10 text-xs'
                 )}
                 title={collapsed ? item.name : undefined}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary-600')} />
+                <Icon className={cn(item.indent ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
                 {!collapsed && <span>{item.name}</span>}
               </Link>
             );
@@ -217,7 +229,7 @@ export default function AppShell({ children, user }: AppShellProps) {
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
-            
+
             return (
               <Link
                 key={item.name}
@@ -228,10 +240,11 @@ export default function AppShell({ children, user }: AppShellProps) {
                   'hover:bg-zinc-800',
                   active
                     ? 'bg-zinc-800 text-primary-600'
-                    : 'text-zinc-400 hover:text-text-inverse'
+                    : 'text-zinc-400 hover:text-text-inverse',
+                  item.indent && 'pl-10 text-xs'
                 )}
               >
-                <Icon className={cn('h-5 w-5 shrink-0', active && 'text-primary-600')} />
+                <Icon className={cn(item.indent ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
                 <span>{item.name}</span>
               </Link>
             );
