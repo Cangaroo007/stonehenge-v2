@@ -406,6 +406,7 @@ model pricing_settings {
   grain_matching_surcharge_percent Decimal                @default(15.0) @db.Decimal(5, 2)
   cutout_thickness_multiplier      Decimal                @default(1.0) @db.Decimal(5, 2)
   waterfall_pricing_method         WaterfallPricingMethod @default(FIXED_PER_END)
+  slab_edge_allowance_mm           Int?
   created_at                       DateTime               @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
@@ -550,6 +551,9 @@ model quotes {
   buyerChangeSnapshots   buyer_change_snapshots[]
   versions               quote_versions[]
   options                quote_options[]
+
+  // Slab edge allowance (per-quote override, mm)
+  slabEdgeAllowanceMm  Int?     @map("slab_edge_allowance_mm")
 
   // Delivery & templating fields
   deliveryCost         Decimal? @db.Decimal(10, 2)

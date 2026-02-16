@@ -16,6 +16,7 @@ interface PricingSettings {
   currency: string;
   gstRate: string;
   waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
+  slabEdgeAllowanceMm: number | null;
 }
 
 export default function PricingSettingsPage() {
@@ -31,6 +32,7 @@ export default function PricingSettingsPage() {
     currency: 'AUD',
     gstRate: '0.1000',
     waterfallPricingMethod: 'FIXED_PER_END',
+    slabEdgeAllowanceMm: null,
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -421,6 +423,75 @@ export default function PricingSettingsPage() {
                 </p>
               </div>
             </label>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Slab Edge Allowance */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Slab Edge Allowance</h3>
+          <p className="text-xs text-gray-500">
+            The unusable material around the perimeter of each slab. Set to 0 to use the full slab area.
+            Leave blank to prompt per-quote.
+          </p>
+
+          <div className="space-y-3">
+            {/* Presets */}
+            <div className="flex flex-wrap gap-2">
+              {[
+                { label: 'Prompt per-quote', value: null },
+                { label: 'None (0mm)', value: 0 },
+                { label: '10mm', value: 10 },
+                { label: '15mm', value: 15 },
+                { label: '20mm', value: 20 },
+              ].map((preset) => (
+                <button
+                  key={preset.label}
+                  type="button"
+                  onClick={() => setSettings({ ...settings, slabEdgeAllowanceMm: preset.value })}
+                  className={cn(
+                    'px-3 py-1.5 text-sm rounded-lg border transition-colors',
+                    settings.slabEdgeAllowanceMm === preset.value
+                      ? 'bg-primary-50 border-primary-500 text-primary-700 font-medium'
+                      : 'border-gray-300 text-gray-700 hover:bg-gray-50'
+                  )}
+                >
+                  {preset.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom input */}
+            <div className="flex items-center gap-3">
+              <label htmlFor="slabEdgeAllowanceMm" className="text-sm text-gray-600">
+                Custom:
+              </label>
+              <input
+                type="number"
+                id="slabEdgeAllowanceMm"
+                min={0}
+                max={50}
+                step={1}
+                value={settings.slabEdgeAllowanceMm ?? ''}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setSettings({
+                    ...settings,
+                    slabEdgeAllowanceMm: val === '' ? null : Math.min(50, Math.max(0, parseInt(val, 10) || 0)),
+                  });
+                }}
+                placeholder="—"
+                className="w-20 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">mm per side</span>
+            </div>
+
+            {settings.slabEdgeAllowanceMm === null && (
+              <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2">
+                No default set — users will be prompted to choose an edge allowance on each quote.
+              </p>
+            )}
           </div>
         </div>
 

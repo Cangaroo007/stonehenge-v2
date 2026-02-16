@@ -94,6 +94,19 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
+    // Resolve slab edge allowance: quote override → tenant default → 0
+    let edgeAllowanceMm = (quote as unknown as { slabEdgeAllowanceMm: number | null }).slabEdgeAllowanceMm;
+    if (edgeAllowanceMm === null || edgeAllowanceMm === undefined) {
+      try {
+        const pricingSettings = await prisma.pricing_settings.findFirst({
+          select: { slab_edge_allowance_mm: true },
+        });
+        edgeAllowanceMm = pricingSettings?.slab_edge_allowance_mm ?? 0;
+      } catch {
+        edgeAllowanceMm = 0;
+      }
+    }
+
     // Resolve primary material from first piece that has one
     type QuotePiece = { materials: { slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string; name: string } | null };
     const primaryMaterial = quote.quote_rooms
@@ -115,7 +128,7 @@ export async function POST(
       ?? 1600;
 
     logger.info('[Optimize API] Starting optimization for quote', quoteId,
-      'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm',
+      'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm, edge allowance:' + edgeAllowanceMm + 'mm',
       'material:', primaryMaterial?.name ?? 'none',
       'source:', body.slabWidth ? 'user-provided' : primaryMaterial?.slab_length_mm ? 'material-record' : primaryMaterial?.fabrication_category ? 'category-default' : 'ultimate-fallback'
     );
@@ -193,6 +206,7 @@ export async function POST(
       slabHeight,
       kerfWidth,
       allowRotation,
+      edgeAllowanceMm,
     });
 
     // Piece count validation at the API level
@@ -234,6 +248,7 @@ export async function POST(
           unplacedPieces: result.unplacedPieces,
           warnings: result.warnings || [],
           inputPieceCount: totalPiecesIn,
+          edgeAllowanceMm,
         } as object,
         laminationSummary: result.laminationSummary as object || null,
         updatedAt: new Date(),

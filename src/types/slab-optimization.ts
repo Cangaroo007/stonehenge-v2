@@ -70,6 +70,8 @@ export interface OptimizationResult {
   laminationSummary?: LaminationSummary;
   // Warnings from the optimizer (oversize splits, etc.)
   warnings?: string[];
+  // Edge allowance applied (mm per side)
+  edgeAllowanceMm?: number;
 }
 
 // Edge type info for each edge (used to determine strip width)
@@ -98,6 +100,8 @@ export interface OptimizationInput {
   slabHeight: number;
   kerfWidth: number;
   allowRotation: boolean;
+  /** Slab edge allowance in mm — unusable material per side. Reduces usable area. */
+  edgeAllowanceMm?: number;
 }
 
 // Re-export for convenience
