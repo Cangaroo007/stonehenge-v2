@@ -36,6 +36,7 @@ import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
 import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
+import MaterialView from '@/components/quotes/MaterialView';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 
 // View-mode components
@@ -278,7 +279,8 @@ export default function QuoteDetailClient({
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'rooms'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
+  const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
   const calculationRef = useRef<CalculationResult | null>(null);
@@ -711,6 +713,12 @@ export default function QuoteDetailClient({
       await fetchQuote();
     }
   }, [quoteIdStr, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange]);
+
+  const handleMaterialChange = useCallback(async (pieceId: number, materialId: number | null) => {
+    const material = materialId ? materials.find(m => m.id === materialId) : null;
+    const materialName = material?.name ?? null;
+    await handlePieceUpdate(pieceId, { materialId, materialName } as Partial<QuotePiece>);
+  }, [materials, handlePieceUpdate]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -1340,6 +1348,16 @@ export default function QuoteDetailClient({
                 >
                   By Room
                 </button>
+                <button
+                  onClick={() => setViewMode('material')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'material'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Material
+                </button>
               </div>
             </div>
           </div>
@@ -1362,6 +1380,30 @@ export default function QuoteDetailClient({
                   roomId: room.id,
                 }))
               );
+
+              if (viewMode === 'material') {
+                const materialViewPieces = allViewPieces.map(p => ({
+                  id: p.id,
+                  name: p.name || 'Unnamed piece',
+                  lengthMm: p.length_mm,
+                  widthMm: p.width_mm,
+                  thicknessMm: p.thickness_mm,
+                  materialId: null as number | null,
+                  materialName: p.materials?.name || p.material_name || null,
+                  materialCost: p.material_cost || 0,
+                  roomName: p.roomName,
+                }));
+                return (
+                  <MaterialView
+                    pieces={materialViewPieces}
+                    materials={[]}
+                    onMaterialChange={() => {}}
+                    isEditMode={false}
+                    selectedPieceIds={new Set<string>()}
+                    onSelectionChange={() => {}}
+                  />
+                );
+              }
 
               const renderViewPieceCard = (piece: typeof allViewPieces[0], pieceNumber: number) => {
                 const pb = viewBreakdownMap.get(piece.id);
@@ -1625,6 +1667,16 @@ export default function QuoteDetailClient({
                 >
                   By Room
                 </button>
+                <button
+                  onClick={() => setViewMode('material')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    viewMode === 'material'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Material
+                </button>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1754,7 +1806,26 @@ export default function QuoteDetailClient({
 
           {/* Unified piece cards */}
           <div className="p-4 space-y-2">
-            {viewMode === 'list' ? (
+            {viewMode === 'material' ? (
+              <MaterialView
+                pieces={pieces.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  lengthMm: p.lengthMm,
+                  widthMm: p.widthMm,
+                  thicknessMm: p.thicknessMm,
+                  materialId: p.materialId,
+                  materialName: p.materialName,
+                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+                  roomName: p.quote_rooms?.name ?? null,
+                }))}
+                materials={materials}
+                onMaterialChange={handleMaterialChange}
+                isEditMode={true}
+                selectedPieceIds={selectedPieceIds}
+                onSelectionChange={setSelectedPieceIds}
+              />
+            ) : viewMode === 'list' ? (
               pieces.length > 0 ? (
                 pieces.map((p, idx) => renderEditPieceCard(p, idx + 1))
               ) : (
