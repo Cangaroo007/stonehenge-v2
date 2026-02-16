@@ -514,6 +514,16 @@ export default function QuoteDetailClient({
     getKerfWidth: getEffectiveKerfWidth,
   });
 
+  // Trigger pricing recalculation when slab optimisation completes.
+  // The optimiser runs asynchronously after piece changes, so by the time
+  // the initial calculate call fires the optimisation result may not exist yet.
+  // This ensures material cost (PER_SLAB) picks up the freshly-saved slab count.
+  useEffect(() => {
+    if (optimisationRefreshKey > 0) {
+      triggerRecalculate();
+    }
+  }, [optimisationRefreshKey, triggerRecalculate]);
+
   // Machine override handler
   const handleMachineOverride = useCallback((operationType: string, machineId: string) => {
     setMachineOverrides(prev => ({ ...prev, [operationType]: machineId }));
