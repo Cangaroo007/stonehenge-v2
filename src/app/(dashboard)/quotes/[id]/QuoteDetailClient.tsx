@@ -266,6 +266,9 @@ export default function QuoteDetailClient({
   const [selectedPieceId, setSelectedPieceId] = useState<number | null>(null);
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [addingInlinePiece, setAddingInlinePiece] = useState(false);
+  const [addingInlinePieceRoom, setAddingInlinePieceRoom] = useState<string | null>(null);
+  const [isAddingRoom, setIsAddingRoom] = useState(false);
+  const [newRoomName, setNewRoomName] = useState('');
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -631,8 +634,9 @@ export default function QuoteDetailClient({
     setSidebarOpen(true);
   };
 
-  const handleAddPiece = () => {
+  const handleAddPiece = (preselectedRoom?: string) => {
     setAddingInlinePiece(true);
+    setAddingInlinePieceRoom(preselectedRoom || null);
     setSelectedPieceId(null);
     setIsAddingPiece(false);
   };
@@ -723,6 +727,7 @@ export default function QuoteDetailClient({
       }
       if (isCreate) {
         setAddingInlinePiece(false);
+        setAddingInlinePieceRoom(null);
       }
       await fetchQuote();
       triggerRecalculate();
@@ -734,6 +739,30 @@ export default function QuoteDetailClient({
       setSaving(false);
     }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+
+  const handleCreateRoom = useCallback(async (name: string) => {
+    if (!name.trim()) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteIdStr}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to create room');
+      }
+      setIsAddingRoom(false);
+      setNewRoomName('');
+      await fetchQuote();
+      markAsChanged();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to create room');
+    } finally {
+      setSaving(false);
+    }
+  }, [quoteIdStr, fetchQuote, markAsChanged]);
 
   const handleDeletePiece = async (pieceId: number) => {
     if (!confirm('Are you sure you want to delete this piece?')) return;
@@ -1515,7 +1544,13 @@ export default function QuoteDetailClient({
                 </svg>
                 Import Drawing
               </button>
-              <button onClick={handleAddPiece} className="btn-primary text-sm">
+              <button
+                onClick={() => setIsAddingRoom(true)}
+                className="btn-secondary text-sm"
+              >
+                + Add Room
+              </button>
+              <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
                 + Add Piece
               </button>
               <button
@@ -1527,6 +1562,65 @@ export default function QuoteDetailClient({
               </button>
             </div>
           </div>
+
+          {/* Inline Add Room Form */}
+          {isAddingRoom && (
+            <div className="border-b border-gray-200 p-4">
+              <h3 className="text-sm font-semibold text-gray-700 mb-2">Add New Room</h3>
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newRoomName}
+                  onChange={(e) => setNewRoomName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && newRoomName.trim()) handleCreateRoom(newRoomName);
+                    if (e.key === 'Escape') { setIsAddingRoom(false); setNewRoomName(''); }
+                  }}
+                  placeholder="Enter room name"
+                  className="px-3 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 w-64"
+                  autoFocus
+                />
+                <button
+                  onClick={() => handleCreateRoom(newRoomName)}
+                  disabled={!newRoomName.trim() || saving}
+                  className="px-3 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  Add
+                </button>
+                <button
+                  onClick={() => { setIsAddingRoom(false); setNewRoomName(''); }}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {['Kitchen', 'Bathroom', 'Ensuite', 'Laundry', 'Study', 'Walk-in Pantry', 'Butler\'s Pantry', 'Powder Room'].map(suggestion => {
+                  const alreadyExists = roomNames.includes(suggestion);
+                  return (
+                    <button
+                      key={suggestion}
+                      onClick={() => {
+                        if (!alreadyExists) {
+                          setNewRoomName(suggestion);
+                        }
+                      }}
+                      disabled={alreadyExists}
+                      className={`px-2.5 py-1 text-xs rounded-full border transition-colors ${
+                        alreadyExists
+                          ? 'border-gray-200 text-gray-400 cursor-not-allowed bg-gray-50'
+                          : newRoomName === suggestion
+                          ? 'border-primary-500 bg-primary-50 text-primary-700'
+                          : 'border-gray-300 text-gray-600 hover:border-primary-400 hover:bg-primary-50 cursor-pointer'
+                      }`}
+                    >
+                      {suggestion}{alreadyExists ? ' (exists)' : ''}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Unified piece cards */}
           <div className="p-4 space-y-2">
@@ -1543,13 +1637,24 @@ export default function QuoteDetailClient({
               rooms.length > 0 ? (
                 rooms.map(room => {
                   const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
-                  if (roomPieces.length === 0) return null;
                   return (
                     <div key={room.id} className="space-y-2">
                       <h3 className="text-sm font-semibold text-gray-600 px-1">
                         {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
                       </h3>
-                      {roomPieces.map(renderEditPieceCard)}
+                      {roomPieces.length > 0 ? (
+                        roomPieces.map(renderEditPieceCard)
+                      ) : (
+                        <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                          No pieces yet. Click &quot;+ Add Piece&quot; below to add one.
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleAddPiece(room.name)}
+                        className="w-full py-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg transition-colors"
+                      >
+                        + Add Piece to {room.name}
+                      </button>
                     </div>
                   );
                 })
@@ -1565,7 +1670,9 @@ export default function QuoteDetailClient({
           {/* Inline Add Piece Editor */}
           {addingInlinePiece && (
             <div className="border-t border-gray-200 p-4">
-              <h3 className="text-sm font-semibold text-gray-700 mb-3">Add New Piece</h3>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">
+                Add New Piece{addingInlinePieceRoom ? ` to ${addingInlinePieceRoom}` : ''}
+              </h3>
               <InlinePieceEditor
                 piece={{
                   id: 0,
@@ -1580,7 +1687,7 @@ export default function QuoteDetailClient({
                   edgeLeft: null,
                   edgeRight: null,
                   cutouts: [],
-                  quote_rooms: { id: 0, name: 'Kitchen' },
+                  quote_rooms: { id: 0, name: addingInlinePieceRoom || roomNames[0] || 'Kitchen' },
                 } as InlinePieceData}
                 materials={materials}
                 edgeTypes={edgeTypes}
@@ -1590,7 +1697,7 @@ export default function QuoteDetailClient({
                 onSave={handleInlineSavePiece}
                 saving={saving}
                 isNew
-                onCancel={() => setAddingInlinePiece(false)}
+                onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
               />
             </div>
           )}
