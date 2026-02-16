@@ -1764,7 +1764,7 @@ export default function QuoteDetailClient({
       </QuoteLayout>
 
       {/* Quote Cost Summary Bar — sticky bottom */}
-      {(calculation || viewCalculation) && (
+      {(mode === 'edit' ? calculation : viewCalculation) && (
         <QuoteCostSummaryBar
           calculation={(mode === 'edit' ? calculation : viewCalculation)!}
         />
