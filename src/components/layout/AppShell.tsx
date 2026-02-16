@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -47,6 +47,17 @@ const navigation: NavigationItem[] = [
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
 
+const SIDEBAR_STATE_KEY = 'stonehenge-sidebar-collapsed';
+
+function getSidebarCollapsed(): boolean {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem(SIDEBAR_STATE_KEY) === 'true';
+}
+
+function setSidebarCollapsedStorage(value: boolean): void {
+  localStorage.setItem(SIDEBAR_STATE_KEY, value ? 'true' : 'false');
+}
+
 interface AppShellProps {
   children: React.ReactNode;
   user?: {
@@ -58,9 +69,59 @@ interface AppShellProps {
 
 export default function AppShell({ children, user }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
+  const [isPeeking, setIsPeeking] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+
+  // Load collapsed state from localStorage on mount + auto-collapse on small screens
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setCollapsed(true);
+      } else {
+        setCollapsed(getSidebarCollapsed());
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    handleResize();
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
+  // Cleanup collapse timer on unmount
+  useEffect(() => {
+    return () => {
+      if (collapseTimerRef.current) {
+        clearTimeout(collapseTimerRef.current);
+      }
+    };
+  }, []);
+
+  const toggleCollapsed = useCallback(() => {
+    const newCollapsed = !collapsed;
+    setCollapsed(newCollapsed);
+    setSidebarCollapsedStorage(newCollapsed);
+    if (isPeeking) {
+      setIsPeeking(false);
+    }
+  }, [collapsed, isPeeking]);
+
+  const handleSidebarMouseEnter = useCallback(() => {
+    if (!collapsed) return;
+    if (collapseTimerRef.current) {
+      clearTimeout(collapseTimerRef.current);
+      collapseTimerRef.current = null;
+    }
+    setIsPeeking(true);
+  }, [collapsed]);
+
+  const handleSidebarMouseLeave = useCallback(() => {
+    if (!collapsed) return;
+    collapseTimerRef.current = setTimeout(() => {
+      setIsPeeking(false);
+    }, 200);
+  }, [collapsed]);
 
   async function handleLogout() {
     try {
@@ -85,6 +146,9 @@ export default function AppShell({ children, user }: AppShellProps) {
     return true;
   };
 
+  // Show text labels when expanded or during hover peek
+  const showLabels = !collapsed || isPeeking;
+
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       {/* Command Menu - Triggered by Cmd+K */}
@@ -100,22 +164,27 @@ export default function AppShell({ children, user }: AppShellProps) {
       {/* Sidebar - Desktop */}
       <aside
         className={cn(
-          'hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-50 bg-background-sidebar transition-all duration-250 ease-linear-ease',
-          collapsed ? 'lg:w-20' : 'lg:w-64'
+          'hidden lg:flex lg:flex-col lg:fixed lg:inset-y-0 lg:z-50 bg-background-sidebar transition-all duration-200 ease-linear-ease',
+          collapsed && !isPeeking ? 'lg:w-16' : 'lg:w-60',
+          isPeeking && 'shadow-[4px_0_12px_rgba(0,0,0,0.15)]'
         )}
+        onMouseEnter={handleSidebarMouseEnter}
+        onMouseLeave={handleSidebarMouseLeave}
       >
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between px-4 border-b border-zinc-800">
-          {!collapsed && (
-            <Link href="/dashboard" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
+        <div className={cn(
+          'flex h-16 items-center border-b border-zinc-800 shrink-0',
+          showLabels ? 'px-4' : 'justify-center px-2'
+        )}>
+          {showLabels ? (
+            <Link href="/dashboard" className="flex items-center gap-2 overflow-hidden">
+              <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center shrink-0">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
-              <span className="text-text-inverse font-semibold text-base">Stone Henge</span>
+              <span className="text-text-inverse font-semibold text-base whitespace-nowrap">Stone Henge</span>
             </Link>
-          )}
-          {collapsed && (
-            <Link href="/dashboard" className="mx-auto">
+          ) : (
+            <Link href="/dashboard">
               <div className="w-8 h-8 rounded-lg bg-primary-600 flex items-center justify-center">
                 <span className="text-white font-bold text-lg">S</span>
               </div>
@@ -124,7 +193,7 @@ export default function AppShell({ children, user }: AppShellProps) {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto" aria-label="Main navigation">
           {navigation.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href);
@@ -134,18 +203,28 @@ export default function AppShell({ children, user }: AppShellProps) {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
+                  'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
                   'hover:bg-zinc-800',
                   active
                     ? 'bg-zinc-800 text-primary-600'
                     : 'text-zinc-400 hover:text-text-inverse',
-                  collapsed && 'justify-center',
-                  item.indent && !collapsed && 'pl-10 text-xs'
+                  !showLabels && 'justify-center px-2',
+                  item.indent && showLabels && 'pl-10 text-xs'
                 )}
-                title={collapsed ? item.name : undefined}
+                aria-label={item.name}
               >
+                {/* Active indicator bar in collapsed mode */}
+                {!showLabels && active && (
+                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary-600 rounded-r" />
+                )}
                 <Icon className={cn(item.indent ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
-                {!collapsed && <span>{item.name}</span>}
+                {showLabels && <span>{item.name}</span>}
+                {/* Tooltip in collapsed mode */}
+                {!showLabels && (
+                  <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
+                    {item.name}
+                  </span>
+                )}
               </Link>
             );
           })}
@@ -155,16 +234,16 @@ export default function AppShell({ children, user }: AppShellProps) {
         <div className="border-t border-zinc-800 p-4">
           <button
             className={cn(
-              'flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm transition-all duration-150',
+              'group relative flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm transition-all duration-150',
               'hover:bg-zinc-800 text-zinc-400 hover:text-text-inverse',
-              collapsed && 'justify-center'
+              !showLabels && 'justify-center px-2'
             )}
-            title={collapsed ? (user?.name || 'User Profile') : undefined}
+            aria-label={user?.name || 'User Profile'}
           >
             <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
               <User className="h-4 w-4 text-zinc-400" />
             </div>
-            {!collapsed && user && (
+            {showLabels && user && (
               <div className="flex-1 text-left overflow-hidden">
                 <p className="text-text-inverse text-sm font-medium truncate">{user.name}</p>
                 {user.organization && (
@@ -175,27 +254,43 @@ export default function AppShell({ children, user }: AppShellProps) {
                 )}
               </div>
             )}
+            {/* Tooltip in collapsed mode */}
+            {!showLabels && (
+              <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
+                {user?.name || 'User Profile'}
+              </span>
+            )}
           </button>
         </div>
 
         {/* Collapse Toggle */}
         <div className="border-t border-zinc-800 p-4">
           <button
-            onClick={() => setCollapsed(!collapsed)}
+            onClick={toggleCollapsed}
             className={cn(
-              'flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm transition-all duration-150',
+              'group relative flex items-center gap-3 w-full px-3 py-2 rounded-md text-sm transition-all duration-150',
               'hover:bg-zinc-800 text-zinc-400 hover:text-text-inverse',
-              collapsed && 'justify-center'
+              !showLabels && 'justify-center px-2'
             )}
-            title={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-expanded={!collapsed}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             {collapsed ? (
-              <ChevronRight className="h-5 w-5" />
+              <>
+                <ChevronRight className="h-5 w-5 shrink-0" />
+                {showLabels && <span>Expand</span>}
+              </>
             ) : (
               <>
-                <ChevronLeft className="h-5 w-5" />
+                <ChevronLeft className="h-5 w-5 shrink-0" />
                 <span>Collapse</span>
               </>
+            )}
+            {/* Tooltip in collapsed mode */}
+            {!showLabels && (
+              <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
+                Expand sidebar
+              </span>
             )}
           </button>
         </div>
@@ -277,9 +372,8 @@ export default function AppShell({ children, user }: AppShellProps) {
       {/* Main Content Area */}
       <div
         className={cn(
-          'flex-1 flex flex-col transition-all duration-250 ease-linear-ease',
-          'lg:ml-64',
-          collapsed && 'lg:ml-20'
+          'flex-1 flex flex-col transition-all duration-200 ease-linear-ease',
+          collapsed ? 'lg:ml-16' : 'lg:ml-60'
         )}
       >
         {/* Header */}
@@ -294,7 +388,7 @@ export default function AppShell({ children, user }: AppShellProps) {
 
           {/* Header content can be customized per page */}
           <div className="flex-1" />
-          
+
           {/* Right side of header - user info and logout */}
           <div className="flex items-center gap-4">
             {user && (
