@@ -295,6 +295,7 @@ export default function QuoteDetailClient({
   const [machineOverrides, setMachineOverrides] = useState<Record<string, string>>({});
 
   const editDataLoaded = useRef(false);
+  const addPieceRef = useRef<HTMLDivElement>(null);
 
   // ── Mode change handler ───────────────────────────────────────────────────
 
@@ -571,6 +572,15 @@ export default function QuoteDetailClient({
     }
   }, [editQuote?.customer]);
 
+  // Scroll to inline add piece form when it appears
+  useEffect(() => {
+    if (addingInlinePiece && addPieceRef.current) {
+      setTimeout(() => {
+        addPieceRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }, 100);
+    }
+  }, [addingInlinePiece]);
+
   // ── Metadata save handler ───────────────────────────────────────────────
   const handleMetadataSave = useCallback(async (
     updates: Record<string, unknown>,
@@ -640,13 +650,6 @@ export default function QuoteDetailClient({
     setAddingInlinePieceRoom(preselectedRoom || null);
     setSelectedPieceId(null);
     setIsAddingPiece(false);
-  };
-
-  const handleAddPieceSidebar = () => {
-    setSelectedPieceId(null);
-    setIsAddingPiece(true);
-    setSidebarOpen(true);
-    setAddingInlinePiece(false);
   };
 
   const handleCancelForm = () => {
@@ -1325,11 +1328,12 @@ export default function QuoteDetailClient({
                 }))
               );
 
-              const renderViewPieceCard = (piece: typeof allViewPieces[0]) => {
+              const renderViewPieceCard = (piece: typeof allViewPieces[0], pieceNumber: number) => {
                 const pb = viewBreakdownMap.get(piece.id);
                 return (
                   <PieceRow
                     key={piece.id}
+                    pieceNumber={pieceNumber}
                     piece={{
                       id: piece.id,
                       name: piece.name || 'Unnamed piece',
@@ -1352,13 +1356,14 @@ export default function QuoteDetailClient({
 
               if (viewMode === 'list') {
                 return allViewPieces.length > 0 ? (
-                  allViewPieces.map(renderViewPieceCard)
+                  allViewPieces.map((p, idx) => renderViewPieceCard(p, idx + 1))
                 ) : (
                   <p className="text-center text-gray-500 py-8">No pieces in this quote</p>
                 );
               }
 
               // By Room view
+              let viewGlobalIndex = 0;
               return (serverData.quote_rooms ?? []).map(room => {
                 const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
                 if (roomPieces.length === 0) return null;
@@ -1367,7 +1372,10 @@ export default function QuoteDetailClient({
                     <h3 className="text-sm font-semibold text-gray-600 px-1">
                       {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
                     </h3>
-                    {roomPieces.map(renderViewPieceCard)}
+                    {roomPieces.map(p => {
+                      viewGlobalIndex++;
+                      return renderViewPieceCard(p, viewGlobalIndex);
+                    })}
                   </div>
                 );
               });
@@ -1455,11 +1463,12 @@ export default function QuoteDetailClient({
       }
     }
 
-    const renderEditPieceCard = (p: QuotePiece) => {
+    const renderEditPieceCard = (p: QuotePiece, pieceNumber: number) => {
       const pb = breakdownMap.get(p.id);
       return (
         <PieceRow
           key={p.id}
+          pieceNumber={pieceNumber}
           piece={{
             id: p.id,
             name: p.name,
@@ -1555,13 +1564,6 @@ export default function QuoteDetailClient({
               <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
                 + Add Piece
               </button>
-              <button
-                onClick={handleAddPieceSidebar}
-                className="text-xs text-gray-500 hover:text-gray-700 underline"
-                title="Add piece using the sidebar form"
-              >
-                sidebar
-              </button>
             </div>
           </div>
 
@@ -1624,54 +1626,9 @@ export default function QuoteDetailClient({
             </div>
           )}
 
-          {/* Unified piece cards */}
-          <div className="p-4 space-y-2">
-            {viewMode === 'list' ? (
-              pieces.length > 0 ? (
-                pieces.map(renderEditPieceCard)
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  <p className="mb-2">No pieces added yet</p>
-                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
-                </div>
-              )
-            ) : (
-              rooms.length > 0 ? (
-                rooms.map(room => {
-                  const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
-                  return (
-                    <div key={room.id} className="space-y-2">
-                      <h3 className="text-sm font-semibold text-gray-600 px-1">
-                        {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                      </h3>
-                      {roomPieces.length > 0 ? (
-                        roomPieces.map(renderEditPieceCard)
-                      ) : (
-                        <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                          No pieces yet. Click &quot;+ Add Piece&quot; below to add one.
-                        </div>
-                      )}
-                      <button
-                        onClick={() => handleAddPiece(room.name)}
-                        className="w-full py-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg transition-colors"
-                      >
-                        + Add Piece to {room.name}
-                      </button>
-                    </div>
-                  );
-                })
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  <p className="mb-2">No pieces added yet</p>
-                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
-                </div>
-              )
-            )}
-          </div>
-
           {/* Inline Add Piece Editor */}
           {addingInlinePiece && (
-            <div className="border-t border-gray-200 p-4">
+            <div ref={addPieceRef} className="border-b border-gray-200 p-4">
               <h3 className="text-sm font-semibold text-gray-700 mb-3">
                 Add New Piece{addingInlinePieceRoom ? ` to ${addingInlinePieceRoom}` : ''}
               </h3>
@@ -1703,6 +1660,58 @@ export default function QuoteDetailClient({
               />
             </div>
           )}
+
+          {/* Unified piece cards */}
+          <div className="p-4 space-y-2">
+            {viewMode === 'list' ? (
+              pieces.length > 0 ? (
+                pieces.map((p, idx) => renderEditPieceCard(p, idx + 1))
+              ) : (
+                <div className="py-8 text-center text-gray-500">
+                  <p className="mb-2">No pieces added yet</p>
+                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
+                </div>
+              )
+            ) : (
+              rooms.length > 0 ? (
+                (() => {
+                  let globalIndex = 0;
+                  return rooms.map(room => {
+                    const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                    return (
+                      <div key={room.id} className="space-y-2">
+                        <h3 className="text-sm font-semibold text-gray-600 px-1">
+                          {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                        </h3>
+                        {roomPieces.length > 0 ? (
+                          roomPieces.map(p => {
+                            globalIndex++;
+                            return renderEditPieceCard(p, globalIndex);
+                          })
+                        ) : (
+                        <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                          No pieces yet. Click &quot;+ Add Piece&quot; below to add one.
+                        </div>
+                      )}
+                      <button
+                        onClick={() => handleAddPiece(room.name)}
+                        className="w-full py-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg transition-colors"
+                      >
+                        + Add Piece to {room.name}
+                      </button>
+                    </div>
+                  );
+                  });
+                })()
+              ) : (
+                <div className="py-8 text-center text-gray-500">
+                  <p className="mb-2">No pieces added yet</p>
+                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
+                </div>
+              )
+            )}
+          </div>
+
         </div>
 
         {/* Material Cost Section (edit mode — quote level) */}
@@ -1759,15 +1768,13 @@ export default function QuoteDetailClient({
         )}
 
         {/* Piece Editor */}
-        {(isAddingPiece || selectedPiece) ? (
+        {selectedPiece ? (
           <div className="card">
             <div className="p-4 border-b border-gray-200">
-              <h2 className="text-lg font-semibold">
-                {isAddingPiece ? 'Add New Piece' : 'Edit Piece'}
-              </h2>
+              <h2 className="text-lg font-semibold">Edit Piece</h2>
             </div>
             <PieceForm
-              piece={selectedPiece || undefined}
+              piece={selectedPiece}
               materials={materials}
               edgeTypes={edgeTypes}
               cutoutTypes={cutoutTypes}

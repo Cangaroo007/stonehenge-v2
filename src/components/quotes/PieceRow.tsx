@@ -65,6 +65,8 @@ interface InlineEditData {
 }
 
 interface PieceRowProps {
+  /** Sequential piece number for display */
+  pieceNumber?: number;
   /** Basic piece data */
   piece: {
     id: number;
@@ -539,6 +541,7 @@ function PieceVisualEditorSection({
 // ── Main PieceRow Component ─────────────────────────────────────────────────
 
 export default function PieceRow({
+  pieceNumber,
   piece,
   breakdown,
   machines = [],
@@ -576,7 +579,10 @@ export default function PieceRow({
           <div className="flex-1 min-w-0">
             {/* Line 1: Name + Cost */}
             <div className="flex items-center justify-between gap-3">
-              <span className="font-medium text-gray-900 truncate">{displayName}</span>
+              <span className="font-medium text-gray-900 truncate">
+                {pieceNumber != null && <span className="text-gray-400 font-mono text-sm mr-1.5">{pieceNumber}.</span>}
+                {displayName}
+              </span>
               <div className="flex items-center gap-2 flex-shrink-0">
                 {isOversize && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
