@@ -37,6 +37,7 @@ import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 import MaterialView from '@/components/quotes/MaterialView';
+import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 
 // View-mode components
@@ -280,6 +281,7 @@ export default function QuoteDetailClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
+  const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
@@ -719,6 +721,39 @@ export default function QuoteDetailClient({
     const materialName = material?.name ?? null;
     await handlePieceUpdate(pieceId, { materialId, materialName } as Partial<QuotePiece>);
   }, [materials, handlePieceUpdate]);
+
+  const handleBulkMaterialApply = useCallback(async (changes: { pieceId: number; toMaterialId: number }[]) => {
+    const toMaterial = materials.find(m => m.id === changes[0]?.toMaterialId);
+    if (!toMaterial) throw new Error('Material not found');
+
+    // Update each piece individually (no batch endpoint available)
+    for (const change of changes) {
+      const mat = materials.find(m => m.id === change.toMaterialId);
+      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${change.pieceId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialId: change.toMaterialId, materialName: mat?.name ?? null }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Failed to update piece ${change.pieceId}`);
+      }
+    }
+
+    // Update local state in one pass
+    setPieces(prev => prev.map(p => {
+      const change = changes.find(c => c.pieceId === p.id);
+      if (!change) return p;
+      const mat = materials.find(m => m.id === change.toMaterialId);
+      return { ...p, materialId: change.toMaterialId, materialName: mat?.name ?? null };
+    }));
+
+    // Single recalculation after all changes
+    triggerRecalculate();
+    triggerOptimise();
+    markAsChanged();
+    recalculateOptionsAfterPieceChange();
+  }, [quoteIdStr, materials, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -1678,6 +1713,14 @@ export default function QuoteDetailClient({
                   Material
                 </button>
               </div>
+              <button
+                onClick={() => setShowBulkSwap(!showBulkSwap)}
+                className={`px-3 py-1.5 text-sm font-medium border rounded-md transition-colors ${
+                  showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Bulk Swap
+              </button>
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -1800,6 +1843,29 @@ export default function QuoteDetailClient({
                 saving={saving}
                 isNew
                 onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
+              />
+            </div>
+          )}
+
+          {/* Bulk Material Swap Bar */}
+          {showBulkSwap && (
+            <div className="px-4 pt-4">
+              <BulkMaterialSwap
+                pieces={pieces.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  lengthMm: p.lengthMm,
+                  widthMm: p.widthMm,
+                  materialId: p.materialId,
+                  materialName: p.materialName,
+                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+                  roomName: p.quote_rooms?.name ?? null,
+                }))}
+                materials={materials}
+                selectedPieceIds={selectedPieceIds}
+                onApply={handleBulkMaterialApply}
+                onClose={() => setShowBulkSwap(false)}
+                quoteTotal={calculation?.total ?? null}
               />
             </div>
           )}
