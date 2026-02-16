@@ -1,6 +1,8 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 import { seedCategoryRates } from './seed-category-rates';
+import { seedEdgeProfileTemplates } from './seed-edge-templates';
+import { seedStarterTemplates } from './seed-starter-templates';
 
 const prisma = new PrismaClient();
 
@@ -744,6 +746,12 @@ async function main() {
   // SEED CATEGORY-AWARE PRICING TABLES
   // ============================================
   await seedCategoryRates(prisma);
+
+  // ============================================
+  // SEED EDGE PROFILE + STARTER TEMPLATES
+  // ============================================
+  await seedEdgeProfileTemplates();
+  await seedStarterTemplates();
 
   console.log('');
   console.log('🎉 Seeding complete!');

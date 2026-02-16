@@ -931,6 +931,23 @@ model edge_profile_templates {
   @@map("edge_profile_templates")
 }
 
+model starter_templates {
+  id           String   @id @default(cuid())
+  companyId    Int      @map("company_id")
+  name         String
+  description  String?
+  category     String   // kitchen, bathroom, laundry, multi-room
+  isBuiltIn    Boolean  @default(false) @map("is_built_in")
+  isShared     Boolean  @default(true)  @map("is_shared")
+  templateData Json     @map("template_data") // Full room/piece/edge/cutout structure
+  createdById  Int?     @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  @@unique([companyId, name])
+  @@map("starter_templates")
+}
+
 model unit_block_projects {
   id          Int                  @id @default(autoincrement())
   name        String
