@@ -31,6 +31,7 @@ import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
+import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
 
 // View-mode components
 import { DimensionsDisplay, AreaDisplay } from '@/components/ui/DimensionDisplay';
@@ -1313,7 +1314,7 @@ export default function QuoteDetailClient({
 
         {/* Expandable Cost Breakdown (view mode) */}
         {viewCalculation && viewCalculation.breakdown?.pieces && viewCalculation.breakdown.pieces.length > 0 && (
-          <div className="card">
+          <div id="cost-breakdown" className="card">
             <div className="p-4 border-b border-gray-200">
               <h3 className="text-lg font-semibold">Cost Breakdown</h3>
             </div>
@@ -1343,7 +1344,7 @@ export default function QuoteDetailClient({
 
         {/* Material Cost Section (view mode — quote level) */}
         {viewCalculation?.breakdown?.materials && (
-          <div className="card p-4 space-y-2">
+          <div id="material-section" className="card p-4 space-y-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
               Material
             </h3>
@@ -1356,7 +1357,7 @@ export default function QuoteDetailClient({
 
         {/* Quote-Level Cost Sections (view mode) */}
         {viewCalculation && (
-          <div className="card p-4">
+          <div id="quote-level-charges" className="card p-4">
             <QuoteLevelCostSections
               calculation={viewCalculation}
               mode="view"
@@ -1515,7 +1516,7 @@ export default function QuoteDetailClient({
 
         {/* Expandable Cost Breakdown per Piece */}
         {calculation?.breakdown?.pieces && calculation.breakdown.pieces.length > 0 && (
-          <div className="card">
+          <div id="cost-breakdown" className="card">
             <div className="p-4 border-b border-gray-200">
               <h2 className="text-lg font-semibold">Cost Breakdown</h2>
             </div>
@@ -1571,7 +1572,7 @@ export default function QuoteDetailClient({
 
         {/* Material Cost Section (edit mode — quote level) */}
         {calculation?.breakdown?.materials && (
-          <div className="card p-4 space-y-2">
+          <div id="material-section" className="card p-4 space-y-2">
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
               Material
             </h3>
@@ -1584,7 +1585,7 @@ export default function QuoteDetailClient({
 
         {/* Quote-Level Cost Sections */}
         {calculation && (
-          <div className="card p-4">
+          <div id="quote-level-charges" className="card p-4">
             <QuoteLevelCostSections
               calculation={calculation}
               mode="edit"
@@ -1750,6 +1751,13 @@ export default function QuoteDetailClient({
       >
         {mode === 'view' ? renderViewContent() : renderEditContent()}
       </QuoteLayout>
+
+      {/* Quote Cost Summary Bar — sticky bottom */}
+      {(calculation || viewCalculation) && (
+        <QuoteCostSummaryBar
+          calculation={(mode === 'edit' ? calculation : viewCalculation)!}
+        />
+      )}
 
       {/* Drawing Import Modal */}
       {showDrawingImport && editQuote && (
