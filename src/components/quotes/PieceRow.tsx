@@ -556,7 +556,6 @@ export default function PieceRow({
   onDuplicate,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
-  const [editExpanded, setEditExpanded] = useState(true);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
@@ -650,6 +649,22 @@ export default function PieceRow({
         <div className="px-4 py-3 border-t border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description</p>
           <p className="text-sm text-gray-700 whitespace-pre-wrap">{fullDescription}</p>
+        </div>
+      )}
+
+      {/* ── Inline Editor (dims / thickness / material / room — edit mode only) ── */}
+      {l1Expanded && canInlineEdit && (
+        <div className="px-4 pb-3 pt-3 border-t border-gray-100">
+          <InlinePieceEditor
+            piece={fullPiece}
+            materials={editData.materials}
+            edgeTypes={editData.edgeTypes}
+            cutoutTypes={editData.cutoutTypes}
+            thicknessOptions={editData.thicknessOptions}
+            roomNames={editData.roomNames}
+            onSave={onSavePiece}
+            saving={savingPiece}
+          />
         </div>
       )}
 
@@ -813,35 +828,6 @@ export default function PieceRow({
         </div>
       )}
 
-      {/* ── Inline Edit Section (edit mode only) ── */}
-      {l1Expanded && canInlineEdit && (
-        <div className="border-t border-gray-200">
-          {/* Section header with collapse toggle */}
-          <button
-            onClick={(e) => { e.stopPropagation(); setEditExpanded(!editExpanded); }}
-            className="w-full flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 transition-colors"
-          >
-            <ChevronIcon expanded={editExpanded} />
-            Edit Piece
-          </button>
-
-          {/* Editor content */}
-          {editExpanded && (
-            <div className="px-4 pb-4 pt-3">
-              <InlinePieceEditor
-                piece={fullPiece}
-                materials={editData.materials}
-                edgeTypes={editData.edgeTypes}
-                cutoutTypes={editData.cutoutTypes}
-                thicknessOptions={editData.thicknessOptions}
-                roomNames={editData.roomNames}
-                onSave={onSavePiece}
-                saving={savingPiece}
-              />
-            </div>
-          )}
-        </div>
-      )}
     </div>
   );
 }
