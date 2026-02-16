@@ -45,6 +45,7 @@ function PerSlabDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakd
   const rate = 'slabRate' in data ? (data.slabRate ?? 0) : 0;
   const total = 'totalCost' in data ? data.totalCost : data.total;
   const isEstimate = !data.slabCountFromOptimiser;
+  const totalArea = data.totalAreaM2 ?? 0;
 
   return (
     <div className="space-y-2">
@@ -63,7 +64,7 @@ function PerSlabDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakd
       )}
       <DetailRow
         label="Total piece area"
-        value={`${data.totalAreaM2.toFixed(2)} m\u00B2`}
+        value={`${totalArea.toFixed(2)} m\u00B2`}
       />
       {isEstimate && (
         <p className="text-xs text-amber-600 italic">
@@ -81,27 +82,29 @@ function PerSqmDetail({ data }: { data: MaterialBreakdown | MaterialGroupBreakdo
   const wasteFactor = 1 + wastePct / 100;
   const ratePerSqm = 'ratePerSqm' in data ? (data.ratePerSqm ?? 0) : ('appliedRate' in data ? data.appliedRate : 0);
   const total = 'totalCost' in data ? data.totalCost : data.total;
+  const totalArea = data.totalAreaM2 ?? 0;
+  const adjustedArea = data.adjustedAreaM2 ?? 0;
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-start text-sm">
         <span className="text-gray-600">
-          {data.totalAreaM2.toFixed(2)} m&sup2; &times; waste factor {wasteFactor.toFixed(2)} &times; {formatCurrency(ratePerSqm)}/m&sup2;
+          {totalArea.toFixed(2)} m&sup2; &times; waste factor {wasteFactor.toFixed(2)} &times; {formatCurrency(ratePerSqm)}/m&sup2;
         </span>
         <span className="font-medium tabular-nums">{formatCurrency(total)}</span>
       </div>
       <DetailRow
         label="Net piece area"
-        value={`${data.totalAreaM2.toFixed(2)} m\u00B2`}
+        value={`${totalArea.toFixed(2)} m\u00B2`}
       />
       <DetailRow
         label="Waste factor"
         value={`${wastePct.toFixed(0)}%`}
       />
-      {data.adjustedAreaM2 && (
+      {adjustedArea > 0 && (
         <DetailRow
           label="Effective area"
-          value={`${data.adjustedAreaM2.toFixed(2)} m\u00B2`}
+          value={`${adjustedArea.toFixed(2)} m\u00B2`}
         />
       )}
     </div>
@@ -115,7 +118,7 @@ function MaterialSubSection({ group }: { group: MaterialGroupBreakdown }) {
   const isSlab = group.pricingBasis === 'PER_SLAB';
   const summaryText = isSlab
     ? `${group.slabCount ?? 0} slab${(group.slabCount ?? 0) !== 1 ? 's' : ''}`
-    : `${group.totalAreaM2.toFixed(2)} m\u00B2`;
+    : `${(group.totalAreaM2 ?? 0).toFixed(2)} m\u00B2`;
 
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50">
@@ -167,7 +170,7 @@ export default function MaterialCostSection({ materials, pieceCount }: MaterialC
   // Collapsed summary
   const collapsedSummary = isSlab
     ? `${materialName} \u2014 ${materials.slabCount ?? 0} slab${(materials.slabCount ?? 0) !== 1 ? 's' : ''}`
-    : `${materialName} \u2014 ${materials.totalAreaM2.toFixed(2)} m\u00B2`;
+    : `${materialName} \u2014 ${(materials.totalAreaM2 ?? 0).toFixed(2)} m\u00B2`;
 
   return (
     <div className={`rounded-lg border ${total > 0 ? 'border-gray-200 bg-white' : 'border-gray-100 bg-gray-50/50'}`}>

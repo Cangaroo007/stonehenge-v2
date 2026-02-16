@@ -16,10 +16,11 @@ interface QuoteCostSummaryBarProps {
 
 function computeFabricationTotal(pieces: PiecePricingBreakdown[]): number {
   return pieces.reduce((sum, p) => {
+    if (!p.fabrication) return sum;
     const fabWithoutInstall =
-      p.fabrication.subtotal - (p.fabrication.installation?.total ?? 0);
+      (p.fabrication.subtotal ?? 0) - (p.fabrication.installation?.total ?? 0);
     const oversizeCost = p.oversize
-      ? p.oversize.joinCost + p.oversize.grainMatchingSurcharge
+      ? (p.oversize.joinCost ?? 0) + (p.oversize.grainMatchingSurcharge ?? 0)
       : 0;
     return sum + fabWithoutInstall + oversizeCost;
   }, 0);
@@ -27,7 +28,7 @@ function computeFabricationTotal(pieces: PiecePricingBreakdown[]): number {
 
 function computeInstallationTotal(pieces: PiecePricingBreakdown[]): number {
   return pieces.reduce((sum, p) => {
-    return sum + (p.fabrication.installation?.total ?? 0);
+    return sum + (p.fabrication?.installation?.total ?? 0);
   }, 0);
 }
 
@@ -74,28 +75,34 @@ export default function QuoteCostSummaryBar({
 
   // ── Derive values from calculation ──────────────────────────────────────
 
-  const pieces = (calculation.breakdown.pieces ?? []) as PiecePricingBreakdown[];
+  const breakdown = calculation.breakdown;
+  // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
+  if (!breakdown) {
+    return null;
+  }
+
+  const pieces = (breakdown.pieces ?? []) as PiecePricingBreakdown[];
 
   // Fabrication: per-piece fabrication subtotals minus installation, plus oversize
   // Fallback to edges + cutouts if no per-piece data
   const fabricationTotal =
     pieces.length > 0
       ? computeFabricationTotal(pieces)
-      : calculation.breakdown.edges.total + calculation.breakdown.cutouts.total;
+      : (breakdown.edges?.total ?? 0) + (breakdown.cutouts?.total ?? 0);
 
-  const materialTotal = calculation.breakdown.materials.total;
-  const deliveryTotal = calculation.breakdown.delivery?.finalCost ?? 0;
-  const templatingTotal = calculation.breakdown.templating?.finalCost ?? 0;
+  const materialTotal = breakdown.materials?.total ?? 0;
+  const deliveryTotal = breakdown.delivery?.finalCost ?? 0;
+  const templatingTotal = breakdown.templating?.finalCost ?? 0;
   const installationTotal =
     pieces.length > 0 ? computeInstallationTotal(pieces) : 0;
 
-  const subtotal = calculation.subtotal;
-  const discountAmount = calculation.totalDiscount;
+  const subtotal = calculation.subtotal ?? 0;
+  const discountAmount = calculation.totalDiscount ?? 0;
   const discountPercent =
     subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0;
-  const adjustedSubtotal = calculation.total;
-  const gstAmount = calculation.total * 0.1;
-  const grandTotal = calculation.total * 1.1;
+  const adjustedSubtotal = calculation.total ?? 0;
+  const gstAmount = (calculation.total ?? 0) * 0.1;
+  const grandTotal = (calculation.total ?? 0) * 1.1;
 
   // ── Scroll handler ─────────────────────────────────────────────────────
 

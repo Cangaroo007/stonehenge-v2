@@ -408,7 +408,7 @@ function PieceVisualEditorSection({
   // Also build cutout display from breakdown for view mode when fullPiece is not available
   const breakdownCutouts = useMemo(() => {
     if (fullPiece) return []; // prefer fullPiece data
-    if (!breakdown) return [];
+    if (!breakdown?.fabrication?.cutouts) return [];
     return breakdown.fabrication.cutouts.map((c, idx) => ({
       id: `bd_${c.cutoutTypeId}_${idx}`,
       typeId: c.cutoutTypeId,
