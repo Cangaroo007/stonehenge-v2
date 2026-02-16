@@ -1,0 +1,628 @@
+[
+  {
+    "name": "Standard Kitchen",
+    "description": "L-shaped kitchen with benchtop, splashback, and waterfall end",
+    "category": "kitchen",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Main Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2400,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2400,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 2 }
+            ],
+            "relatedTo": { "pieceName": "Main Benchtop", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Waterfall End",
+            "pieceType": "WATERFALL",
+            "lengthMm": 900,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "raw", "bottom": "raw", "left": "polished", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Main Benchtop", "relationType": "WATERFALL" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kitchen — No Waterfall",
+    "description": "Benchtop and splashback only, no waterfall end",
+    "category": "kitchen",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Main Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2400,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2400,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 2 }
+            ],
+            "relatedTo": { "pieceName": "Main Benchtop", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kitchen — Island",
+    "description": "Main bench with splashback, island bench, and island waterfall",
+    "category": "kitchen",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Main Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 3000,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 },
+              { "type": "Cooktop/Hotplate", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 3000,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 3 }
+            ],
+            "relatedTo": { "pieceName": "Main Benchtop", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Island Bench",
+            "pieceType": "ISLAND",
+            "lengthMm": 2400,
+            "widthMm": 1000,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "polished", "left": "polished", "right": "polished" },
+            "cutouts": []
+          },
+          {
+            "name": "Island Waterfall",
+            "pieceType": "WATERFALL",
+            "lengthMm": 900,
+            "widthMm": 1000,
+            "thicknessMm": 20,
+            "edges": { "top": "raw", "bottom": "raw", "left": "polished", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Island Bench", "relationType": "WATERFALL" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kitchen — L-Shape",
+    "description": "L-shaped kitchen with two benchtop runs, corner join, and splashback",
+    "category": "kitchen",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Benchtop Run 1",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2400,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "polished" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Benchtop Run 2",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 1800,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "polished", "right": "raw" },
+            "cutouts": [
+              { "type": "Cooktop/Hotplate", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Splashback Run 1",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2400,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 2 }
+            ],
+            "relatedTo": { "pieceName": "Benchtop Run 1", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Splashback Run 2",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1800,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 1 }
+            ],
+            "relatedTo": { "pieceName": "Benchtop Run 2", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Kitchen — U-Shape",
+    "description": "U-shaped kitchen with three benchtop runs and two splashbacks",
+    "category": "kitchen",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Benchtop — Left Run",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2100,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "polished" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Benchtop — Centre Run",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 1800,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Cooktop/Hotplate", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Benchtop — Right Run",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2100,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "polished", "right": "raw" },
+            "cutouts": []
+          },
+          {
+            "name": "Splashback — Left",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2100,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 2 }
+            ],
+            "relatedTo": { "pieceName": "Benchtop — Left Run", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Splashback — Right",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2100,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 1 }
+            ],
+            "relatedTo": { "pieceName": "Benchtop — Right Run", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Bathroom Vanity — Single",
+    "description": "Single vanity benchtop with basin cutout",
+    "category": "bathroom",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Bathroom",
+        "pieces": [
+          {
+            "name": "Vanity Top",
+            "pieceType": "VANITY",
+            "lengthMm": 900,
+            "widthMm": 500,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Bathroom Vanity — Double",
+    "description": "Double vanity with splashback",
+    "category": "bathroom",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Bathroom",
+        "pieces": [
+          {
+            "name": "Double Vanity Top",
+            "pieceType": "VANITY",
+            "lengthMm": 1500,
+            "widthMm": 500,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 2 },
+              { "type": "Tap Hole", "quantity": 2 }
+            ]
+          },
+          {
+            "name": "Vanity Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1500,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Double Vanity Top", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Ensuite — Compact",
+    "description": "Small ensuite vanity",
+    "category": "bathroom",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Ensuite",
+        "pieces": [
+          {
+            "name": "Ensuite Vanity",
+            "pieceType": "VANITY",
+            "lengthMm": 900,
+            "widthMm": 450,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Laundry — Standard",
+    "description": "Standard laundry benchtop with splashback",
+    "category": "laundry",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Laundry",
+        "pieces": [
+          {
+            "name": "Laundry Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 1500,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Drop-in Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Laundry Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1500,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 1 }
+            ],
+            "relatedTo": { "pieceName": "Laundry Benchtop", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Full Apartment (Multi-Room)",
+    "description": "Kitchen, bathroom, and laundry — typical apartment fitout",
+    "category": "multi-room",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Kitchen Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 2400,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 },
+              { "type": "Cooktop/Hotplate", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Kitchen Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 2400,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 2 }
+            ],
+            "relatedTo": { "pieceName": "Kitchen Benchtop", "relationType": "SPLASHBACK" }
+          }
+        ]
+      },
+      {
+        "name": "Bathroom",
+        "pieces": [
+          {
+            "name": "Vanity Top",
+            "pieceType": "VANITY",
+            "lengthMm": 1200,
+            "widthMm": 500,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Vanity Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1200,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Vanity Top", "relationType": "SPLASHBACK" }
+          }
+        ]
+      },
+      {
+        "name": "Laundry",
+        "pieces": [
+          {
+            "name": "Laundry Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 1200,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Drop-in Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Laundry Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1200,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 1 }
+            ],
+            "relatedTo": { "pieceName": "Laundry Benchtop", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Laundry Waterfall End",
+            "pieceType": "WATERFALL",
+            "lengthMm": 900,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "raw", "bottom": "raw", "left": "polished", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Laundry Benchtop", "relationType": "WATERFALL" }
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "name": "Builder Standard Unit",
+    "description": "Kitchen, bathroom, ensuite, and laundry — typical builder spec home",
+    "category": "multi-room",
+    "isBuiltIn": true,
+    "rooms": [
+      {
+        "name": "Kitchen",
+        "pieces": [
+          {
+            "name": "Kitchen Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 3600,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "polished" },
+            "cutouts": [
+              { "type": "Undermount Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 },
+              { "type": "Cooktop/Hotplate", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Kitchen Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 3600,
+            "widthMm": 150,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 3 }
+            ],
+            "relatedTo": { "pieceName": "Kitchen Benchtop", "relationType": "SPLASHBACK" }
+          },
+          {
+            "name": "Island Bench",
+            "pieceType": "ISLAND",
+            "lengthMm": 2100,
+            "widthMm": 900,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "polished", "left": "polished", "right": "polished" },
+            "cutouts": []
+          }
+        ]
+      },
+      {
+        "name": "Bathroom",
+        "pieces": [
+          {
+            "name": "Bathroom Vanity",
+            "pieceType": "VANITY",
+            "lengthMm": 1200,
+            "widthMm": 500,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Bathroom Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1200,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Bathroom Vanity", "relationType": "SPLASHBACK" }
+          }
+        ]
+      },
+      {
+        "name": "Ensuite",
+        "pieces": [
+          {
+            "name": "Ensuite Double Vanity",
+            "pieceType": "VANITY",
+            "lengthMm": 1500,
+            "widthMm": 500,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Basin", "quantity": 2 },
+              { "type": "Tap Hole", "quantity": 2 }
+            ]
+          },
+          {
+            "name": "Ensuite Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1500,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [],
+            "relatedTo": { "pieceName": "Ensuite Double Vanity", "relationType": "SPLASHBACK" }
+          }
+        ]
+      },
+      {
+        "name": "Laundry",
+        "pieces": [
+          {
+            "name": "Laundry Benchtop",
+            "pieceType": "BENCHTOP",
+            "lengthMm": 1800,
+            "widthMm": 600,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "Drop-in Sink", "quantity": 1 },
+              { "type": "Tap Hole", "quantity": 1 }
+            ]
+          },
+          {
+            "name": "Laundry Splashback",
+            "pieceType": "SPLASHBACK",
+            "lengthMm": 1800,
+            "widthMm": 100,
+            "thicknessMm": 20,
+            "edges": { "top": "polished", "bottom": "raw", "left": "raw", "right": "raw" },
+            "cutouts": [
+              { "type": "GPO/Powerpoint", "quantity": 1 }
+            ],
+            "relatedTo": { "pieceName": "Laundry Benchtop", "relationType": "SPLASHBACK" }
+          }
+        ]
+      }
+    ]
+  }
+]
