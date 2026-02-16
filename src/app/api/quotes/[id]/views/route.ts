@@ -68,7 +68,16 @@ export async function GET(
       take: 50, // Limit to last 50 views
     });
 
-    return NextResponse.json(views);
+    // Map snake_case Prisma fields to camelCase for the frontend
+    const mapped = views.map((v) => ({
+      id: v.id,
+      viewedAt: v.viewed_at,
+      ipAddress: v.ip_address,
+      userAgent: v.user_agent,
+      user: v.user,
+    }));
+
+    return NextResponse.json(mapped);
   } catch (error) {
     console.error('Error fetching quote views:', error);
     return NextResponse.json(
