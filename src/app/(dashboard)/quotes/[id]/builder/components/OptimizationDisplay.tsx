@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { SlabResults } from '@/components/slab-optimizer';
 import { OptimizationResult } from '@/types/slab-optimization';
+import { SlabEdgeAllowancePrompt } from './SlabEdgeAllowancePrompt';
 
 interface OptimizationDisplayProps {
   quoteId: string;
@@ -15,6 +16,10 @@ interface OptimizationDisplayProps {
   hasMaterial?: boolean;
   /** Non-null when the last optimisation attempt failed */
   optimiserError?: string | null;
+  /** Quote-level slab edge allowance (mm), null if not set */
+  quoteEdgeAllowanceMm?: number | null;
+  /** Callback when edge allowance changes (triggers re-optimisation) */
+  onEdgeAllowanceApplied?: () => void;
 }
 
 export function OptimizationDisplay({
@@ -24,10 +29,50 @@ export function OptimizationDisplay({
   hasPieces = true,
   hasMaterial = true,
   optimiserError = null,
+  quoteEdgeAllowanceMm,
+  onEdgeAllowanceApplied,
 }: OptimizationDisplayProps) {
   const [optimization, setOptimization] = useState<any>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Edge allowance state
+  const [pricingDefaultAllowance, setPricingDefaultAllowance] = useState<number | null | undefined>(undefined);
+  const [localQuoteAllowance, setLocalQuoteAllowance] = useState<number | null | undefined>(quoteEdgeAllowanceMm);
+
+  // Resolved allowance: quote override -> tenant default -> 0
+  const resolvedAllowance = localQuoteAllowance
+    ?? pricingDefaultAllowance
+    ?? 0;
+
+  // Whether to show the inline prompt
+  const needsPrompt = localQuoteAllowance === null && pricingDefaultAllowance === null;
+
+  // Fetch pricing settings for edge allowance default
+  useEffect(() => {
+    const fetchDefault = async () => {
+      try {
+        const res = await fetch('/api/admin/pricing/settings');
+        if (res.ok) {
+          const data = await res.json();
+          setPricingDefaultAllowance(data.slabEdgeAllowanceMm ?? null);
+        }
+      } catch {
+        setPricingDefaultAllowance(null);
+      }
+    };
+    fetchDefault();
+  }, []);
+
+  // Sync with prop changes
+  useEffect(() => {
+    setLocalQuoteAllowance(quoteEdgeAllowanceMm);
+  }, [quoteEdgeAllowanceMm]);
+
+  const handleEdgeAllowanceApplied = useCallback((allowanceMm: number) => {
+    setLocalQuoteAllowance(allowanceMm);
+    onEdgeAllowanceApplied?.();
+  }, [onEdgeAllowanceApplied]);
 
   useEffect(() => {
     const loadOptimization = async () => {
@@ -198,7 +243,22 @@ export function OptimizationDisplay({
       <div className="card p-4">
         {optimiserError && (
           <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
-            ⚠️ {optimiserError} — slab count may be outdated
+            {optimiserError} — slab count may be outdated
+          </div>
+        )}
+        {/* Edge allowance prompt when no default is set */}
+        {needsPrompt && hasPieces && (
+          <div className="mb-3">
+            <SlabEdgeAllowancePrompt
+              quoteId={quoteId}
+              onApply={handleEdgeAllowanceApplied}
+            />
+          </div>
+        )}
+        {/* Warning when running with no allowance */}
+        {needsPrompt && (
+          <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded px-3 py-2 mb-3">
+            No edge allowance set — slab count may be underestimated
           </div>
         )}
         <div className="text-center py-12 text-gray-500">
@@ -215,15 +275,37 @@ export function OptimizationDisplay({
     );
   }
 
+  // ── Usable slab area info ──────────────────────────────────────────────
+  const usableWidth = optimization.slabWidth - (resolvedAllowance * 2);
+  const usableHeight = optimization.slabHeight - (resolvedAllowance * 2);
+
   // ── Results display ──────────────────────────────────────────────────────
 
   return (
     <div className="card">
       {optimiserError && (
         <div className="text-sm text-amber-600 bg-amber-50 border-b border-amber-200 px-4 py-2">
-          ⚠️ {optimiserError} — slab count may be outdated
+          {optimiserError} — slab count may be outdated
         </div>
       )}
+
+      {/* Edge allowance prompt when no default is set */}
+      {needsPrompt && (
+        <div className="p-4 border-b border-gray-200">
+          <SlabEdgeAllowancePrompt
+            quoteId={quoteId}
+            onApply={handleEdgeAllowanceApplied}
+          />
+        </div>
+      )}
+
+      {/* Warning when running with no allowance */}
+      {needsPrompt && (
+        <div className="text-sm text-amber-600 bg-amber-50 border-b border-amber-200 px-4 py-2">
+          No edge allowance set — slab count may be underestimated
+        </div>
+      )}
+
       {/* Header with optimising indicator */}
       <div className="p-4 border-b border-gray-200 flex items-center justify-between">
         <div className="flex items-center gap-3">
@@ -242,10 +324,15 @@ export function OptimizationDisplay({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-col items-end gap-0.5">
           <span className="text-xs text-gray-500">
             Slab: {optimization.slabWidth}&times;{optimization.slabHeight}mm &middot; Kerf: {optimization.kerfWidth}mm
           </span>
+          {resolvedAllowance > 0 && (
+            <span className="text-xs text-gray-500">
+              Usable: {usableWidth.toLocaleString()}&times;{usableHeight.toLocaleString()}mm ({resolvedAllowance}mm edge allowance per side)
+            </span>
+          )}
         </div>
       </div>
 

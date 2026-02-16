@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
         grainMatchingSurchargePercent: '15.00',
         cutoutThicknessMultiplier: '1.00',
         waterfallPricingMethod: 'FIXED_PER_END',
+        slabEdgeAllowanceMm: null,
         organisationId
       });
     }
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
+      slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -145,6 +147,16 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    if (body.slabEdgeAllowanceMm !== undefined && body.slabEdgeAllowanceMm !== null) {
+      const val = Number(body.slabEdgeAllowanceMm);
+      if (isNaN(val) || val < 0 || val > 50) {
+        return NextResponse.json(
+          { error: 'Slab edge allowance must be between 0 and 50mm' },
+          { status: 400 }
+        );
+      }
+    }
+
     // Check if settings already exist
     const existingSettings = await prisma.pricing_settings.findUnique({
       where: { organisation_id: organisationId }
@@ -176,6 +188,9 @@ export async function PUT(request: NextRequest) {
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent !== undefined ? parseFloat(body.grainMatchingSurchargePercent) : undefined,
           cutout_thickness_multiplier: body.cutoutThicknessMultiplier !== undefined ? parseFloat(body.cutoutThicknessMultiplier) : undefined,
           waterfall_pricing_method: body.waterfallPricingMethod || undefined,
+          slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined
+            ? (body.slabEdgeAllowanceMm === null ? null : parseInt(String(body.slabEdgeAllowanceMm), 10))
+            : undefined,
           updated_at: new Date(),
         }
       });
@@ -196,6 +211,9 @@ export async function PUT(request: NextRequest) {
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent ? parseFloat(body.grainMatchingSurchargePercent) : 15.0,
           cutout_thickness_multiplier: body.cutoutThicknessMultiplier ? parseFloat(body.cutoutThicknessMultiplier) : 1.0,
           waterfall_pricing_method: body.waterfallPricingMethod || 'FIXED_PER_END',
+          slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined && body.slabEdgeAllowanceMm !== null
+            ? parseInt(String(body.slabEdgeAllowanceMm), 10)
+            : null,
           updated_at: new Date(),
         }
       });
@@ -216,6 +234,7 @@ export async function PUT(request: NextRequest) {
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
+      slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };

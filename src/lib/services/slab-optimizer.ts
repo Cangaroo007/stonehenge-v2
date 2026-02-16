@@ -292,7 +292,11 @@ function preprocessOversizePieces(
  * Main optimization function using First Fit Decreasing algorithm
  */
 export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
-  const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation } = input;
+  const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation, edgeAllowanceMm = 0 } = input;
+
+  // Usable dimensions after subtracting edge allowance from both sides
+  const usableWidth = slabWidth - (edgeAllowanceMm * 2);
+  const usableHeight = slabHeight - (edgeAllowanceMm * 2);
 
   // Handle empty input
   if (pieces.length === 0) {
@@ -312,10 +316,11 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // ── Step 1: Pre-process oversize pieces ───────────────────────────────────
   // Split any piece that exceeds slab dimensions into segments that fit.
   // This MUST happen before FFD to prevent pieces being silently dropped.
+  // Use usable dimensions (after edge allowance) for fitting checks.
   const { processed: normalizedPieces, warnings } = preprocessOversizePieces(
     pieces as OptimizationPiece[],
-    slabWidth,
-    slabHeight,
+    usableWidth,
+    usableHeight,
     kerfWidth,
     allowRotation,
   );
@@ -371,12 +376,12 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     const pieceWidth = piece.width + kerfWidth;
     const pieceHeight = piece.height + kerfWidth;
 
-    // Check if piece can fit on a slab at all
-    const fitsNormal = pieceWidth <= slabWidth && pieceHeight <= slabHeight;
+    // Check if piece can fit on the usable area of a slab
+    const fitsNormal = pieceWidth <= usableWidth && pieceHeight <= usableHeight;
     const fitsRotated = allowRotation &&
                         (piece.canRotate !== false) &&
-                        pieceHeight <= slabWidth &&
-                        pieceWidth <= slabHeight;
+                        pieceHeight <= usableWidth &&
+                        pieceWidth <= usableHeight;
 
     if (!fitsNormal && !fitsRotated) {
       unplacedPieces.push(piece.id);
@@ -412,7 +417,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
 
     // Start new slab if needed
     if (!placed) {
-      const newSlab = createSlab(slabWidth, slabHeight);
+      const newSlab = createSlab(usableWidth, usableHeight);
       const slabIndex = slabs.length;
 
       // Prefer normal orientation for new slab
@@ -489,6 +494,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     unplacedPieces,
     laminationSummary,
     warnings: warnings.length > 0 ? warnings : undefined,
+    edgeAllowanceMm: edgeAllowanceMm > 0 ? edgeAllowanceMm : undefined,
   };
 }
 

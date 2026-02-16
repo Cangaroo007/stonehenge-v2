@@ -1660,6 +1660,7 @@ export default function QuoteDetailClient({
           hasPieces={pieces.length > 0}
           hasMaterial={pieces.some(p => !!p.materialId || !!p.materialName)}
           optimiserError={optimiserError}
+          onEdgeAllowanceApplied={triggerOptimise}
         />
       );
     }
