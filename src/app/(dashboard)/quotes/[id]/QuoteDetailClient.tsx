@@ -482,6 +482,11 @@ export default function QuoteDetailClient({
     autoReOptimize();
   }, [triggerRecalculate, autoReOptimize]);
 
+  // Track quote view on page load
+  useEffect(() => {
+    fetch(`/api/quotes/${serverData.id}/track-view`, { method: 'POST' }).catch(() => {});
+  }, [serverData.id]);
+
   // Load edit-mode data when switching to edit or on initial mount in edit mode
   useEffect(() => {
     if (mode === 'edit' && !editDataLoaded.current) {
@@ -1099,6 +1104,10 @@ export default function QuoteDetailClient({
       );
     }
 
+    if (activeTab === 'views') {
+      return <QuoteViewTracker quoteId={serverData.id} showHistory={true} trackOnMount={false} />;
+    }
+
     if (activeTab === 'optimiser') {
       return <OptimizationDisplay quoteId={quoteIdStr} refreshKey={0} />;
     }
@@ -1106,9 +1115,6 @@ export default function QuoteDetailClient({
     // Pieces & Pricing tab (view mode)
     return (
       <div className="space-y-6">
-        {/* View Tracking */}
-        <QuoteViewTracker quoteId={serverData.id} showHistory={true} />
-
         {/* Signature Section */}
         <QuoteSignatureSection
           quoteId={serverData.id}
@@ -1395,6 +1401,10 @@ export default function QuoteDetailClient({
           <VersionHistoryTab quoteId={quoteId} />
         </div>
       );
+    }
+
+    if (activeTab === 'views') {
+      return <QuoteViewTracker quoteId={serverData.id} showHistory={true} trackOnMount={false} />;
     }
 
     if (activeTab === 'optimiser') {
