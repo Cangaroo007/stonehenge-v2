@@ -28,6 +28,8 @@ interface UseAutoSlabOptimiserResult {
   optimisationRefreshKey: number;
   /** True while optimisation is in-flight */
   isOptimising: boolean;
+  /** Non-null when the last optimisation attempt failed */
+  optimiserError: string | null;
   /** Manually trigger an optimisation (e.g. after machine override change) */
   triggerOptimise: () => void;
 }
@@ -57,6 +59,7 @@ export function useAutoSlabOptimiser({
 }: UseAutoSlabOptimiserProps): UseAutoSlabOptimiserResult {
   const [optimisationRefreshKey, setOptimisationRefreshKey] = useState(0);
   const [isOptimising, setIsOptimising] = useState(false);
+  const [optimiserError, setOptimiserError] = useState<string | null>(null);
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const pendingRef = useRef(false);
@@ -102,7 +105,7 @@ export function useAutoSlabOptimiser({
       }
 
       // Run the optimisation
-      await fetch(`/api/quotes/${quoteId}/optimize`, {
+      const postRes = await fetch(`/api/quotes/${quoteId}/optimize`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -113,11 +116,24 @@ export function useAutoSlabOptimiser({
         }),
       });
 
+      if (!postRes.ok) {
+        const errorText = await postRes.text().catch(() => 'Unknown error');
+        console.error(`[SlabOptimiser] API error ${postRes.status}:`, errorText);
+        if (mountedRef.current) {
+          setOptimiserError(`Optimisation failed (${postRes.status})`);
+        }
+        return;
+      }
+
       if (mountedRef.current) {
+        setOptimiserError(null);
         setOptimisationRefreshKey((n) => n + 1);
       }
     } catch (err) {
-      console.error('Auto slab optimisation failed:', err);
+      console.error('[SlabOptimiser] Failed to run optimisation:', err);
+      if (mountedRef.current) {
+        setOptimiserError('Optimisation failed — network error');
+      }
     } finally {
       isOptimiseInFlightRef.current = false;
       if (mountedRef.current) setIsOptimising(false);
@@ -173,6 +189,7 @@ export function useAutoSlabOptimiser({
   return {
     optimisationRefreshKey,
     isOptimising,
+    optimiserError,
     triggerOptimise,
   };
 }
