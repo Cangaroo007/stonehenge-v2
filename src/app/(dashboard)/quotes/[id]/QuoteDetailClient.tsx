@@ -31,6 +31,12 @@ import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
+import OptionTabsBar from '@/components/quotes/OptionTabsBar';
+import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
+import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
+import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
+import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
+import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 
 // View-mode components
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
@@ -296,6 +302,31 @@ export default function QuoteDetailClient({
 
   const editDataLoaded = useRef(false);
   const addPieceRef = useRef<HTMLDivElement>(null);
+
+  // ── Quote Options state ─────────────────────────────────────────────────
+  const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
+  const [showOverrideEditor, setShowOverrideEditor] = useState<number | null>(null); // pieceId being overridden
+  const [optionCalculations, setOptionCalculations] = useState<Record<number, CalculationResult>>({});
+  const quoteOptions = useQuoteOptions({
+    quoteId: quoteIdStr,
+    enabled: mode === 'edit' && !editLoading && editDataLoaded.current,
+  });
+
+  // Track whether options exist (to show/hide tabs bar)
+  const hasOptions = quoteOptions.options.length > 0;
+
+  // Get override map for the active option
+  const activeOverrideMap = useMemo(() => {
+    if (!quoteOptions.activeOptionId) return new Map();
+    return quoteOptions.getOverrideMap(quoteOptions.activeOptionId);
+  }, [quoteOptions]);
+
+  // Recalculate all options when base pieces change
+  const recalculateOptionsAfterPieceChange = useCallback(async () => {
+    if (quoteOptions.options.length > 0) {
+      await quoteOptions.recalculateAllOptions();
+    }
+  }, [quoteOptions]);
 
   // ── Mode change handler ───────────────────────────────────────────────────
 
@@ -674,11 +705,12 @@ export default function QuoteDetailClient({
       triggerRecalculate();
       triggerOptimise();
       markAsChanged();
+      recalculateOptionsAfterPieceChange();
     } catch (err) {
       console.error('Failed to update piece:', err);
       await fetchQuote();
     }
-  }, [quoteIdStr, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote]);
+  }, [quoteIdStr, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -703,6 +735,7 @@ export default function QuoteDetailClient({
       triggerRecalculate();
       triggerOptimise();
       markAsChanged();
+      recalculateOptionsAfterPieceChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
     } finally {
@@ -737,12 +770,13 @@ export default function QuoteDetailClient({
       triggerRecalculate();
       triggerOptimise();
       markAsChanged();
+      recalculateOptionsAfterPieceChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
     } finally {
       setSaving(false);
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
@@ -779,6 +813,7 @@ export default function QuoteDetailClient({
       triggerRecalculate();
       triggerOptimise();
       markAsChanged();
+      recalculateOptionsAfterPieceChange();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete piece');
     } finally {
@@ -1465,57 +1500,104 @@ export default function QuoteDetailClient({
 
     const renderEditPieceCard = (p: QuotePiece, pieceNumber: number) => {
       const pb = breakdownMap.get(p.id);
+      const pieceOverride = activeOverrideMap.get(p.id);
+      const isNonBaseOption = quoteOptions.activeOption && !quoteOptions.activeOption.isBase;
       return (
-        <PieceRow
-          key={p.id}
-          pieceNumber={pieceNumber}
-          piece={{
-            id: p.id,
-            name: p.name,
-            description: p.description,
-            lengthMm: p.lengthMm,
-            widthMm: p.widthMm,
-            thicknessMm: p.thicknessMm,
-            materialName: p.materialName,
-            edgeTop: p.edgeTop,
-            edgeBottom: p.edgeBottom,
-            edgeLeft: p.edgeLeft,
-            edgeRight: p.edgeRight,
-            roomName: p.quote_rooms?.name,
-          }}
-          breakdown={pb}
-          machines={machines}
-          machineOperationDefaults={machineOperationDefaults}
-          mode="edit"
-          onMachineChange={(_pieceId, operationType, machineId) => {
-            handleMachineOverride(operationType, machineId);
-          }}
-          fullPiece={{
-            id: p.id,
-            name: p.name,
-            lengthMm: p.lengthMm,
-            widthMm: p.widthMm,
-            thicknessMm: p.thicknessMm,
-            materialId: p.materialId,
-            materialName: p.materialName,
-            edgeTop: p.edgeTop,
-            edgeBottom: p.edgeBottom,
-            edgeLeft: p.edgeLeft,
-            edgeRight: p.edgeRight,
-            cutouts: p.cutouts || [],
-            quote_rooms: p.quote_rooms,
-          }}
-          editData={inlineEditData}
-          onSavePiece={handleInlineSavePiece}
-          savingPiece={saving}
-          onDelete={handleDeletePiece}
-          onDuplicate={handleDuplicatePiece}
-        />
+        <div key={p.id}>
+          <PieceRow
+            pieceNumber={pieceNumber}
+            piece={{
+              id: p.id,
+              name: p.name,
+              description: p.description,
+              lengthMm: p.lengthMm,
+              widthMm: p.widthMm,
+              thicknessMm: p.thicknessMm,
+              materialName: p.materialName,
+              edgeTop: p.edgeTop,
+              edgeBottom: p.edgeBottom,
+              edgeLeft: p.edgeLeft,
+              edgeRight: p.edgeRight,
+              roomName: p.quote_rooms?.name,
+            }}
+            breakdown={pb}
+            machines={machines}
+            machineOperationDefaults={machineOperationDefaults}
+            mode="edit"
+            onMachineChange={(_pieceId, operationType, machineId) => {
+              handleMachineOverride(operationType, machineId);
+            }}
+            fullPiece={{
+              id: p.id,
+              name: p.name,
+              lengthMm: p.lengthMm,
+              widthMm: p.widthMm,
+              thicknessMm: p.thicknessMm,
+              materialId: p.materialId,
+              materialName: p.materialName,
+              edgeTop: p.edgeTop,
+              edgeBottom: p.edgeBottom,
+              edgeLeft: p.edgeLeft,
+              edgeRight: p.edgeRight,
+              cutouts: p.cutouts || [],
+              quote_rooms: p.quote_rooms,
+            }}
+            editData={inlineEditData}
+            onSavePiece={handleInlineSavePiece}
+            savingPiece={saving}
+            onDelete={handleDeletePiece}
+            onDuplicate={handleDuplicatePiece}
+          />
+          {/* Override indicator + actions for non-base options */}
+          {isNonBaseOption && (
+            <div className="flex items-center gap-2 px-3 pb-1">
+              {pieceOverride ? (
+                <PieceOverrideIndicator
+                  override={pieceOverride}
+                  onResetToBase={() => {
+                    quoteOptions.removeOverride(quoteOptions.activeOptionId!, pieceOverride.id);
+                  }}
+                  mode="edit"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowOverrideEditor(p.id)}
+                  className="text-xs text-gray-400 hover:text-orange-500 transition-colors"
+                >
+                  + Override for this option
+                </button>
+              )}
+              {pieceOverride && (
+                <button
+                  type="button"
+                  onClick={() => setShowOverrideEditor(p.id)}
+                  className="text-xs text-gray-400 hover:text-primary-500 transition-colors underline"
+                >
+                  Edit override
+                </button>
+              )}
+            </div>
+          )}
+        </div>
       );
     };
 
     return (
       <div className="space-y-6">
+        {/* Option Tabs — only shown when options exist */}
+        {hasOptions && (
+          <OptionTabsBar
+            options={quoteOptions.options}
+            activeOptionId={quoteOptions.activeOptionId}
+            onSelectOption={quoteOptions.setActiveOptionId}
+            onAddOption={() => setShowCreateOptionDialog(true)}
+            onDeleteOption={quoteOptions.deleteOption}
+            isRecalculating={quoteOptions.isRecalculating}
+            mode="edit"
+          />
+        )}
+
         {/* Pieces Card — unified PieceRow cards */}
         <div className="card">
           <div className="p-4 border-b border-gray-200 flex items-center justify-between">
@@ -1555,6 +1637,15 @@ export default function QuoteDetailClient({
                 </svg>
                 Import Drawing
               </button>
+              {!hasOptions && (
+                <button
+                  onClick={() => setShowCreateOptionDialog(true)}
+                  className="btn-secondary text-sm"
+                  title="Add quote option for material comparison"
+                >
+                  + Add Option
+                </button>
+              )}
               <button
                 onClick={() => setIsAddingRoom(true)}
                 className="btn-secondary text-sm"
@@ -1735,6 +1826,11 @@ export default function QuoteDetailClient({
               mode="edit"
             />
           </div>
+        )}
+
+        {/* Option Comparison Summary — shown when 2+ options exist */}
+        {quoteOptions.options.length >= 2 && (
+          <OptionComparisonSummary options={quoteOptions.options} />
         )}
       </div>
     );
@@ -1938,6 +2034,56 @@ export default function QuoteDetailClient({
           </div>
         )
       )}
+
+      {/* Create Option Dialog */}
+      {showCreateOptionDialog && (
+        <CreateOptionDialog
+          existingOptions={quoteOptions.options}
+          onCreateOption={quoteOptions.createOption}
+          onClose={() => setShowCreateOptionDialog(false)}
+        />
+      )}
+
+      {/* Piece Override Editor */}
+      {showOverrideEditor !== null && (() => {
+        const piece = pieces.find(p => p.id === showOverrideEditor);
+        if (!piece || !quoteOptions.activeOptionId) return null;
+        const existingOverride = activeOverrideMap.get(piece.id);
+        return (
+          <PieceOverrideEditor
+            piece={{
+              id: piece.id,
+              name: piece.name,
+              materialId: piece.materialId,
+              materialName: piece.materialName,
+              thicknessMm: piece.thicknessMm,
+              edgeTop: piece.edgeTop,
+              edgeBottom: piece.edgeBottom,
+              edgeLeft: piece.edgeLeft,
+              edgeRight: piece.edgeRight,
+              lengthMm: piece.lengthMm,
+              widthMm: piece.widthMm,
+            }}
+            existingOverride={existingOverride ? {
+              materialId: existingOverride.materialId,
+              thicknessMm: existingOverride.thicknessMm,
+              edgeTop: existingOverride.edgeTop,
+              edgeBottom: existingOverride.edgeBottom,
+              edgeLeft: existingOverride.edgeLeft,
+              edgeRight: existingOverride.edgeRight,
+              lengthMm: existingOverride.lengthMm,
+              widthMm: existingOverride.widthMm,
+            } : undefined}
+            materials={materials}
+            edgeTypes={edgeTypes}
+            onSave={(overrides) => {
+              quoteOptions.setOverrides(quoteOptions.activeOptionId!, [overrides]);
+              setShowOverrideEditor(null);
+            }}
+            onClose={() => setShowOverrideEditor(null)}
+          />
+        );
+      })()}
     </>
   );
 }

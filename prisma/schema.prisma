@@ -526,6 +526,7 @@ model quotes {
   unitBlockUnit          unit_block_units?
   buyerChangeSnapshots   buyer_change_snapshots[]
   versions               quote_versions[]
+  options                quote_options[]
 
   // Delivery & templating fields
   deliveryCost         Decimal? @db.Decimal(10, 2)
@@ -1018,6 +1019,55 @@ model buyer_change_records {
 
   @@index([unitId])
   @@map("buyer_change_records")
+}
+
+model quote_options {
+  id             Int       @id @default(autoincrement())
+  quoteId        Int
+  quote          quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  sortOrder      Int       @default(0)
+  isBase         Boolean   @default(false)
+
+  // Cached pricing totals (recalculated when pieces/overrides change)
+  subtotal       Decimal?  @db.Decimal(10, 2)
+  discountAmount Decimal?  @db.Decimal(10, 2)
+  gstAmount      Decimal?  @db.Decimal(10, 2)
+  total          Decimal?  @db.Decimal(10, 2)
+
+  overrides      quote_option_overrides[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([quoteId])
+  @@map("quote_options")
+}
+
+model quote_option_overrides {
+  id              Int             @id @default(autoincrement())
+  optionId        Int
+  option          quote_options   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  pieceId         Int
+
+  // ALL override fields are nullable — null means "use base piece value"
+  materialId      Int?
+  thicknessMm     Int?
+  edgeTop         String?
+  edgeBottom      String?
+  edgeLeft        String?
+  edgeRight       String?
+  cutouts         Json?
+  lengthMm        Int?
+  widthMm         Int?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([optionId, pieceId])
+  @@index([optionId])
+  @@map("quote_option_overrides")
 }
 
 model unit_block_files {
