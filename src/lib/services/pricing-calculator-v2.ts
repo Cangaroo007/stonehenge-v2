@@ -158,24 +158,31 @@ export function calculateMaterialCost(
       price_per_sqm: { toNumber: () => number };
       price_per_slab?: { toNumber: () => number } | null;
       price_per_square_metre?: { toNumber: () => number } | null;
+      margin_override_percent?: { toNumber: () => number } | null;
+      supplier?: {
+        id: string;
+        default_margin_percent: { toNumber: () => number } | null;
+      } | null;
     } | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
   slabCount?: number,
   wasteFactorPercent?: number,
-  slabCountFromOptimiser?: boolean
+  slabCountFromOptimiser?: boolean,
+  materialMarginAdjustPercent: number = 0
 ): MaterialBreakdown {
   let totalAreaM2 = 0;
-  let subtotal = 0;
+  let overriddenCost = 0;
+  let calculatedCost = 0;
 
   for (const piece of pieces) {
     const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
     totalAreaM2 += areaSqm;
 
-    // Check for piece-level override
+    // Check for piece-level override — margin does NOT apply to overrides
     if (piece.overrideMaterialCost) {
-      subtotal += piece.overrideMaterialCost.toNumber();
+      overriddenCost += piece.overrideMaterialCost.toNumber();
       continue;
     }
 
@@ -186,24 +193,24 @@ export function calculateMaterialCost(
         // Distribute slab cost proportionally across pieces by area
         const totalPieceArea = (piece.length_mm * piece.width_mm) / 1_000_000;
         // This will be summed across all pieces, then replaced below
-        subtotal += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
+        calculatedCost += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
       } else {
         // Fallback to per-m² if no slab price set
         const baseRate = piece.materials?.price_per_square_metre?.toNumber()
           ?? piece.materials?.price_per_sqm.toNumber()
           ?? 0;
-        subtotal += areaSqm * baseRate;
+        calculatedCost += areaSqm * baseRate;
       }
     } else {
       // Per square metre pricing
       const baseRate = piece.materials?.price_per_square_metre?.toNumber()
         ?? piece.materials?.price_per_sqm.toNumber()
         ?? 0;
-      subtotal += areaSqm * baseRate;
+      calculatedCost += areaSqm * baseRate;
     }
   }
 
-  // For PER_SLAB, recalculate subtotal as slabCount × slabPrice if available
+  // For PER_SLAB, recalculate as slabCount × slabPrice if available
   if (pricingBasis === 'PER_SLAB' && slabCount !== undefined && slabCount > 0) {
     // Find the slab price from the first piece with a material
     const materialWithSlabPrice = pieces.find(p => p.materials?.price_per_slab?.toNumber());
@@ -212,10 +219,27 @@ export function calculateMaterialCost(
       // Only override if no piece-level overrides were applied
       const hasOverrides = pieces.some(p => p.overrideMaterialCost);
       if (!hasOverrides) {
-        subtotal = slabCount * slabPrice;
+        calculatedCost = slabCount * slabPrice;
       }
     }
   }
+
+  // Resolve margin from material hierarchy:
+  // material.margin_override_percent → supplier.default_margin_percent → 0
+  const firstMat = pieces.find(p => p.materials)?.materials;
+  const baseMarginPercent =
+    firstMat?.margin_override_percent?.toNumber()
+    ?? firstMat?.supplier?.default_margin_percent?.toNumber()
+    ?? 0;
+  const effectiveMarginPercent = baseMarginPercent + materialMarginAdjustPercent;
+  const marginMultiplier = 1 + effectiveMarginPercent / 100;
+
+  // Store cost before margin
+  const costBeforeMargin = calculatedCost;
+
+  // Apply margin to calculated cost (not overrides)
+  const marginalizedCost = roundToTwo(calculatedCost * marginMultiplier);
+  let subtotal = overriddenCost + marginalizedCost;
 
   const effectiveRate = totalAreaM2 > 0 ? roundToTwo(subtotal / totalAreaM2) : 0;
 
@@ -237,6 +261,10 @@ export function calculateMaterialCost(
     appliedWastePercent = clampedWaste;
   }
 
+  // Margin breakdown data
+  const costSubtotal = roundToTwo(overriddenCost + costBeforeMargin);
+  const marginAmount = roundToTwo(marginalizedCost - costBeforeMargin);
+
   // Extract material metadata from the first piece with a material
   const firstMaterial = pieces.find(p => p.materials)?.materials;
   const materialName = (firstMaterial as unknown as { name?: string } | null)?.name
@@ -247,7 +275,7 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm);
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent);
 
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
@@ -264,6 +292,13 @@ export function calculateMaterialCost(
       : undefined,
     wasteFactorPercent: appliedWastePercent,
     adjustedAreaM2,
+    margin: effectiveMarginPercent !== 0 ? {
+      baseMarginPercent,
+      adjustmentPercent: materialMarginAdjustPercent,
+      effectiveMarginPercent,
+      costSubtotal,
+      marginAmount,
+    } : undefined,
     materialName,
     slabLengthMm: slabLengthMm ?? undefined,
     slabWidthMm: slabWidthMm ?? undefined,
@@ -284,6 +319,7 @@ function buildMaterialGroupings(
   slabCountFromOptimiser: boolean | undefined,
   defaultSlabLengthMm: number | null | undefined,
   defaultSlabWidthMm: number | null | undefined,
+  materialMarginAdjustPercent: number = 0,
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -294,6 +330,7 @@ function buildMaterialGroupings(
     slabPrice: number;
     ratePerSqm: number;
     totalAreaM2: number;
+    baseMarginPercent: number;
   }>();
 
   for (const piece of pieces) {
@@ -307,6 +344,12 @@ function buildMaterialGroupings(
     const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
     const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
 
+    // Resolve per-material margin: override → supplier default → 0
+    const matBaseMargin =
+      mat.margin_override_percent?.toNumber()
+      ?? mat.supplier?.default_margin_percent?.toNumber()
+      ?? 0;
+
     const existing = groups.get(matId);
     if (existing) {
       existing.totalAreaM2 += areaSqm;
@@ -319,6 +362,7 @@ function buildMaterialGroupings(
         slabPrice,
         ratePerSqm,
         totalAreaM2: areaSqm,
+        baseMarginPercent: matBaseMargin,
       });
     }
   }
@@ -353,6 +397,14 @@ function buildMaterialGroupings(
       totalCost = roundToTwo(areaM2 * group.ratePerSqm * wasteMultiplier);
     }
 
+    // Apply per-material margin
+    const effectiveMarginPercent = group.baseMarginPercent + materialMarginAdjustPercent;
+    const costBeforeMargin = totalCost;
+    if (effectiveMarginPercent !== 0) {
+      totalCost = roundToTwo(totalCost * (1 + effectiveMarginPercent / 100));
+    }
+    const marginAmount = roundToTwo(totalCost - costBeforeMargin);
+
     result.push({
       materialId: group.materialId,
       materialName: group.materialName,
@@ -367,6 +419,13 @@ function buildMaterialGroupings(
       adjustedAreaM2: groupAdjustedArea,
       ratePerSqm: group.ratePerSqm > 0 ? group.ratePerSqm : undefined,
       totalCost,
+      margin: effectiveMarginPercent !== 0 ? {
+        baseMarginPercent: group.baseMarginPercent,
+        adjustmentPercent: materialMarginAdjustPercent,
+        effectiveMarginPercent,
+        costSubtotal: costBeforeMargin,
+        marginAmount,
+      } : undefined,
     });
   }
 
@@ -423,7 +482,13 @@ export async function calculateQuotePrice(
         include: {
           quote_pieces: {
             include: {
-              materials: true,
+              materials: {
+                include: {
+                  supplier: {
+                    select: { id: true, default_margin_percent: true },
+                  },
+                },
+              },
               piece_features: {
                 include: {
                   pricing_rules: true,
@@ -500,13 +565,14 @@ export async function calculateQuotePrice(
     }
   }
 
-  // Calculate material costs with pricing basis and waste factor
+  // Calculate material costs with pricing basis, waste factor, and margin
   const materialBreakdown = calculateMaterialCost(
     allPieces,
     pricingContext.materialPricingBasis,
     slabCount,
     pricingContext.wasteFactorPercent,
-    slabCountFromOptimiser
+    slabCountFromOptimiser,
+    options?.materialMarginAdjustPercent ?? 0
   );
 
   // Calculate edge costs with thickness variants

@@ -29,7 +29,17 @@ export async function GET(
       orderBy: { sortOrder: 'asc' },
     });
 
-    return NextResponse.json(options);
+    // Serialize Decimal fields to numbers for the frontend
+    const serialized = options.map(opt => ({
+      ...opt,
+      subtotal: opt.subtotal ? Number(opt.subtotal) : null,
+      discountAmount: opt.discountAmount ? Number(opt.discountAmount) : null,
+      gstAmount: opt.gstAmount ? Number(opt.gstAmount) : null,
+      total: opt.total ? Number(opt.total) : null,
+      material_margin_adjust_percent: Number(opt.material_margin_adjust_percent ?? 0),
+    }));
+
+    return NextResponse.json(serialized);
   } catch (error) {
     console.error('Error fetching quote options:', error);
     return NextResponse.json(
@@ -98,6 +108,7 @@ export async function POST(
         description: description || null,
         sortOrder,
         isBase: false,
+        material_margin_adjust_percent: body.materialMarginAdjustPercent ?? 0,
       },
     });
 

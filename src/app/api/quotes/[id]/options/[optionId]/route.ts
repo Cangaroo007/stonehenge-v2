@@ -28,6 +28,9 @@ export async function PUT(
     const updates: Record<string, unknown> = {};
     if (body.name !== undefined) updates.name = body.name;
     if (body.description !== undefined) updates.description = body.description;
+    if (body.materialMarginAdjustPercent !== undefined) {
+      updates.material_margin_adjust_percent = body.materialMarginAdjustPercent;
+    }
 
     const updated = await prisma.quote_options.update({
       where: { id: optId },
