@@ -76,6 +76,7 @@ model companies {
   signature_title     String?
   default_unit_system String?   @default("METRIC")
   user                user[]
+  suppliers           suppliers[]
 }
 
 model customers {
@@ -248,6 +249,26 @@ model materials {
   slab_length_mm         Int?
   slab_width_mm          Int?
   fabrication_category   FabricationCategory      @default(ENGINEERED)
+
+  // Supplier link
+  supplier_id            String?
+  supplier               suppliers?               @relation(fields: [supplier_id], references: [id])
+
+  // Pricing — wholesale is supplier's list price; price_per_slab serves as cost price
+  wholesale_price        Decimal?                 @db.Decimal(10, 2)
+
+  // Product identification
+  product_code           String?
+  supplier_range         String?
+  surface_finish         String?
+
+  // Margin override (null = use supplier default)
+  margin_override_percent Decimal?                @db.Decimal(5, 2)
+
+  // Discontinuation tracking
+  is_discontinued        Boolean                  @default(false)
+  discontinued_at        DateTime?
+
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
 }
@@ -667,6 +688,72 @@ model user {
   @@map("users")
 }
 
+model suppliers {
+  id                       String              @id @default(cuid())
+  company_id               Int
+  company                  companies           @relation(fields: [company_id], references: [id])
+  name                     String
+
+  contact_email            String?
+  phone                    String?
+  website                  String?
+
+  // Default margin applied to all materials from this supplier
+  default_margin_percent   Decimal?            @default(0) @db.Decimal(5, 2)
+
+  // Default slab dimensions for this supplier's products
+  default_slab_length_mm   Int?
+  default_slab_width_mm    Int?
+  default_thickness_mm     Int?
+
+  notes                    String?
+  is_active                Boolean             @default(true)
+  created_at               DateTime            @default(now())
+  updated_at               DateTime            @updatedAt
+
+  materials                materials[]
+  price_list_uploads       price_list_uploads[]
+
+  @@unique([company_id, name])
+  @@index([company_id])
+}
+
+model price_list_uploads {
+  id                    String          @id @default(cuid())
+  supplier_id           String
+  supplier              suppliers       @relation(fields: [supplier_id], references: [id])
+  company_id            Int
+
+  file_name             String
+  file_url              String
+  uploaded_at           DateTime        @default(now())
+
+  // AI extraction results
+  extracted_data        Json?
+  status                PriceListStatus @default(PENDING)
+
+  // Stats
+  materials_created     Int             @default(0)
+  materials_updated     Int             @default(0)
+  materials_discontinued Int            @default(0)
+  materials_skipped     Int             @default(0)
+
+  // Audit
+  processed_at          DateTime?
+  error_message         String?
+
+  @@index([supplier_id])
+  @@index([company_id])
+}
+
+enum PriceListStatus {
+  PENDING
+  PROCESSING
+  REVIEW
+  APPLIED
+  FAILED
+}
+
 enum CustomerUserRole {
   CUSTOMER_ADMIN
   CUSTOMER_APPROVER
@@ -1035,6 +1122,9 @@ model quote_options {
   discountAmount Decimal?  @db.Decimal(10, 2)
   gstAmount      Decimal?  @db.Decimal(10, 2)
   total          Decimal?  @db.Decimal(10, 2)
+
+  // Per-quote material margin +/- adjustment
+  material_margin_adjust_percent Decimal? @default(0) @db.Decimal(5, 2)
 
   overrides      quote_option_overrides[]
 
