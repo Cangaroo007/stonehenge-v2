@@ -289,7 +289,10 @@ export default function QuoteDetailClient({
   const quoteIdStr = String(quoteId);
 
   // ── Layout state ──────────────────────────────────────────────────────────
-  const [mode, setMode] = useState<QuoteMode>(initialMode);
+  // Force view mode for read-only statuses even if URL says ?mode=edit
+  const readOnlyStatuses = ['sent', 'accepted', 'in_production', 'completed', 'archived'];
+  const initialIsReadOnly = readOnlyStatuses.includes(serverData.status.toLowerCase());
+  const [mode, setMode] = useState<QuoteMode>(initialIsReadOnly ? 'view' : initialMode);
   const [activeTab, setActiveTab] = useState<QuoteTab>('pieces');
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
@@ -1069,18 +1072,57 @@ export default function QuoteDetailClient({
     }
   };
 
-  const handleStatusChange = async (newStatus: string) => {
+  const handleStatusChange = async (newStatus: string, options?: { declinedReason?: string }) => {
     setSaving(true);
     try {
-      const response = await fetch(`/api/quotes/${quoteIdStr}`, {
+      const response = await fetch(`/api/quotes/${quoteIdStr}/status`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify({ status: newStatus, declinedReason: options?.declinedReason }),
       });
-      if (!response.ok) throw new Error('Failed to update status');
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to update status');
+
+      // If a revision was created, redirect to the new quote
+      if (data.newQuoteId) {
+        toast.success('Revision created');
+        router.push(`/quotes/${data.newQuoteId}?mode=edit`);
+        return;
+      }
+
+      toast.success(`Status changed to ${newStatus.replace('_', ' ')}`);
       await fetchQuote();
+      // Force view mode if the new status is read-only
+      const readOnlyStatuses = ['sent', 'accepted', 'in_production', 'completed', 'archived'];
+      if (readOnlyStatuses.includes(newStatus.toLowerCase())) {
+        setMode('view');
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to update status');
+      const msg = err instanceof Error ? err.message : 'Failed to update status';
+      setError(msg);
+      toast.error(msg);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleDuplicateQuote = async () => {
+    if (!confirm('Duplicate this quote? A new draft will be created with all pieces copied.')) return;
+    setSaving(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteIdStr}/duplicate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to duplicate quote');
+      toast.success(`Quote duplicated as ${data.quote_number}`);
+      router.push(data.redirectUrl || `/quotes/${data.id}?mode=edit`);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Failed to duplicate quote';
+      setError(msg);
+      toast.error(msg);
     } finally {
       setSaving(false);
     }
@@ -1471,6 +1513,13 @@ export default function QuoteDetailClient({
     ? calculation.total * 1.1  // Include GST
     : null;
 
+  // Read-only status check — quotes in these statuses cannot be edited
+  const READ_ONLY_STATUSES = ['sent', 'accepted', 'in_production', 'completed', 'archived'];
+  const isStatusReadOnly = READ_ONLY_STATUSES.includes(displayStatus.toLowerCase());
+  const editDisabledMessage = isStatusReadOnly
+    ? 'This quote has been sent. Create a revision to make changes.'
+    : undefined;
+
   // ── Metadata section (shown between header and action buttons) ───────────
 
   const renderMetadataSection = () => {
@@ -1628,7 +1677,13 @@ export default function QuoteDetailClient({
         </svg>
         Print
       </Link>
-      {['locked', 'accepted'].includes(serverData.status.toLowerCase()) && (
+      <button onClick={handleDuplicateQuote} className="btn-secondary flex items-center gap-2">
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+        </svg>
+        Duplicate
+      </button>
+      {['locked', 'accepted', 'in_production'].includes(serverData.status.toLowerCase()) && (
         <ManufacturingExportButton
           quoteId={serverData.id}
           quoteNumber={serverData.quote_number}
@@ -1648,6 +1703,7 @@ export default function QuoteDetailClient({
         calculation={calculation}
         onSave={handleSaveQuote}
         onStatusChange={handleStatusChange}
+        onDuplicateQuote={handleDuplicateQuote}
         saving={saving}
       />
       <Link href={`/quotes/${quoteId}/print`} target="_blank" className="btn-secondary flex items-center gap-2">
@@ -2759,6 +2815,7 @@ export default function QuoteDetailClient({
 
       <QuoteLayout
         quoteNumber={displayQuoteNumber}
+        quoteId={quoteIdStr}
         projectName={displayProjectName}
         status={displayStatus}
         customerName={displayCustomerName}
@@ -2768,6 +2825,10 @@ export default function QuoteDetailClient({
         showModeToggle={true}
         saving={mode === 'edit' ? saving : false}
         hasUnsavedChanges={mode === 'edit' ? hasUnsavedChanges : false}
+        interactiveStatus={true}
+        onStatusChange={handleStatusChange}
+        editDisabled={isStatusReadOnly}
+        editDisabledMessage={editDisabledMessage}
         metadataContent={renderMetadataSection()}
         actionButtons={mode === 'view' ? viewActionButtons : editActionButtons}
         activeTab={activeTab}

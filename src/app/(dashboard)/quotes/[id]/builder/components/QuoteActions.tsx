@@ -8,7 +8,8 @@ interface QuoteActionsProps {
   quoteStatus: string;
   calculation: CalculationResult | null;
   onSave: () => Promise<void>;
-  onStatusChange?: (newStatus: string) => Promise<void>;
+  onStatusChange?: (newStatus: string, options?: { declinedReason?: string }) => Promise<void>;
+  onDuplicateQuote?: () => Promise<void>;
   saving?: boolean;
 }
 
@@ -18,6 +19,7 @@ export default function QuoteActions({
   calculation,
   onSave,
   onStatusChange,
+  onDuplicateQuote,
   saving = false,
 }: QuoteActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -62,21 +64,26 @@ export default function QuoteActions({
 
   // Handle duplicate quote
   const handleDuplicateQuote = async () => {
-    try {
-      const response = await fetch(`/api/quotes/${quoteId}/duplicate`, {
-        method: 'POST',
-      });
+    if (onDuplicateQuote) {
+      await onDuplicateQuote();
+    } else {
+      try {
+        const response = await fetch(`/api/quotes/${quoteId}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to duplicate quote');
+        if (!response.ok) {
+          throw new Error('Failed to duplicate quote');
+        }
+
+        const newQuote = await response.json();
+        window.location.href = newQuote.redirectUrl || `/quotes/${newQuote.id}?mode=edit`;
+      } catch (error) {
+        console.error('Error duplicating quote:', error);
+        alert('Failed to duplicate quote. Please try again.');
       }
-
-      const newQuote = await response.json();
-      // Navigate to the new quote
-      window.location.href = `/quotes/${newQuote.id}/builder`;
-    } catch (error) {
-      console.error('Error duplicating quote:', error);
-      alert('Failed to duplicate quote. Please try again.');
     }
     setIsMenuOpen(false);
   };

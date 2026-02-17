@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from 'react';
 import { getStatusColor, getStatusLabel, formatCurrency } from '@/lib/utils';
+import StatusBadge from '@/components/quotes/StatusBadge';
 
 export type QuoteMode = 'view' | 'edit';
 export type QuoteTab = 'pieces' | 'optimiser' | 'history' | 'views';
@@ -9,6 +10,8 @@ export type QuoteTab = 'pieces' | 'optimiser' | 'history' | 'views';
 interface QuoteLayoutProps {
   /** Quote number e.g. "Q-0042" */
   quoteNumber: string;
+  /** Quote ID for API calls */
+  quoteId?: string;
   /** Project name */
   projectName: string | null;
   /** Quote status e.g. "draft", "sent" */
@@ -27,6 +30,14 @@ interface QuoteLayoutProps {
   saving?: boolean;
   /** Unsaved changes indicator */
   hasUnsavedChanges?: boolean;
+  /** Whether the status badge should be interactive (clickable with transitions) */
+  interactiveStatus?: boolean;
+  /** Callback when status is changed via the status badge */
+  onStatusChange?: (newStatus: string, options?: { declinedReason?: string }) => Promise<void>;
+  /** Whether edit mode is disabled due to read-only status */
+  editDisabled?: boolean;
+  /** Message to show when edit is disabled */
+  editDisabledMessage?: string;
 
   /** Metadata section rendered between header and action buttons */
   metadataContent?: React.ReactNode;
@@ -61,6 +72,7 @@ interface QuoteLayoutProps {
 
 export default function QuoteLayout({
   quoteNumber,
+  quoteId,
   projectName,
   status,
   customerName,
@@ -70,6 +82,10 @@ export default function QuoteLayout({
   showModeToggle = true,
   saving = false,
   hasUnsavedChanges = false,
+  interactiveStatus = false,
+  onStatusChange,
+  editDisabled = false,
+  editDisabledMessage,
   metadataContent,
   actionButtons,
   activeTab,
@@ -94,11 +110,12 @@ export default function QuoteLayout({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-gray-900 truncate">{quoteNumber}</h1>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}
-              >
-                {getStatusLabel(status)}
-              </span>
+              <StatusBadge
+                status={status}
+                quoteId={quoteId || ''}
+                interactive={interactiveStatus}
+                onStatusChange={onStatusChange}
+              />
               {saving && (
                 <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                   <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
@@ -143,11 +160,15 @@ export default function QuoteLayout({
                   View
                 </button>
                 <button
-                  onClick={() => onModeChange('edit')}
+                  onClick={() => !editDisabled && onModeChange('edit')}
+                  disabled={editDisabled}
+                  title={editDisabled ? editDisabledMessage : undefined}
                   className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    mode === 'edit'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    editDisabled
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : mode === 'edit'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   Edit
@@ -167,6 +188,16 @@ export default function QuoteLayout({
           )}
         </div>
       </div>
+
+      {/* ── Read-only banner ── */}
+      {editDisabled && editDisabledMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-amber-800">
+          <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          {editDisabledMessage}
+        </div>
+      )}
 
       {/* ── Metadata Section ── */}
       {metadataContent}
