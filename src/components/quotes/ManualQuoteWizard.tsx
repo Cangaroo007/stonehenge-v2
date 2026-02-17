@@ -162,11 +162,25 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
   const handleChipClick = useCallback((chipName: string) => {
     setRooms((prev) => {
       if (!prev.length) return prev;
+
+      // If this name already exists, skip (no duplicates)
+      if (prev.some((r) => r.name === chipName)) return prev;
+
       const updated = [...prev];
-      const emptyIndex = updated.findIndex((r) => !r.name.trim() || r.name.startsWith('Room '));
-      if (emptyIndex === -1) return prev;
-      updated[emptyIndex] = { ...updated[emptyIndex], name: chipName };
-      return updated;
+
+      // First: fill an empty or "Room N" slot
+      const emptyIndex = updated.findIndex((r) => !r.name.trim() || /^Room \d+$/.test(r.name));
+      if (emptyIndex >= 0) {
+        updated[emptyIndex] = { ...updated[emptyIndex], name: chipName };
+        return updated;
+      }
+
+      // Second: add a new room if under max (20)
+      if (updated.length < 20) {
+        return [...updated, { name: chipName, pieceCount: 1, pieces: [] }];
+      }
+
+      return prev;
     });
   }, []);
 
@@ -464,17 +478,25 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
         {/* Quick-suggestion chips */}
         <div className="mt-4">
-          <p className="text-xs text-gray-500 mb-2">Quick fill:</p>
+          <p className="text-xs text-gray-500 mb-2">Quick fill — click to add room:</p>
           <div className="flex flex-wrap gap-2">
-            {ROOM_CHIPS.map((chip) => (
-              <button
-                key={chip}
-                onClick={() => handleChipClick(chip)}
-                className="px-3 py-1 rounded-full text-xs font-medium border border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700 transition-colors"
-              >
-                {chip}
-              </button>
-            ))}
+            {ROOM_CHIPS.map((chip) => {
+              const alreadyUsed = rooms.some((r) => r.name === chip);
+              return (
+                <button
+                  key={chip}
+                  onClick={() => handleChipClick(chip)}
+                  disabled={alreadyUsed}
+                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                    alreadyUsed
+                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                      : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700'
+                  }`}
+                >
+                  {alreadyUsed ? `\u2713 ${chip}` : chip}
+                </button>
+              );
+            })}
           </div>
         </div>
 
