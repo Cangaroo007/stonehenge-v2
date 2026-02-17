@@ -94,6 +94,10 @@ export default async function QuoteDetailPage({
         material_cost: Number(piece.material_cost),
         features_cost: Number(piece.features_cost),
         total_cost: Number(piece.total_cost),
+        edge_top: piece.edge_top,
+        edge_bottom: piece.edge_bottom,
+        edge_left: piece.edge_left,
+        edge_right: piece.edge_right,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

@@ -86,8 +86,9 @@ export default function QuoteCostSummaryBar({
   const discountPercent =
     subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0;
   const adjustedSubtotal = calculation.total ?? 0;
-  const gstAmount = (calculation.total ?? 0) * 0.1;
-  const grandTotal = (calculation.total ?? 0) * 1.1;
+  const gstRate = calculation.gstRate ?? 0.1;
+  const gstAmount = calculation.gstAmount ?? Math.round(adjustedSubtotal * gstRate * 100) / 100;
+  const grandTotal = calculation.totalIncGst ?? Math.round((adjustedSubtotal + gstAmount) * 100) / 100;
 
   const isEmpty = grandTotal === 0;
   const totalColour = isEmpty ? 'text-orange-500' : 'text-green-600';
@@ -244,7 +245,7 @@ export default function QuoteCostSummaryBar({
                     </span>
                   </div>
                   <div className="flex items-center justify-between">
-                    <span className={`text-sm ${lblCls(gstAmount)}`}>GST (10%)</span>
+                    <span className={`text-sm ${lblCls(gstAmount)}`}>GST ({Math.round(gstRate * 100)}%)</span>
                     <span className={`text-sm tabular-nums font-medium ${amtCls(gstAmount)}`}>
                       {formatCurrency(gstAmount)}
                     </span>

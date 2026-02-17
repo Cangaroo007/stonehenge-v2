@@ -790,6 +790,11 @@ export async function calculateQuotePrice(
     ? Number(quoteAny.overrideTotal)
     : finalSubtotal;
 
+  // Apply GST
+  const gstRate = pricingContext.gstRate;
+  const gstAmount = roundToTwo(finalTotal * gstRate);
+  const totalIncGst = roundToTwo(finalTotal + gstAmount);
+
   // Fetch price book info
   let priceBookInfo: { id: string; name: string } | null = null;
   if (priceBookId) {
@@ -808,6 +813,9 @@ export async function calculateQuotePrice(
     subtotal: roundToTwo(subtotal),
     totalDiscount: 0, // Calculated from rules
     total: roundToTwo(finalTotal),
+    gstRate,
+    gstAmount,
+    totalIncGst,
     breakdown: {
       materials: materialBreakdown,
       edges: {

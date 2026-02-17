@@ -217,6 +217,10 @@ export interface ServerQuoteData {
       material_cost: number;
       features_cost: number;
       total_cost: number;
+      edge_top: string | null;
+      edge_bottom: string | null;
+      edge_left: string | null;
+      edge_right: string | null;
       piece_features: Array<{
         id: number;
         name: string;
@@ -1616,10 +1620,10 @@ export default function QuoteDetailClient({
                       widthMm: piece.width_mm,
                       thicknessMm: piece.thickness_mm,
                       materialName: piece.materials?.name || piece.material_name || null,
-                      edgeTop: null,
-                      edgeBottom: null,
-                      edgeLeft: null,
-                      edgeRight: null,
+                      edgeTop: piece.edge_top ?? null,
+                      edgeBottom: piece.edge_bottom ?? null,
+                      edgeLeft: piece.edge_left ?? null,
+                      edgeRight: piece.edge_right ?? null,
                       roomName: piece.roomName,
                     }}
                     breakdown={pb}
