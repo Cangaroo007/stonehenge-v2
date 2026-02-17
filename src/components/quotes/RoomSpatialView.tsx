@@ -86,6 +86,9 @@ interface RoomSpatialViewProps {
   onRoomDelete?: (roomId: number) => void;
   onAddRoomBelow?: (afterRoomId: number) => void;
   onAddPiece?: (roomId: number) => void;
+  // ── Room notes props ──
+  roomNotes?: string | null;
+  onRoomNotesChange?: (roomId: number, notes: string) => void;
   // ── Multi-select props ──
   selectedPieceIds?: Set<string>;
   onPieceMultiSelect?: (pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => void;
@@ -186,6 +189,9 @@ export default function RoomSpatialView({
   onRoomDelete,
   onAddRoomBelow,
   onAddPiece,
+  // Room notes
+  roomNotes,
+  onRoomNotesChange,
   // Multi-select
   selectedPieceIds,
   onPieceMultiSelect,
@@ -241,6 +247,40 @@ export default function RoomSpatialView({
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const roomMenuRef = useRef<HTMLDivElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Room notes state ──
+  const [isEditingNotes, setIsEditingNotes] = useState(false);
+  const [editNotesValue, setEditNotesValue] = useState(roomNotes || '');
+  const notesTextareaRef = useRef<HTMLTextAreaElement>(null);
+
+  const handleNotesSave = useCallback(() => {
+    setIsEditingNotes(false);
+    const trimmed = editNotesValue.trim();
+    if (trimmed !== (roomNotes || '') && roomId && onRoomNotesChange) {
+      onRoomNotesChange(roomId, trimmed);
+    }
+  }, [editNotesValue, roomNotes, roomId, onRoomNotesChange]);
+
+  const handleNotesKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleNotesSave();
+    }
+    if (e.key === 'Escape') {
+      setEditNotesValue(roomNotes || '');
+      setIsEditingNotes(false);
+    }
+  }, [handleNotesSave, roomNotes]);
+
+  // Auto-focus and auto-resize notes textarea
+  useEffect(() => {
+    if (isEditingNotes && notesTextareaRef.current) {
+      notesTextareaRef.current.focus();
+      const el = notesTextareaRef.current;
+      el.style.height = 'auto';
+      el.style.height = el.scrollHeight + 'px';
+    }
+  }, [isEditingNotes]);
 
   // Close room menu on outside click
   useEffect(() => {
@@ -635,11 +675,85 @@ export default function RoomSpatialView({
     </div>
   );
 
+  // ── Room notes renderer ──
+  const renderRoomNotes = () => {
+    // Edit mode: editable notes
+    if (mode === 'edit' && onRoomNotesChange && roomId) {
+      if (isEditingNotes) {
+        return (
+          <div className="mb-2">
+            <textarea
+              ref={notesTextareaRef}
+              value={editNotesValue}
+              onChange={e => {
+                setEditNotesValue(e.target.value);
+                // Auto-resize
+                const el = e.target;
+                el.style.height = 'auto';
+                el.style.height = el.scrollHeight + 'px';
+              }}
+              onBlur={handleNotesSave}
+              onKeyDown={handleNotesKeyDown}
+              placeholder="Add room notes..."
+              rows={2}
+              className="w-full text-xs text-gray-600 border border-blue-300 rounded px-2 py-1 focus:ring-1 focus:ring-blue-500 focus:outline-none resize-none"
+            />
+            <p className="text-[10px] text-gray-400 mt-0.5">Enter to save, Shift+Enter for newline, Escape to cancel</p>
+          </div>
+        );
+      }
+
+      if (roomNotes) {
+        return (
+          <div className="mb-2 flex items-start gap-1.5 group">
+            <span className="text-xs text-gray-500 truncate flex-1" title={roomNotes}>
+              {roomNotes}
+            </span>
+            <button
+              onClick={() => {
+                setEditNotesValue(roomNotes || '');
+                setIsEditingNotes(true);
+              }}
+              className="text-[10px] text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+            >
+              Edit note
+            </button>
+          </div>
+        );
+      }
+
+      // No notes yet — show subtle "Add note" link
+      return (
+        <div className="mb-2">
+          <button
+            onClick={() => {
+              setEditNotesValue('');
+              setIsEditingNotes(true);
+            }}
+            className="text-[10px] text-gray-400 hover:text-blue-500 transition-colors"
+          >
+            + Add note
+          </button>
+        </div>
+      );
+    }
+
+    // View mode: read-only notes
+    if (roomNotes) {
+      return (
+        <p className="text-xs text-gray-500 mb-2">{roomNotes}</p>
+      );
+    }
+
+    return null;
+  };
+
   // ── Empty room ──
   if (pieces.length === 0) {
     return (
       <div className="border rounded-lg p-4 mb-6">
         {renderRoomHeader()}
+        {renderRoomNotes()}
         <div className="text-centre py-8">
           <p className="text-sm text-gray-400">No pieces in this room yet</p>
           {mode === 'edit' && onAddPiece && roomId && (
@@ -659,6 +773,7 @@ export default function RoomSpatialView({
     <div className="border rounded-lg p-4 mb-6">
       {/* Room header with management controls */}
       {renderRoomHeader()}
+      {renderRoomNotes()}
 
       {/* Paint mode profile selector bar (Task D) */}
       {paintMode && mode === 'edit' && (
