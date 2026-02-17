@@ -30,6 +30,18 @@ interface QuotePiece {
   edge_right: string | null;
   piece_features?: Array<{ id: number; name: string; quantity: number }>;
   cutouts?: unknown;
+  materialName?: string | null;
+}
+
+interface EdgeProfileOption {
+  id: string;
+  name: string;
+}
+
+interface MaterialOption {
+  id: number;
+  name: string;
+  collection?: string | null;
 }
 
 interface RoomSpatialViewProps {
@@ -44,6 +56,20 @@ interface RoomSpatialViewProps {
   quoteId?: string;
   /** Callback when a relationship is changed via popover (edit mode) */
   onRelationshipChange?: () => void;
+  /** Callback when piece edge changes (edit mode, paint + accordion) */
+  onPieceEdgeChange?: (pieceId: string, side: string, profileId: string | null) => void;
+  /** Callback when piece material changes (edit mode, accordion) */
+  onPieceMaterialChange?: (pieceId: string, materialId: number | null) => void;
+  /** Callback to add a cutout to a piece */
+  onPieceCutoutAdd?: (pieceId: string, cutoutTypeId: string) => void;
+  /** Available edge profiles for paint mode and accordion */
+  edgeProfiles?: EdgeProfileOption[];
+  /** Available materials for accordion */
+  materials?: MaterialOption[];
+  /** Available cutout types for accordion */
+  cutoutTypes?: Array<{ id: string; name: string; baseRate: number }>;
+  /** Context menu handler — called on right-click with piece data */
+  onContextMenu?: (pieceId: string, position: { x: number; y: number }) => void;
 }
 
 // Types that use join position
@@ -86,6 +112,32 @@ function countCutouts(piece: QuotePiece): number {
   return piece.piece_features.reduce((sum, f) => sum + f.quantity, 0);
 }
 
+/** Short code for an edge profile */
+function edgeCode(name: string | null | undefined): string {
+  if (!name) return 'RAW';
+  const lower = name.toLowerCase();
+  if (lower.includes('pencil')) return 'PR';
+  if (lower.includes('bullnose')) return 'BN';
+  if (lower.includes('ogee')) return 'OG';
+  if (lower.includes('mitr')) return 'M';
+  if (lower.includes('bevel')) return 'BV';
+  if (lower.includes('polish')) return 'P';
+  return name.substring(0, 3).toUpperCase();
+}
+
+/** Edge colour by profile name */
+function edgeColour(name: string | null | undefined): string {
+  if (!name) return '#d1d5db';
+  const lower = name.toLowerCase();
+  if (lower.includes('pencil')) return '#2563eb';
+  if (lower.includes('bullnose')) return '#16a34a';
+  if (lower.includes('ogee')) return '#9333ea';
+  if (lower.includes('mitr')) return '#ea580c';
+  if (lower.includes('bevel')) return '#0d9488';
+  if (lower.includes('raw')) return '#9ca3af';
+  return '#6b7280';
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RoomSpatialView({
@@ -98,6 +150,13 @@ export default function RoomSpatialView({
   roomTotal,
   quoteId,
   onRelationshipChange,
+  onPieceEdgeChange,
+  onPieceMaterialChange,
+  onPieceCutoutAdd,
+  edgeProfiles = [],
+  materials = [],
+  cutoutTypes = [],
+  onContextMenu,
 }: RoomSpatialViewProps) {
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
@@ -141,6 +200,20 @@ export default function RoomSpatialView({
 
   // Hover state for relationship connector highlighting
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
+
+  // ── Paint mode state (Task D) ──
+  const [paintMode, setPaintMode] = useState(false);
+  const [paintProfileId, setPaintProfileId] = useState<string | null>(null);
+
+  const handleTogglePaintMode = useCallback(() => {
+    setPaintMode(prev => !prev);
+  }, []);
+
+  const handlePaintEdgeClick = useCallback((pieceId: string, side: string) => {
+    if (!paintMode || !onPieceEdgeChange) return;
+    onPieceEdgeChange(pieceId, side, paintProfileId);
+    toast.success('Edge updated');
+  }, [paintMode, paintProfileId, onPieceEdgeChange]);
 
   // Connector popover state (edit mode)
   const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
@@ -270,6 +343,27 @@ export default function RoomSpatialView({
     setDismissedSuggestions(prev => new Set(prev).add(key));
   }, []);
 
+  // ── Context menu handler ──
+  const handlePieceContextMenu = useCallback((pieceId: string, e: React.MouseEvent) => {
+    if (mode !== 'edit' || !onContextMenu) return;
+    e.preventDefault();
+    onContextMenu(pieceId, { x: e.clientX, y: e.clientY });
+  }, [mode, onContextMenu]);
+
+  // ── Accordion: selected piece data ──
+  const selectedPiece = useMemo(() => {
+    if (!selectedPieceId) return null;
+    return pieceMap.get(selectedPieceId) ?? null;
+  }, [selectedPieceId, pieceMap]);
+
+  // Get relationships for selected piece
+  const selectedPieceRelationships = useMemo(() => {
+    if (!selectedPieceId) return [];
+    return relationships.filter(
+      r => r.parentPieceId === selectedPieceId || r.childPieceId === selectedPieceId
+    );
+  }, [selectedPieceId, relationships]);
+
   // ── Empty room ──
   if (pieces.length === 0) {
     return (
@@ -296,12 +390,52 @@ export default function RoomSpatialView({
     <div className="border rounded-lg p-4 mb-6">
       {/* Room header */}
       <div className="flex justify-between items-center mb-3">
-        <h3 className="text-sm font-semibold text-gray-700">{roomName}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-sm font-semibold text-gray-700">{roomName}</h3>
+          {/* Paint mode toggle (edit mode only, Task D) */}
+          {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
+            <button
+              onClick={handleTogglePaintMode}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+                paintMode
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+              }`}
+              title="Toggle paint mode (P)"
+            >
+              Paint
+            </button>
+          )}
+        </div>
         <span className="text-xs text-gray-500">
           {pieces.length} piece{pieces.length !== 1 ? 's' : ''}
           {roomTotal != null && ` | ${formatCurrency(roomTotal)}`}
         </span>
       </div>
+
+      {/* Paint mode profile selector bar (Task D) */}
+      {paintMode && mode === 'edit' && (
+        <div className="flex items-center gap-2 mb-2 px-1 py-1.5 bg-blue-50 border border-blue-200 rounded-md">
+          <span className="text-[10px] font-medium text-blue-700">Paint profile:</span>
+          <select
+            value={paintProfileId ?? ''}
+            onChange={e => setPaintProfileId(e.target.value || null)}
+            className="px-2 py-0.5 text-[10px] border border-blue-200 rounded bg-white text-gray-700 focus:ring-1 focus:ring-blue-500"
+          >
+            <option value="">Raw (no finish)</option>
+            {edgeProfiles.map(ep => (
+              <option key={ep.id} value={ep.id}>{ep.name}</option>
+            ))}
+          </select>
+          <span className="text-[10px] text-blue-500 italic ml-auto">Click any edge to apply</span>
+          <button
+            onClick={() => setPaintMode(false)}
+            className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+          >
+            Exit
+          </button>
+        </div>
+      )}
 
       {/* Relationship suggestions (edit mode, above SVG) */}
       {mode === 'edit' && (
@@ -316,7 +450,7 @@ export default function RoomSpatialView({
       {/* SVG canvas */}
       <svg
         viewBox={`0 0 ${layout.viewBox.width} ${layout.viewBox.height}`}
-        className="w-full h-auto"
+        className={`w-full h-auto ${paintMode ? 'cursor-crosshair' : ''}`}
         style={{ maxHeight: 500 }}
       >
         {/* Relationship connectors (rendered BELOW pieces for z-order) */}
@@ -373,7 +507,10 @@ export default function RoomSpatialView({
               scale={layout.scale}
               isSelected={selectedPieceId === String(piece.id)}
               isEditMode={mode === 'edit'}
+              isPaintMode={paintMode}
               onPieceClick={onPieceSelect}
+              onEdgeClick={paintMode ? handlePaintEdgeClick : undefined}
+              onContextMenu={handlePieceContextMenu}
               onMouseEnter={setHoveredPieceId}
               onMouseLeave={() => setHoveredPieceId(null)}
             />
@@ -466,6 +603,182 @@ export default function RoomSpatialView({
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── Inline Editing Accordion (Task A) — below SVG ── */}
+      {mode === 'edit' && (
+        <div className="mt-3 space-y-1">
+          {pieces.map(piece => {
+            const pieceIdStr = String(piece.id);
+            const isSelected = selectedPieceId === pieceIdStr;
+            const pieceName = piece.name ?? piece.description ?? 'Piece';
+            const cutoutCount = countCutouts(piece);
+            const pieceRelationships = relationships.filter(
+              r => r.parentPieceId === pieceIdStr || r.childPieceId === pieceIdStr
+            );
+
+            if (!isSelected) {
+              // Collapsed one-line summary
+              return (
+                <button
+                  key={pieceIdStr}
+                  onClick={() => onPieceSelect?.(pieceIdStr)}
+                  className="w-full text-left px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-100 transition-colors flex items-center justify-between"
+                >
+                  <span className="font-medium text-gray-700 truncate">{pieceName}</span>
+                  <span className="text-gray-400 flex-shrink-0 ml-2">
+                    {formatCurrency(piece.total_cost)}
+                  </span>
+                </button>
+              );
+            }
+
+            // Expanded accordion panel
+            return (
+              <div
+                key={pieceIdStr}
+                className="bg-white border border-blue-200 rounded-lg shadow-sm overflow-hidden"
+              >
+                {/* Accordion header */}
+                <button
+                  onClick={() => onPieceSelect?.(pieceIdStr)}
+                  className="w-full text-left px-3 py-2 flex items-center justify-between bg-blue-50 hover:bg-blue-100 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="h-3 w-3 text-blue-500 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                    <span className="text-xs font-semibold text-gray-800">{pieceName}</span>
+                  </div>
+                  <span className="text-xs font-medium text-blue-700">
+                    {formatCurrency(piece.total_cost)}
+                  </span>
+                </button>
+
+                {/* Accordion body */}
+                <div className="px-3 py-2 space-y-2 text-xs">
+                  {/* Dimensions */}
+                  <div className="flex items-center gap-2 text-gray-600">
+                    <span className="text-gray-400 w-4 text-center">&#x1F4D0;</span>
+                    <span>
+                      {piece.length_mm} &times; {piece.width_mm} mm
+                      &middot; {piece.thickness_mm}mm
+                    </span>
+                  </div>
+
+                  {/* Edges — clickable badges */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-gray-400 w-4 text-center">&#x1F3A8;</span>
+                    <span className="text-gray-500">Edges:</span>
+                    {(['top', 'bottom', 'left', 'right'] as const).map(side => {
+                      const edgeValue = piece[`edge_${side}` as keyof QuotePiece] as string | null;
+                      const code = edgeCode(edgeValue);
+                      const colour = edgeColour(edgeValue);
+                      const isRaw = !edgeValue || edgeValue.toLowerCase().includes('raw');
+                      return (
+                        <span
+                          key={side}
+                          className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border cursor-pointer hover:opacity-80 transition-opacity ${
+                            isRaw
+                              ? 'bg-gray-50 text-gray-400 border-gray-200'
+                              : 'text-white border-transparent'
+                          }`}
+                          style={!isRaw ? { backgroundColor: colour } : undefined}
+                          title={`${side}: ${edgeValue ?? 'Raw'} — click to change`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Could open edge popover; for now rely on PieceVisualEditor
+                          }}
+                        >
+                          {code}
+                        </span>
+                      );
+                    })}
+                  </div>
+
+                  {/* Material */}
+                  {(piece.materialName || materials.length > 0) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 w-4 text-center">&#x1FAA8;</span>
+                      <span className="text-gray-600">
+                        {piece.materialName || 'No material'}
+                      </span>
+                      {onPieceMaterialChange && materials.length > 0 && (
+                        <select
+                          value=""
+                          onChange={e => {
+                            if (e.target.value) {
+                              onPieceMaterialChange(pieceIdStr, parseInt(e.target.value));
+                            }
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          className="px-1 py-0.5 text-[10px] border border-gray-200 rounded bg-white text-gray-500 hover:border-gray-300 cursor-pointer"
+                        >
+                          <option value="">Change</option>
+                          {materials.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}{m.collection ? ` (${m.collection})` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Cutouts */}
+                  {(cutoutCount > 0 || (onPieceCutoutAdd && cutoutTypes.length > 0)) && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 w-4 text-center">&#x1F52A;</span>
+                      <span className="text-gray-600">
+                        {cutoutCount > 0
+                          ? `${cutoutCount} cutout${cutoutCount !== 1 ? 's' : ''}: ${
+                              piece.piece_features?.map(f => `${f.quantity}× ${f.name}`).join(', ') ?? ''
+                            }`
+                          : 'No cutouts'}
+                      </span>
+                      {onPieceCutoutAdd && cutoutTypes.length > 0 && (
+                        <select
+                          value=""
+                          onChange={e => {
+                            if (e.target.value) onPieceCutoutAdd(pieceIdStr, e.target.value);
+                          }}
+                          onClick={e => e.stopPropagation()}
+                          className="px-1 py-0.5 text-[10px] border border-gray-200 rounded bg-white text-blue-600 hover:border-gray-300 cursor-pointer"
+                        >
+                          <option value="">+ Add</option>
+                          {cutoutTypes.map(ct => (
+                            <option key={ct.id} value={ct.id}>{ct.name}</option>
+                          ))}
+                        </select>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Relationships */}
+                  {pieceRelationships.length > 0 && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-gray-400 w-4 text-center">&#x1F517;</span>
+                      <span className="text-gray-600">
+                        {pieceRelationships.length} relationship{pieceRelationships.length !== 1 ? 's' : ''}:
+                        {' '}
+                        {pieceRelationships.map(r => {
+                          const display = RELATIONSHIP_DISPLAY[r.relationshipType];
+                          const isParent = r.parentPieceId === pieceIdStr;
+                          const otherId = isParent ? r.childPieceId : r.parentPieceId;
+                          const otherPiece = pieceMap.get(otherId);
+                          const otherName = otherPiece
+                            ? (otherPiece.name ?? otherPiece.description ?? 'Piece')
+                            : 'Unknown';
+                          return `${display?.label ?? r.relationshipType} → ${otherName}`;
+                        }).join(', ')}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
 
