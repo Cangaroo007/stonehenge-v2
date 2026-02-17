@@ -22,6 +22,8 @@ interface RoomPieceSVGProps {
   isSelected?: boolean;
   isEditMode?: boolean;
   onPieceClick?: (pieceId: string) => void;
+  onMouseEnter?: (pieceId: string) => void;
+  onMouseLeave?: () => void;
 }
 
 // ─── Edge Colour (matches MiniSpatialDiagram / PieceVisualEditor) ────────────
@@ -98,6 +100,8 @@ export default function RoomPieceSVG({
   isSelected = false,
   isEditMode = false,
   onPieceClick,
+  onMouseEnter,
+  onMouseLeave,
 }: RoomPieceSVGProps) {
   const { x, y, width, height } = position;
 
@@ -133,6 +137,8 @@ export default function RoomPieceSVG({
     <g
       style={{ cursor: isEditMode ? 'pointer' : 'default' }}
       onClick={handleClick}
+      onMouseEnter={() => onMouseEnter?.(piece.id)}
+      onMouseLeave={() => onMouseLeave?.()}
       className={isEditMode ? 'room-piece-svg-interactive' : undefined}
     >
       {/* Selection glow */}
