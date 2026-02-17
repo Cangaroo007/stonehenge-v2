@@ -1,7 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 export interface ParsedMaterial {
   productCode: string | null;
