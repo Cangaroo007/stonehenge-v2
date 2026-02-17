@@ -30,7 +30,7 @@ import { extractElevationAreas } from './spatial-extractor';
 import { calculateElevationDeductions } from './cutout-deductor';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 /**
  * Stage 1: Classify the document type

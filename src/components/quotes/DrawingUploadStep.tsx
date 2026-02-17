@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback, useRef, useEffect } from 'react';
+import StreamlinedAnalysisView from './StreamlinedAnalysisView';
 
 interface Customer {
   id: number;
@@ -13,13 +14,14 @@ interface DrawingUploadStepProps {
   customerId?: number;
 }
 
-type AnalysisState = 'idle' | 'uploading' | 'analyzing' | 'creating' | 'error';
+type AnalysisState = 'idle' | 'uploading' | 'analyzing' | 'creating' | 'results' | 'error';
 
 export default function DrawingUploadStep({
   onBack,
   onQuoteCreated,
   customerId: preSelectedCustomerId,
 }: DrawingUploadStepProps) {
+  // ── ALL hooks at the TOP (Rule 45) ──
   const [file, setFile] = useState<File | null>(null);
   const [dragActive, setDragActive] = useState(false);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
@@ -30,6 +32,10 @@ export default function DrawingUploadStep({
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(preSelectedCustomerId);
   const [projectName, setProjectName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // State for streamlined results view
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const [analysisData, setAnalysisData] = useState<any>(null);
+  const [draftQuoteId, setDraftQuoteId] = useState<number | null>(null);
 
   // Fetch customers for dropdown
   useEffect(() => {
@@ -168,42 +174,13 @@ export default function DrawingUploadStep({
         }),
       });
 
-      setProgress(85);
-      setProgressLabel('Importing extracted pieces...');
-      setAnalysisState('creating');
-
-      // Step 5: Import pieces from analysis
-      const pieces: { name: string; length: number; width: number; thickness: number; room: string; notes: string | null }[] = [];
-      for (const room of analysis.rooms || []) {
-        for (const piece of room.pieces || []) {
-          pieces.push({
-            name: piece.name || 'Piece',
-            length: piece.length || 0,
-            width: piece.width || 0,
-            thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
-            room: room.name || 'Kitchen',
-            notes: piece.notes || null,
-          });
-        }
-      }
-
-      if (pieces.length > 0) {
-        const importRes = await fetch(`/api/quotes/${quoteId}/import-pieces`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ pieces }),
-        });
-
-        if (!importRes.ok) {
-          // Non-fatal: quote still created, user can add pieces manually
-        }
-      }
-
       setProgress(100);
-      setProgressLabel('Done!');
+      setProgressLabel('Analysis complete!');
 
-      // Redirect to the quote builder
-      onQuoteCreated(quoteId);
+      // Show streamlined results view instead of immediately redirecting
+      setAnalysisData(analysis);
+      setDraftQuoteId(quoteId);
+      setAnalysisState('results');
     } catch (err) {
       setAnalysisState('error');
       setError(err instanceof Error ? err.message : 'Drawing analysis failed');
@@ -408,6 +385,48 @@ export default function DrawingUploadStep({
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Streamlined results view after analysis
+  if (analysisState === 'results' && analysisData && draftQuoteId) {
+    const importAndRedirect = async (mode?: string) => {
+      // Import pieces from analysis into the draft quote
+      const analysis = analysisData as { rooms?: Array<{ name: string; pieces: Array<{ name: string; length: number; width: number; thickness: number; notes?: string | null }>}>; metadata?: { defaultThickness?: number } };
+      const pieces: { name: string; length: number; width: number; thickness: number; room: string; notes: string | null }[] = [];
+      for (const room of analysis.rooms || []) {
+        for (const piece of room.pieces || []) {
+          pieces.push({
+            name: piece.name || 'Piece',
+            length: piece.length || 0,
+            width: piece.width || 0,
+            thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
+            room: room.name || 'Kitchen',
+            notes: piece.notes || null,
+          });
+        }
+      }
+
+      if (pieces.length > 0) {
+        await fetch(`/api/quotes/${draftQuoteId}/import-pieces`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pieces }),
+        });
+      }
+
+      onQuoteCreated(draftQuoteId);
+    };
+
+    return (
+      <StreamlinedAnalysisView
+        analysisResult={analysisData}
+        drawingName={file?.name || 'Drawing'}
+        projectName={projectName || 'Untitled'}
+        onCreateQuote={importAndRedirect}
+        onEditQuickView={importAndRedirect}
+        onEditDetailedBuilder={importAndRedirect}
+      />
     );
   }
 

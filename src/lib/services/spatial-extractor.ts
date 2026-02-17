@@ -6,7 +6,7 @@ import {
 } from '@/lib/prompts/extraction-elevation';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 /**
  * Extract stone face areas from an architectural elevation drawing.

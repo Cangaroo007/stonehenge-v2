@@ -10,7 +10,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getScheduleParserPrompt } from '@/lib/prompts/schedule-parser';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 export interface ParsedStoneSpec {
   application: string; // BENCHTOP, SPLASHBACK, VANITY, etc.

@@ -20,7 +20,7 @@ import {
 } from '@/lib/types/price-interpreter';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 const AI_SYSTEM_PROMPT = `You are an expert in Australian Stone Masonry and stone fabrication pricing. Your job is to analyze uploaded price lists (CSV or spreadsheet data) and map the columns and rows to our internal pricing categories.
 
