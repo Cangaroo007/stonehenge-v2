@@ -18,6 +18,8 @@ import QuoteActions from './builder/components/QuoteActions';
 import DrawingImport from './builder/components/DrawingImport';
 import { DrawingReferencePanel } from './builder/components/DrawingReferencePanel';
 import DrawingsAccordion from '@/components/quotes/DrawingsAccordion';
+import CompleteJobView from '@/components/quotes/CompleteJobView';
+import type { QuotePieceInput, RoomInput } from '@/lib/types/piece-groups';
 import DeliveryTemplatingCard from './builder/components/DeliveryTemplatingCard';
 import { OptimizationDisplay } from './builder/components/OptimizationDisplay';
 import MachineDetailsPanel from './builder/components/MachineDetailsPanel';
@@ -1319,6 +1321,44 @@ export default function QuoteDetailClient({
         {/* Drawings Accordion */}
         <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
 
+        {/* Complete Job View — grouped spatial diagram */}
+        <CompleteJobView
+          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
+            room.quote_pieces.map(p => ({
+              id: p.id,
+              name: p.name || 'Unnamed',
+              room_id: room.id,
+              length_mm: p.length_mm,
+              width_mm: p.width_mm,
+              thickness_mm: p.thickness_mm,
+              area_sqm: p.area_sqm,
+              material_cost: p.material_cost,
+              features_cost: p.features_cost,
+              total_cost: p.total_cost,
+              edge_top: null,
+              edge_bottom: null,
+              edge_left: null,
+              edge_right: null,
+              material_id: p.material_id,
+              material_name: p.materials?.name || p.material_name || null,
+              lamination_method: 'NONE',
+              waterfall_height_mm: null,
+              sort_order: 0,
+            } satisfies QuotePieceInput))
+          )}
+          rooms={(serverData.quote_rooms ?? []).map((r, i) => ({
+            id: r.id,
+            name: r.name,
+            sort_order: i,
+          } satisfies RoomInput))}
+          onPieceSelect={(pieceId) => {
+            const el = document.getElementById(`piece-${pieceId}`);
+            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }}
+          mode="view"
+          quoteId={quoteIdStr}
+        />
+
         {/* Signature Section */}
         <QuoteSignatureSection
           quoteId={serverData.id}
@@ -1765,6 +1805,46 @@ export default function QuoteDetailClient({
       <div className="space-y-6">
         {/* Drawings Accordion */}
         <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+
+        {/* Complete Job View — grouped spatial diagram */}
+        {pieces.length > 0 && (
+          <CompleteJobView
+            pieces={pieces.map(p => ({
+              id: p.id,
+              name: p.name,
+              room_id: p.quote_rooms?.id ?? 0,
+              length_mm: p.lengthMm,
+              width_mm: p.widthMm,
+              thickness_mm: p.thicknessMm,
+              area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
+              material_cost: 0,
+              features_cost: 0,
+              total_cost: p.totalCost,
+              edge_top: p.edgeTop,
+              edge_bottom: p.edgeBottom,
+              edge_left: p.edgeLeft,
+              edge_right: p.edgeRight,
+              material_id: p.materialId,
+              material_name: p.materialName,
+              lamination_method: 'NONE',
+              waterfall_height_mm: null,
+              sort_order: p.sortOrder,
+            } satisfies QuotePieceInput))}
+            rooms={rooms.map(r => ({
+              id: r.id,
+              name: r.name,
+              sort_order: r.sortOrder,
+            } satisfies RoomInput))}
+            selectedPieceId={selectedPieceId ?? undefined}
+            onPieceSelect={(pieceId) => {
+              setSelectedPieceId(pieceId);
+              const el = document.getElementById(`piece-${pieceId}`);
+              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }}
+            mode="edit"
+            quoteId={quoteIdStr}
+          />
+        )}
 
         {/* Option Tabs — only shown when options exist */}
         {hasOptions && (
