@@ -11,6 +11,8 @@ interface MiniSpatialDiagramProps {
   onPieceClick: (pieceId: number) => void;
   onPieceExpand: (pieceId: number) => void;
   mode: 'view' | 'edit';
+  /** When true, renders at a larger size (~700px) for full job view */
+  large?: boolean;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────────────
@@ -395,6 +397,7 @@ export default function MiniSpatialDiagram({
   onPieceClick,
   onPieceExpand,
   mode,
+  large = false,
 }: MiniSpatialDiagramProps) {
   const [hoveredPieceId, setHoveredPieceId] = useState<number | null>(null);
 
@@ -434,8 +437,8 @@ export default function MiniSpatialDiagram({
     <div className="relative">
       <svg
         viewBox={`0 0 ${SVG_WIDTH} ${SVG_HEIGHT}`}
-        className="w-full max-w-[400px] h-auto"
-        style={{ minHeight: 140 }}
+        className={`w-full h-auto ${large ? 'max-w-[700px]' : 'max-w-[400px]'}`}
+        style={{ minHeight: large ? 250 : 140 }}
       >
         {/* Join indicators */}
         {primaryRect &&
