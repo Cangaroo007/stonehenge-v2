@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, useCallback } from 'react';
+import { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import { calculateRoomLayout } from '@/lib/services/room-layout-engine';
 import { suggestRelationships } from '@/lib/services/relationship-suggest-service';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
@@ -44,6 +44,12 @@ interface MaterialOption {
   collection?: string | null;
 }
 
+interface RoomInfo {
+  id: number;
+  name: string;
+  sortOrder: number;
+}
+
 interface RoomSpatialViewProps {
   roomName: string;
   pieces: QuotePiece[];
@@ -70,6 +76,19 @@ interface RoomSpatialViewProps {
   cutoutTypes?: Array<{ id: string; name: string; baseRate: number }>;
   /** Context menu handler — called on right-click with piece data */
   onContextMenu?: (pieceId: string, position: { x: number; y: number }) => void;
+  // ── Room management props (edit mode) ──
+  roomId?: number;
+  allRooms?: RoomInfo[];
+  onRoomRename?: (roomId: number, newName: string) => void;
+  onRoomMoveUp?: (roomId: number) => void;
+  onRoomMoveDown?: (roomId: number) => void;
+  onRoomMerge?: (sourceRoomId: number, targetRoomId: number) => void;
+  onRoomDelete?: (roomId: number) => void;
+  onAddRoomBelow?: (afterRoomId: number) => void;
+  onAddPiece?: (roomId: number) => void;
+  // ── Multi-select props ──
+  selectedPieceIds?: Set<string>;
+  onPieceMultiSelect?: (pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => void;
 }
 
 // Types that use join position
@@ -157,6 +176,19 @@ export default function RoomSpatialView({
   materials = [],
   cutoutTypes = [],
   onContextMenu,
+  // Room management
+  roomId,
+  allRooms = [],
+  onRoomRename,
+  onRoomMoveUp,
+  onRoomMoveDown,
+  onRoomMerge,
+  onRoomDelete,
+  onAddRoomBelow,
+  onAddPiece,
+  // Multi-select
+  selectedPieceIds,
+  onPieceMultiSelect,
 }: RoomSpatialViewProps) {
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
@@ -200,6 +232,59 @@ export default function RoomSpatialView({
 
   // Hover state for relationship connector highlighting
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
+
+  // ── Room management state ──
+  const [isEditingName, setIsEditingName] = useState(false);
+  const [editNameValue, setEditNameValue] = useState(roomName);
+  const [showRoomMenu, setShowRoomMenu] = useState(false);
+  const [showMergeSubmenu, setShowMergeSubmenu] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const roomMenuRef = useRef<HTMLDivElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
+
+  // Close room menu on outside click
+  useEffect(() => {
+    if (!showRoomMenu) return;
+    const handler = (e: MouseEvent) => {
+      if (roomMenuRef.current && !roomMenuRef.current.contains(e.target as Node)) {
+        setShowRoomMenu(false);
+        setShowMergeSubmenu(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showRoomMenu]);
+
+  // Focus input when editing name
+  useEffect(() => {
+    if (isEditingName && nameInputRef.current) {
+      nameInputRef.current.focus();
+      nameInputRef.current.select();
+    }
+  }, [isEditingName]);
+
+  const handleNameSave = useCallback(() => {
+    const trimmed = editNameValue.trim();
+    if (trimmed && trimmed !== roomName && roomId && onRoomRename) {
+      onRoomRename(roomId, trimmed);
+    }
+    setIsEditingName(false);
+  }, [editNameValue, roomName, roomId, onRoomRename]);
+
+  const handleNameKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') handleNameSave();
+    if (e.key === 'Escape') {
+      setEditNameValue(roomName);
+      setIsEditingName(false);
+    }
+  }, [handleNameSave, roomName]);
+
+  // Check if multi-selected
+  const isPieceMultiSelected = useCallback((pieceId: string) => {
+    return selectedPieceIds?.has(pieceId) ?? false;
+  }, [selectedPieceIds]);
+
+  const multiSelectCount = selectedPieceIds?.size ?? 0;
 
   // ── Paint mode state (Task D) ──
   const [paintMode, setPaintMode] = useState(false);
@@ -364,19 +449,203 @@ export default function RoomSpatialView({
     );
   }, [selectedPieceId, relationships]);
 
+  // ── Room header renderer (shared between empty and populated states) ──
+  const renderRoomHeader = () => (
+    <div className="flex justify-between items-center mb-3">
+      <div className="flex items-center gap-2">
+        {/* Editable room name (edit mode) */}
+        {mode === 'edit' && isEditingName ? (
+          <input
+            ref={nameInputRef}
+            type="text"
+            value={editNameValue}
+            onChange={e => setEditNameValue(e.target.value)}
+            onBlur={handleNameSave}
+            onKeyDown={handleNameKeyDown}
+            className="text-sm font-semibold text-gray-700 border border-blue-300 rounded px-1 py-0.5 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+            style={{ width: Math.max(80, editNameValue.length * 8 + 20) }}
+          />
+        ) : (
+          <h3
+            className={`text-sm font-semibold text-gray-700 ${
+              mode === 'edit' && onRoomRename ? 'cursor-pointer hover:text-blue-600' : ''
+            }`}
+            onClick={() => {
+              if (mode === 'edit' && onRoomRename) {
+                setEditNameValue(roomName);
+                setIsEditingName(true);
+              }
+            }}
+            title={mode === 'edit' ? 'Click to rename' : undefined}
+          >
+            {roomName}
+          </h3>
+        )}
+        {/* Paint mode toggle (edit mode only, Task D) */}
+        {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
+          <button
+            onClick={handleTogglePaintMode}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
+              paintMode
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
+            }`}
+            title="Toggle paint mode (P)"
+          >
+            Paint
+          </button>
+        )}
+        {/* + Piece button (edit mode) */}
+        {mode === 'edit' && onAddPiece && roomId && (
+          <button
+            onClick={() => onAddPiece(roomId)}
+            className="px-2 py-0.5 text-[10px] font-medium rounded-md border border-gray-200 bg-white text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            + Piece
+          </button>
+        )}
+        {/* Room actions menu (edit mode) */}
+        {mode === 'edit' && roomId && (
+          <div className="relative" ref={roomMenuRef}>
+            <button
+              onClick={() => setShowRoomMenu(!showRoomMenu)}
+              className="px-1.5 py-0.5 text-[10px] font-medium rounded-md border border-gray-200 bg-white text-gray-500 hover:bg-gray-50 transition-colors"
+              title="Room actions"
+            >
+              &#x22EF;
+            </button>
+            {showRoomMenu && (
+              <div className="absolute left-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-44">
+                {onRoomRename && (
+                  <button
+                    onClick={() => {
+                      setShowRoomMenu(false);
+                      setEditNameValue(roomName);
+                      setIsEditingName(true);
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    Rename room
+                  </button>
+                )}
+                {onRoomMoveUp && (
+                  <button
+                    onClick={() => { onRoomMoveUp(roomId); setShowRoomMenu(false); }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    Move up
+                  </button>
+                )}
+                {onRoomMoveDown && (
+                  <button
+                    onClick={() => { onRoomMoveDown(roomId); setShowRoomMenu(false); }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    Move down
+                  </button>
+                )}
+                {onRoomMerge && allRooms.length > 1 && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowMergeSubmenu(!showMergeSubmenu)}
+                      className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 flex items-center justify-between"
+                    >
+                      <span>Merge into...</span>
+                      <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    {showMergeSubmenu && (
+                      <div className="absolute left-full top-0 ml-1 bg-white border border-gray-200 rounded-lg shadow-lg py-1 w-40">
+                        {allRooms
+                          .filter(r => r.id !== roomId)
+                          .map(r => (
+                            <button
+                              key={r.id}
+                              onClick={() => {
+                                if (confirm(`Merge all pieces from "${roomName}" into "${r.name}"?`)) {
+                                  onRoomMerge(roomId, r.id);
+                                }
+                                setShowRoomMenu(false);
+                                setShowMergeSubmenu(false);
+                              }}
+                              className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                            >
+                              {r.name}
+                            </button>
+                          ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                {onAddRoomBelow && (
+                  <button
+                    onClick={() => { onAddRoomBelow(roomId); setShowRoomMenu(false); }}
+                    className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50"
+                  >
+                    Add room below
+                  </button>
+                )}
+                {onRoomDelete && (
+                  <>
+                    <div className="border-t border-gray-100 my-1" />
+                    {!showDeleteConfirm ? (
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="w-full text-left px-3 py-1.5 text-xs text-red-600 hover:bg-red-50"
+                      >
+                        Delete room
+                      </button>
+                    ) : (
+                      <div className="px-3 py-1.5 space-y-1">
+                        <p className="text-[10px] text-red-600">
+                          Pieces will move to Unassigned
+                        </p>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => {
+                              onRoomDelete(roomId);
+                              setShowRoomMenu(false);
+                              setShowDeleteConfirm(false);
+                            }}
+                            className="px-2 py-0.5 text-[10px] text-white bg-red-600 rounded hover:bg-red-700"
+                          >
+                            Delete
+                          </button>
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="px-2 py-0.5 text-[10px] text-gray-500 border border-gray-200 rounded hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+      <span className="text-xs text-gray-500">
+        {pieces.length} piece{pieces.length !== 1 ? 's' : ''}
+        {roomTotal != null && ` | ${formatCurrency(roomTotal)}`}
+      </span>
+    </div>
+  );
+
   // ── Empty room ──
   if (pieces.length === 0) {
     return (
       <div className="border rounded-lg p-4 mb-6">
-        <div className="flex justify-between items-center mb-3">
-          <h3 className="text-sm font-semibold text-gray-700">{roomName}</h3>
-        </div>
+        {renderRoomHeader()}
         <div className="text-centre py-8">
           <p className="text-sm text-gray-400">No pieces in this room yet</p>
-          {mode === 'edit' && (
+          {mode === 'edit' && onAddPiece && roomId && (
             <button
               className="mt-2 text-sm text-blue-600 hover:text-blue-800 font-medium"
-              onClick={() => onPieceSelect?.('new')}
+              onClick={() => onAddPiece(roomId)}
             >
               + Add Piece
             </button>
@@ -388,30 +657,8 @@ export default function RoomSpatialView({
 
   return (
     <div className="border rounded-lg p-4 mb-6">
-      {/* Room header */}
-      <div className="flex justify-between items-center mb-3">
-        <div className="flex items-center gap-2">
-          <h3 className="text-sm font-semibold text-gray-700">{roomName}</h3>
-          {/* Paint mode toggle (edit mode only, Task D) */}
-          {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
-            <button
-              onClick={handleTogglePaintMode}
-              className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
-                paintMode
-                  ? 'bg-blue-600 text-white border-blue-600'
-                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-              }`}
-              title="Toggle paint mode (P)"
-            >
-              Paint
-            </button>
-          )}
-        </div>
-        <span className="text-xs text-gray-500">
-          {pieces.length} piece{pieces.length !== 1 ? 's' : ''}
-          {roomTotal != null && ` | ${formatCurrency(roomTotal)}`}
-        </span>
-      </div>
+      {/* Room header with management controls */}
+      {renderRoomHeader()}
 
       {/* Paint mode profile selector bar (Task D) */}
       {paintMode && mode === 'edit' && (
@@ -505,10 +752,18 @@ export default function RoomSpatialView({
               }}
               position={pos}
               scale={layout.scale}
-              isSelected={selectedPieceId === String(piece.id)}
+              isSelected={selectedPieceId === String(piece.id) || isPieceMultiSelected(String(piece.id))}
               isEditMode={mode === 'edit'}
               isPaintMode={paintMode}
-              onPieceClick={onPieceSelect}
+              onPieceClick={onPieceMultiSelect
+                ? (pieceId: string, e?: React.MouseEvent) => {
+                    if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+                      onPieceMultiSelect(pieceId, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
+                    } else {
+                      onPieceSelect?.(pieceId);
+                    }
+                  }
+                : onPieceSelect}
               onEdgeClick={paintMode ? handlePaintEdgeClick : undefined}
               onContextMenu={handlePieceContextMenu}
               onMouseEnter={setHoveredPieceId}
@@ -618,15 +873,34 @@ export default function RoomSpatialView({
               r => r.parentPieceId === pieceIdStr || r.childPieceId === pieceIdStr
             );
 
+            const isMultiSelected = isPieceMultiSelected(pieceIdStr);
+
             if (!isSelected) {
               // Collapsed one-line summary
               return (
                 <button
                   key={pieceIdStr}
-                  onClick={() => onPieceSelect?.(pieceIdStr)}
-                  className="w-full text-left px-3 py-1.5 text-xs bg-gray-50 hover:bg-gray-100 rounded-md border border-gray-100 transition-colors flex items-center justify-between"
+                  onClick={(e) => {
+                    if (onPieceMultiSelect && (e.ctrlKey || e.metaKey || e.shiftKey)) {
+                      onPieceMultiSelect(pieceIdStr, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
+                    } else {
+                      onPieceSelect?.(pieceIdStr);
+                    }
+                  }}
+                  className={`w-full text-left px-3 py-1.5 text-xs rounded-md border transition-colors flex items-center justify-between ${
+                    isMultiSelected
+                      ? 'bg-blue-50 border-blue-300 ring-1 ring-blue-300'
+                      : 'bg-gray-50 hover:bg-gray-100 border-gray-100'
+                  }`}
                 >
-                  <span className="font-medium text-gray-700 truncate">{pieceName}</span>
+                  <span className="flex items-center gap-1.5">
+                    {isMultiSelected && (
+                      <svg className="h-3 w-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                      </svg>
+                    )}
+                    <span className="font-medium text-gray-700 truncate">{pieceName}</span>
+                  </span>
                   <span className="text-gray-400 flex-shrink-0 ml-2">
                     {formatCurrency(piece.total_cost)}
                   </span>

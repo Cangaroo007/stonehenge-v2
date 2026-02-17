@@ -24,7 +24,7 @@ interface RoomPieceSVGProps {
   isEditMode?: boolean;
   /** Whether paint mode is active in the room (Task D) */
   isPaintMode?: boolean;
-  onPieceClick?: (pieceId: string) => void;
+  onPieceClick?: (pieceId: string, e?: React.MouseEvent) => void;
   /** Called when an edge is clicked in paint mode (pieceId, side) */
   onEdgeClick?: (pieceId: string, side: string) => void;
   /** Called on right-click (edit mode only) */
@@ -136,9 +136,9 @@ export default function RoomPieceSVG({
   // Edge hover state for paint mode
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
-  const handleClick = () => {
+  const handleClick = (e: React.MouseEvent) => {
     if (isEditMode && onPieceClick) {
-      onPieceClick(piece.id);
+      onPieceClick(piece.id, e);
     }
   };
 
