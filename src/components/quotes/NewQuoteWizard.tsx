@@ -6,8 +6,9 @@ import Link from 'next/link';
 import TemplateSelector from './TemplateSelector';
 import MaterialAssignment from './MaterialAssignment';
 import DrawingUploadStep from './DrawingUploadStep';
+import { ManualQuoteWizard } from './ManualQuoteWizard';
 
-type WizardStep = 'choose' | 'drawing' | 'template' | 'material-assignment' | 'creating';
+type WizardStep = 'choose' | 'drawing' | 'template' | 'manual' | 'material-assignment' | 'creating';
 
 interface RecentQuote {
   id: number;
@@ -154,9 +155,8 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option C: Manual */}
           <button
-            onClick={handleManual}
-            disabled={isCreatingManual}
-            className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group disabled:opacity-50"
+            onClick={() => setStep('manual')}
+            className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">
               <svg className="h-10 w-10 text-gray-400 group-hover:text-amber-500 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -165,10 +165,10 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
             </div>
             <h3 className="text-lg font-semibold text-gray-900 mb-2">Manual</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Blank quote, add pieces manually
+              Set up rooms and pieces with smart defaults
             </p>
             <span className="text-sm font-medium text-amber-600 group-hover:text-amber-700">
-              {isCreatingManual ? 'Creating...' : 'Select \u2192'}
+              Select &rarr;
             </span>
           </button>
         </div>
@@ -201,6 +201,32 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
         onBack={() => setStep('choose')}
         onQuoteCreated={handleDrawingComplete}
         customerId={customerId}
+      />
+    );
+  }
+
+  // Step: Manual wizard (rooms, pieces, dimensions)
+  if (step === 'manual') {
+    return (
+      <ManualQuoteWizard
+        onBack={() => setStep('choose')}
+        onComplete={async (data) => {
+          // Create a draft quote then redirect to edit mode
+          setError(null);
+          try {
+            const params = new URLSearchParams();
+            if (customerId) params.set('customerId', String(customerId));
+            const url = `/api/quotes/create-draft${params.toString() ? `?${params}` : ''}`;
+            const res = await fetch(url, { method: 'POST' });
+            if (!res.ok) {
+              throw new Error('Failed to create draft quote');
+            }
+            const { quoteId } = await res.json();
+            router.push(`/quotes/${quoteId}?mode=edit`);
+          } catch (err) {
+            setError(err instanceof Error ? err.message : 'Failed to create quote');
+          }
+        }}
       />
     );
   }
