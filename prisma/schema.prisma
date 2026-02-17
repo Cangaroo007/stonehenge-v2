@@ -605,6 +605,18 @@ model quotes {
   versions               quote_versions[]
   options                quote_options[]
 
+  // Status lifecycle fields
+  status_changed_at DateTime?
+  status_changed_by String?
+  sent_at           DateTime?
+  accepted_at       DateTime?
+  declined_at       DateTime?
+  declined_reason   String?
+  revision_number   Int         @default(1)
+  parent_quote_id   Int?
+  parent_quote      quotes?     @relation("QuoteRevisions", fields: [parent_quote_id], references: [id])
+  child_quotes      quotes[]    @relation("QuoteRevisions")
+
   // Slab edge allowance (per-quote override, mm)
   slabEdgeAllowanceMm  Int?     @map("slab_edge_allowance_mm")
 
@@ -940,6 +952,18 @@ enum ContactRole {
   ACCOUNTS
   PROJECT_MANAGER
   OTHER
+}
+
+enum QuoteStatus {
+  DRAFT
+  REVIEW
+  SENT
+  ACCEPTED
+  DECLINED
+  REVISION
+  IN_PRODUCTION
+  COMPLETED
+  ARCHIVED
 }
 
 enum RelationshipType {

@@ -1,6 +1,6 @@
 'use client';
 
-import { getStatusColor, getStatusLabel } from '@/lib/utils';
+import { getStatusColor, getStatusLabel, getStatusIcon } from '@/lib/utils';
 
 interface Quote {
   id: number;
@@ -32,10 +32,11 @@ export default function QuoteHeader({ quote, onBack, saving, hasUnsavedChanges }
               Quote Builder: {quote.quote_number}
             </h1>
             <span
-              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+              className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                 quote.status
               )}`}
             >
+              <span>{getStatusIcon(quote.status)}</span>
               {getStatusLabel(quote.status)}
             </span>
             {saving && (
