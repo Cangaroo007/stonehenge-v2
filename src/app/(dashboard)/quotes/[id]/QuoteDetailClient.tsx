@@ -44,6 +44,7 @@ import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 import MaterialView from '@/components/quotes/MaterialView';
 import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
+import PieceContextMenu from '@/components/quotes/PieceContextMenu';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useQuoteKeyboardShortcuts } from '@/hooks/useQuoteKeyboardShortcuts';
@@ -320,6 +321,7 @@ export default function QuoteDetailClient({
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
+  const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [relationships, setRelationships] = useState<PieceRelationshipData[]>([]);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
@@ -1667,6 +1669,90 @@ export default function QuoteDetailClient({
     onRedo: redo,
   });
 
+  // ── Context menu handlers ──────────────────────────────────────────────────
+
+  const handleContextMenu = useCallback((pieceId: string, position: { x: number; y: number }) => {
+    const piece = pieces.find(p => p.id === Number(pieceId));
+    setContextMenu({
+      isOpen: true,
+      pieceId,
+      pieceName: piece?.name || `Piece #${pieceId}`,
+      position,
+    });
+  }, [pieces]);
+
+  const handleCloseContextMenu = useCallback(() => {
+    setContextMenu(prev => ({ ...prev, isOpen: false }));
+  }, []);
+
+  const handleContextMenuMovePiece = useCallback(async (pieceId: string, roomId: string) => {
+    try {
+      if (roomId === '__new__') {
+        const name = prompt('New room name:');
+        if (!name) return;
+        const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-move`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pieceIds: [Number(pieceId)], newRoomName: name }),
+        });
+        if (!res.ok) throw new Error();
+        toast.success('Piece moved to new room');
+      } else {
+        const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-move`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pieceIds: [Number(pieceId)], targetRoomId: Number(roomId) }),
+        });
+        if (!res.ok) throw new Error();
+        toast.success('Piece moved');
+      }
+      await fetchQuote();
+      triggerRecalculate();
+      markAsChanged();
+    } catch {
+      toast.error('Failed to move piece');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+
+  const handleContextMenuPaintAllEdges = useCallback(async (pieceId: string, profileId: string | null) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          edgeTop: profileId,
+          edgeBottom: profileId,
+          edgeLeft: profileId,
+          edgeRight: profileId,
+        }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('All edges updated');
+      await fetchQuote();
+      triggerRecalculate();
+      markAsChanged();
+    } catch {
+      toast.error('Failed to paint edges');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+
+  const handleContextMenuChangeMaterial = useCallback(async (pieceId: string, materialId: number | null) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ materialId }),
+      });
+      if (!res.ok) throw new Error();
+      toast.success('Material updated');
+      await fetchQuote();
+      triggerRecalculate();
+      markAsChanged();
+    } catch {
+      toast.error('Failed to change material');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const selectedPiece = selectedPieceId
@@ -2566,6 +2652,8 @@ export default function QuoteDetailClient({
               // Multi-select
               selectedPieceIds={selectedPieceIds}
               onPieceMultiSelect={handlePieceMultiSelect}
+              // Context menu
+              onContextMenu={handleContextMenu}
             />
           );
         })}
@@ -3207,6 +3295,33 @@ export default function QuoteDetailClient({
           onClearSelection={() => setSelectedPieceIds(new Set())}
         />
       )}
+
+      {/* Piece context menu — right-click on pieces in edit mode */}
+      <PieceContextMenu
+        isOpen={contextMenu.isOpen}
+        pieceId={contextMenu.pieceId}
+        pieceName={contextMenu.pieceName}
+        position={contextMenu.position}
+        onClose={handleCloseContextMenu}
+        onEdit={(pieceId) => {
+          setSelectedPieceId(Number(pieceId));
+          setSidebarOpen(true);
+          const el = document.getElementById(`piece-${pieceId}`);
+          if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }}
+        onDuplicate={(pieceId) => handleDuplicatePiece(Number(pieceId))}
+        onMoveToRoom={handleContextMenuMovePiece}
+        onPaintAllEdges={handleContextMenuPaintAllEdges}
+        onChangeMaterial={handleContextMenuChangeMaterial}
+        onAddRelationship={(pieceId) => {
+          setSelectedPieceId(Number(pieceId));
+          setSidebarOpen(true);
+        }}
+        onDelete={(pieceId) => handleDeletePiece(Number(pieceId))}
+        rooms={rooms.map(r => ({ id: String(r.id), name: r.name }))}
+        edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+        materials={materials.map(m => ({ id: m.id, name: m.name, collection: m.collection }))}
+      />
 
       {/* Floating Action Button — visible when action bar scrolls off-screen */}
       {mode === 'edit' && (
