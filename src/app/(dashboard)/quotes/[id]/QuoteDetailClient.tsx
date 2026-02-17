@@ -227,6 +227,22 @@ export interface ServerQuoteData {
         quantity: number;
       }>;
       materials: { name: string } | null;
+      sourceRelationships: Array<{
+        id: number;
+        source_piece_id: number;
+        target_piece_id: number;
+        relationship_type: string | null;
+        relation_type: string;
+        side: string | null;
+      }>;
+      targetRelationships: Array<{
+        id: number;
+        source_piece_id: number;
+        target_piece_id: number;
+        relationship_type: string | null;
+        relation_type: string;
+        side: string | null;
+      }>;
     }>;
   }>;
   quote_drawing_analyses: {
