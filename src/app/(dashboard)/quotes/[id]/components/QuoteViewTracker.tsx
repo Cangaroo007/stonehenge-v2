@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { UserRole } from '@prisma/client';
-
 interface QuoteView {
   id: number;
   viewedAt: string;
@@ -12,7 +10,7 @@ interface QuoteView {
     id: number;
     email: string;
     name: string | null;
-    role: UserRole;
+    role: string;
   } | null;
 }
 
@@ -59,7 +57,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
         setViews(data);
 
         // Filter customer views
-        const custViews = data.filter((v: QuoteView) => v.user?.role === UserRole.CUSTOMER);
+        const custViews = data.filter((v: QuoteView) => v.user?.role === 'CUSTOMER');
         setCustomerViews(custViews);
         
         // Get latest customer view
@@ -138,7 +136,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {views.map((view) => (
-                  <tr key={view.id} className={view.user?.role === UserRole.CUSTOMER ? 'bg-green-50/50' : ''}>
+                  <tr key={view.id} className={view.user?.role === 'CUSTOMER' ? 'bg-green-50/50' : ''}>
                     <td className="table-cell">
                       {view.user ? (
                         <div>
@@ -154,10 +152,10 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
                     <td className="table-cell">
                       {view.user ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          view.user.role === UserRole.CUSTOMER ? 'bg-green-100 text-green-800' :
-                          view.user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800' :
-                          view.user.role === UserRole.SALES_MANAGER ? 'bg-blue-100 text-blue-800' :
-                          view.user.role === UserRole.SALES_REP ? 'bg-indigo-100 text-indigo-800' :
+                          view.user.role === 'CUSTOMER' ? 'bg-green-100 text-green-800' :
+                          view.user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                          view.user.role === 'SALES_MANAGER' ? 'bg-blue-100 text-blue-800' :
+                          view.user.role === 'SALES_REP' ? 'bg-indigo-100 text-indigo-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {view.user.role}

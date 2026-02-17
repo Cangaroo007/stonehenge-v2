@@ -1,4 +1,4 @@
-import { RelationshipType } from '@prisma/client';
+import type { RelationshipType } from '@prisma/client';
 
 export interface PieceRelationshipData {
   id: string;
