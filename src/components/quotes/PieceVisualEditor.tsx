@@ -89,7 +89,7 @@ const EDGE_HIT_WIDTH = 16;
 const ALL_SIDES: EdgeSide[] = ['top', 'bottom', 'left', 'right'];
 
 /** Colour by edge profile name */
-function edgeColour(name: string | undefined): string {
+export function edgeColour(name: string | undefined): string {
   if (!name) return '#d1d5db';
   const lower = name.toLowerCase();
   if (lower.includes('pencil')) return '#2563eb';
@@ -101,7 +101,7 @@ function edgeColour(name: string | undefined): string {
 }
 
 /** Short code for an edge profile */
-function edgeCode(name: string | undefined): string {
+export function edgeCode(name: string | undefined): string {
   if (!name) return 'RAW';
   const lower = name.toLowerCase();
   if (lower.includes('pencil')) return 'PR';
