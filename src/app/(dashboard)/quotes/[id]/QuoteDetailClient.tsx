@@ -18,9 +18,8 @@ import QuoteActions from './builder/components/QuoteActions';
 import DrawingImport from './builder/components/DrawingImport';
 import { DrawingReferencePanel } from './builder/components/DrawingReferencePanel';
 import DrawingsAccordion from '@/components/quotes/DrawingsAccordion';
-import CompleteJobView from '@/components/quotes/CompleteJobView';
+import RoomSpatialView from '@/components/quotes/RoomSpatialView';
 import MachineOperationsAccordion from '@/components/quotes/MachineOperationsAccordion';
-import type { QuotePieceInput, RoomInput } from '@/lib/types/piece-groups';
 import DeliveryTemplatingCard from './builder/components/DeliveryTemplatingCard';
 import { OptimizationDisplay } from './builder/components/OptimizationDisplay';
 import MachineDetailsPanel from './builder/components/MachineDetailsPanel';
@@ -28,6 +27,7 @@ import { CutoutType, PieceCutout } from './builder/components/CutoutSelector';
 import VersionHistoryTab from '@/components/quotes/VersionHistoryTab';
 import type { CalculationResult } from '@/lib/types/pricing';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import type { RelationshipType } from '@prisma/client';
 
 // Expandable cost breakdown components
 import PieceRow from '@/components/quotes/PieceRow';
@@ -1146,6 +1146,30 @@ export default function QuoteDetailClient({
     [pieces]
   );
 
+  // View-mode relationships derived from server data (no extra API call needed)
+  const viewRelationships = useMemo<PieceRelationshipData[]>(() => {
+    const rels: PieceRelationshipData[] = [];
+    const seen = new Set<number>();
+    for (const room of serverData.quote_rooms ?? []) {
+      for (const piece of room.quote_pieces) {
+        for (const sr of piece.sourceRelationships ?? []) {
+          if (!seen.has(sr.id)) {
+            seen.add(sr.id);
+            rels.push({
+              id: String(sr.id),
+              parentPieceId: String(sr.source_piece_id),
+              childPieceId: String(sr.target_piece_id),
+              relationshipType: (sr.relationship_type || sr.relation_type) as RelationshipType,
+              joinPosition: sr.side,
+              notes: null,
+            });
+          }
+        }
+      }
+    }
+    return rels;
+  }, [serverData]);
+
   // Filtered customers for dropdown
   const filteredCustomers = customersList.filter(c => {
     if (!customerSearch) return true;
@@ -1382,43 +1406,60 @@ export default function QuoteDetailClient({
         {/* Drawings Accordion */}
         <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
 
-        {/* Complete Job View — grouped spatial diagram */}
-        <CompleteJobView
-          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
-            room.quote_pieces.map(p => ({
-              id: p.id,
-              name: p.name || 'Unnamed',
-              room_id: room.id,
-              length_mm: p.length_mm,
-              width_mm: p.width_mm,
-              thickness_mm: p.thickness_mm,
-              area_sqm: p.area_sqm,
-              material_cost: p.material_cost,
-              features_cost: p.features_cost,
-              total_cost: p.total_cost,
-              edge_top: null,
-              edge_bottom: null,
-              edge_left: null,
-              edge_right: null,
-              material_id: p.material_id,
-              material_name: p.materials?.name || p.material_name || null,
-              lamination_method: 'NONE',
-              waterfall_height_mm: null,
-              sort_order: 0,
-            } satisfies QuotePieceInput))
-          )}
-          rooms={(serverData.quote_rooms ?? []).map((r, i) => ({
-            id: r.id,
-            name: r.name,
-            sort_order: i,
-          } satisfies RoomInput))}
-          onPieceSelect={(pieceId) => {
-            const el = document.getElementById(`piece-${pieceId}`);
-            if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          }}
-          mode="view"
-          quoteId={quoteIdStr}
-        />
+        {/* Room Spatial Views — room-grouped SVG spatial diagrams */}
+        {(serverData.quote_rooms ?? []).map(room => {
+          if (room.quote_pieces.length === 0) return null;
+          const roomPieceIds = new Set(room.quote_pieces.map(p => String(p.id)));
+          return (
+            <RoomSpatialView
+              key={room.id}
+              roomName={room.name || 'Unassigned'}
+              pieces={room.quote_pieces.map(p => ({
+                id: p.id,
+                description: p.description,
+                name: p.name,
+                length_mm: p.length_mm,
+                width_mm: p.width_mm,
+                thickness_mm: p.thickness_mm,
+                piece_type: null as string | null,
+                area_sqm: p.area_sqm,
+                total_cost: p.total_cost,
+                edge_top: p.edge_top,
+                edge_bottom: p.edge_bottom,
+                edge_left: p.edge_left,
+                edge_right: p.edge_right,
+                piece_features: p.piece_features,
+              }))}
+              relationships={viewRelationships.filter(r =>
+                roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+              )}
+              mode="view"
+              selectedPieceId={null}
+              onPieceSelect={(pieceId) => {
+                const el = document.getElementById(`piece-${pieceId}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              roomTotal={room.quote_pieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+            />
+          );
+        })}
+
+        {/* Open Full Job View in New Tab */}
+        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
+          <div className="flex justify-end">
+            <a
+              href={`/quotes/${quoteIdStr}/job-view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Full Job View in New Tab
+            </a>
+          </div>
+        )}
 
         {/* Machine Operations Accordion */}
         <MachineOperationsAccordion
@@ -1886,44 +1927,68 @@ export default function QuoteDetailClient({
         {/* Drawings Accordion */}
         <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
 
-        {/* Complete Job View — grouped spatial diagram */}
-        {pieces.length > 0 && (
-          <CompleteJobView
-            pieces={pieces.map(p => ({
+        {/* Room Spatial Views — room-grouped SVG spatial diagrams */}
+        {rooms.map(room => {
+          const roomPieces = pieces
+            .filter(p => p.quote_rooms?.id === room.id)
+            .map(p => ({
               id: p.id,
+              description: p.description,
               name: p.name,
-              room_id: p.quote_rooms?.id ?? 0,
               length_mm: p.lengthMm,
               width_mm: p.widthMm,
               thickness_mm: p.thicknessMm,
+              piece_type: null as string | null,
               area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
-              material_cost: 0,
-              features_cost: 0,
               total_cost: p.totalCost,
               edge_top: p.edgeTop,
               edge_bottom: p.edgeBottom,
               edge_left: p.edgeLeft,
               edge_right: p.edgeRight,
-              material_id: p.materialId,
-              material_name: p.materialName,
-              lamination_method: 'NONE',
-              waterfall_height_mm: null,
-              sort_order: p.sortOrder,
-            } satisfies QuotePieceInput))}
-            rooms={rooms.map(r => ({
-              id: r.id,
-              name: r.name,
-              sort_order: r.sortOrder,
-            } satisfies RoomInput))}
-            selectedPieceId={selectedPieceId ?? undefined}
-            onPieceSelect={(pieceId) => {
-              setSelectedPieceId(pieceId);
-              const el = document.getElementById(`piece-${pieceId}`);
-              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            }}
-            mode="edit"
-            quoteId={quoteIdStr}
-          />
+              piece_features: p.cutouts?.map(c => ({
+                id: 0,
+                name: c.cutoutTypeId,
+                quantity: c.quantity,
+              })),
+            }));
+          const roomPieceIds = new Set(roomPieces.map(p => String(p.id)));
+          return (
+            <RoomSpatialView
+              key={room.id}
+              roomName={room.name || 'Unassigned'}
+              pieces={roomPieces}
+              relationships={relationships.filter(r =>
+                roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+              )}
+              mode="edit"
+              selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
+              onPieceSelect={(pieceId) => {
+                setSelectedPieceId(Number(pieceId));
+                const el = document.getElementById(`piece-${pieceId}`);
+                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              }}
+              roomTotal={roomPieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+              quoteId={quoteIdStr}
+              onRelationshipChange={fetchRelationships}
+            />
+          );
+        })}
+
+        {/* Open Full Job View in New Tab */}
+        {pieces.length > 0 && (
+          <div className="flex justify-end">
+            <a
+              href={`/quotes/${quoteId}/job-view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Full Job View in New Tab
+            </a>
+          </div>
         )}
 
         {/* Option Tabs — only shown when options exist */}
