@@ -100,6 +100,57 @@ model customers {
   quotes                quotes[]
   user                  user[]
   unitBlockProjects     unit_block_projects[]
+  contacts              customer_contacts[]
+  locations             customer_locations[]
+}
+
+model customer_contacts {
+  id                Int         @id @default(autoincrement())
+  customer_id       Int
+  first_name        String
+  last_name         String
+  email             String?
+  phone             String?
+  mobile            String?
+  role              ContactRole @default(PRIMARY)
+  role_title        String?
+  is_primary        Boolean     @default(false)
+  notes             String?
+
+  has_portal_access Boolean     @default(false)
+  portal_user_id    Int?        @unique
+
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  customer          customers   @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  portal_user       user?       @relation("ContactPortalUser", fields: [portal_user_id], references: [id])
+  quotes            quotes[]    @relation("QuoteContact")
+
+  @@index([customer_id])
+  @@map("customer_contacts")
+}
+
+model customer_locations {
+  id            Int      @id @default(autoincrement())
+  customer_id   Int
+  label         String?
+  address_line1 String
+  address_line2 String?
+  suburb        String
+  state         String
+  postcode      String
+  country       String   @default("Australia")
+  is_default    Boolean  @default(false)
+  notes         String?
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  customer      customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@map("customer_locations")
 }
 
 model cutout_rates {
@@ -520,6 +571,7 @@ model quotes {
   quote_number           String                   @unique
   revision               Int                      @default(1)
   customer_id            Int?
+  contact_id             Int?
   project_name           String?
   project_address        String?
   status                 String                   @default("draft")
@@ -545,6 +597,7 @@ model quotes {
   quote_views            quote_views[]
   user                   user?                    @relation(fields: [created_by], references: [id])
   customers              customers?               @relation(fields: [customer_id], references: [id])
+  contact                customer_contacts?       @relation("QuoteContact", fields: [contact_id], references: [id])
   price_books            price_books?             @relation(fields: [price_book_id], references: [id])
   slab_optimizations     slab_optimizations[]
   unitBlockUnit          unit_block_units?
@@ -690,6 +743,7 @@ model user {
   customers          customers?            @relation(fields: [customer_id], references: [id])
   unitBlockProjects  unit_block_projects[]
   quote_versions     quote_versions[]
+  contact_portal     customer_contacts?   @relation("ContactPortalUser")
 
   @@map("users")
 }
@@ -878,6 +932,14 @@ enum UserRole {
   READ_ONLY
   CUSTOM
   CUSTOMER
+}
+
+enum ContactRole {
+  PRIMARY
+  SITE_SUPERVISOR
+  ACCOUNTS
+  PROJECT_MANAGER
+  OTHER
 }
 
 enum RelationshipType {
