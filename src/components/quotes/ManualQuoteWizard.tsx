@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import toast from 'react-hot-toast';
 import {
   getDefaultRoomNames,
   getRoomPieceSuggestions,
   getPieceDefaults,
 } from '@/lib/services/quote-setup-defaults';
+import MiniPieceEditor from './MiniPieceEditor';
 
 /* ─── Types ─── */
 
@@ -24,12 +27,32 @@ interface WizardRoom {
   pieces: WizardPiece[];
 }
 
+interface EdgeTypeOption {
+  id: string;
+  name: string;
+  description?: string | null;
+  category?: string;
+  baseRate?: number;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
+interface CutoutTypeOption {
+  id: string;
+  name: string;
+  description?: string | null;
+  baseRate?: number;
+  isActive?: boolean;
+  sortOrder?: number;
+}
+
 interface ManualQuoteWizardProps {
   onComplete: (data: {
     projectName: string;
     rooms: WizardRoom[];
   }) => void;
   onBack?: () => void;
+  customerId?: number;
 }
 
 /* ─── Quick-suggestion chips for room names ─── */
@@ -39,11 +62,54 @@ const THICKNESS_OPTIONS = [20, 40];
 
 /* ─── Component ─── */
 
-export function ManualQuoteWizard({ onComplete, onBack }: ManualQuoteWizardProps) {
-  const [step, setStep] = useState<1 | 2 | 3>(1);
+export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuoteWizardProps) {
+  const router = useRouter();
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [projectName, setProjectName] = useState('');
   const [rooms, setRooms] = useState<WizardRoom[]>([]);
   const [roomCount, setRoomCount] = useState<number>(1);
+
+  /* ─── Step 4 state: edge/cutout types + creation ─── */
+  const [edgeTypes, setEdgeTypes] = useState<EdgeTypeOption[]>([]);
+  const [cutoutTypes, setCutoutTypes] = useState<CutoutTypeOption[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
+
+  /* ─── Load edge & cutout types when entering step 4 ─── */
+  useEffect(() => {
+    if (step !== 4) return;
+
+    let cancelled = false;
+
+    const loadTypes = async () => {
+      try {
+        const [edgeRes, cutoutRes] = await Promise.all([
+          fetch('/api/admin/pricing/edge-types'),
+          fetch('/api/admin/pricing/cutout-types'),
+        ]);
+
+        if (cancelled) return;
+
+        if (edgeRes.ok) {
+          const data = await edgeRes.json();
+          setEdgeTypes(
+            (data as EdgeTypeOption[]).filter((e) => e.isActive !== false),
+          );
+        }
+
+        if (cutoutRes.ok) {
+          const data = await cutoutRes.json();
+          setCutoutTypes(
+            (data as CutoutTypeOption[]).filter((c) => c.isActive !== false),
+          );
+        }
+      } catch {
+        // Non-blocking — types will show loading state
+      }
+    };
+
+    loadTypes();
+    return () => { cancelled = true; };
+  }, [step]);
 
   /* ─── Step 1 handlers ─── */
 
@@ -169,14 +235,86 @@ export function ManualQuoteWizard({ onComplete, onBack }: ManualQuoteWizardProps
   const handleStep3Next = useCallback(() => {
     if (!allLengthsFilled) return;
     if (!rooms.length) return;
-    onComplete({ projectName, rooms });
-  }, [allLengthsFilled, rooms, projectName, onComplete]);
+    setStep(4);
+  }, [allLengthsFilled, rooms]);
+
+  /* ─── Step 4 handlers ─── */
+
+  const updateWizardPiece = useCallback(
+    (roomIndex: number, pieceIndex: number, updatedPiece: WizardPiece) => {
+      setRooms((prev) => {
+        if (!prev.length) return prev;
+        if (!prev[roomIndex]) return prev;
+        const updated = [...prev];
+        const room = { ...updated[roomIndex] };
+        const pieces = [...room.pieces];
+        if (!pieces[pieceIndex]) return prev;
+        pieces[pieceIndex] = updatedPiece;
+        room.pieces = pieces;
+        updated[roomIndex] = room;
+        return updated;
+      });
+    },
+    [],
+  );
+
+  const handleCreateQuote = useCallback(async () => {
+    if (!rooms.length) return;
+    if (isCreating) return;
+
+    setIsCreating(true);
+
+    try {
+      const batchBody = {
+        projectName: projectName.trim() || null,
+        customerId: customerId ?? null,
+        rooms: rooms.map((room) => ({
+          name: room.name,
+          pieces: room.pieces.map((piece) => ({
+            name: piece.name,
+            lengthMm: piece.length_mm,
+            widthMm: piece.width_mm,
+            thicknessMm: piece.thickness_mm,
+            edgeTop: piece.edges.top || null,
+            edgeBottom: piece.edges.bottom || null,
+            edgeLeft: piece.edges.left || null,
+            edgeRight: piece.edges.right || null,
+            cutouts: piece.cutouts.map((c) => ({
+              name: c.type,
+              quantity: c.quantity,
+            })),
+          })),
+        })),
+      };
+
+      const res = await fetch('/api/quotes/batch-create', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(batchBody),
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(
+          (errData as { error?: string }).error || 'Failed to create quote',
+        );
+      }
+
+      const data = await res.json() as { quoteId?: number; redirectUrl?: string };
+      if (!data.quoteId) throw new Error('No quote ID returned from server');
+
+      router.push(`/quotes/${data.quoteId}?mode=edit`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to create quote');
+      setIsCreating(false);
+    }
+  }, [rooms, isCreating, projectName, customerId, router]);
 
   /* ─── Render helpers ─── */
 
   const renderStepIndicator = () => (
     <div className="flex items-centre gap-2 mb-6">
-      {[1, 2, 3].map((s) => (
+      {[1, 2, 3, 4].map((s) => (
         <div key={s} className="flex items-center gap-2">
           <div
             className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
@@ -189,7 +327,7 @@ export function ManualQuoteWizard({ onComplete, onBack }: ManualQuoteWizardProps
           >
             {s < step ? '\u2713' : s}
           </div>
-          {s < 3 && (
+          {s < 4 && (
             <div
               className={`w-8 h-0.5 ${s < step ? 'bg-amber-300' : 'bg-gray-200'}`}
             />
@@ -485,6 +623,78 @@ export function ManualQuoteWizard({ onComplete, onBack }: ManualQuoteWizardProps
             className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Next &rarr; Edges &amp; Cutouts
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  /* ─── Step 4: Edges & Cutouts (MiniPieceEditor per piece) ─── */
+
+  if (step === 4) {
+    return (
+      <div className="max-w-4xl mx-auto">
+        {renderStepIndicator()}
+
+        <h2 className="text-xl font-bold text-gray-900 mb-1">Edges &amp; Cutouts</h2>
+        <p className="text-sm text-gray-500 mb-6">
+          Click an edge label to change its profile. Add cutouts with the quick buttons.
+        </p>
+
+        <div className="space-y-6">
+          {rooms.map((room, roomIndex) => {
+            if (!room.pieces.length) return null;
+
+            return (
+              <div key={roomIndex}>
+                <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">
+                  {room.name}
+                  <span className="ml-2 text-xs font-normal text-gray-400">
+                    ({room.pieces.length} {room.pieces.length === 1 ? 'piece' : 'pieces'})
+                  </span>
+                </h3>
+
+                <div className="space-y-1 divide-y divide-gray-100">
+                  {room.pieces.map((piece, pieceIndex) => (
+                    <MiniPieceEditor
+                      key={pieceIndex}
+                      piece={piece}
+                      onChange={(updated) =>
+                        updateWizardPiece(roomIndex, pieceIndex, updated)
+                      }
+                      edgeTypes={edgeTypes}
+                      cutoutTypes={cutoutTypes}
+                    />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <div className="mt-8 flex justify-between">
+          <button
+            onClick={() => setStep(3)}
+            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
+          >
+            &larr; Back
+          </button>
+          <button
+            onClick={handleCreateQuote}
+            disabled={isCreating || !allLengthsFilled}
+            className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {isCreating ? (
+              <>
+                <svg className="animate-spin h-4 w-4 text-white" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Creating...
+              </>
+            ) : (
+              'Create Quote \u2192'
+            )}
           </button>
         </div>
       </div>

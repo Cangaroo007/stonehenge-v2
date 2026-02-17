@@ -205,27 +205,15 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     );
   }
 
-  // Step: Manual wizard (rooms, pieces, dimensions)
+  // Step: Manual wizard (rooms, pieces, dimensions, edges & cutouts)
+  // ManualQuoteWizard now handles batch-create + redirect internally (step 4)
   if (step === 'manual') {
     return (
       <ManualQuoteWizard
         onBack={() => setStep('choose')}
-        onComplete={async (data) => {
-          // Create a draft quote then redirect to edit mode
-          setError(null);
-          try {
-            const params = new URLSearchParams();
-            if (customerId) params.set('customerId', String(customerId));
-            const url = `/api/quotes/create-draft${params.toString() ? `?${params}` : ''}`;
-            const res = await fetch(url, { method: 'POST' });
-            if (!res.ok) {
-              throw new Error('Failed to create draft quote');
-            }
-            const { quoteId } = await res.json();
-            router.push(`/quotes/${quoteId}?mode=edit`);
-          } catch (err) {
-            setError(err instanceof Error ? err.message : 'Failed to create quote');
-          }
+        customerId={customerId}
+        onComplete={() => {
+          // No-op — ManualQuoteWizard step 4 handles batch-create + redirect
         }}
       />
     );

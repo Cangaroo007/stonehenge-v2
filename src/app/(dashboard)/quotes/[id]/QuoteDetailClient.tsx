@@ -30,6 +30,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 
 // Expandable cost breakdown components
+import MiniPieceEditor from '@/components/quotes/MiniPieceEditor';
 import PieceRow from '@/components/quotes/PieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
@@ -319,6 +320,7 @@ export default function QuoteDetailClient({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
+  const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
@@ -1736,6 +1738,26 @@ export default function QuoteDetailClient({
     }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
 
+  // Quick View: PATCH piece edges/cutouts when changed via MiniPieceEditor
+  const handleQuickViewPieceUpdate = useCallback(async (
+    pieceId: number,
+    updates: { edgeTop?: string | null; edgeBottom?: string | null; edgeLeft?: string | null; edgeRight?: string | null; cutouts?: Array<{ name: string; quantity: number }> },
+  ) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates),
+      });
+      if (!res.ok) throw new Error();
+      await fetchQuote();
+      triggerRecalculate();
+      markAsChanged();
+    } catch {
+      toast.error('Failed to update piece');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+
   const handleContextMenuChangeMaterial = useCallback(async (pieceId: string, materialId: number | null) => {
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
@@ -2693,7 +2715,31 @@ export default function QuoteDetailClient({
           <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-semibold">Pieces</h2>
-              {/* View Toggle */}
+              {/* Detailed / Quick View Toggle */}
+              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
+                <button
+                  onClick={() => setBuilderView('detailed')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    builderView === 'detailed'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Detailed
+                </button>
+                <button
+                  onClick={() => setBuilderView('quick')}
+                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
+                    builderView === 'quick'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-600 hover:text-gray-900'
+                  }`}
+                >
+                  Quick View
+                </button>
+              </div>
+              {/* Sub-view Toggle (detailed mode only) */}
+              {builderView === 'detailed' && (
               <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
                 <button
                   onClick={() => setViewMode('list')}
@@ -2726,6 +2772,7 @@ export default function QuoteDetailClient({
                   Material
                 </button>
               </div>
+              )}
               <button
                 onClick={() => setShowBulkSwap(!showBulkSwap)}
                 className={`px-3 py-1.5 text-sm font-medium border rounded-md transition-colors ${
@@ -2894,7 +2941,104 @@ export default function QuoteDetailClient({
 
           {/* Unified piece cards */}
           <div className="p-4 space-y-2">
-            {viewMode === 'material' ? (
+            {builderView === 'quick' ? (
+              /* ── Quick View: compact MiniPieceEditor per piece, grouped by room ── */
+              rooms.length > 0 ? (
+                rooms.map(room => {
+                  const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                  if (!roomPieces.length) return null;
+                  return (
+                    <div key={room.id} className="space-y-1">
+                      <h3 className="text-sm font-semibold text-gray-600 px-1">
+                        {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                      </h3>
+                      <div className="divide-y divide-gray-100">
+                        {roomPieces.map(p => (
+                          <MiniPieceEditor
+                            key={p.id}
+                            piece={{
+                              name: p.name,
+                              length_mm: p.lengthMm,
+                              width_mm: p.widthMm,
+                              thickness_mm: p.thicknessMm,
+                              edges: {
+                                top: p.edgeTop ?? '',
+                                bottom: p.edgeBottom ?? '',
+                                left: p.edgeLeft ?? '',
+                                right: p.edgeRight ?? '',
+                              },
+                              cutouts: (p.cutouts ?? []).map(c => ({
+                                type: cutoutTypes.find(ct => ct.id === c.cutoutTypeId)?.name ?? c.cutoutTypeId ?? '',
+                                quantity: c.quantity ?? 1,
+                              })),
+                            }}
+                            onChange={(updated) => {
+                              handleQuickViewPieceUpdate(p.id, {
+                                edgeTop: updated.edges.top || null,
+                                edgeBottom: updated.edges.bottom || null,
+                                edgeLeft: updated.edges.left || null,
+                                edgeRight: updated.edges.right || null,
+                              });
+                            }}
+                            edgeTypes={edgeTypes}
+                            cutoutTypes={cutoutTypes.map(ct => ({
+                              id: ct.id,
+                              name: ct.name,
+                              baseRate: ct.baseRate,
+                            }))}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                pieces.length > 0 ? (
+                  <div className="divide-y divide-gray-100">
+                    {pieces.map(p => (
+                      <MiniPieceEditor
+                        key={p.id}
+                        piece={{
+                          name: p.name,
+                          length_mm: p.lengthMm,
+                          width_mm: p.widthMm,
+                          thickness_mm: p.thicknessMm,
+                          edges: {
+                            top: p.edgeTop ?? '',
+                            bottom: p.edgeBottom ?? '',
+                            left: p.edgeLeft ?? '',
+                            right: p.edgeRight ?? '',
+                          },
+                          cutouts: (p.cutouts ?? []).map(c => ({
+                            type: cutoutTypes.find(ct => ct.id === c.cutoutTypeId)?.name ?? c.cutoutTypeId ?? '',
+                            quantity: c.quantity ?? 1,
+                          })),
+                        }}
+                        onChange={(updated) => {
+                          handleQuickViewPieceUpdate(p.id, {
+                            edgeTop: updated.edges.top || null,
+                            edgeBottom: updated.edges.bottom || null,
+                            edgeLeft: updated.edges.left || null,
+                            edgeRight: updated.edges.right || null,
+                          });
+                        }}
+                        edgeTypes={edgeTypes}
+                        cutoutTypes={cutoutTypes.map(ct => ({
+                          id: ct.id,
+                          name: ct.name,
+                          baseRate: ct.baseRate,
+                        }))}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="py-8 text-center text-gray-500">
+                    <p className="mb-2">No pieces added yet</p>
+                    <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
+                  </div>
+                )
+              )
+            ) : viewMode === 'material' ? (
               <MaterialView
                 pieces={pieces.map(p => ({
                   id: p.id,
