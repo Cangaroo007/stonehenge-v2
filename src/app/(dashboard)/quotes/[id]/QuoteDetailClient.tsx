@@ -43,7 +43,9 @@ import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 import MaterialView from '@/components/quotes/MaterialView';
 import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
+import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
+import toast from 'react-hot-toast';
 
 // View-mode components
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
@@ -1118,6 +1120,278 @@ export default function QuoteDetailClient({
     return defaultMachine?.kerfWidthMm ?? 8;
   }, [machines, defaultMachineId]);
 
+  // ── Room management handlers ────────────────────────────────────────────
+
+  const handleRoomRename = useCallback(async (roomIdToRename: number, newName: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/${roomIdToRename}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: newName }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to rename room');
+        return;
+      }
+      toast.success('Room renamed');
+      await fetchQuote();
+    } catch {
+      toast.error('Failed to rename room');
+    }
+  }, [quoteIdStr, fetchQuote]);
+
+  const handleRoomMoveUp = useCallback(async (roomIdToMove: number) => {
+    const sorted = [...rooms].sort((a, b) => a.sortOrder - b.sortOrder);
+    const idx = sorted.findIndex(r => r.id === roomIdToMove);
+    if (idx <= 0) return;
+    const reordered = sorted.map((r, i) => ({
+      id: r.id,
+      sortOrder: i === idx ? sorted[idx - 1].sortOrder : i === idx - 1 ? sorted[idx].sortOrder : r.sortOrder,
+    }));
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rooms: reordered }),
+      });
+      if (!res.ok) throw new Error();
+      await fetchQuote();
+    } catch {
+      toast.error('Failed to reorder rooms');
+    }
+  }, [rooms, quoteIdStr, fetchQuote]);
+
+  const handleRoomMoveDown = useCallback(async (roomIdToMove: number) => {
+    const sorted = [...rooms].sort((a, b) => a.sortOrder - b.sortOrder);
+    const idx = sorted.findIndex(r => r.id === roomIdToMove);
+    if (idx < 0 || idx >= sorted.length - 1) return;
+    const reordered = sorted.map((r, i) => ({
+      id: r.id,
+      sortOrder: i === idx ? sorted[idx + 1].sortOrder : i === idx + 1 ? sorted[idx].sortOrder : r.sortOrder,
+    }));
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/reorder`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rooms: reordered }),
+      });
+      if (!res.ok) throw new Error();
+      await fetchQuote();
+    } catch {
+      toast.error('Failed to reorder rooms');
+    }
+  }, [rooms, quoteIdStr, fetchQuote]);
+
+  const handleRoomMerge = useCallback(async (sourceRoomId: number, targetRoomId: number) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/${sourceRoomId}/merge`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ targetRoomId }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Merged ${data.piecesMoved} pieces into ${data.targetRoomName}`);
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to merge rooms');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  const handleRoomDelete = useCallback(async (roomIdToDelete: number) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/${roomIdToDelete}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Room deleted${data.piecesMovedToUnassigned > 0 ? `, ${data.piecesMovedToUnassigned} pieces moved to Unassigned` : ''}`);
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to delete room');
+    }
+  }, [quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  const handleAddRoomBelow = useCallback(async (_afterRoomId: number) => {
+    const name = prompt('New room name:');
+    if (!name?.trim()) return;
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: name.trim() }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to add room');
+        return;
+      }
+      toast.success('Room added');
+      await fetchQuote();
+    } catch {
+      toast.error('Failed to add room');
+    }
+  }, [quoteIdStr, fetchQuote]);
+
+  const handleAddPieceToRoom = useCallback((roomIdForPiece: number) => {
+    const room = rooms.find(r => r.id === roomIdForPiece);
+    if (room) {
+      setAddingInlinePieceRoom(room.name);
+      setAddingInlinePiece(true);
+    }
+  }, [rooms]);
+
+  // ── Multi-select handlers ──────────────────────────────────────────────
+
+  const handlePieceMultiSelect = useCallback((pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => {
+    setSelectedPieceIds(prev => {
+      const next = new Set(prev);
+      if (event.ctrlKey || event.metaKey) {
+        // Toggle selection
+        if (next.has(pieceId)) {
+          next.delete(pieceId);
+        } else {
+          next.add(pieceId);
+        }
+      } else if (event.shiftKey) {
+        // Range select — select from last selected to this piece
+        const allPieceIds = pieces.map(p => String(p.id));
+        const lastSelected = Array.from(prev).pop();
+        if (lastSelected) {
+          const startIdx = allPieceIds.indexOf(lastSelected);
+          const endIdx = allPieceIds.indexOf(pieceId);
+          if (startIdx >= 0 && endIdx >= 0) {
+            const [from, to] = startIdx < endIdx ? [startIdx, endIdx] : [endIdx, startIdx];
+            for (let i = from; i <= to; i++) {
+              next.add(allPieceIds[i]);
+            }
+          }
+        } else {
+          next.add(pieceId);
+        }
+      }
+      return next;
+    });
+  }, [pieces]);
+
+  const handleBatchMaterial = useCallback(async (materialId: number) => {
+    const pieceIds = Array.from(selectedPieceIds).map(Number);
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds, materialId }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Material updated on ${data.updated} pieces`);
+      setSelectedPieceIds(new Set());
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to update material');
+    }
+  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  const handleBatchThickness = useCallback(async (thicknessMm: number) => {
+    const pieceIds = Array.from(selectedPieceIds).map(Number);
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds, thicknessMm }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Thickness updated on ${data.updated} pieces`);
+      setSelectedPieceIds(new Set());
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to update thickness');
+    }
+  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  const handleBatchEdges = useCallback(async (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => {
+    const pieceIds = Array.from(selectedPieceIds).map(Number);
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds, edges }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Edges updated on ${data.updated} pieces${data.skipped > 0 ? ` (${data.skipped} skipped)` : ''}`);
+      setSelectedPieceIds(new Set());
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to update edges');
+    }
+  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  const handleBatchMove = useCallback(async (targetRoomId: number | null, newRoomName?: string) => {
+    const pieceIds = Array.from(selectedPieceIds).map(Number);
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-move`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          pieceIds,
+          ...(targetRoomId ? { targetRoomId } : { newRoomName }),
+        }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Moved ${data.moved} pieces`);
+      setSelectedPieceIds(new Set());
+      await fetchQuote();
+    } catch {
+      toast.error('Failed to move pieces');
+    }
+  }, [selectedPieceIds, quoteIdStr, fetchQuote]);
+
+  const handleBatchDelete = useCallback(async () => {
+    const pieceIds = Array.from(selectedPieceIds).map(Number);
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-delete`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds }),
+      });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      toast.success(`Deleted ${data.deleted} pieces`);
+      setSelectedPieceIds(new Set());
+      setSelectedPieceId(null);
+      await fetchQuote();
+      triggerRecalculate();
+    } catch {
+      toast.error('Failed to delete pieces');
+    }
+  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate]);
+
+  // Ctrl+A handler for selecting all pieces in view
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    const handler = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'a') {
+        // Only intercept if not in an input/textarea
+        const active = document.activeElement;
+        if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.tagName === 'SELECT')) return;
+        e.preventDefault();
+        const allIds = new Set(pieces.map(p => String(p.id)));
+        setSelectedPieceIds(allIds);
+      }
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [mode, pieces]);
+
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const selectedPiece = selectedPieceId
@@ -1978,12 +2252,27 @@ export default function QuoteDetailClient({
               selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
               onPieceSelect={(pieceId) => {
                 setSelectedPieceId(Number(pieceId));
+                // Clear multi-select on single click
+                setSelectedPieceIds(new Set());
                 const el = document.getElementById(`piece-${pieceId}`);
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
               roomTotal={roomPieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
               quoteId={quoteIdStr}
               onRelationshipChange={fetchRelationships}
+              // Room management
+              roomId={room.id}
+              allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
+              onRoomRename={handleRoomRename}
+              onRoomMoveUp={handleRoomMoveUp}
+              onRoomMoveDown={handleRoomMoveDown}
+              onRoomMerge={handleRoomMerge}
+              onRoomDelete={handleRoomDelete}
+              onAddRoomBelow={handleAddRoomBelow}
+              onAddPiece={handleAddPieceToRoom}
+              // Multi-select
+              selectedPieceIds={selectedPieceIds}
+              onPieceMultiSelect={handlePieceMultiSelect}
             />
           );
         })}
@@ -2597,6 +2886,23 @@ export default function QuoteDetailClient({
         onClose={() => setShowFromTemplate(false)}
         onApplied={handleTemplateApplied}
       />
+
+      {/* Multi-select floating toolbar — visible when 2+ pieces selected */}
+      {mode === 'edit' && selectedPieceIds.size >= 2 && (
+        <MultiSelectToolbar
+          selectedCount={selectedPieceIds.size}
+          rooms={rooms.map(r => ({ id: r.id, name: r.name }))}
+          materials={materials.map(m => ({ id: m.id, name: m.name, collection: m.collection }))}
+          edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+          thicknessOptions={thicknessOptions.map(t => ({ id: t.id, name: t.name, value: t.value }))}
+          onBatchMaterial={handleBatchMaterial}
+          onBatchThickness={handleBatchThickness}
+          onBatchEdges={handleBatchEdges}
+          onBatchMove={handleBatchMove}
+          onBatchDelete={handleBatchDelete}
+          onClearSelection={() => setSelectedPieceIds(new Set())}
+        />
+      )}
 
       {/* Floating Action Button — visible when action bar scrolls off-screen */}
       {mode === 'edit' && (
