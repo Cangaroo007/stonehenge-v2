@@ -8,6 +8,7 @@ import {
   getRoomPieceSuggestions,
   getPieceDefaults,
 } from '@/lib/services/quote-setup-defaults';
+import { validateWizardData, type ValidationError } from '@/lib/services/quote-validation';
 import MiniPieceEditor from './MiniPieceEditor';
 
 /* ─── Types ─── */
@@ -73,6 +74,8 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
   const [edgeTypes, setEdgeTypes] = useState<EdgeTypeOption[]>([]);
   const [cutoutTypes, setCutoutTypes] = useState<CutoutTypeOption[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
+  const [validationWarnings, setValidationWarnings] = useState<ValidationError[]>([]);
 
   /* ─── Load edge & cutout types when entering step 4 ─── */
   useEffect(() => {
@@ -276,6 +279,38 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     if (!rooms.length) return;
     if (isCreating) return;
 
+    // Clear previous validation state
+    setValidationErrors([]);
+    setValidationWarnings([]);
+
+    // GATE 1: Client-side validation
+    const validation = validateWizardData({
+      projectName,
+      customerId,
+      rooms: rooms.map((r) => ({
+        name: r.name,
+        pieces: r.pieces.map((p) => ({
+          name: p.name,
+          length_mm: Number(p.length_mm),
+          width_mm: Number(p.width_mm),
+          thickness_mm: Number(p.thickness_mm),
+          edges: p.edges,
+          cutouts: p.cutouts,
+        })),
+      })),
+    });
+
+    // Show warnings (non-blocking)
+    if (validation.warnings.length > 0) {
+      setValidationWarnings(validation.warnings);
+    }
+
+    // Show errors and BLOCK submission
+    if (!validation.valid) {
+      setValidationErrors(validation.errors);
+      return;
+    }
+
     setIsCreating(true);
 
     try {
@@ -286,16 +321,16 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
           name: room.name,
           pieces: room.pieces.map((piece) => ({
             name: piece.name,
-            lengthMm: piece.length_mm,
-            widthMm: piece.width_mm,
-            thicknessMm: piece.thickness_mm,
+            lengthMm: Number(piece.length_mm),
+            widthMm: Number(piece.width_mm),
+            thicknessMm: Number(piece.thickness_mm),
             edgeTop: piece.edges.top || null,
             edgeBottom: piece.edges.bottom || null,
             edgeLeft: piece.edges.left || null,
             edgeRight: piece.edges.right || null,
             cutouts: piece.cutouts.map((c) => ({
               name: c.type,
-              quantity: c.quantity,
+              quantity: Number(c.quantity),
             })),
           })),
         })),
@@ -309,13 +344,33 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
-        throw new Error(
-          (errData as { error?: string }).error || 'Failed to create quote',
-        );
+        const parsed = errData as { error?: string; errors?: ValidationError[] };
+
+        // Show structured API validation errors if available
+        if (parsed.errors && Array.isArray(parsed.errors)) {
+          setValidationErrors(parsed.errors);
+        } else {
+          setValidationErrors([{
+            field: 'api',
+            message: parsed.error || 'Failed to create quote. Please try again.',
+            severity: 'error' as const,
+          }]);
+        }
+        setIsCreating(false);
+        return;
       }
 
-      const data = await res.json() as { quoteId?: number; redirectUrl?: string };
+      const data = await res.json() as {
+        quoteId?: number;
+        redirectUrl?: string;
+        pricingWarnings?: string[];
+      };
       if (!data.quoteId) throw new Error('No quote ID returned from server');
+
+      // Show pricing warnings as a brief toast if present
+      if (data.pricingWarnings && data.pricingWarnings.length > 0) {
+        toast(data.pricingWarnings[0], { icon: '\u26A0\uFE0F' });
+      }
 
       router.push(`/quotes/${data.quoteId}?mode=edit`);
     } catch (err) {
@@ -693,6 +748,29 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
             );
           })}
         </div>
+
+        {/* Validation errors */}
+        {validationErrors.length > 0 && (
+          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
+            <h4 className="font-medium text-red-800 mb-2">Please fix the following:</h4>
+            <ul className="list-disc pl-5 space-y-1">
+              {validationErrors.map((err, i) => (
+                <li key={i} className="text-sm text-red-700">{err.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {/* Validation warnings */}
+        {validationWarnings.length > 0 && (
+          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+            <ul className="space-y-1">
+              {validationWarnings.map((warn, i) => (
+                <li key={i} className="text-sm text-amber-700">{warn.message}</li>
+              ))}
+            </ul>
+          </div>
+        )}
 
         <div className="mt-8 flex justify-between">
           <button
