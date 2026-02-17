@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { calculateRoomLayout } from '@/lib/services/room-layout-engine';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import { RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relationship';
 import RoomPieceSVG from './RoomPieceSVG';
+import RelationshipConnector from './RelationshipConnector';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -116,6 +118,15 @@ export default function RoomSpatialView({
     return map;
   }, [pieces]);
 
+  // Hover state for relationship connector highlighting
+  const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
+
+  // Unique relationship types for the legend
+  const uniqueRelationshipTypes = useMemo(() =>
+    Array.from(new Set(relationships.map(r => r.relationshipType))),
+    [relationships]
+  );
+
   // ── Empty room ──
   if (pieces.length === 0) {
     return (
@@ -155,6 +166,29 @@ export default function RoomSpatialView({
         className="w-full h-auto"
         style={{ maxHeight: 500 }}
       >
+        {/* Relationship connectors (rendered BELOW pieces for z-order) */}
+        <g className="relationship-connectors">
+          {relationships.map(rel => {
+            const parentPos = layout.pieces.find(p => p.pieceId === rel.parentPieceId);
+            const childPos = layout.pieces.find(p => p.pieceId === rel.childPieceId);
+            if (!parentPos || !childPos) return null;
+
+            const isInvolved = hoveredPieceId === rel.parentPieceId || hoveredPieceId === rel.childPieceId;
+            return (
+              <RelationshipConnector
+                key={rel.id}
+                relationship={rel}
+                parentPosition={parentPos}
+                childPosition={childPos}
+                scale={layout.scale}
+                isHighlighted={isInvolved}
+                isDimmed={hoveredPieceId != null && !isInvolved}
+              />
+            );
+          })}
+        </g>
+
+        {/* Piece rectangles */}
         {layout.pieces.map(pos => {
           const piece = pieceMap.get(pos.pieceId);
           if (!piece) return null;
@@ -185,10 +219,29 @@ export default function RoomSpatialView({
               isSelected={selectedPieceId === String(piece.id)}
               isEditMode={mode === 'edit'}
               onPieceClick={onPieceSelect}
+              onMouseEnter={setHoveredPieceId}
+              onMouseLeave={() => setHoveredPieceId(null)}
             />
           );
         })}
       </svg>
+
+      {/* Relationship legend — only show if room has relationships */}
+      {uniqueRelationshipTypes.length > 0 && (
+        <div className="flex flex-wrap gap-3 mt-2 text-xs">
+          {uniqueRelationshipTypes.map(type => (
+            <div key={type} className="flex items-center gap-1">
+              <span
+                className="w-4 h-0.5 inline-block"
+                style={{ backgroundColor: RELATIONSHIP_DISPLAY[type].colour }}
+              />
+              <span className="text-muted-foreground">
+                {RELATIONSHIP_DISPLAY[type].label}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Room summary bar */}
       <div className="flex gap-4 text-xs text-gray-500 mt-2">
