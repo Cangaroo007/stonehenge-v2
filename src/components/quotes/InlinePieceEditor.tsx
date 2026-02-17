@@ -1,7 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import EdgeSelector from '@/app/(dashboard)/quotes/[id]/builder/components/EdgeSelector';
 import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 
@@ -406,21 +405,41 @@ export default function InlinePieceEditor({
         </div>
       </div>
 
-      {/* Edges — only shown for new pieces; existing pieces use PieceVisualEditor SVG */}
+      {/* Edge profiles — only shown for new pieces; existing pieces use PieceVisualEditor SVG */}
       {isNew && parsedLength > 0 && parsedWidth > 0 && (
-        <div
-          className="relative"
-          style={{ zIndex: 100, isolation: 'isolate' }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <EdgeSelector
-            lengthMm={parsedLength}
-            widthMm={parsedWidth}
-            edgeSelections={edgeSelections}
-            edgeTypes={edgeTypes}
-            onChange={setEdgeSelections}
-          />
+        <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
+          <label className="block text-xs font-medium text-gray-600 mb-1">
+            Edge Profiles
+          </label>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {([
+              { key: 'edgeTop' as const, label: 'Top', lengthMm: parsedLength },
+              { key: 'edgeRight' as const, label: 'Right', lengthMm: parsedWidth },
+              { key: 'edgeBottom' as const, label: 'Bottom', lengthMm: parsedLength },
+              { key: 'edgeLeft' as const, label: 'Left', lengthMm: parsedWidth },
+            ]).map((edge) => (
+              <div key={edge.key}>
+                <span className="block text-xs text-gray-500 mb-0.5">
+                  {edge.label} ({(edge.lengthMm / 1000).toFixed(2)}m)
+                </span>
+                <select
+                  value={edgeSelections[edge.key] || ''}
+                  onChange={(e) =>
+                    setEdgeSelections({ ...edgeSelections, [edge.key]: e.target.value || null })
+                  }
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                >
+                  <option value="">None</option>
+                  {edgeTypes.filter((e) => e.isActive !== false).map((type) => (
+                    <option key={type.id} value={type.id}>
+                      {type.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

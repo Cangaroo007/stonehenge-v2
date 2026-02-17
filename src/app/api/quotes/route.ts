@@ -47,7 +47,7 @@ interface DrawingAnalysisData {
 interface QuoteCreateData {
   quote_number: string;
   customerId: number | null;
-  // Accept both camelCase (from QuoteForm) and snake_case
+  // Accept both camelCase and snake_case
   project_name?: string | null;
   projectName?: string | null;
   project_address?: string | null;
@@ -93,7 +93,7 @@ export async function POST(request: NextRequest) {
   try {
     const data: QuoteCreateData = await request.json();
 
-    // Normalise field names: accept both camelCase (from QuoteForm) and snake_case
+    // Normalise field names: accept both camelCase and snake_case
     const projectName = data.project_name ?? data.projectName ?? null;
     const projectAddress = data.project_address ?? data.projectAddress ?? null;
     const taxRate = data.tax_rate ?? data.taxRate ?? 10;
