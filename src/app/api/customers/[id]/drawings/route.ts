@@ -1,11 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getDrawingsForCustomer } from '@/lib/services/drawingService';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+
     const { id } = await params;
     const customerId = parseInt(id);
 

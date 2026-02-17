@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { UserRole, CustomerUserRole } from '@prisma/client';
+import { getCurrentUser } from '@/lib/auth';
 
 /**
  * Generate a random temporary password
@@ -17,6 +18,11 @@ function generateTempPassword(): string {
 
 export async function GET() {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+
     const customers = await prisma.customers.findMany({
       orderBy: { name: 'asc' },
       include: {
@@ -34,6 +40,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const currentUser = await getCurrentUser();
+    if (!currentUser) {
+      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    }
+
     const data = await request.json();
 
     // Validate email if creating portal user
