@@ -19,6 +19,7 @@ import DrawingImport from './builder/components/DrawingImport';
 import { DrawingReferencePanel } from './builder/components/DrawingReferencePanel';
 import DrawingsAccordion from '@/components/quotes/DrawingsAccordion';
 import CompleteJobView from '@/components/quotes/CompleteJobView';
+import MachineOperationsAccordion from '@/components/quotes/MachineOperationsAccordion';
 import type { QuotePieceInput, RoomInput } from '@/lib/types/piece-groups';
 import DeliveryTemplatingCard from './builder/components/DeliveryTemplatingCard';
 import { OptimizationDisplay } from './builder/components/OptimizationDisplay';
@@ -1359,6 +1360,15 @@ export default function QuoteDetailClient({
           quoteId={quoteIdStr}
         />
 
+        {/* Machine Operations Accordion */}
+        <MachineOperationsAccordion
+          quoteId={quoteIdStr}
+          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
+            room.quote_pieces.map(p => ({ id: p.id }))
+          )}
+          mode="view"
+        />
+
         {/* Signature Section */}
         <QuoteSignatureSection
           quoteId={serverData.id}
@@ -2157,6 +2167,13 @@ export default function QuoteDetailClient({
             />
           </div>
         )}
+
+        {/* Machine Operations Accordion */}
+        <MachineOperationsAccordion
+          quoteId={quoteIdStr}
+          pieces={pieces.map(p => ({ id: p.id }))}
+          mode="edit"
+        />
 
         {/* Option Comparison Summary — shown when 2+ options exist */}
         {quoteOptions.options.length >= 2 && (
