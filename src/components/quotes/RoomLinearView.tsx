@@ -41,6 +41,7 @@ interface RoomLinearViewProps {
   pieces: QuotePiece[];
   relationships: Relationship[];
   roomTotal?: number;
+  roomNotes?: string | null;
 }
 
 // ─── Edge profile abbreviations ──────────────────────────────────────────────
@@ -124,6 +125,7 @@ export default function RoomLinearView({
   pieces,
   relationships,
   roomTotal,
+  roomNotes,
 }: RoomLinearViewProps) {
   if (pieces.length === 0) {
     return null;
@@ -167,13 +169,16 @@ export default function RoomLinearView({
       style={{ pageBreakInside: 'avoid', background: 'white' }}
     >
       {/* Room header */}
-      <div className="flex justify-between items-baseline mb-3 border-b border-gray-300 pb-2">
+      <div className="flex justify-between items-baseline mb-1 border-b border-gray-300 pb-2">
         <h3 className="text-base font-bold text-gray-900">{roomName}</h3>
         <span className="text-sm text-gray-600">
           {pieces.length} piece{pieces.length !== 1 ? 's' : ''}
           {roomTotal != null && ` — ${formatCurrency(roomTotal)}`}
         </span>
       </div>
+      {roomNotes && (
+        <p className="text-xs text-gray-500 mb-2">{roomNotes}</p>
+      )}
 
       {/* SVG canvas */}
       <svg

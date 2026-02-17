@@ -45,6 +45,8 @@ import MaterialView from '@/components/quotes/MaterialView';
 import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
+import { useUndoRedo } from '@/hooks/useUndoRedo';
+import { useQuoteKeyboardShortcuts } from '@/hooks/useQuoteKeyboardShortcuts';
 import toast from 'react-hot-toast';
 
 // View-mode components
@@ -103,6 +105,7 @@ interface QuoteRoom {
   id: number;
   name: string;
   sortOrder: number;
+  notes: string | null;
   pieces: QuotePiece[];
 }
 
@@ -207,6 +210,7 @@ export interface ServerQuoteData {
   quote_rooms: Array<{
     id: number;
     name: string;
+    notes?: string | null;
     quote_pieces: Array<{
       id: number;
       description: string | null;
@@ -329,6 +333,13 @@ export default function QuoteDetailClient({
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [discountDisplayMode, setDiscountDisplayMode] = useState<'ITEMIZED' | 'TOTAL_ONLY'>('ITEMIZED');
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
+
+  // ── Undo/Redo (Rule 23 — top-level, not inside conditional UI) ──────────
+  const {
+    canUndo, canRedo,
+    undoDescription, redoDescription,
+    undo, redo, pushAction,
+  } = useUndoRedo(50);
 
   // Customer dropdown state
   const [customersList, setCustomersList] = useState<CustomerOption[]>([]);
@@ -781,6 +792,16 @@ export default function QuoteDetailClient({
   };
 
   const handlePieceUpdate = useCallback(async (pieceId: number, updates: Partial<QuotePiece>) => {
+    // Capture before-state for undo
+    const oldPiece = pieces.find(p => p.id === pieceId);
+    const oldValues: Partial<QuotePiece> = {};
+    if (oldPiece) {
+      for (const key of Object.keys(updates) as (keyof QuotePiece)[]) {
+        (oldValues as Record<string, unknown>)[key] = oldPiece[key];
+      }
+    }
+    const pieceName = oldPiece?.name || `Piece #${pieceId}`;
+
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
         method: 'PUT',
@@ -798,11 +819,36 @@ export default function QuoteDetailClient({
       triggerOptimise();
       markAsChanged();
       recalculateOptionsAfterPieceChange();
+
+      // Register undoable action
+      const changedFields = Object.keys(updates).join(', ');
+      pushAction({
+        type: 'PIECE_EDIT',
+        description: `Edited ${pieceName} (${changedFields})`,
+        forward: async () => {
+          await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(updates),
+          });
+          await fetchQuote();
+          triggerRecalculate();
+        },
+        backward: async () => {
+          await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(oldValues),
+          });
+          await fetchQuote();
+          triggerRecalculate();
+        },
+      });
     } catch (err) {
       console.error('Failed to update piece:', err);
       await fetchQuote();
     }
-  }, [quoteIdStr, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange]);
+  }, [quoteIdStr, pieces, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange, pushAction]);
 
   const handleMaterialChange = useCallback(async (pieceId: number, materialId: number | null) => {
     const material = materialId ? materials.find(m => m.id === materialId) : null;
@@ -875,10 +921,20 @@ export default function QuoteDetailClient({
   };
 
   const handleInlineSavePiece = useCallback(async (pieceId: number, data: Record<string, unknown>, roomName: string) => {
+    // Capture before-state for edit undo
+    const isCreate = pieceId === 0;
+    const oldPiece = !isCreate ? pieces.find(p => p.id === pieceId) : null;
+    const oldValues: Record<string, unknown> = {};
+    if (oldPiece) {
+      const pieceRecord = oldPiece as unknown as Record<string, unknown>;
+      for (const key of Object.keys(data)) {
+        oldValues[key] = pieceRecord[key];
+      }
+      oldValues.roomName = oldPiece.quote_rooms?.name;
+    }
+
     setSaving(true);
     try {
-      // pieceId === 0 means creating a new piece (inline add)
-      const isCreate = pieceId === 0;
       const url = isCreate
         ? `/api/quotes/${quoteIdStr}/pieces`
         : `/api/quotes/${quoteIdStr}/pieces/${pieceId}`;
@@ -893,6 +949,8 @@ export default function QuoteDetailClient({
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to save piece');
       }
+      const savedPiece = await response.json();
+
       if (isCreate) {
         setAddingInlinePiece(false);
         setAddingInlinePieceRoom(null);
@@ -902,12 +960,59 @@ export default function QuoteDetailClient({
       triggerOptimise();
       markAsChanged();
       recalculateOptionsAfterPieceChange();
+
+      // Register undoable action
+      const pieceName = (data.name as string) || oldPiece?.name || 'Piece';
+      if (isCreate) {
+        const newPieceId = savedPiece.id;
+        pushAction({
+          type: 'PIECE_CREATE',
+          description: `Created ${pieceName}`,
+          forward: async () => {
+            await fetch(`/api/quotes/${quoteIdStr}/pieces`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...data, roomName }),
+            });
+            await fetchQuote();
+            triggerRecalculate();
+          },
+          backward: async () => {
+            await fetch(`/api/quotes/${quoteIdStr}/pieces/${newPieceId}`, { method: 'DELETE' });
+            await fetchQuote();
+            triggerRecalculate();
+          },
+        });
+      } else {
+        pushAction({
+          type: 'PIECE_EDIT',
+          description: `Edited ${pieceName}`,
+          forward: async () => {
+            await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ ...data, roomName }),
+            });
+            await fetchQuote();
+            triggerRecalculate();
+          },
+          backward: async () => {
+            await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(oldValues),
+            });
+            await fetchQuote();
+            triggerRecalculate();
+          },
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save piece');
     } finally {
       setSaving(false);
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
+  }, [quoteIdStr, pieces, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
 
   // Bulk edge apply — applies edge profile template to all pieces in room or quote
   const handleBulkEdgeApply = useCallback(async (
@@ -990,6 +1095,12 @@ export default function QuoteDetailClient({
 
   const handleDeletePiece = async (pieceId: number) => {
     if (!confirm('Are you sure you want to delete this piece?')) return;
+
+    // Capture piece data for undo (re-create)
+    const deletedPiece = pieces.find(p => p.id === pieceId);
+    const pieceName = deletedPiece?.name || `Piece #${pieceId}`;
+    const roomName = deletedPiece?.quote_rooms?.name || 'Unassigned';
+
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, { method: 'DELETE' });
@@ -1000,6 +1111,44 @@ export default function QuoteDetailClient({
       triggerOptimise();
       markAsChanged();
       recalculateOptionsAfterPieceChange();
+
+      // Register undoable delete (undo = re-create piece)
+      if (deletedPiece) {
+        const piecePayload = {
+          name: deletedPiece.name,
+          description: deletedPiece.description,
+          lengthMm: deletedPiece.lengthMm,
+          widthMm: deletedPiece.widthMm,
+          thicknessMm: deletedPiece.thicknessMm,
+          materialId: deletedPiece.materialId,
+          materialName: deletedPiece.materialName,
+          edgeTop: deletedPiece.edgeTop,
+          edgeBottom: deletedPiece.edgeBottom,
+          edgeLeft: deletedPiece.edgeLeft,
+          edgeRight: deletedPiece.edgeRight,
+          cutouts: deletedPiece.cutouts,
+          roomName,
+        };
+
+        pushAction({
+          type: 'PIECE_DELETE',
+          description: `Deleted ${pieceName}`,
+          forward: async () => {
+            // Re-delete (find piece by name — best effort)
+            await fetchQuote();
+          },
+          backward: async () => {
+            await fetch(`/api/quotes/${quoteIdStr}/pieces`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(piecePayload),
+            });
+            await fetchQuote();
+            triggerRecalculate();
+          },
+          snapshot: piecePayload,
+        });
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to delete piece');
     } finally {
@@ -1008,6 +1157,9 @@ export default function QuoteDetailClient({
   };
 
   const handleDuplicatePiece = async (pieceId: number) => {
+    const sourcePiece = pieces.find(p => p.id === pieceId);
+    const pieceName = sourcePiece?.name || `Piece #${pieceId}`;
+
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}/duplicate`, { method: 'POST' });
@@ -1016,12 +1168,29 @@ export default function QuoteDetailClient({
         throw new Error(errorData.error || 'Failed to duplicate piece');
       }
       const newPiece = await response.json();
+      const newPieceId = newPiece.id;
       await fetchQuote();
-      setSelectedPieceId(newPiece.id);
+      setSelectedPieceId(newPieceId);
       setIsAddingPiece(false);
       triggerRecalculate();
       triggerOptimise();
       markAsChanged();
+
+      // Register undoable action (undo = delete the duplicate)
+      pushAction({
+        type: 'PIECE_CREATE',
+        description: `Duplicated ${pieceName}`,
+        forward: async () => {
+          await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}/duplicate`, { method: 'POST' });
+          await fetchQuote();
+          triggerRecalculate();
+        },
+        backward: async () => {
+          await fetch(`/api/quotes/${quoteIdStr}/pieces/${newPieceId}`, { method: 'DELETE' });
+          await fetchQuote();
+          triggerRecalculate();
+        },
+      });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to duplicate piece');
     } finally {
@@ -1163,6 +1332,28 @@ export default function QuoteDetailClient({
   }, [machines, defaultMachineId]);
 
   // ── Room management handlers ────────────────────────────────────────────
+
+  const handleRoomNotesChange = useCallback(async (roomIdToUpdate: number, notes: string) => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/${roomIdToUpdate}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ notes }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        toast.error(err.error || 'Failed to update room notes');
+        return;
+      }
+      // Optimistic update for room notes
+      setRooms(prev => prev.map(r =>
+        r.id === roomIdToUpdate ? { ...r, notes: notes || null } : r
+      ));
+      markAsChanged();
+    } catch {
+      toast.error('Failed to update room notes');
+    }
+  }, [quoteIdStr, markAsChanged]);
 
   const handleRoomRename = useCallback(async (roomIdToRename: number, newName: string) => {
     try {
@@ -1433,6 +1624,48 @@ export default function QuoteDetailClient({
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [mode, pieces]);
+
+  // ── Keyboard shortcuts (Ctrl+Z / Ctrl+Shift+Z wired to undo/redo) ──────
+  const selectedPieceIdStr = selectedPieceId ? String(selectedPieceId) : null;
+  const roomPieceIds = useMemo(
+    () => {
+      if (!selectedPieceId) return [] as string[];
+      const room = rooms.find(r => r.pieces.some(p => p.id === selectedPieceId));
+      return room ? room.pieces.map(p => String(p.id)) : [];
+    },
+    [selectedPieceId, rooms]
+  );
+
+  useQuoteKeyboardShortcuts({
+    selectedPieceId: selectedPieceIdStr,
+    mode,
+    roomPieceIds,
+    onSelectPiece: (pieceId) => {
+      if (pieceId) {
+        setSelectedPieceId(Number(pieceId));
+        setSidebarOpen(true);
+      } else {
+        setSelectedPieceId(null);
+      }
+    },
+    onEditPiece: (pieceId) => {
+      setSelectedPieceId(Number(pieceId));
+      setSidebarOpen(true);
+    },
+    onDuplicatePiece: (pieceId) => handleDuplicatePiece(Number(pieceId)),
+    onDeletePiece: (pieceId) => handleDeletePiece(Number(pieceId)),
+    onAddNewPiece: () => handleAddPiece(),
+    onEscape: () => {
+      if (selectedPieceIds.size > 0) {
+        setSelectedPieceIds(new Set());
+      } else {
+        setSelectedPieceId(null);
+        setSidebarOpen(false);
+      }
+    },
+    onUndo: undo,
+    onRedo: redo,
+  });
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
@@ -1784,6 +2017,7 @@ export default function QuoteDetailClient({
                 if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
               }}
               roomTotal={room.quote_pieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+              roomNotes={room.notes}
             />
           );
         })}
@@ -2326,6 +2560,9 @@ export default function QuoteDetailClient({
               onRoomDelete={handleRoomDelete}
               onAddRoomBelow={handleAddRoomBelow}
               onAddPiece={handleAddPieceToRoom}
+              // Room notes
+              roomNotes={room.notes}
+              onRoomNotesChange={handleRoomNotesChange}
               // Multi-select
               selectedPieceIds={selectedPieceIds}
               onPieceMultiSelect={handlePieceMultiSelect}
@@ -2829,6 +3066,12 @@ export default function QuoteDetailClient({
         onStatusChange={handleStatusChange}
         editDisabled={isStatusReadOnly}
         editDisabledMessage={editDisabledMessage}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        undoDescription={undoDescription}
+        redoDescription={redoDescription}
+        onUndo={undo}
+        onRedo={redo}
         metadataContent={renderMetadataSection()}
         actionButtons={mode === 'view' ? viewActionButtons : editActionButtons}
         activeTab={activeTab}

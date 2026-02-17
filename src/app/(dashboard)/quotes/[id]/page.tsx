@@ -83,6 +83,7 @@ export default async function QuoteDetailPage({
     quote_rooms: quote.quote_rooms.map((room) => ({
       id: room.id,
       name: room.name,
+      notes: room.notes,
       quote_pieces: room.quote_pieces.map((piece) => ({
         id: piece.id,
         description: piece.description,

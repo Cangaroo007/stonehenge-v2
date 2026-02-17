@@ -162,6 +162,7 @@ export default async function QuotePrintPage({
           <div key={room.id} className="print-room-section">
             <RoomLinearView
               roomName={room.name || 'Unassigned'}
+              roomNotes={room.notes}
               pieces={room.quote_pieces.map(p => ({
                 id: p.id,
                 description: p.description,

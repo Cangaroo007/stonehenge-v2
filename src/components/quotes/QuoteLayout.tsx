@@ -39,6 +39,14 @@ interface QuoteLayoutProps {
   /** Message to show when edit is disabled */
   editDisabledMessage?: string;
 
+  /** Undo/Redo support (edit mode) */
+  canUndo?: boolean;
+  canRedo?: boolean;
+  undoDescription?: string | null;
+  redoDescription?: string | null;
+  onUndo?: () => void;
+  onRedo?: () => void;
+
   /** Metadata section rendered between header and action buttons */
   metadataContent?: React.ReactNode;
 
@@ -86,6 +94,12 @@ export default function QuoteLayout({
   onStatusChange,
   editDisabled = false,
   editDisabledMessage,
+  canUndo = false,
+  canRedo = false,
+  undoDescription,
+  redoDescription,
+  onUndo,
+  onRedo,
   metadataContent,
   actionButtons,
   activeTab,
@@ -129,6 +143,39 @@ export default function QuoteLayout({
                 <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                   Unsaved changes
+                </span>
+              )}
+              {/* Undo/Redo buttons (edit mode only) */}
+              {mode === 'edit' && onUndo && onRedo && (
+                <span className="inline-flex items-center gap-1 ml-2">
+                  <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    title={undoDescription ? `Undo: ${undoDescription}` : 'Nothing to undo'}
+                    className={`p-1 rounded transition-colors ${
+                      canUndo
+                        ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        : 'text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    title={redoDescription ? `Redo: ${redoDescription}` : 'Nothing to redo'}
+                    className={`p-1 rounded transition-colors ${
+                      canRedo
+                        ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        : 'text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />
+                    </svg>
+                  </button>
                 </span>
               )}
             </div>

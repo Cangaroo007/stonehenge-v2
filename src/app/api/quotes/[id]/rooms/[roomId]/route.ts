@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 
-// PATCH — Rename a room
+// PATCH — Update room (rename and/or update notes)
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string; roomId: string }> }
@@ -16,13 +16,14 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { name } = body;
+    const { name, notes } = body;
 
-    if (!name || typeof name !== 'string' || !name.trim()) {
-      return NextResponse.json({ error: 'Room name is required' }, { status: 400 });
+    // At least one field must be provided
+    const hasName = name !== undefined;
+    const hasNotes = notes !== undefined;
+    if (!hasName && !hasNotes) {
+      return NextResponse.json({ error: 'No fields to update' }, { status: 400 });
     }
-
-    const trimmedName = name.trim();
 
     // Verify room belongs to this quote
     const room = await prisma.quote_rooms.findFirst({
@@ -33,28 +34,44 @@ export async function PATCH(
       return NextResponse.json({ error: 'Room not found' }, { status: 404 });
     }
 
-    // Check for duplicate name
-    const duplicate = await prisma.quote_rooms.findFirst({
-      where: { quote_id: quoteId, name: trimmedName, id: { not: roomIdNum } },
-    });
+    // Build update data
+    const updateData: { name?: string; notes?: string | null } = {};
 
-    if (duplicate) {
-      return NextResponse.json({ error: 'A room with this name already exists' }, { status: 409 });
+    if (hasName) {
+      if (!name || typeof name !== 'string' || !name.trim()) {
+        return NextResponse.json({ error: 'Room name is required' }, { status: 400 });
+      }
+      const trimmedName = name.trim();
+
+      // Check for duplicate name
+      const duplicate = await prisma.quote_rooms.findFirst({
+        where: { quote_id: quoteId, name: trimmedName, id: { not: roomIdNum } },
+      });
+      if (duplicate) {
+        return NextResponse.json({ error: 'A room with this name already exists' }, { status: 409 });
+      }
+      updateData.name = trimmedName;
+    }
+
+    if (hasNotes) {
+      // Allow null or empty string to clear notes
+      updateData.notes = typeof notes === 'string' ? (notes.trim() || null) : null;
     }
 
     const updated = await prisma.quote_rooms.update({
       where: { id: roomIdNum },
-      data: { name: trimmedName },
+      data: updateData,
     });
 
     return NextResponse.json({
       id: updated.id,
       name: updated.name,
       sortOrder: updated.sort_order,
+      notes: updated.notes,
     });
   } catch (error) {
-    console.error('Error renaming room:', error);
-    return NextResponse.json({ error: 'Failed to rename room' }, { status: 500 });
+    console.error('Error updating room:', error);
+    return NextResponse.json({ error: 'Failed to update room' }, { status: 500 });
   }
 }
 
