@@ -7,8 +7,8 @@ import { formatAreaFromSqm } from '@/lib/utils/units';
 import { debounce } from '@/lib/utils/debounce';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 
-// GST rate (configurable, default 10% for Australia)
-const GST_RATE = 0.10;
+// Default GST rate for Australia — overridden by calculator's pricingContext.gstRate when available
+const DEFAULT_GST_RATE = 0.10;
 
 type DiscountDisplayMode = 'ITEMIZED' | 'TOTAL_ONLY';
 type AdditionalDiscountType = 'percentage' | 'fixed';
@@ -134,9 +134,10 @@ export default function PricingSummary({
   // Adjusted subtotal after additional discount
   const adjustedSubtotal = calculatedSubtotal - additionalDiscountAmount;
 
-  // Calculate GST on adjusted subtotal
-  const gst = adjustedSubtotal * GST_RATE;
-  const grandTotal = adjustedSubtotal + gst;
+  // Calculate GST on adjusted subtotal using rate from calculator or default
+  const effectiveGstRate = calculation?.gstRate ?? DEFAULT_GST_RATE;
+  const gst = Math.round(adjustedSubtotal * effectiveGstRate * 100) / 100;
+  const grandTotal = Math.round((adjustedSubtotal + gst) * 100) / 100;
 
   // Calculate total tier savings
   const totalTierSavings = calculation?.discounts.reduce((sum, d) => sum + d.savings, 0) ?? 0;
@@ -578,7 +579,7 @@ export default function PricingSummary({
               </div>
             )}
             <div className="flex justify-between text-sm">
-              <span className="text-gray-600">GST ({(Number(GST_RATE) * 100 || 0).toFixed(0)}%):</span>
+              <span className="text-gray-600">GST ({Math.round(effectiveGstRate * 100)}%):</span>
               <span className="font-medium">{formatCurrency(gst)}</span>
             </div>
             <div className="flex justify-between pt-2 border-t border-gray-300">

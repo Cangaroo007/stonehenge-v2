@@ -140,6 +140,9 @@ export interface CalculationResult {
   subtotal: number;
   totalDiscount: number;
   total: number;
+  gstRate: number;
+  gstAmount: number;
+  totalIncGst: number;
   breakdown: {
     materials: MaterialBreakdown;
     edges: {
