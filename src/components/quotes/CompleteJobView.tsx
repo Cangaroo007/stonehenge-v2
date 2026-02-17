@@ -223,6 +223,31 @@ export default function CompleteJobView({
               })}
             </div>
           ))}
+
+          {/* Open Full Job View in New Tab */}
+          <div className="pt-2 border-t border-zinc-100">
+            <a
+              href={`/quotes/${quoteId}/job-view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                />
+              </svg>
+              Open Full Job View in New Tab
+            </a>
+          </div>
         </div>
       </div>
     </div>
