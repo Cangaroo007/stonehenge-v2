@@ -76,6 +76,8 @@ export default function MiniPieceEditor({
   cutoutTypes,
   readOnly = false,
 }: MiniPieceEditorProps) {
+  // ── ALL hooks MUST be called before any early returns (React Rule of Hooks) ──
+
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
     side: EdgeSide;
@@ -85,19 +87,6 @@ export default function MiniPieceEditor({
   const [showMoreCutouts, setShowMoreCutouts] = useState(false);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  // ── Null guards (Rule 36) ──────────────────────────────────────────────
-
-  if (!piece) return null;
-  if (!edgeTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading edge types...</div>;
-  if (!cutoutTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading cutout types...</div>;
-
-  // ── Edge name resolution ───────────────────────────────────────────────
-
-  const resolveEdgeName = (edgeId: string | null): string | undefined => {
-    if (!edgeId) return undefined;
-    return edgeTypes.find((e) => e.id === edgeId)?.name;
-  };
-
   // ── SVG layout ────────────────────────────────────────────────────────
 
   const SVG_W = 200;
@@ -105,6 +94,8 @@ export default function MiniPieceEditor({
   const PAD = 36;
 
   const layout = useMemo(() => {
+    if (!piece) return { innerW: 40, innerH: 20, x: 80, y: 55 };
+
     const maxInnerW = SVG_W - PAD * 2;
     const maxInnerH = SVG_H - PAD * 2;
     const aspectRatio = piece.length_mm / Math.max(piece.width_mm, 1);
@@ -127,9 +118,7 @@ export default function MiniPieceEditor({
     const y = (SVG_H - innerH) / 2;
 
     return { innerW, innerH, x, y };
-  }, [piece.length_mm, piece.width_mm]);
-
-  // ── Edge definitions ──────────────────────────────────────────────────
+  }, [piece?.length_mm, piece?.width_mm]);
 
   const edgeDefs = useMemo(() => {
     const { x, y, innerW, innerH } = layout;
@@ -157,6 +146,22 @@ export default function MiniPieceEditor({
     };
   }, [layout]);
 
+  const suggestedCutouts = useMemo(() => {
+    if (!cutoutTypes?.length) return [];
+    return SUGGESTED_CUTOUT_CODES
+      .map((code) => {
+        const match = cutoutTypes.find((ct) => cutoutShortCode(ct.name) === code);
+        return match ? { ...match, code } : null;
+      })
+      .filter((x): x is CutoutTypeOption & { code: string } => x !== null);
+  }, [cutoutTypes]);
+
+  const remainingCutouts = useMemo(() => {
+    if (!cutoutTypes?.length) return [];
+    const suggestedIds = new Set(suggestedCutouts.map((s) => s.id));
+    return cutoutTypes.filter((ct) => !suggestedIds.has(ct.id));
+  }, [cutoutTypes, suggestedCutouts]);
+
   // ── Handlers ──────────────────────────────────────────────────────────
 
   const handleEdgeClick = useCallback(
@@ -178,7 +183,7 @@ export default function MiniPieceEditor({
 
   const handleProfileSelect = useCallback(
     (profileId: string | null) => {
-      if (!popover) return;
+      if (!popover || !piece) return;
       const updated = {
         ...piece,
         edges: {
@@ -194,6 +199,7 @@ export default function MiniPieceEditor({
 
   const handleCutoutAdd = useCallback(
     (cutoutName: string) => {
+      if (!piece) return;
       const existing = piece.cutouts.find((c) => c.type === cutoutName);
       let updatedCutouts: Array<{ type: string; quantity: number }>;
 
@@ -215,11 +221,25 @@ export default function MiniPieceEditor({
 
   const handleCutoutRemove = useCallback(
     (cutoutType: string) => {
+      if (!piece) return;
       const updatedCutouts = piece.cutouts.filter((c) => c.type !== cutoutType);
       onChange({ ...piece, cutouts: updatedCutouts });
     },
     [piece, onChange],
   );
+
+  // ── Null guards AFTER all hooks (Rule 36 + React Rule of Hooks) ─────
+
+  if (!piece) return null;
+  if (!edgeTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading edge types...</div>;
+  if (!cutoutTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading cutout types...</div>;
+
+  // ── Edge name resolution ───────────────────────────────────────────────
+
+  const resolveEdgeName = (edgeId: string | null): string | undefined => {
+    if (!edgeId) return undefined;
+    return edgeTypes.find((e) => e.id === edgeId)?.name;
+  };
 
   // ── Edge ID lookup ────────────────────────────────────────────────────
 
@@ -227,22 +247,6 @@ export default function MiniPieceEditor({
     const val = piece.edges[side];
     return val || null;
   };
-
-  // ── Suggested cutouts (from cutoutTypes that match SUGGESTED_CUTOUT_CODES) ─
-
-  const suggestedCutouts = useMemo(() => {
-    return SUGGESTED_CUTOUT_CODES
-      .map((code) => {
-        const match = cutoutTypes.find((ct) => cutoutShortCode(ct.name) === code);
-        return match ? { ...match, code } : null;
-      })
-      .filter((x): x is CutoutTypeOption & { code: string } => x !== null);
-  }, [cutoutTypes]);
-
-  const remainingCutouts = useMemo(() => {
-    const suggestedIds = new Set(suggestedCutouts.map((s) => s.id));
-    return cutoutTypes.filter((ct) => !suggestedIds.has(ct.id));
-  }, [cutoutTypes, suggestedCutouts]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
