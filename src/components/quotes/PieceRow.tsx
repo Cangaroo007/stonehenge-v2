@@ -112,6 +112,8 @@ interface PieceRowProps {
     scope: 'room' | 'quote',
     pieceId: number
   ) => void;
+  /** Callback to expand piece in new browser tab */
+  onExpand?: (pieceId: number) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -605,6 +607,7 @@ export default function PieceRow({
   onDelete,
   onDuplicate,
   onBulkEdgeApply,
+  onExpand,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -669,9 +672,20 @@ export default function PieceRow({
               </div>
             )}
           </div>
-          {/* Edit mode action buttons */}
-          {mode === 'edit' && (onDelete || onDuplicate) && (
+          {/* Action buttons */}
+          {(onExpand || (mode === 'edit' && (onDelete || onDuplicate))) && (
             <div className="flex items-center gap-0.5 flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+              {onExpand && (
+                <button
+                  onClick={() => onExpand(piece.id)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                  title="Open piece in new tab"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
+              )}
               {onDuplicate && (
                 <button
                   onClick={() => onDuplicate(piece.id)}

@@ -1609,6 +1609,9 @@ export default function QuoteDetailClient({
                     }}
                     breakdown={pb}
                     mode="view"
+                    onExpand={(pieceId) => {
+                      window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
+                    }}
                   />
                 );
               };
@@ -1775,6 +1778,9 @@ export default function QuoteDetailClient({
             onDuplicate={handleDuplicatePiece}
             quoteId={quoteId}
             onBulkEdgeApply={handleBulkEdgeApply}
+            onExpand={(pieceId) => {
+              window.open(`/quotes/${quoteId}/pieces/${pieceId}?mode=edit`, '_blank');
+            }}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
