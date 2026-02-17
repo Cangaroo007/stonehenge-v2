@@ -113,6 +113,7 @@ export default function FromTemplateSheet({
   // Fetch roles and materials when a template is selected
   useEffect(() => {
     if (!selectedTemplate) return;
+    const templateId = selectedTemplate.id;
     setRolesLoading(true);
     setApplyError(null);
     setAssignments({});
@@ -120,7 +121,7 @@ export default function FromTemplateSheet({
     async function fetchRolesAndMaterials() {
       try {
         const [rolesRes, materialsRes] = await Promise.all([
-          fetch(`/api/starter-templates/${selectedTemplate.id}/roles`),
+          fetch(`/api/starter-templates/${templateId}/roles`),
           fetch('/api/materials?isActive=true'),
         ]);
 
