@@ -19,6 +19,8 @@ async function getQuote(id: number) {
             include: {
               piece_features: true,
               materials: true,
+              sourceRelationships: true,
+              targetRelationships: true,
             },
           },
         },
@@ -104,6 +106,22 @@ export default async function QuoteDetailPage({
           quantity: f.quantity,
         })),
         materials: piece.materials ? { name: piece.materials.name } : null,
+        sourceRelationships: piece.sourceRelationships.map((rel) => ({
+          id: rel.id,
+          source_piece_id: rel.source_piece_id,
+          target_piece_id: rel.target_piece_id,
+          relationship_type: rel.relationship_type,
+          relation_type: rel.relation_type,
+          side: rel.side,
+        })),
+        targetRelationships: piece.targetRelationships.map((rel) => ({
+          id: rel.id,
+          source_piece_id: rel.source_piece_id,
+          target_piece_id: rel.target_piece_id,
+          relationship_type: rel.relationship_type,
+          relation_type: rel.relation_type,
+          side: rel.side,
+        })),
       })),
     })),
     quote_drawing_analyses: quote.quote_drawing_analyses
