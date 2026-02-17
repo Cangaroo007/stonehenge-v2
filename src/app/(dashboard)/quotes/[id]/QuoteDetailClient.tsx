@@ -50,6 +50,8 @@ import ManufacturingExportButton from './components/ManufacturingExportButton';
 import QuoteViewTracker from './components/QuoteViewTracker';
 import QuoteSignatureSection from './components/QuoteSignatureSection';
 import SaveAsTemplateButton from './components/SaveAsTemplateButton';
+import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
+import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
 
@@ -295,6 +297,7 @@ export default function QuoteDetailClient({
     (serverData.calculation_breakdown as CalculationResult | null) ?? null
   );
   const [showDrawingImport, setShowDrawingImport] = useState(false);
+  const [showFromTemplate, setShowFromTemplate] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [discountDisplayMode, setDiscountDisplayMode] = useState<'ITEMIZED' | 'TOTAL_ONLY'>('ITEMIZED');
@@ -314,6 +317,7 @@ export default function QuoteDetailClient({
 
   const editDataLoaded = useRef(false);
   const addPieceRef = useRef<HTMLDivElement>(null);
+  const actionBarRef = useRef<HTMLDivElement>(null);
 
   // ── Quote Options state ─────────────────────────────────────────────────
   const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
@@ -1055,6 +1059,17 @@ export default function QuoteDetailClient({
     setImportSuccessMessage(`Imported ${count} piece${count !== 1 ? 's' : ''} from drawing`);
     setTimeout(() => setImportSuccessMessage(null), 5000);
   }, [fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+
+  const handleTemplateApplied = useCallback(async (piecesCreated: number, templateName: string) => {
+    setShowFromTemplate(false);
+    await fetchQuote();
+    triggerRecalculate();
+    triggerOptimise();
+    markAsChanged();
+    recalculateOptionsAfterPieceChange();
+    setImportSuccessMessage(`Added ${templateName} \u2014 ${piecesCreated} piece${piecesCreated !== 1 ? 's' : ''}`);
+    setTimeout(() => setImportSuccessMessage(null), 5000);
+  }, [fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
   const handleDrawingsSaved = useCallback(() => {
     setDrawingsRefreshKey(n => n + 1);
@@ -1877,7 +1892,7 @@ export default function QuoteDetailClient({
 
         {/* Pieces Card — unified PieceRow cards */}
         <div className="card">
-          <div className="p-4 border-b border-gray-200 flex items-center justify-between">
+          <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
             <div className="flex items-center gap-4">
               <h2 className="text-lg font-semibold">Pieces</h2>
               {/* View Toggle */}
@@ -1931,6 +1946,15 @@ export default function QuoteDetailClient({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                 </svg>
                 Import Drawing
+              </button>
+              <button
+                onClick={() => setShowFromTemplate(true)}
+                className="btn-secondary text-sm flex items-center gap-1"
+              >
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                </svg>
+                From Template
               </button>
               {!hasOptions && (
                 <button
@@ -2437,6 +2461,25 @@ export default function QuoteDetailClient({
           />
         );
       })()}
+
+      {/* From Template Sheet */}
+      <FromTemplateSheet
+        quoteId={quoteIdStr}
+        open={showFromTemplate}
+        onClose={() => setShowFromTemplate(false)}
+        onApplied={handleTemplateApplied}
+      />
+
+      {/* Floating Action Button — visible when action bar scrolls off-screen */}
+      {mode === 'edit' && (
+        <FloatingActionButton
+          actionBarRef={actionBarRef}
+          onImportDrawing={() => setShowDrawingImport(true)}
+          onFromTemplate={() => setShowFromTemplate(true)}
+          onAddPiece={() => handleAddPiece()}
+          onSave={handleSaveQuote}
+        />
+      )}
     </>
   );
 }
