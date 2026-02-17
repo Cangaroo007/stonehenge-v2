@@ -272,7 +272,7 @@ export async function applyTemplateToQuote(
               data: {
                 source_piece_id: sourcePieceId,
                 target_piece_id: targetPieceId,
-                relation_type: templatePiece.relatedTo.relationType,
+                relation_type: templatePiece.relatedTo.relationType as unknown as import('@prisma/client').RelationshipType,
               },
             });
           }

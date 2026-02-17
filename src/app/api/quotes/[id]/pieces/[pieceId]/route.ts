@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
 
 // GET - Get a single piece with full detail for expanded view
 export async function GET(
@@ -679,6 +680,9 @@ export async function DELETE(
     }
 
     const roomId = piece.room_id;
+
+    // Clean up relationships before deleting the piece
+    await deleteRelationshipsForPiece(pieceIdNum);
 
     // Delete the piece
     await prisma.quote_pieces.delete({

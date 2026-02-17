@@ -1,17 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
+import { RelationshipType } from '@prisma/client';
 
-const VALID_RELATION_TYPES = [
-  'WATERFALL',
-  'SPLASHBACK',
-  'RETURN_END',
-  'WINDOW_SILL',
-  'ISLAND',
-  'MITRE_JOIN',
-  'BUTT_JOIN',
-  'LAMINATION',
-] as const;
+const VALID_RELATION_TYPES = Object.values(RelationshipType);
 
 const VALID_SIDES = ['top', 'bottom', 'left', 'right'] as const;
 
@@ -145,7 +137,7 @@ export async function POST(
       data: {
         source_piece_id: sourcePieceId,
         target_piece_id: targetPieceId,
-        relation_type: relationType,
+        relation_type: relationType as RelationshipType,
         side: side || null,
       },
     });
