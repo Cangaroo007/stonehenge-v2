@@ -85,7 +85,7 @@ export default function CompleteJobView({
   }, [groups]);
 
   const handlePieceExpand = (pieceId: number) => {
-    window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
+    window.open(`/quotes/${quoteId}/pieces/${pieceId}${mode === 'edit' ? '?mode=edit' : ''}`, '_blank');
   };
 
   // Empty state

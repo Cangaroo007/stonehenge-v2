@@ -465,8 +465,8 @@ export default function MiniSpatialDiagram({
         ))}
       </svg>
 
-      {/* Expand button — only in edit mode or when a piece is selected */}
-      {mode === 'edit' && selectedPieceId && (
+      {/* Expand button — when a piece is selected */}
+      {selectedPieceId && (
         <button
           onClick={() => onPieceExpand(selectedPieceId)}
           className="absolute top-2 right-2 p-1.5 bg-white/90 rounded-full shadow-sm hover:bg-white hover:shadow-md transition-all"
