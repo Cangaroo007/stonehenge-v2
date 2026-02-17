@@ -1,9 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { calculateRoomLayout } from '@/lib/services/room-layout-engine';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
-import { RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relationship';
+import { RELATIONSHIP_DISPLAY, JOIN_POSITIONS } from '@/lib/types/piece-relationship';
+import type { RelationshipType } from '@prisma/client';
+import toast from 'react-hot-toast';
 import RoomPieceSVG from './RoomPieceSVG';
 import RelationshipConnector from './RelationshipConnector';
 
@@ -35,6 +37,20 @@ interface RoomSpatialViewProps {
   selectedPieceId?: string | null;
   onPieceSelect?: (pieceId: string) => void;
   roomTotal?: number;
+  /** Quote ID for relationship API calls (edit mode) */
+  quoteId?: string;
+  /** Callback when a relationship is changed via popover (edit mode) */
+  onRelationshipChange?: () => void;
+}
+
+// Types that use join position
+const POSITION_TYPES: RelationshipType[] = ['WATERFALL', 'SPLASHBACK', 'RETURN'];
+const ALL_RELATIONSHIP_TYPES = Object.keys(RELATIONSHIP_DISPLAY) as RelationshipType[];
+
+interface ConnectorPopover {
+  relationshipId: string;
+  x: number;
+  y: number;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -77,6 +93,8 @@ export default function RoomSpatialView({
   selectedPieceId,
   onPieceSelect,
   roomTotal,
+  quoteId,
+  onRelationshipChange,
 }: RoomSpatialViewProps) {
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
@@ -120,6 +138,64 @@ export default function RoomSpatialView({
 
   // Hover state for relationship connector highlighting
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
+
+  // Connector popover state (edit mode)
+  const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
+  const [popoverType, setPopoverType] = useState<RelationshipType>('WATERFALL');
+  const [popoverPosition, setPopoverPosition] = useState<string>('');
+  const [popoverNotes, setPopoverNotes] = useState('');
+  const [popoverSaving, setPopoverSaving] = useState(false);
+
+  const handleConnectorClick = useCallback((relationshipId: string, midpoint: { x: number; y: number }) => {
+    const rel = relationships.find(r => r.id === relationshipId);
+    if (!rel) return;
+    setConnectorPopover({ relationshipId, x: midpoint.x, y: midpoint.y });
+    setPopoverType(rel.relationshipType);
+    setPopoverPosition(rel.joinPosition ?? '');
+    setPopoverNotes(rel.notes ?? '');
+  }, [relationships]);
+
+  const handlePopoverSave = useCallback(async () => {
+    if (!connectorPopover || !quoteId) return;
+    setPopoverSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/relationships/${connectorPopover.relationshipId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          relationshipType: popoverType,
+          joinPosition: POSITION_TYPES.includes(popoverType) ? popoverPosition || null : null,
+          notes: popoverNotes || null,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to update');
+      toast.success('Relationship updated');
+      onRelationshipChange?.();
+      setConnectorPopover(null);
+    } catch {
+      toast.error('Failed to update relationship');
+    } finally {
+      setPopoverSaving(false);
+    }
+  }, [connectorPopover, quoteId, popoverType, popoverPosition, popoverNotes, onRelationshipChange]);
+
+  const handlePopoverDelete = useCallback(async () => {
+    if (!connectorPopover || !quoteId) return;
+    setPopoverSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/relationships/${connectorPopover.relationshipId}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) throw new Error('Failed to delete');
+      toast.success('Relationship deleted');
+      onRelationshipChange?.();
+      setConnectorPopover(null);
+    } catch {
+      toast.error('Failed to delete relationship');
+    } finally {
+      setPopoverSaving(false);
+    }
+  }, [connectorPopover, quoteId, onRelationshipChange]);
 
   // Unique relationship types for the legend
   const uniqueRelationshipTypes = useMemo(() =>
@@ -183,6 +259,8 @@ export default function RoomSpatialView({
                 scale={layout.scale}
                 isHighlighted={isInvolved}
                 isDimmed={hoveredPieceId != null && !isInvolved}
+                isEditMode={mode === 'edit'}
+                onConnectorClick={mode === 'edit' ? handleConnectorClick : undefined}
               />
             );
           })}
@@ -225,6 +303,94 @@ export default function RoomSpatialView({
           );
         })}
       </svg>
+
+      {/* Connector Popover Editor (edit mode) */}
+      {connectorPopover && mode === 'edit' && quoteId && (
+        <div className="relative">
+          <div
+            className="absolute z-10 bg-white border border-gray-200 rounded-lg shadow-lg p-3 space-y-2"
+            style={{
+              left: `${(connectorPopover.x / layout.viewBox.width) * 100}%`,
+              top: -8,
+              transform: 'translateX(-50%)',
+              width: 240,
+            }}
+          >
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-semibold text-gray-700">Edit Connector</span>
+              <button
+                onClick={() => setConnectorPopover(null)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Type</label>
+              <select
+                value={popoverType}
+                onChange={e => setPopoverType(e.target.value as RelationshipType)}
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {ALL_RELATIONSHIP_TYPES.map(t => (
+                  <option key={t} value={t}>{RELATIONSHIP_DISPLAY[t].label}</option>
+                ))}
+              </select>
+            </div>
+            {POSITION_TYPES.includes(popoverType) && (
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Position</label>
+                <select
+                  value={popoverPosition}
+                  onChange={e => setPopoverPosition(e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">None</option>
+                  {JOIN_POSITIONS.map(pos => (
+                    <option key={pos} value={pos}>{pos}</option>
+                  ))}
+                </select>
+              </div>
+            )}
+            <div>
+              <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
+              <input
+                type="text"
+                value={popoverNotes}
+                onChange={e => setPopoverNotes(e.target.value)}
+                placeholder="Optional"
+                className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+            <div className="flex items-center justify-between pt-1">
+              <button
+                onClick={handlePopoverDelete}
+                disabled={popoverSaving}
+                className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+              >
+                Delete
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setConnectorPopover(null)}
+                  className="px-2 py-1 text-xs text-gray-600 bg-white border border-gray-300 rounded hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handlePopoverSave}
+                  disabled={popoverSaving}
+                  className="px-2 py-1 text-xs text-white bg-blue-600 rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {popoverSaving ? 'Saving\u2026' : 'Save'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Relationship legend — only show if room has relationships */}
       {uniqueRelationshipTypes.length > 0 && (

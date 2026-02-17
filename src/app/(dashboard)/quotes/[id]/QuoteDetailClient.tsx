@@ -27,6 +27,7 @@ import MachineDetailsPanel from './builder/components/MachineDetailsPanel';
 import { CutoutType, PieceCutout } from './builder/components/CutoutSelector';
 import VersionHistoryTab from '@/components/quotes/VersionHistoryTab';
 import type { CalculationResult } from '@/lib/types/pricing';
+import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 
 // Expandable cost breakdown components
 import PieceRow from '@/components/quotes/PieceRow';
@@ -311,6 +312,7 @@ export default function QuoteDetailClient({
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [refreshTrigger, setRefreshTrigger] = useState(0);
+  const [relationships, setRelationships] = useState<PieceRelationshipData[]>([]);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
   const calculationRef = useRef<CalculationResult | null>(null);
   const [viewCalculation, setViewCalculation] = useState<CalculationResult | null>(
@@ -503,6 +505,17 @@ export default function QuoteDetailClient({
     }
   }, []);
 
+  const fetchRelationships = useCallback(async () => {
+    try {
+      const response = await fetch(`/api/quotes/${quoteIdStr}/relationships`);
+      if (!response.ok) throw new Error('Failed to fetch relationships');
+      const data = await response.json();
+      setRelationships(data);
+    } catch {
+      // Relationships are non-critical — silently fail
+    }
+  }, [quoteIdStr]);
+
   // Get effective kerf width
   const getEffectiveKerfWidth = useCallback((): number => {
     const overrideMachineId = machineOverrides['INITIAL_CUT'];
@@ -582,9 +595,10 @@ export default function QuoteDetailClient({
         fetchMachines(),
         fetchMachineOperationDefaults(),
         fetchCustomers(),
+        fetchRelationships(),
       ]).then(() => setEditLoading(false));
     }
-  }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers]);
+  }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers, fetchRelationships]);
 
   // ── Auto-calculate pricing independent of sidebar visibility ──────────────
   // PricingSummary (in sidebar) handles calculation when the sidebar is open,
@@ -1120,6 +1134,17 @@ export default function QuoteDetailClient({
     thicknessOptions,
     roomNames,
   };
+
+  // Pieces formatted for RelationshipEditor dropdown
+  const allPiecesForRelationships = useMemo(
+    () => pieces.map(p => ({
+      id: String(p.id),
+      description: p.name || 'Unnamed Piece',
+      piece_type: null as string | null,
+      room_name: p.quote_rooms?.name ?? null,
+    })),
+    [pieces]
+  );
 
   // Filtered customers for dropdown
   const filteredCustomers = customersList.filter(c => {
@@ -1816,6 +1841,10 @@ export default function QuoteDetailClient({
             onExpand={(pieceId) => {
               window.open(`/quotes/${quoteId}/pieces/${pieceId}?mode=edit`, '_blank');
             }}
+            relationships={relationships}
+            allPiecesForRelationships={allPiecesForRelationships}
+            quoteIdStr={quoteIdStr}
+            onRelationshipChange={fetchRelationships}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (

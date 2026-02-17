@@ -14,6 +14,8 @@ interface RelationshipConnectorProps {
   scale: number;
   isHighlighted?: boolean;
   isDimmed?: boolean;
+  isEditMode?: boolean;
+  onConnectorClick?: (relationshipId: string, midpoint: { x: number; y: number }) => void;
 }
 
 // ─── Edge Midpoint Helpers ──────────────────────────────────────────────────
@@ -191,6 +193,8 @@ export default function RelationshipConnector({
   scale: _scale,
   isHighlighted = false,
   isDimmed = false,
+  isEditMode = false,
+  onConnectorClick,
 }: RelationshipConnectorProps) {
   const type = relationship.relationshipType;
   const display = RELATIONSHIP_DISPLAY[type];
@@ -199,7 +203,7 @@ export default function RelationshipConnector({
   const showArrow = hasArrow(type);
   const label = getLabel(relationship);
 
-  const { pathData, labelPos, arrowPoints, mitreMarker } = useMemo(() => {
+  const { pathData, labelPos, arrowPoints, mitreMarker, midpoint } = useMemo(() => {
     const edges = findNearestEdges(parentPosition, childPosition);
     const from = edges.parent;
     const to = edges.child;
@@ -244,11 +248,16 @@ export default function RelationshipConnector({
       labelPos: labelPosition,
       arrowPoints: arrow,
       mitreMarker: mitre,
+      midpoint: { x: midX, y: midY },
     };
   }, [parentPosition, childPosition, type, showArrow]);
 
   const opacity = isHighlighted ? 1.0 : isDimmed ? 0.4 : 0.7;
   const effectiveStrokeWidth = isHighlighted ? strokeWidth + 1 : strokeWidth;
+
+  const handleClick = isEditMode && onConnectorClick
+    ? () => onConnectorClick(relationship.id, midpoint)
+    : undefined;
 
   return (
     <g
@@ -258,6 +267,18 @@ export default function RelationshipConnector({
         transition: 'opacity 0.08s ease-out',
       }}
     >
+      {/* Invisible wider path for click target (edit mode) */}
+      {isEditMode && onConnectorClick && (
+        <path
+          d={pathData}
+          stroke="transparent"
+          strokeWidth={20}
+          fill="none"
+          style={{ cursor: 'pointer' }}
+          onClick={handleClick}
+        />
+      )}
+
       {/* Connection line */}
       <path
         d={pathData}
@@ -265,6 +286,7 @@ export default function RelationshipConnector({
         strokeWidth={effectiveStrokeWidth}
         strokeDasharray={dashArray}
         fill="none"
+        style={{ pointerEvents: isEditMode ? 'none' : undefined }}
       />
 
       {/* Label */}

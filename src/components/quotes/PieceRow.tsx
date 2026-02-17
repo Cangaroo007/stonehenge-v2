@@ -8,6 +8,8 @@ import type { InlinePieceData } from './InlinePieceEditor';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import type { EdgeSide } from './PieceVisualEditor';
+import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import RelationshipEditor from './RelationshipEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -114,6 +116,19 @@ interface PieceRowProps {
   ) => void;
   /** Callback to expand piece in new browser tab */
   onExpand?: (pieceId: number) => void;
+  /** All relationships for the quote (edit mode) */
+  relationships?: PieceRelationshipData[];
+  /** All pieces for the relationship editor dropdown (edit mode) */
+  allPiecesForRelationships?: Array<{
+    id: string;
+    description: string;
+    piece_type: string | null;
+    room_name: string | null;
+  }>;
+  /** Quote ID string for relationship API calls */
+  quoteIdStr?: string;
+  /** Callback when relationships change */
+  onRelationshipChange?: () => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -608,6 +623,10 @@ export default function PieceRow({
   onDuplicate,
   onBulkEdgeApply,
   onExpand,
+  relationships,
+  allPiecesForRelationships,
+  quoteIdStr,
+  onRelationshipChange,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -748,6 +767,19 @@ export default function PieceRow({
           onSavePiece={onSavePiece}
           onBulkEdgeApply={onBulkEdgeApply}
         />
+      )}
+
+      {/* ── Relationships (edit mode only) ── */}
+      {l1Expanded && mode === 'edit' && quoteIdStr && relationships && allPiecesForRelationships && onRelationshipChange && (
+        <div className="px-4 pb-3 pt-3 border-t border-gray-100">
+          <RelationshipEditor
+            quoteId={quoteIdStr}
+            selectedPieceId={String(piece.id)}
+            allPieces={allPiecesForRelationships}
+            existingRelationships={relationships}
+            onRelationshipChange={onRelationshipChange}
+          />
+        </div>
       )}
 
       {/* ── Level 1: Cost Breakdown ── */}
