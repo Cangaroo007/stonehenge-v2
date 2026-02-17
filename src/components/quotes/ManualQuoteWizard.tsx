@@ -246,7 +246,7 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
   );
 
   const allLengthsFilled = rooms.every((room) =>
-    room.pieces.every((piece) => piece.length_mm > 0),
+    (room.pieces || []).every((piece) => piece.length_mm > 0),
   );
 
   const handleStep3Next = useCallback(() => {
@@ -289,13 +289,13 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
       customerId,
       rooms: rooms.map((r) => ({
         name: r.name,
-        pieces: r.pieces.map((p) => ({
+        pieces: (r.pieces || []).map((p) => ({
           name: p.name,
           length_mm: Number(p.length_mm),
           width_mm: Number(p.width_mm),
           thickness_mm: Number(p.thickness_mm),
-          edges: p.edges,
-          cutouts: p.cutouts,
+          edges: p.edges || { top: '', bottom: '', left: '', right: '' },
+          cutouts: p.cutouts || [],
         })),
       })),
     });
@@ -319,16 +319,16 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
         customerId: customerId ?? null,
         rooms: rooms.map((room) => ({
           name: room.name,
-          pieces: room.pieces.map((piece) => ({
+          pieces: (room.pieces || []).map((piece) => ({
             name: piece.name,
             lengthMm: Number(piece.length_mm),
             widthMm: Number(piece.width_mm),
             thicknessMm: Number(piece.thickness_mm),
-            edgeTop: piece.edges.top || null,
-            edgeBottom: piece.edges.bottom || null,
-            edgeLeft: piece.edges.left || null,
-            edgeRight: piece.edges.right || null,
-            cutouts: piece.cutouts.map((c) => ({
+            edgeTop: piece.edges?.top || null,
+            edgeBottom: piece.edges?.bottom || null,
+            edgeLeft: piece.edges?.left || null,
+            edgeRight: piece.edges?.right || null,
+            cutouts: (piece.cutouts || []).map((c) => ({
               name: c.type,
               quantity: Number(c.quantity),
             })),
@@ -587,14 +587,15 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
         <div className="space-y-8">
           {rooms.map((room, roomIndex) => {
-            if (!room.pieces.length) return null;
+            const pieces = room.pieces || [];
+            if (!pieces.length) return null;
 
             return (
               <div key={roomIndex}>
                 <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-3">
                   {room.name}
                   <span className="ml-2 text-xs font-normal text-gray-400">
-                    ({room.pieces.length} {room.pieces.length === 1 ? 'piece' : 'pieces'})
+                    ({pieces.length} {pieces.length === 1 ? 'piece' : 'pieces'})
                   </span>
                 </h3>
 
@@ -607,7 +608,7 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                 </div>
 
                 <div className="space-y-2">
-                  {room.pieces.map((piece, pieceIndex) => {
+                  {pieces.map((piece, pieceIndex) => {
                     const lengthMissing = piece.length_mm <= 0;
                     return (
                       <div
@@ -720,19 +721,20 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
         <div className="space-y-6">
           {rooms.map((room, roomIndex) => {
-            if (!room.pieces.length) return null;
+            const pieces = room.pieces || [];
+            if (!pieces.length) return null;
 
             return (
               <div key={roomIndex}>
                 <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">
                   {room.name}
                   <span className="ml-2 text-xs font-normal text-gray-400">
-                    ({room.pieces.length} {room.pieces.length === 1 ? 'piece' : 'pieces'})
+                    ({pieces.length} {pieces.length === 1 ? 'piece' : 'pieces'})
                   </span>
                 </h3>
 
                 <div className="space-y-1 divide-y divide-gray-100">
-                  {room.pieces.map((piece, pieceIndex) => (
+                  {pieces.map((piece, pieceIndex) => (
                     <MiniPieceEditor
                       key={pieceIndex}
                       piece={piece}

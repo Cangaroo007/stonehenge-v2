@@ -187,7 +187,7 @@ export default function MiniPieceEditor({
       const updated = {
         ...piece,
         edges: {
-          ...piece.edges,
+          ...(piece.edges || { top: '', bottom: '', left: '', right: '' }),
           [popover.side]: profileId ?? '',
         },
       };
@@ -200,17 +200,18 @@ export default function MiniPieceEditor({
   const handleCutoutAdd = useCallback(
     (cutoutName: string) => {
       if (!piece) return;
-      const existing = piece.cutouts.find((c) => c.type === cutoutName);
+      const cutouts = piece.cutouts || [];
+      const existing = cutouts.find((c) => c.type === cutoutName);
       let updatedCutouts: Array<{ type: string; quantity: number }>;
 
       if (existing) {
         // Increment quantity
-        updatedCutouts = piece.cutouts.map((c) =>
+        updatedCutouts = cutouts.map((c) =>
           c.type === cutoutName ? { ...c, quantity: c.quantity + 1 } : c,
         );
       } else {
         // Add new
-        updatedCutouts = [...piece.cutouts, { type: cutoutName, quantity: 1 }];
+        updatedCutouts = [...cutouts, { type: cutoutName, quantity: 1 }];
       }
 
       onChange({ ...piece, cutouts: updatedCutouts });
@@ -222,7 +223,7 @@ export default function MiniPieceEditor({
   const handleCutoutRemove = useCallback(
     (cutoutType: string) => {
       if (!piece) return;
-      const updatedCutouts = piece.cutouts.filter((c) => c.type !== cutoutType);
+      const updatedCutouts = (piece.cutouts || []).filter((c) => c.type !== cutoutType);
       onChange({ ...piece, cutouts: updatedCutouts });
     },
     [piece, onChange],
@@ -231,6 +232,11 @@ export default function MiniPieceEditor({
   // ── Null guards AFTER all hooks (Rule 36 + React Rule of Hooks) ─────
 
   if (!piece) return null;
+
+  // Defensive: ensure edges/cutouts are never undefined (Cause C crash guard)
+  const safeEdges = piece.edges || { top: '', bottom: '', left: '', right: '' };
+  const safeCutouts = piece.cutouts || [];
+
   if (!edgeTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading edge types...</div>;
   if (!cutoutTypes?.length) return <div className="text-xs text-gray-400 py-4">Loading cutout types...</div>;
 
@@ -244,7 +250,7 @@ export default function MiniPieceEditor({
   // ── Edge ID lookup ────────────────────────────────────────────────────
 
   const getEdgeId = (side: EdgeSide): string | null => {
-    const val = piece.edges[side];
+    const val = safeEdges[side];
     return val || null;
   };
 
@@ -399,9 +405,9 @@ export default function MiniPieceEditor({
         )}
 
         {/* Active cutout badges */}
-        {piece.cutouts.length > 0 && (
+        {safeCutouts.length > 0 && (
           <div className="flex flex-wrap gap-1">
-            {piece.cutouts.map((c) => (
+            {safeCutouts.map((c) => (
               <span
                 key={c.type}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded"
