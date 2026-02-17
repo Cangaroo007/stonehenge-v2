@@ -880,6 +880,15 @@ enum UserRole {
   CUSTOMER
 }
 
+enum RelationshipType {
+  WATERFALL
+  SPLASHBACK
+  RETURN
+  WINDOW_SILL
+  MITRE_JOIN
+  BUTT_JOIN
+}
+
 enum UnitBlockProjectType {
   APARTMENTS
   TOWNHOUSES
@@ -1244,10 +1253,17 @@ model piece_relationships {
   // Relationship type: WATERFALL, SPLASHBACK, RETURN_END, MITRE_JOIN, BUTT_JOIN, etc.
   relation_type   String
 
+  // Typed enum version of relation_type (nullable during migration)
+  relationship_type RelationshipType?
+
   // Which side of the source piece (top, bottom, left, right)
   side            String?
 
+  // Optional notes about the relationship
+  notes           String?
+
   created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt @default(now())
 
   @@unique([source_piece_id, target_piece_id])
 }
