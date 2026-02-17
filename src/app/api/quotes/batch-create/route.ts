@@ -6,6 +6,10 @@ import { generateQuoteNumber } from '@/lib/utils';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { getPieceDefaults } from '@/lib/services/quote-setup-defaults';
+import {
+  validateBatchCreatePayload,
+  validateQuoteForPricing,
+} from '@/lib/services/quote-validation';
 
 // --- Request body interfaces ---
 
@@ -112,6 +116,15 @@ export async function POST(request: NextRequest) {
     }
     const body = validation.data;
 
+    // GATE 2: Enhanced validation — type coercion + structured errors
+    const enhancedValidation = validateBatchCreatePayload(rawBody);
+    if (!enhancedValidation.valid) {
+      return NextResponse.json(
+        { error: 'Validation failed', errors: enhancedValidation.errors },
+        { status: 400 },
+      );
+    }
+
     // 3. Generate quote number using existing pattern
     const lastQuote = await prisma.quotes.findFirst({
       orderBy: { id: 'desc' },
@@ -214,18 +227,36 @@ export async function POST(request: NextRequest) {
       // Non-blocking — version creation failure should not fail the batch create
     }
 
-    // 7. Trigger pricing calculation (non-blocking)
-    try {
-      await calculateQuotePrice(String(quote.id), { forceRecalculate: true });
-    } catch {
-      // Non-blocking — pricing may fail if no price book is configured yet
-    }
-
-    // 8. Calculate counts for response
+    // 7. Calculate counts for response
     const roomCount = quote.quote_rooms.length;
     let pieceCount = 0;
     for (const room of quote.quote_rooms) {
       pieceCount += room.quote_pieces.length;
+    }
+
+    // 8. GATE 3: Pre-pricing validation (non-blocking)
+    const pricingValidation = await validateQuoteForPricing(quote.id, prisma);
+    if (!pricingValidation.valid) {
+      // Quote was created successfully, but pricing can't run — return with warnings
+      return NextResponse.json({
+        quoteId: quote.id,
+        quoteNumber: quote.quote_number,
+        roomCount,
+        pieceCount,
+        redirectUrl: `/quotes/${quote.id}`,
+        created: true,
+        pricingWarnings: pricingValidation.errors.map((e) => e.message),
+      }, { status: 201 });
+    }
+
+    // 9. Safe to run pricing — separate try/catch (Rule 47)
+    const pricingWarnings: string[] = [];
+    try {
+      await calculateQuotePrice(String(quote.id), { forceRecalculate: true });
+    } catch (pricingError) {
+      // Pricing failed, but quote is saved — don't crash
+      console.error('[batch-create] Pricing calculation failed:', pricingError);
+      pricingWarnings.push('Pricing calculation failed — open the quote and recalculate.');
     }
 
     return NextResponse.json({
@@ -234,6 +265,8 @@ export async function POST(request: NextRequest) {
       roomCount,
       pieceCount,
       redirectUrl: `/quotes/${quote.id}`,
+      created: true,
+      ...(pricingWarnings.length > 0 ? { pricingWarnings } : {}),
     }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Unknown error';
