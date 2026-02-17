@@ -28,6 +28,7 @@ export interface RelationshipSuggestion {
   parentPieceId: string;
   childPieceId: string;
   suggestedType: RelationshipType;
+  suggestedPosition: string | null;
   confidence: 'HIGH' | 'MEDIUM' | 'LOW';
   reason: string;
 }

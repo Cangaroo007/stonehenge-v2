@@ -2,12 +2,15 @@
 
 import { useMemo, useState, useCallback } from 'react';
 import { calculateRoomLayout } from '@/lib/services/room-layout-engine';
+import { suggestRelationships } from '@/lib/services/relationship-suggest-service';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import type { RelationshipSuggestion } from '@/lib/types/piece-relationship';
 import { RELATIONSHIP_DISPLAY, JOIN_POSITIONS } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
 import RoomPieceSVG from './RoomPieceSVG';
 import RelationshipConnector from './RelationshipConnector';
+import RelationshipSuggestions from './RelationshipSuggestions';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -203,6 +206,70 @@ export default function RoomSpatialView({
     [relationships]
   );
 
+  // ── Suggestion engine (edit mode only) ──
+  const [dismissedSuggestions, setDismissedSuggestions] = useState<Set<string>>(new Set());
+
+  const suggestions = useMemo(() => {
+    if (mode !== 'edit') return [];
+    return suggestRelationships(
+      pieces.map(p => ({
+        id: String(p.id),
+        description: p.name ?? p.description ?? 'Piece',
+        piece_type: inferPieceType(p),
+        length_mm: p.length_mm,
+        width_mm: p.width_mm,
+        room_name: roomName,
+      })),
+      relationships.map(r => ({ parentPieceId: r.parentPieceId, childPieceId: r.childPieceId }))
+    );
+  }, [pieces, relationships, mode, roomName]);
+
+  const visibleSuggestions = useMemo(
+    () => suggestions.filter(s => {
+      const key = `${s.parentPieceId}-${s.childPieceId}-${s.suggestedType}`;
+      return !dismissedSuggestions.has(key);
+    }),
+    [suggestions, dismissedSuggestions]
+  );
+
+  // Piece name lookup for suggestion cards
+  const pieceNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const p of pieces) {
+      map.set(String(p.id), p.name ?? p.description ?? 'Piece');
+    }
+    return map;
+  }, [pieces]);
+
+  const handleSuggestionAccept = useCallback(async (suggestion: RelationshipSuggestion) => {
+    if (!quoteId) return;
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/relationships`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          parentPieceId: suggestion.parentPieceId,
+          childPieceId: suggestion.childPieceId,
+          relationshipType: suggestion.suggestedType,
+          joinPosition: suggestion.suggestedPosition ?? undefined,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create relationship');
+      toast.success('Relationship created from suggestion');
+      // Remove from view immediately
+      const key = `${suggestion.parentPieceId}-${suggestion.childPieceId}-${suggestion.suggestedType}`;
+      setDismissedSuggestions(prev => new Set(prev).add(key));
+      onRelationshipChange?.();
+    } catch {
+      toast.error('Failed to create relationship');
+    }
+  }, [quoteId, onRelationshipChange]);
+
+  const handleSuggestionDismiss = useCallback((suggestion: RelationshipSuggestion) => {
+    const key = `${suggestion.parentPieceId}-${suggestion.childPieceId}-${suggestion.suggestedType}`;
+    setDismissedSuggestions(prev => new Set(prev).add(key));
+  }, []);
+
   // ── Empty room ──
   if (pieces.length === 0) {
     return (
@@ -235,6 +302,16 @@ export default function RoomSpatialView({
           {roomTotal != null && ` | ${formatCurrency(roomTotal)}`}
         </span>
       </div>
+
+      {/* Relationship suggestions (edit mode, above SVG) */}
+      {mode === 'edit' && (
+        <RelationshipSuggestions
+          suggestions={visibleSuggestions}
+          pieceNames={pieceNameMap}
+          onAccept={handleSuggestionAccept}
+          onDismiss={handleSuggestionDismiss}
+        />
+      )}
 
       {/* SVG canvas */}
       <svg
