@@ -175,7 +175,7 @@ export default function EdgeSelector({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          <h3 className="text-sm font-semibold text-gray-700">Edge Polish Selection</h3>
+          <h3 className="text-sm font-semibold text-gray-700">Edge Profile Selection</h3>
         </div>
         {isCollapsed && summaryLine.cost !== null && (
           <span className="text-sm font-medium tabular-nums text-gray-900">
