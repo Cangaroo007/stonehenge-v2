@@ -111,9 +111,9 @@ export async function GET(
       }
     }
 
-    // Build related pieces array
+    // Build related pieces array (?? [] guards against missing relation data)
     const relatedPieces = [
-      ...piece.sourceRelationships.map((r) => ({
+      ...(piece.sourceRelationships ?? []).map((r) => ({
         id: r.id,
         relationType: r.relation_type,
         side: r.side,
@@ -125,7 +125,7 @@ export async function GET(
           thicknessMm: r.targetPiece.thickness_mm,
         },
       })),
-      ...piece.targetRelationships.map((r) => ({
+      ...(piece.targetRelationships ?? []).map((r) => ({
         id: r.id,
         relationType: r.relation_type,
         side: r.side,

@@ -527,12 +527,12 @@ export default function QuoteDetailClient({
 
   const fetchRelationships = useCallback(async () => {
     try {
-      const response = await fetch(`/api/quotes/${quoteIdStr}/relationships`);
-      if (!response.ok) throw new Error('Failed to fetch relationships');
-      const data = await response.json();
-      setRelationships(data);
+      const res = await fetch(`/api/quotes/${quoteIdStr}/relationships`);
+      const data = res.ok ? await res.json() : [];
+      setRelationships(Array.isArray(data) ? data : []);
     } catch {
-      // Relationships are non-critical — silently fail
+      // Relationships are non-critical — silently continue with empty
+      setRelationships([]);
     }
   }, [quoteIdStr]);
 

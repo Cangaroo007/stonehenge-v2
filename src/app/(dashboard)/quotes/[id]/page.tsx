@@ -19,6 +19,8 @@ async function getQuote(id: number) {
             include: {
               piece_features: true,
               materials: true,
+              sourceRelationships: true,
+              targetRelationships: true,
             },
           },
         },

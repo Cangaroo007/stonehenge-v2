@@ -27,11 +27,10 @@ export async function GET(
   try {
     const relationships = await getRelationshipsForQuote(quoteId);
     return NextResponse.json(relationships);
-  } catch {
-    return NextResponse.json(
-      { error: 'Failed to fetch relationships' },
-      { status: 500 }
-    );
+  } catch (error) {
+    console.error('Error fetching relationships:', error);
+    // Graceful fallback: return empty array so UI doesn't crash
+    return NextResponse.json([]);
   }
 }
 
