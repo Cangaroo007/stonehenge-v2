@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
+import AutocompleteInput from '@/components/ui/AutocompleteInput';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -70,6 +71,10 @@ export interface InlinePieceEditorProps {
   isNew?: boolean;
   /** Called when the user cancels creating a new piece */
   onCancel?: () => void;
+  /** Autocomplete suggestions for piece names */
+  pieceSuggestions?: string[];
+  /** Autocomplete suggestions for room names */
+  roomSuggestions?: string[];
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -98,6 +103,8 @@ export default function InlinePieceEditor({
   saving,
   isNew = false,
   onCancel,
+  pieceSuggestions = [],
+  roomSuggestions = [],
 }: InlinePieceEditorProps) {
   // ── Local form state ────────────────────────────────────────────────────
   const [pieceName, setPieceName] = useState(piece.name || '');
@@ -271,15 +278,15 @@ export default function InlinePieceEditor({
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Piece Name
           </label>
-          <input
-            type="text"
+          <AutocompleteInput
             value={pieceName}
-            onChange={(e) => setPieceName(e.target.value)}
+            onChange={(name) => setPieceName(name)}
+            suggestions={pieceSuggestions}
             placeholder="e.g. Main Kitchen Benchtop"
             className={`w-full max-w-sm px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
               errors.pieceName ? 'border-red-500' : 'border-gray-300'
             }`}
-            onClick={(e) => e.stopPropagation()}
+            stopPropagation
           />
           {errors.pieceName && <p className="mt-0.5 text-xs text-red-500">{errors.pieceName}</p>}
         </div>
@@ -447,18 +454,14 @@ export default function InlinePieceEditor({
           <label className="block text-xs font-medium text-gray-600 mb-1">
             Room
           </label>
-          <select
+          <AutocompleteInput
             value={roomName}
-            onChange={(e) => setRoomName(e.target.value)}
-            onClick={(e) => e.stopPropagation()}
+            onChange={(name) => setRoomName(name)}
+            suggestions={Array.from(new Set([...allRoomOptions, ...roomSuggestions]))}
+            placeholder="e.g. Kitchen"
             className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            {allRoomOptions.map((room) => (
-              <option key={room} value={room}>
-                {room}
-              </option>
-            ))}
-          </select>
+            stopPropagation
+          />
         </div>
         <div className="flex items-center gap-2">
           {isNew && onCancel && (

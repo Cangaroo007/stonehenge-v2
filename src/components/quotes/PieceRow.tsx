@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
+import { generatePieceDescription } from '@/lib/utils/description-generator';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import InlinePieceEditor from './InlinePieceEditor';
 import type { InlinePieceData } from './InlinePieceEditor';
@@ -67,6 +68,8 @@ interface InlineEditData {
   cutoutTypes: CutoutType[];
   thicknessOptions: InlineEditThicknessOption[];
   roomNames: string[];
+  pieceSuggestions?: string[];
+  roomSuggestions?: string[];
 }
 
 interface PieceRowProps {
@@ -774,6 +777,30 @@ export default function PieceRow({
   const cutoutSummary = getCutoutSummaryText(fullPiece, breakdown, editData?.cutoutTypes);
   const fullDescription = getFullDescription(piece);
 
+  // Auto-generated description for collapsed summary display
+  const autoDescription = useMemo(() => {
+    const cutoutsMapped = fullPiece?.cutouts?.map((c) => {
+      const cRecord = c as unknown as Record<string, unknown>;
+      const resolvedName = resolveCutoutTypeName(cRecord, editData?.cutoutTypes);
+      return {
+        type: resolvedName,
+        quantity: c.quantity ?? 1,
+      };
+    });
+    return generatePieceDescription({
+      name: piece.name || undefined,
+      length_mm: piece.lengthMm,
+      width_mm: piece.widthMm,
+      thickness: piece.thicknessMm,
+      material_name: piece.materialName || undefined,
+      edge_top: piece.edgeTop,
+      edge_bottom: piece.edgeBottom,
+      edge_left: piece.edgeLeft,
+      edge_right: piece.edgeRight,
+      cutouts: cutoutsMapped,
+    });
+  }, [piece, fullPiece?.cutouts, editData?.cutoutTypes]);
+
   return (
     <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
       {/* ── Collapsed Header (multi-line) ── */}
@@ -838,6 +865,12 @@ export default function PieceRow({
                 {cutoutSummary && <span>Cutouts: {cutoutSummary}</span>}
               </div>
             )}
+            {/* Line 4: Auto-generated description summary */}
+            {autoDescription && autoDescription.length > 5 && (
+              <div className="text-xs text-gray-400 mt-0.5 truncate italic">
+                {autoDescription}
+              </div>
+            )}
           </div>
           {/* Action buttons */}
           {(onExpand || (mode === 'edit' && (onDelete || onDuplicate))) && (
@@ -880,11 +913,11 @@ export default function PieceRow({
         </div>
       </div>
 
-      {/* ── Expanded: Full Description (if AI-generated/long) ── */}
-      {l1Expanded && fullDescription && (
+      {/* ── Expanded: Description (manual or auto-generated) ── */}
+      {l1Expanded && (fullDescription || autoDescription) && (
         <div className="px-4 py-3 border-t border-gray-100">
           <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description</p>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap">{fullDescription}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{fullDescription || autoDescription}</p>
         </div>
       )}
 
@@ -900,6 +933,8 @@ export default function PieceRow({
             roomNames={editData.roomNames}
             onSave={onSavePiece}
             saving={savingPiece}
+            pieceSuggestions={editData.pieceSuggestions}
+            roomSuggestions={editData.roomSuggestions}
           />
         </div>
       )}
