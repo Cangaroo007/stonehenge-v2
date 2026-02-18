@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuthLegacy as requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 import { logger } from '@/lib/logger';
 import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
@@ -11,7 +11,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth(request);
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const user = auth.user;
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -20,6 +25,12 @@ export async function POST(
         { error: 'Invalid quote ID' },
         { status: 400 }
       );
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -119,7 +130,12 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const user = await requireAuth(request);
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const user = auth.user;
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -128,6 +144,12 @@ export async function DELETE(
         { error: 'Invalid quote ID' },
         { status: 400 }
       );
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Capture snapshot before changes for version diff

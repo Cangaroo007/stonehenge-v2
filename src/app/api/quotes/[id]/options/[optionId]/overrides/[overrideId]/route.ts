@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateOptionPricing } from '@/lib/services/quote-option-calculator';
 
 /**
@@ -11,12 +12,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; optionId: string; overrideId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, optionId, overrideId } = await params;
     const quoteId = parseInt(id, 10);
     const optId = parseInt(optionId, 10);
     const ovrId = parseInt(overrideId, 10);
     if (isNaN(quoteId) || isNaN(optId) || isNaN(ovrId)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const override = await prisma.quote_option_overrides.findUnique({
@@ -70,12 +81,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; optionId: string; overrideId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, optionId, overrideId } = await params;
     const quoteId = parseInt(id, 10);
     const optId = parseInt(optionId, 10);
     const ovrId = parseInt(overrideId, 10);
     if (isNaN(quoteId) || isNaN(optId) || isNaN(ovrId)) {
       return NextResponse.json({ error: 'Invalid ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const override = await prisma.quote_option_overrides.findUnique({

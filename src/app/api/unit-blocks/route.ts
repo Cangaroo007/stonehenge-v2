@@ -13,7 +13,9 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const search = searchParams.get('search');
 
-    const where: Record<string, unknown> = {};
+    const { companyId } = authResult.user;
+
+    const where: Record<string, unknown> = { company_id: companyId };
     if (status) {
       where.status = status;
     }
@@ -87,6 +89,7 @@ export async function POST(request: NextRequest) {
     const project = await prisma.unit_block_projects.create({
       data: {
         name: data.name.trim(),
+        company_id: authResult.user.companyId,
         projectType: data.projectType || 'APARTMENTS',
         customerId: data.customerId || null,
         address: data.address || null,

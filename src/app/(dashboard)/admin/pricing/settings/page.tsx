@@ -21,7 +21,7 @@ interface PricingSettings {
 
 export default function PricingSettingsPage() {
   const [settings, setSettings] = useState<PricingSettings>({
-    organisationId: 'default-org',
+    organisationId: '',
     materialPricingBasis: 'PER_SLAB',
     wasteFactorPercent: '15.00',
     grainMatchingSurchargePercent: '15.00',

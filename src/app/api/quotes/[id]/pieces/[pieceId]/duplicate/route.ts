@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 // POST - Duplicate a piece
 export async function POST(
@@ -7,12 +8,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, pieceId } = await params;
     const quoteId = parseInt(id);
     const pieceIdNum = parseInt(pieceId);
 
     if (isNaN(quoteId) || isNaN(pieceIdNum)) {
       return NextResponse.json({ error: 'Invalid IDs' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Get the original piece

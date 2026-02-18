@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import type { PricingOptions } from '@/lib/types/pricing';
 
 /**
@@ -48,6 +49,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
 
     // Validate quote ID
@@ -57,6 +63,12 @@ export async function POST(
         { error: 'Invalid quote ID. Must be a number.' },
         { status: 400 }
       );
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteIdNum, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Parse request body for options

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth } from '@/lib/auth';
 import { generateQuoteNumber } from '@/lib/utils';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
 
@@ -16,7 +16,11 @@ import { createInitialVersion } from '@/lib/services/quote-version-service';
  */
 export async function POST(request: NextRequest) {
   try {
-    const user = await getCurrentUser();
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const user = auth.user;
 
     const { searchParams } = new URL(request.url);
     const customerIdParam = searchParams.get('customerId');
@@ -35,6 +39,7 @@ export async function POST(request: NextRequest) {
     const quote = await prisma.quotes.create({
       data: {
         quote_number: quoteNumber,
+        company_id: user.companyId,
         customer_id: customerId && !isNaN(customerId) ? customerId : null,
         contact_id: contactId && !isNaN(contactId) ? contactId : null,
         project_name: projectNameParam || null,
@@ -44,7 +49,7 @@ export async function POST(request: NextRequest) {
         tax_amount: 0,
         total: 0,
         valid_until: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-        created_by: user?.id ?? null,
+        created_by: user.id,
         updated_at: new Date(),
         quote_rooms: {
           create: {
@@ -57,7 +62,7 @@ export async function POST(request: NextRequest) {
 
     // Create initial version for version history (non-blocking)
     try {
-      await createInitialVersion(quote.id, user?.id ?? 1);
+      await createInitialVersion(quote.id, user.id);
     } catch {
       // Non-blocking — version history is not critical for draft creation
     }

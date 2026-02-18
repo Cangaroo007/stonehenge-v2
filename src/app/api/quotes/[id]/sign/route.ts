@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { createAuditLog, getClientIp, getUserAgent } from '@/lib/audit';
 import prisma from '@/lib/db';
 import crypto from 'crypto';
@@ -14,6 +14,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -21,10 +26,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    // Get current user (may be customer or staff)
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Get the quote
@@ -93,7 +97,7 @@ export async function POST(
     const signature = await prisma.quote_signatures.create({
       data: {
         quote_id: quoteId,
-        user_id: currentUser.id,
+        user_id: auth.user.id,
         signature_data: signatureData,
         signature_type: signatureType,
         signer_name: signerName,
@@ -122,7 +126,7 @@ export async function POST(
 
     // Create audit log
     await createAuditLog({
-      userId: currentUser.id,
+      userId: auth.user.id,
       action: 'signed',
       entityType: 'quote',
       entityId: String(quoteId),
@@ -137,7 +141,7 @@ export async function POST(
 
     // Record version snapshot for the signing event
     try {
-      await createQuoteVersion(quoteId, currentUser.id, 'CLIENT_APPROVED', 'Quote signed', previousSnapshot);
+      await createQuoteVersion(quoteId, auth.user.id, 'CLIENT_APPROVED', 'Quote signed', previousSnapshot);
     } catch (versionError) {
       console.error('Error creating version (non-blocking):', versionError);
     }

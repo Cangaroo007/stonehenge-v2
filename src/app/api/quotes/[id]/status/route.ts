@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import {
   transitionQuoteStatus,
   canTransition,
@@ -16,11 +16,24 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
+    const quoteId = parseInt(id);
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     const { prisma } = await import('@/lib/db');
 
     const quote = await prisma.quotes.findUnique({
-      where: { id: parseInt(id) },
+      where: { id: quoteId },
       select: { status: true, status_changed_at: true, status_changed_by: true },
     });
 
@@ -64,21 +77,24 @@ export async function PUT(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
+    // Auth and ownership check
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const userId = String(auth.user.id);
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     const { status: targetStatus, declinedReason } = body;
 
     if (!targetStatus) {
       return NextResponse.json({ error: 'Target status is required' }, { status: 400 });
     }
-
-    // Get user ID
-    let userId = '1';
-    try {
-      const authResult = await requireAuth();
-      if (!('error' in authResult)) {
-        userId = String(authResult.user.id);
-      }
-    } catch { /* use fallback */ }
 
     const result = await transitionQuoteStatus(quoteId, targetStatus, userId, {
       declinedReason,

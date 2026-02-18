@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/settings - Get current pricing settings or return defaults
 export async function GET(request: NextRequest) {
   try {
-    // For now, use a hardcoded org ID - in a real multi-tenant system this would come from the session
-    const organisationId = 'default-org';
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
+    // Use company-scoped organisation ID
+    const organisationId = `company-${companyId}`;
 
     let settings = await prisma.pricing_settings.findUnique({
       where: { organisation_id: organisationId },
@@ -82,10 +89,16 @@ export async function GET(request: NextRequest) {
 // PUT /api/admin/pricing/settings - Update pricing settings
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const body = await request.json();
 
-    // For now, use a hardcoded org ID
-    const organisationId = body.organisationId || 'default-org';
+    // Use company-scoped organisation ID
+    const organisationId = `company-${companyId}`;
 
     // Validate enum values
     const validMaterialBasis = ['PER_SLAB', 'PER_SQUARE_METRE'];

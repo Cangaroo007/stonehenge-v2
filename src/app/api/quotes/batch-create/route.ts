@@ -95,6 +95,7 @@ export async function POST(request: NextRequest) {
       );
     }
     const userId = authResult.user.id;
+    const companyId = authResult.user.companyId;
 
     // 2. Parse + validate body
     let rawBody: unknown;
@@ -192,6 +193,7 @@ export async function POST(request: NextRequest) {
       const newQuote = await tx.quotes.create({
         data: {
           quote_number: quoteNumber,
+          company_id: companyId,
           customer_id: body.customerId ?? null,
           project_name: body.projectName ?? null,
           project_address: body.projectAddress ?? null,

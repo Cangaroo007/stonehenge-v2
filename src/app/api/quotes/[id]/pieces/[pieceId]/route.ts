@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
 // GET - Get a single piece with full detail for expanded view
@@ -22,7 +22,13 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid IDs' }, { status: 400 });
     }
 
-    // Validate quote exists
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
+    // Validate quote exists and get calculation data
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
       select: {
@@ -211,13 +217,9 @@ export async function PATCH(
       return NextResponse.json({ error: 'Invalid IDs' }, { status: 400 });
     }
 
-    // Validate quote exists
-    const quote = await prisma.quotes.findUnique({
-      where: { id: quoteId },
-      select: { id: true },
-    });
-
-    if (!quote) {
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
@@ -417,12 +419,22 @@ export async function PUT(
   { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, pieceId } = await params;
     const quoteId = parseInt(id);
     const pieceIdNum = parseInt(pieceId);
 
     if (isNaN(quoteId) || isNaN(pieceIdNum)) {
       return NextResponse.json({ error: 'Invalid IDs' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const data = await request.json();
@@ -662,8 +674,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
-    const { pieceId } = await params;
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
+    const { id, pieceId } = await params;
+    const quoteId = parseInt(id);
     const pieceIdNum = parseInt(pieceId);
+
+    if (isNaN(quoteId)) {
+      return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     if (isNaN(pieceIdNum)) {
       return NextResponse.json({ error: 'Invalid piece ID' }, { status: 400 });

@@ -1,23 +1,26 @@
 import Link from 'next/link';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-async function getStats() {
+async function getStats(companyId: number) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
   const [totalQuotes, quotesThisMonth, totalValue, recentQuotes] = await Promise.all([
-    prisma.quotes.count(),
+    prisma.quotes.count({ where: { company_id: companyId } }),
     prisma.quotes.count({
-      where: { created_at: { gte: startOfMonth } },
+      where: { company_id: companyId, created_at: { gte: startOfMonth } },
     }),
     prisma.quotes.aggregate({
       _sum: { total: true },
-      where: { created_at: { gte: startOfMonth } },
+      where: { company_id: companyId, created_at: { gte: startOfMonth } },
     }),
     prisma.quotes.findMany({
+      where: { company_id: companyId },
       take: 5,
       orderBy: { created_at: 'desc' },
       include: { customers: true },
@@ -33,7 +36,9 @@ async function getStats() {
 }
 
 export default async function DashboardPage() {
-  const stats = await getStats();
+  const auth = await requireAuth();
+  if ('error' in auth) redirect('/login');
+  const stats = await getStats(auth.user.companyId);
 
   return (
     <div className="space-y-6">

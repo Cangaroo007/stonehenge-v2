@@ -505,9 +505,9 @@ export async function calculateQuotePrice(
     throw new Error('Quote not found');
   }
 
-  // Load pricing context (org-level settings)
-  // Use company ID "1" as default org for now (single-tenant)
-  const pricingContext = await loadPricingContext('1');
+  // Load pricing context using the quote's company
+  const organisationId = `company-${quote.company_id}`;
+  const pricingContext = await loadPricingContext(organisationId);
 
   // Get pricing data
   const [edgeTypes, cutoutTypes, serviceRates, cutoutCategoryRates, edgeCategoryRates] = await Promise.all([

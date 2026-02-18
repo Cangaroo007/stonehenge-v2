@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 // PATCH — Update room (rename and/or update notes)
 export async function PATCH(
@@ -7,12 +8,22 @@ export async function PATCH(
   { params }: { params: Promise<{ id: string; roomId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, roomId } = await params;
     const quoteId = parseInt(id);
     const roomIdNum = parseInt(roomId);
 
     if (isNaN(quoteId) || isNaN(roomIdNum)) {
       return NextResponse.json({ error: 'Invalid quote or room ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -81,12 +92,22 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; roomId: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id, roomId } = await params;
     const quoteId = parseInt(id);
     const roomIdNum = parseInt(roomId);
 
     if (isNaN(quoteId) || isNaN(roomIdNum)) {
       return NextResponse.json({ error: 'Invalid quote or room ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Verify room belongs to this quote

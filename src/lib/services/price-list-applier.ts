@@ -139,6 +139,7 @@ export async function applyPriceListUpdate(
       await prisma.materials.create({
         data: {
           name: match.parsed.name,
+          company_id: companyId,
           supplier_id: supplierId,
           product_code: match.parsed.productCode,
           supplier_range: match.parsed.range,

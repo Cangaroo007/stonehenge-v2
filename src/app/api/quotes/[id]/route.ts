@@ -90,6 +90,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
     const quote = await prisma.quotes.findUnique({
       where: { id: parseInt(id) },
@@ -134,7 +140,7 @@ export async function GET(
       },
     });
 
-    if (!quote) {
+    if (!quote || quote.company_id !== companyId) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
@@ -150,18 +156,25 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+    const userId = auth.user.id;
+
     const { id } = await params;
     const quoteId = parseInt(id);
     const data: QuoteUpdateData = await request.json();
 
-    // Get user ID for version tracking
-    let userId = 1; // fallback
-    try {
-      const authResult = await requireAuth();
-      if (!('error' in authResult)) {
-        userId = authResult.user.id;
-      }
-    } catch { /* use fallback */ }
+    // Verify quote belongs to the user's company
+    const existingQuote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
+      select: { company_id: true },
+    });
+    if (!existingQuote || existingQuote.company_id !== companyId) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     // Take snapshot before any changes for version diff
     let previousSnapshot;
@@ -430,9 +443,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const quoteId = parseInt(id);
+
+    // Verify quote belongs to the user's company before deleting
+    const existingQuote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
+      select: { company_id: true },
+    });
+    if (!existingQuote || existingQuote.company_id !== companyId) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     await prisma.quotes.delete({
-      where: { id: parseInt(id) },
+      where: { id: quoteId },
     });
 
     return NextResponse.json({ success: true });

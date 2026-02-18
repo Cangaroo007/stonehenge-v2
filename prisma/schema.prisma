@@ -78,6 +78,10 @@ model companies {
   user                user[]
   suppliers           suppliers[]
   quoteTemplates      quote_templates[]
+  quotes              quotes[]
+  customers           customers[]
+  materials           materials[]
+  unitBlockProjects   unit_block_projects[]
 }
 
 model customers {
@@ -93,6 +97,8 @@ model customers {
   client_tier_id        String?
   client_type_id        String?
   default_price_book_id String?
+  company_id            Int
+  tenant                companies              @relation(fields: [company_id], references: [id])
   client_tiers          client_tiers?          @relation(fields: [client_tier_id], references: [id])
   client_types          client_types?          @relation(fields: [client_type_id], references: [id])
   price_books           price_books?           @relation(fields: [default_price_book_id], references: [id])
@@ -103,6 +109,8 @@ model customers {
   unitBlockProjects     unit_block_projects[]
   contacts              customer_contacts[]
   locations             customer_locations[]
+
+  @@index([company_id])
 }
 
 model customer_contacts {
@@ -302,6 +310,10 @@ model materials {
   slab_width_mm          Int?
   fabrication_category   FabricationCategory      @default(ENGINEERED)
 
+  // Tenant isolation
+  company_id             Int
+  tenant                 companies                @relation(fields: [company_id], references: [id])
+
   // Supplier link
   supplier_id            String?
   supplier               suppliers?               @relation(fields: [supplier_id], references: [id])
@@ -323,6 +335,8 @@ model materials {
 
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
+
+  @@index([company_id])
 }
 
 model piece_features {
@@ -574,6 +588,7 @@ model quotes {
   revision               Int                      @default(1)
   customer_id            Int?
   contact_id             Int?
+  company_id             Int
   project_name           String?
   project_address        String?
   status                 String                   @default("draft")
@@ -591,6 +606,7 @@ model quotes {
   calculated_at          DateTime?
   calculated_total       Decimal?                 @db.Decimal(10, 2)
   calculation_breakdown  Json?
+  tenant                 companies                @relation(fields: [company_id], references: [id])
   drawings               drawings[]
   quote_drawing_analyses quote_drawing_analyses?
   quote_files            quote_files[]
@@ -638,6 +654,8 @@ model quotes {
   overrideReason         String?
   overrideBy             Int?
   overrideAt             DateTime?
+
+  @@index([company_id])
 }
 
 model quote_versions {
@@ -1055,6 +1073,10 @@ model unit_block_projects {
   projectType UnitBlockProjectType @default(APARTMENTS)
   status      ProjectStatus        @default(DRAFT)
 
+  // Tenant isolation
+  company_id Int
+  tenant     companies @relation(fields: [company_id], references: [id])
+
   // Client
   customerId Int?
   customer   customers? @relation(fields: [customerId], references: [id])
@@ -1098,6 +1120,7 @@ model unit_block_projects {
   files     unit_block_files[]
   templates unit_type_templates[]
 
+  @@index([company_id])
   @@map("unit_block_projects")
 }
 
