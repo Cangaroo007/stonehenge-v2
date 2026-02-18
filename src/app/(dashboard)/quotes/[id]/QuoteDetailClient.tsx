@@ -30,7 +30,8 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 
 // Expandable cost breakdown components
-import MiniPieceEditor from '@/components/quotes/MiniPieceEditor';
+// MiniPieceEditor available for future re-enablement (12.J1: quick view toggle removed)
+// import MiniPieceEditor from '@/components/quotes/MiniPieceEditor';
 import PieceRow from '@/components/quotes/PieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
@@ -42,7 +43,8 @@ import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
 import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
-import MaterialView from '@/components/quotes/MaterialView';
+// MaterialView available for future re-enablement (12.J1: toggle removed, not component)
+// import MaterialView from '@/components/quotes/MaterialView';
 import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
@@ -55,7 +57,8 @@ import type { EdgeScope } from '@/components/quotes/EdgeProfilePopover';
 // View-mode components
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
 import ManufacturingExportButton from './components/ManufacturingExportButton';
-import QuoteViewTracker from './components/QuoteViewTracker';
+// QuoteViewTracker available for future re-enablement (12.J1: tab removed, not component)
+// import QuoteViewTracker from './components/QuoteViewTracker';
 import QuoteSignatureSection from './components/QuoteSignatureSection';
 import SaveAsTemplateButton from './components/SaveAsTemplateButton';
 import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
@@ -344,9 +347,10 @@ export default function QuoteDetailClient({
   const [editLoading, setEditLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
+  const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('rooms');
   const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
   const [collapsedRooms, setCollapsedRooms] = useState<Set<number>>(new Set());
+  const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
@@ -1866,6 +1870,18 @@ export default function QuoteDetailClient({
     });
   }, []);
 
+  const toggleSpatialView = useCallback((roomId: number) => {
+    setSpatialExpandedRooms(prev => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  }, []);
+
   // ── Multi-select handlers ──────────────────────────────────────────────
 
   const handlePieceMultiSelect = useCallback((pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => {
@@ -2537,286 +2553,38 @@ export default function QuoteDetailClient({
   const analysisResults = serverData.quote_drawing_analyses?.raw_results;
 
   const renderViewContent = () => {
-    if (activeTab === 'history') {
-      return (
-        <div className="card">
-          <VersionHistoryTab quoteId={quoteId} />
-        </div>
-      );
-    }
+    // ── Stacked one-page layout (12.J1) — all sections visible, no tabs ──
 
-    if (activeTab === 'views') {
-      return <QuoteViewTracker quoteId={serverData.id} showHistory={true} trackOnMount={false} />;
-    }
-
-    if (activeTab === 'optimiser') {
-      return (
-        <OptimizationDisplay
-          quoteId={quoteIdStr}
-          refreshKey={0}
-          isOptimising={false}
-          hasPieces={serverData.quote_rooms.some(r => r.quote_pieces.length > 0)}
-          hasMaterial={serverData.quote_rooms.some(r => r.quote_pieces.some(p => !!p.material_name))}
-        />
-      );
-    }
-
-    // Pieces & Pricing tab (view mode)
     return (
       <div className="space-y-6">
-        {/* Drawings Accordion */}
-        <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
 
-        {/* Room Spatial Views — room-grouped SVG spatial diagrams */}
-        {(serverData.quote_rooms ?? []).map(room => {
-          if (room.quote_pieces.length === 0) return null;
-          const roomPieceIds = new Set(room.quote_pieces.map(p => String(p.id)));
-          return (
-            <RoomSpatialView
-              key={room.id}
-              roomName={room.name || 'Unassigned'}
-              pieces={room.quote_pieces.map(p => ({
-                id: p.id,
-                description: p.description,
-                name: p.name,
-                length_mm: p.length_mm,
-                width_mm: p.width_mm,
-                thickness_mm: p.thickness_mm,
-                piece_type: null as string | null,
-                area_sqm: p.area_sqm,
-                total_cost: p.total_cost,
-                edge_top: p.edge_top,
-                edge_bottom: p.edge_bottom,
-                edge_left: p.edge_left,
-                edge_right: p.edge_right,
-                piece_features: p.piece_features,
-              }))}
-              relationships={viewRelationships.filter(r =>
-                roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
-              )}
+        {/* ── MATERIAL — above pieces (12.J1: "first pick your stone") ── */}
+        {viewCalculation?.breakdown?.materials && (
+          <div id="material-section" className="card p-4 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <MaterialCostSection
+              materials={viewCalculation.breakdown.materials}
+              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
               mode="view"
-              selectedPieceId={null}
-              onPieceSelect={(pieceId) => {
-                const el = document.getElementById(`piece-${pieceId}`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-              }}
-              roomTotal={room.quote_pieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
-              roomNotes={room.notes}
             />
-          );
-        })}
-
-        {/* Open Full Job View in New Tab */}
-        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
-          <div className="flex justify-end">
-            <a
-              href={`/quotes/${quoteIdStr}/job-view`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              Open Full Job View in New Tab
-            </a>
           </div>
         )}
 
-        {/* Machine Operations Accordion */}
-        <MachineOperationsAccordion
-          quoteId={quoteIdStr}
-          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
-            room.quote_pieces.map(p => ({ id: p.id }))
-          )}
-          mode="view"
-        />
-
-        {/* Signature Section */}
-        <QuoteSignatureSection
-          quoteId={serverData.id}
-          quoteNumber={serverData.quote_number}
-          customerName={serverData.customers?.company || serverData.customers?.name || 'Customer'}
-          totalAmount={formatCurrency(serverData.total)}
-          status={serverData.status}
-          signature={serverData.quote_signatures ? {
-            id: serverData.quote_signatures.id,
-            signatureType: serverData.quote_signatures.signature_type,
-            signedAt: serverData.quote_signatures.signed_at,
-            signerName: serverData.quote_signatures.signer_name,
-            signerEmail: serverData.quote_signatures.signer_email,
-            ipAddress: serverData.quote_signatures.ip_address,
-            user: serverData.quote_signatures.user ? {
-              name: serverData.quote_signatures.user.name,
-              email: serverData.quote_signatures.user.email,
-            } : null,
-          } : null}
-        />
-
-        {/* Drawing Analysis Section */}
-        {serverData.quote_drawing_analyses && (
-          <div className="card">
-            <div className="p-4 border-b border-gray-200 bg-gray-50 rounded-t-xl flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                <h3 className="text-lg font-semibold">Drawing Analysis</h3>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-sm text-gray-500">
-                  Analysed {formatDate(serverData.quote_drawing_analyses.analyzed_at)}
-                </span>
-                <SaveAsTemplateButton
-                  analysisId={serverData.quote_drawing_analyses.id}
-                  defaultName={serverData.project_name || undefined}
-                />
-              </div>
-            </div>
-            <div className="p-6">
-              {/* Analysis Metadata */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-                <div>
-                  <span className="text-xs text-gray-500 block">Filename</span>
-                  <span className="font-medium text-gray-900 truncate block" title={serverData.quote_drawing_analyses.filename}>
-                    {serverData.quote_drawing_analyses.filename}
-                  </span>
-                </div>
-                <div>
-                  <span className="text-xs text-gray-500 block">Drawing Type</span>
-                  <span className="font-medium text-gray-900">
-                    {serverData.quote_drawing_analyses.drawing_type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
-                  </span>
-                </div>
-                {analysisResults?.metadata?.jobNumber && (
-                  <div>
-                    <span className="text-xs text-gray-500 block">Job Number</span>
-                    <span className="font-medium text-gray-900">{analysisResults.metadata.jobNumber}</span>
-                  </div>
-                )}
-                {analysisResults?.metadata?.defaultThickness && (
-                  <div>
-                    <span className="text-xs text-gray-500 block">Default Thickness</span>
-                    <span className="font-medium text-gray-900">{analysisResults.metadata.defaultThickness}mm</span>
-                  </div>
-                )}
-              </div>
-
-              {/* Warnings */}
-              {analysisResults?.warnings && analysisResults.warnings.length > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-700">
-                  <div className="flex items-start gap-2">
-                    <svg className="h-5 w-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                    </svg>
-                    <div>
-                      <strong>Analysis Warnings:</strong>
-                      <ul className="list-disc list-inside mt-1">
-                        {analysisResults.warnings.map((warning, i) => (
-                          <li key={i}>{warning}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Detected pieces */}
-              {analysisResults?.rooms && analysisResults.rooms.length > 0 && (
-                <div>
-                  <h4 className="text-sm font-medium text-gray-700 mb-3">Originally Detected Pieces</h4>
-                  <div className="space-y-3">
-                    {analysisResults.rooms.map((room, roomIndex) => (
-                      <div key={roomIndex} className="border border-gray-200 rounded-lg p-3">
-                        <h5 className="text-sm font-medium text-gray-600 mb-2">
-                          {room.name} ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
-                        </h5>
-                        <div className="space-y-1">
-                          {room.pieces.map((piece, pieceIndex) => (
-                            <div
-                              key={pieceIndex}
-                              className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-2"
-                            >
-                              <span className="text-gray-700">
-                                {piece.pieceNumber ? `#${piece.pieceNumber} ` : ''}{piece.name}
-                              </span>
-                              <span className="text-gray-500">
-                                {piece.length} × {piece.width}mm
-                                <span
-                                  className={`ml-2 px-1.5 py-0.5 rounded text-xs ${
-                                    piece.confidence >= 0.7
-                                      ? 'bg-green-100 text-green-700'
-                                      : piece.confidence >= 0.5
-                                      ? 'bg-yellow-100 text-yellow-700'
-                                      : 'bg-red-100 text-red-700'
-                                  }`}
-                                >
-                                  {Math.round(piece.confidence * 100)}%
-                                </span>
-                              </span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* Unified Pieces Section (view mode) */}
+        {/* ── PIECES BY ROOM — with per-room spatial view toggle ── */}
         <div className="card">
           <div className="p-4 border-b border-gray-200">
-            <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold">Pieces</h2>
-              {/* View Toggle */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  List
-                </button>
-                <button
-                  onClick={() => setViewMode('rooms')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'rooms'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  By Room
-                </button>
-                <button
-                  onClick={() => setViewMode('material')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'material'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Material
-                </button>
-              </div>
-            </div>
+            <h2 className="text-lg font-semibold">Pieces</h2>
           </div>
           <div className="p-4 space-y-2">
             {(() => {
-              // Build breakdown map from viewCalculation
               const viewBreakdownMap = new Map<number, import('@/lib/types/pricing').PiecePricingBreakdown>();
               if (viewCalculation?.breakdown?.pieces) {
                 for (const pb of viewCalculation.breakdown.pieces as import('@/lib/types/pricing').PiecePricingBreakdown[]) {
                   viewBreakdownMap.set(pb.pieceId, pb);
                 }
               }
-
-              // Flatten all pieces from server data with room info
 
               const allViewPieces = (serverData.quote_rooms ?? []).flatMap(room =>
                 room.quote_pieces.map(piece => ({
@@ -2825,30 +2593,6 @@ export default function QuoteDetailClient({
                   roomId: room.id,
                 }))
               );
-
-              if (viewMode === 'material') {
-                const materialViewPieces = allViewPieces.map(p => ({
-                  id: p.id,
-                  name: p.name || 'Unnamed piece',
-                  lengthMm: p.length_mm,
-                  widthMm: p.width_mm,
-                  thicknessMm: p.thickness_mm,
-                  materialId: p.material_id ?? null,
-                  materialName: p.materials?.name || p.material_name || null,
-                  materialCost: p.material_cost || 0,
-                  roomName: p.roomName,
-                }));
-                return (
-                  <MaterialView
-                    pieces={materialViewPieces}
-                    materials={[]}
-                    onMaterialChange={() => {}}
-                    isEditMode={false}
-                    selectedPieceIds={new Set<string>()}
-                    onSelectionChange={() => {}}
-                  />
-                );
-              }
 
               const renderViewPieceCard = (piece: typeof allViewPieces[0], pieceNumber: number) => {
                 const pb = viewBreakdownMap.get(piece.id);
@@ -2879,105 +2623,152 @@ export default function QuoteDetailClient({
                 );
               };
 
-              // Both list and rooms views group pieces by room with collapsible headers
-              if (viewMode === 'list' || viewMode === 'rooms') {
-                if (allViewPieces.length === 0) {
-                  return <p className="text-center text-gray-500 py-8">No pieces in this quote</p>;
-                }
-                let viewGlobalIndex = 0;
-                const viewRooms = serverData.quote_rooms ?? [];
-                const assignedRoomIds = new Set(viewRooms.map(r => r.id));
-                const unassignedViewPieces = allViewPieces.filter(p => !assignedRoomIds.has(p.roomId));
-                return (
-                  <>
-                    {viewRooms.map(room => {
-                      const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
-                      if (roomPieces.length === 0) return null;
-                      const isCollapsed = collapsedRooms.has(room.id);
-                      return (
-                        <div key={room.id} className="space-y-2">
-                          <div
-                            className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                            onClick={() => toggleRoomCollapse(room.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                              <h3 className="text-sm font-semibold text-gray-800">
-                                {room.name}
-                              </h3>
-                              <span className="text-xs text-gray-500">
-                                ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                              </span>
-                            </div>
-                          </div>
-                          {!isCollapsed && (
-                            <div className="space-y-2">
-                              {roomPieces.map(p => {
-                                viewGlobalIndex++;
-                                return renderViewPieceCard(p, viewGlobalIndex);
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                    {unassignedViewPieces.length > 0 && (
-                      <div className="space-y-2">
+              if (allViewPieces.length === 0) {
+                return <p className="text-center text-gray-500 py-8">No pieces in this quote</p>;
+              }
+
+              let viewGlobalIndex = 0;
+              const viewRooms = serverData.quote_rooms ?? [];
+              const assignedRoomIds = new Set(viewRooms.map(r => r.id));
+              const unassignedViewPieces = allViewPieces.filter(p => !assignedRoomIds.has(p.roomId));
+              return (
+                <>
+                  {viewRooms.map(room => {
+                    const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
+                    if (roomPieces.length === 0) return null;
+                    const isCollapsed = collapsedRooms.has(room.id);
+                    const isSpatialOpen = spatialExpandedRooms.has(room.id);
+                    const roomPieceIds = new Set(room.quote_pieces.map(p => String(p.id)));
+                    return (
+                      <div key={room.id} className="space-y-2">
                         <div
-                          className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
-                          onClick={() => toggleRoomCollapse(-1)}
+                          className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => toggleRoomCollapse(room.id)}
                         >
                           <div className="flex items-center gap-2">
                             <svg
-                              className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                              className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
                               fill="none" viewBox="0 0 24 24" stroke="currentColor"
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <h3 className="text-sm font-semibold text-amber-800">
-                              Unassigned
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              {room.name}
                             </h3>
-                            <span className="text-xs text-amber-600">
-                              ({unassignedViewPieces.length} piece{unassignedViewPieces.length !== 1 ? 's' : ''})
+                            <span className="text-xs text-gray-500">
+                              ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
                             </span>
                           </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); toggleSpatialView(room.id); }}
+                            className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
+                              isSpatialOpen
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                            }`}
+                          >
+                            Spatial
+                          </button>
                         </div>
-                        {!collapsedRooms.has(-1) && (
+                        {/* Per-room spatial view (toggled, default collapsed — 12.J1 §2.7) */}
+                        {isSpatialOpen && (
+                          <RoomSpatialView
+                            roomName={room.name || 'Unassigned'}
+                            pieces={room.quote_pieces.map(p => ({
+                              id: p.id,
+                              description: p.description,
+                              name: p.name,
+                              length_mm: p.length_mm,
+                              width_mm: p.width_mm,
+                              thickness_mm: p.thickness_mm,
+                              piece_type: null as string | null,
+                              area_sqm: p.area_sqm,
+                              total_cost: p.total_cost,
+                              edge_top: p.edge_top,
+                              edge_bottom: p.edge_bottom,
+                              edge_left: p.edge_left,
+                              edge_right: p.edge_right,
+                              piece_features: p.piece_features,
+                            }))}
+                            relationships={viewRelationships.filter(r =>
+                              roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+                            )}
+                            mode="view"
+                            selectedPieceId={null}
+                            onPieceSelect={(pieceId) => {
+                              const el = document.getElementById(`piece-${pieceId}`);
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
+                            roomTotal={room.quote_pieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+                            roomNotes={room.notes}
+                          />
+                        )}
+                        {!isCollapsed && (
                           <div className="space-y-2">
-                            {unassignedViewPieces.map(p => {
+                            {roomPieces.map(p => {
                               viewGlobalIndex++;
                               return renderViewPieceCard(p, viewGlobalIndex);
                             })}
                           </div>
                         )}
                       </div>
-                    )}
-                  </>
-                );
-              }
+                    );
+                  })}
+                  {unassignedViewPieces.length > 0 && (
+                    <div className="space-y-2">
+                      <div
+                        className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+                        onClick={() => toggleRoomCollapse(-1)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-amber-800">
+                            Unassigned
+                          </h3>
+                          <span className="text-xs text-amber-600">
+                            ({unassignedViewPieces.length} piece{unassignedViewPieces.length !== 1 ? 's' : ''})
+                          </span>
+                        </div>
+                      </div>
+                      {!collapsedRooms.has(-1) && (
+                        <div className="space-y-2">
+                          {unassignedViewPieces.map(p => {
+                            viewGlobalIndex++;
+                            return renderViewPieceCard(p, viewGlobalIndex);
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
             })()}
           </div>
         </div>
 
-        {/* Material Cost Section (view mode — quote level) */}
-        {viewCalculation?.breakdown?.materials && (
-          <div id="material-section" className="card p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-              Material
-            </h3>
-            <MaterialCostSection
-              materials={viewCalculation.breakdown.materials}
-              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
-              mode="view"
-            />
+        {/* Open Full Job View in New Tab */}
+        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
+          <div className="flex justify-end">
+            <a
+              href={`/quotes/${quoteIdStr}/job-view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Full Job View in New Tab
+            </a>
           </div>
         )}
 
+        {/* ── DELIVERY & INSTALL ── */}
         {/* Quote-Level Cost Sections (view mode) */}
         {viewCalculation && (
           <div id="quote-level-charges" className="card p-4">
@@ -2987,6 +2778,146 @@ export default function QuoteDetailClient({
             />
           </div>
         )}
+
+        {/* ── PRICING SUMMARY — always visible ── */}
+        {/* Machine Operations */}
+        <MachineOperationsAccordion
+          quoteId={quoteIdStr}
+          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
+            room.quote_pieces.map(p => ({ id: p.id }))
+          )}
+          mode="view"
+        />
+
+        {/* Signature Section */}
+        <QuoteSignatureSection
+          quoteId={serverData.id}
+          quoteNumber={serverData.quote_number}
+          customerName={serverData.customers?.company || serverData.customers?.name || 'Customer'}
+          totalAmount={formatCurrency(serverData.total)}
+          status={serverData.status}
+          signature={serverData.quote_signatures ? {
+            id: serverData.quote_signatures.id,
+            signatureType: serverData.quote_signatures.signature_type,
+            signedAt: serverData.quote_signatures.signed_at,
+            signerName: serverData.quote_signatures.signer_name,
+            signerEmail: serverData.quote_signatures.signer_email,
+            ipAddress: serverData.quote_signatures.ip_address,
+            user: serverData.quote_signatures.user ? {
+              name: serverData.quote_signatures.user.name,
+              email: serverData.quote_signatures.user.email,
+            } : null,
+          } : null}
+        />
+
+        {/* ── COLLAPSIBLE SECONDARY SECTIONS (bottom — 12.J1 §2.5) ── */}
+
+        {/* Slab Optimiser — collapsed by default */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Slab Optimiser
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <OptimizationDisplay
+              quoteId={quoteIdStr}
+              refreshKey={0}
+              isOptimising={false}
+              hasPieces={serverData.quote_rooms.some(r => r.quote_pieces.length > 0)}
+              hasMaterial={serverData.quote_rooms.some(r => r.quote_pieces.some(p => !!p.material_name))}
+            />
+          </div>
+        </details>
+
+        {/* Drawings — collapsed by default, at the BOTTOM (12.J1: "move drawings to the bottom") */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Drawings
+          </summary>
+          <div className="p-4 border-t border-gray-200 space-y-4">
+            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+            {/* Drawing Analysis Section */}
+            {serverData.quote_drawing_analyses && (
+              <div>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-5 w-5 text-primary-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    <h3 className="text-sm font-semibold">Drawing Analysis</h3>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-xs text-gray-500">
+                      Analysed {formatDate(serverData.quote_drawing_analyses.analyzed_at)}
+                    </span>
+                    <SaveAsTemplateButton
+                      analysisId={serverData.quote_drawing_analyses.id}
+                      defaultName={serverData.project_name || undefined}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                  <div>
+                    <span className="text-xs text-gray-500 block">Filename</span>
+                    <span className="font-medium text-gray-900 truncate block" title={serverData.quote_drawing_analyses.filename}>
+                      {serverData.quote_drawing_analyses.filename}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-xs text-gray-500 block">Drawing Type</span>
+                    <span className="font-medium text-gray-900">
+                      {serverData.quote_drawing_analyses.drawing_type.replace(/_/g, ' ').replace(/\b\w/g, (l: string) => l.toUpperCase())}
+                    </span>
+                  </div>
+                </div>
+                {analysisResults?.rooms && analysisResults.rooms.length > 0 && (
+                  <div className="space-y-2">
+                    {analysisResults.rooms.map((room, roomIndex) => (
+                      <div key={roomIndex} className="border border-gray-200 rounded-lg p-3">
+                        <h5 className="text-sm font-medium text-gray-600 mb-2">
+                          {room.name} ({room.pieces.length} piece{room.pieces.length !== 1 ? 's' : ''})
+                        </h5>
+                        <div className="space-y-1">
+                          {room.pieces.map((piece, pieceIndex) => (
+                            <div
+                              key={pieceIndex}
+                              className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-2"
+                            >
+                              <span className="text-gray-700">
+                                {piece.pieceNumber ? `#${piece.pieceNumber} ` : ''}{piece.name}
+                              </span>
+                              <span className="text-gray-500">
+                                {piece.length} x {piece.width}mm
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </details>
+
+        {/* Version History — collapsed by default */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Version History
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <VersionHistoryTab quoteId={quoteId} />
+          </div>
+        </details>
 
       </div>
     );
@@ -3011,33 +2942,7 @@ export default function QuoteDetailClient({
       );
     }
 
-    if (activeTab === 'history') {
-      return (
-        <div className="card">
-          <VersionHistoryTab quoteId={quoteId} />
-        </div>
-      );
-    }
-
-    if (activeTab === 'views') {
-      return <QuoteViewTracker quoteId={serverData.id} showHistory={true} trackOnMount={false} />;
-    }
-
-    if (activeTab === 'optimiser') {
-      return (
-        <OptimizationDisplay
-          quoteId={quoteIdStr}
-          refreshKey={optimisationRefreshKey}
-          isOptimising={isOptimising}
-          hasPieces={effectivePieces.length > 0}
-          hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
-          optimiserError={optimiserError}
-          onEdgeAllowanceApplied={triggerOptimise}
-        />
-      );
-    }
-
-    // Pieces & Pricing tab (edit mode)
+    // ── Stacked one-page layout (12.J1) — all sections visible, no tabs ──
     // Build a breakdown map for quick lookup
     const breakdownMap = new Map<number, import('@/lib/types/pricing').PiecePricingBreakdown>();
     if (calculation?.breakdown?.pieces) {
@@ -3143,96 +3048,55 @@ export default function QuoteDetailClient({
 
     return (
       <div className="space-y-6">
-        {/* Drawings Accordion */}
-        <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
 
-        {/* Room Spatial Views — room-grouped SVG spatial diagrams */}
-        {rooms.map(room => {
-          const roomPieces = effectivePieces
-            .filter(p => p.quote_rooms?.id === room.id)
-            .map(p => ({
-              id: p.id,
-              description: p.description,
-              name: p.name,
-              length_mm: p.lengthMm,
-              width_mm: p.widthMm,
-              thickness_mm: p.thicknessMm,
-              piece_type: null as string | null,
-              area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
-              total_cost: p.totalCost,
-              edge_top: p.edgeTop,
-              edge_bottom: p.edgeBottom,
-              edge_left: p.edgeLeft,
-              edge_right: p.edgeRight,
-              piece_features: p.cutouts?.map(c => ({
-                id: 0,
-                name: c.cutoutTypeId,
-                quantity: c.quantity,
-              })),
-            }));
-          const roomPieceIds = new Set(roomPieces.map(p => String(p.id)));
-          return (
-            <RoomSpatialView
-              key={room.id}
-              roomName={room.name || 'Unassigned'}
-              pieces={roomPieces}
-              relationships={relationships.filter(r =>
-                roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
-              )}
+        {/* ── MATERIAL — above pieces (12.J1: "first pick your stone") ── */}
+        {calculation?.breakdown?.materials && (
+          <div id="material-section" className="card p-4 space-y-2">
+            <div className="flex items-center justify-between">
+              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+                Material
+              </h3>
+              <button
+                onClick={() => setShowBulkSwap(!showBulkSwap)}
+                className={`px-3 py-1 text-xs font-medium border rounded-md transition-colors ${
+                  showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                Bulk Swap
+              </button>
+            </div>
+            {showBulkSwap && (
+              <BulkMaterialSwap
+                pieces={effectivePieces.map(p => ({
+                  id: p.id,
+                  name: p.name,
+                  lengthMm: p.lengthMm,
+                  widthMm: p.widthMm,
+                  materialId: p.materialId,
+                  materialName: p.materialName,
+                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+                  roomName: p.quote_rooms?.name ?? null,
+                }))}
+                materials={materials}
+                selectedPieceIds={selectedPieceIds}
+                onApply={handleBulkMaterialApply}
+                onClose={() => setShowBulkSwap(false)}
+                quoteTotal={calculation?.total ?? null}
+              />
+            )}
+            <MaterialCostSection
+              materials={calculation.breakdown.materials}
+              pieceCount={effectivePieces.length}
               mode="edit"
-              selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
-              onPieceSelect={(pieceId) => {
-                setSelectedPieceId(Number(pieceId));
-                // Clear multi-select on single click
-                setSelectedPieceIds(new Set());
-                const el = document.getElementById(`piece-${pieceId}`);
-                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              materialMarginAdjustPercent={
+                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
+              }
+              onMarginAdjustChange={(percent) => {
+                if (quoteOptions.activeOption) {
+                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
+                }
               }}
-              roomTotal={roomPieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
-              quoteId={quoteIdStr}
-              onRelationshipChange={fetchRelationships}
-              // Room management
-              roomId={room.id}
-              allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
-              onRoomRename={handleRoomRename}
-              onRoomMoveUp={handleRoomMoveUp}
-              onRoomMoveDown={handleRoomMoveDown}
-              onRoomMerge={handleRoomMerge}
-              onRoomDelete={handleRoomDelete}
-              onAddRoomBelow={handleAddRoomBelow}
-              onAddPiece={handleAddPieceToRoom}
-              // Room notes
-              roomNotes={room.notes}
-              onRoomNotesChange={handleRoomNotesChange}
-              // Multi-select
-              selectedPieceIds={selectedPieceIds}
-              onPieceMultiSelect={handlePieceMultiSelect}
-              // Context menu
-              onContextMenu={handleContextMenu}
-              // Edge editing (Rule 37: 1-click edge edit)
-              edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
-              onPieceEdgeChange={handlePieceEdgeChange}
-              cutoutTypes={cutoutTypes}
-              // Batch edge update (12.P23b: scope selector)
-              onBatchEdgeUpdate={handleBatchEdgeUpdate}
             />
-          );
-        })}
-
-        {/* Open Full Job View in New Tab */}
-        {effectivePieces.length > 0 && (
-          <div className="flex justify-end">
-            <a
-              href={`/quotes/${quoteId}/job-view`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
-            >
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
-              </svg>
-              Open Full Job View in New Tab
-            </a>
           </div>
         )}
 
@@ -3249,78 +3113,10 @@ export default function QuoteDetailClient({
           />
         )}
 
-        {/* Pieces Card — unified PieceRow cards */}
+        {/* Pieces Card — unified PieceRow cards (12.J1: rooms + detailed as default, no toggles) */}
         <div className="card">
           <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <h2 className="text-lg font-semibold">Pieces</h2>
-              {/* Detailed / Quick View Toggle */}
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button
-                  onClick={() => setBuilderView('detailed')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    builderView === 'detailed'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Detailed
-                </button>
-                <button
-                  onClick={() => setBuilderView('quick')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    builderView === 'quick'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Quick View
-                </button>
-              </div>
-              {/* Sub-view Toggle (detailed mode only) */}
-              {builderView === 'detailed' && (
-              <div className="flex items-center bg-gray-100 rounded-lg p-0.5">
-                <button
-                  onClick={() => setViewMode('list')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'list'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  List
-                </button>
-                <button
-                  onClick={() => setViewMode('rooms')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'rooms'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  By Room
-                </button>
-                <button
-                  onClick={() => setViewMode('material')}
-                  className={`px-3 py-1 text-sm font-medium rounded-md transition-colors ${
-                    viewMode === 'material'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
-                  }`}
-                >
-                  Material
-                </button>
-              </div>
-              )}
-              <button
-                onClick={() => setShowBulkSwap(!showBulkSwap)}
-                className={`px-3 py-1.5 text-sm font-medium border rounded-md transition-colors ${
-                  showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Bulk Swap
-              </button>
-            </div>
+            <h2 className="text-lg font-semibold">Pieces</h2>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setShowDrawingImport(true)}
@@ -3455,223 +3251,79 @@ export default function QuoteDetailClient({
             </div>
           )}
 
-          {/* Bulk Material Swap Bar */}
-          {showBulkSwap && (
-            <div className="px-4 pt-4">
-              <BulkMaterialSwap
-                pieces={effectivePieces.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  lengthMm: p.lengthMm,
-                  widthMm: p.widthMm,
-                  materialId: p.materialId,
-                  materialName: p.materialName,
-                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
-                  roomName: p.quote_rooms?.name ?? null,
-                }))}
-                materials={materials}
-                selectedPieceIds={selectedPieceIds}
-                onApply={handleBulkMaterialApply}
-                onClose={() => setShowBulkSwap(false)}
-                quoteTotal={calculation?.total ?? null}
-              />
-            </div>
-          )}
-
-          {/* Unified piece cards */}
+          {/* Unified piece cards — rooms + detailed view (12.J1: default, no toggles) */}
           <div className="p-4 space-y-2">
-            {builderView === 'quick' ? (
-              /* ── Quick View: compact MiniPieceEditor per piece, grouped by room ── */
-              rooms.length > 0 ? (
-                rooms.map(room => {
-                  const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
-                  if (!roomPieces.length) return null;
-                  const isCollapsed = collapsedRooms.has(room.id);
-                  return (
-                    <div key={room.id} className="space-y-1">
-                      <div
-                        className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                        onClick={() => toggleRoomCollapse(room.id)}
-                      >
-                        <div className="flex items-center gap-2">
-                          <svg
-                            className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                          >
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                          </svg>
-                          <h3 className="text-sm font-semibold text-gray-800">
-                            {room.name}
-                          </h3>
-                          <span className="text-xs text-gray-500">
-                            ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                          </span>
-                        </div>
-                        <button
-                          onClick={(e) => { e.stopPropagation(); handleAddPiece(room.name); }}
-                          className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
-                        >
-                          + Add Piece
-                        </button>
-                      </div>
-                      {!isCollapsed && (
-                      <div className="divide-y divide-gray-100">
-                        {roomPieces.map(p => (
-                          <MiniPieceEditor
-                            key={p.id}
-                            piece={{
-                              name: p.name,
-                              length_mm: p.lengthMm,
-                              width_mm: p.widthMm,
-                              thickness_mm: p.thicknessMm,
-                              edges: {
-                                top: p.edgeTop ?? '',
-                                bottom: p.edgeBottom ?? '',
-                                left: p.edgeLeft ?? '',
-                                right: p.edgeRight ?? '',
-                              },
-                              cutouts: (p.cutouts ?? []).map(c => ({
-                                type: cutoutTypes.find(ct => ct.id === c.cutoutTypeId)?.name ?? c.cutoutTypeId ?? '',
-                                quantity: c.quantity ?? 1,
-                              })),
-                            }}
-                            onChange={(updated) => {
-                              handleQuickViewPieceUpdate(p.id, {
-                                edgeTop: updated.edges.top || null,
-                                edgeBottom: updated.edges.bottom || null,
-                                edgeLeft: updated.edges.left || null,
-                                edgeRight: updated.edges.right || null,
-                              });
-                            }}
-                            edgeTypes={edgeTypes}
-                            cutoutTypes={cutoutTypes.map(ct => ({
-                              id: ct.id,
-                              name: ct.name,
-                              baseRate: ct.baseRate,
-                            }))}
-                            pieceId={p.id}
-                            roomName={room.name}
-                            roomId={String(room.id)}
-                            onApplyWithScope={(pid, side, profileId, scope) => {
-                              handleBatchEdgeUpdate(profileId, scope, pid, side, room.id);
-                            }}
-                          />
-                        ))}
-                      </div>
-                      )}
-                    </div>
-                  );
-                })
-              ) : (
-                effectivePieces.length > 0 ? (
-                  <div className="divide-y divide-gray-100">
-                    {effectivePieces.map(p => (
-                      <MiniPieceEditor
-                        key={p.id}
-                        piece={{
-                          name: p.name,
-                          length_mm: p.lengthMm,
-                          width_mm: p.widthMm,
-                          thickness_mm: p.thicknessMm,
-                          edges: {
-                            top: p.edgeTop ?? '',
-                            bottom: p.edgeBottom ?? '',
-                            left: p.edgeLeft ?? '',
-                            right: p.edgeRight ?? '',
-                          },
-                          cutouts: (p.cutouts ?? []).map(c => ({
-                            type: cutoutTypes.find(ct => ct.id === c.cutoutTypeId)?.name ?? c.cutoutTypeId ?? '',
-                            quantity: c.quantity ?? 1,
-                          })),
-                        }}
-                        onChange={(updated) => {
-                          handleQuickViewPieceUpdate(p.id, {
-                            edgeTop: updated.edges.top || null,
-                            edgeBottom: updated.edges.bottom || null,
-                            edgeLeft: updated.edges.left || null,
-                            edgeRight: updated.edges.right || null,
-                          });
-                        }}
-                        edgeTypes={edgeTypes}
-                        cutoutTypes={cutoutTypes.map(ct => ({
-                          id: ct.id,
-                          name: ct.name,
-                          baseRate: ct.baseRate,
-                        }))}
-                        pieceId={p.id}
-                        roomName={p.quote_rooms?.name}
-                        roomId={p.quote_rooms?.id ? String(p.quote_rooms.id) : undefined}
-                        onApplyWithScope={(pid, side, profileId, scope) => {
-                          handleBatchEdgeUpdate(profileId, scope, pid, side, p.quote_rooms?.id ?? 0);
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
+            {(() => {
+              if (effectivePieces.length === 0 && rooms.length === 0) {
+                return (
                   <div className="py-8 text-center text-gray-500">
                     <p className="mb-2">No pieces added yet</p>
                     <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
                   </div>
-                )
-              )
-            ) : viewMode === 'material' ? (
-              <MaterialView
-                pieces={effectivePieces.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  lengthMm: p.lengthMm,
-                  widthMm: p.widthMm,
-                  thicknessMm: p.thicknessMm,
-                  materialId: p.materialId,
-                  materialName: p.materialName,
-                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
-                  roomName: p.quote_rooms?.name ?? null,
-                }))}
-                materials={materials}
-                onMaterialChange={handleMaterialChange}
-                onBulkMaterialChange={handleBatchMaterial}
-                isEditMode={true}
-                selectedPieceIds={selectedPieceIds}
-                onSelectionChange={setSelectedPieceIds}
-              />
-            ) : (viewMode === 'list' || viewMode === 'rooms') ? (
-              (() => {
-                if (effectivePieces.length === 0 && rooms.length === 0) {
-                  return (
-                    <div className="py-8 text-center text-gray-500">
-                      <p className="mb-2">No pieces added yet</p>
-                      <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
-                    </div>
-                  );
-                }
-                let globalIndex = 0;
-                const unassignedPieces = effectivePieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
-                return (
-                  <>
-                    {rooms.map(room => {
-                      const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
-                      const isCollapsed = collapsedRooms.has(room.id);
-                      return (
-                        <div key={room.id} className="space-y-2">
-                          {/* Room header — collapsible */}
-                          <div
-                            className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
-                            onClick={() => toggleRoomCollapse(room.id)}
-                          >
-                            <div className="flex items-center gap-2">
-                              <svg
-                                className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
-                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                              >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                              </svg>
-                              <h3 className="text-sm font-semibold text-gray-800">
-                                {room.name}
-                              </h3>
-                              <span className="text-xs text-gray-500">
-                                ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                              </span>
-                            </div>
+                );
+              }
+              let globalIndex = 0;
+              const unassignedPieces = effectivePieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
+              return (
+                <>
+                  {rooms.map(room => {
+                    const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
+                    const isCollapsed = collapsedRooms.has(room.id);
+                    const isSpatialOpen = spatialExpandedRooms.has(room.id);
+                    const spatialRoomPieces = roomPieces.map(p => ({
+                      id: p.id,
+                      description: p.description,
+                      name: p.name,
+                      length_mm: p.lengthMm,
+                      width_mm: p.widthMm,
+                      thickness_mm: p.thicknessMm,
+                      piece_type: null as string | null,
+                      area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
+                      total_cost: p.totalCost,
+                      edge_top: p.edgeTop,
+                      edge_bottom: p.edgeBottom,
+                      edge_left: p.edgeLeft,
+                      edge_right: p.edgeRight,
+                      piece_features: p.cutouts?.map(c => ({
+                        id: 0,
+                        name: c.cutoutTypeId,
+                        quantity: c.quantity,
+                      })),
+                    }));
+                    const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
+                    return (
+                      <div key={room.id} className="space-y-2">
+                        {/* Room header — collapsible */}
+                        <div
+                          className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                          onClick={() => toggleRoomCollapse(room.id)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <h3 className="text-sm font-semibold text-gray-800">
+                              {room.name}
+                            </h3>
+                            <span className="text-xs text-gray-500">
+                              ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            {/* Spatial view toggle (12.J1 §2.7) */}
+                            <button
+                              onClick={(e) => { e.stopPropagation(); toggleSpatialView(room.id); }}
+                              className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
+                                isSpatialOpen
+                                  ? 'bg-blue-100 text-blue-700'
+                                  : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
+                              }`}
+                            >
+                              Spatial
+                            </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleAddPiece(room.name); }}
                               className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
@@ -3679,93 +3331,127 @@ export default function QuoteDetailClient({
                               + Add Piece
                             </button>
                           </div>
-                          {/* Room pieces (hidden when collapsed) */}
-                          {!isCollapsed && (
-                            roomPieces.length > 0 ? (
-                              <div className="space-y-2">
-                                {roomPieces.map(p => {
-                                  globalIndex++;
-                                  return renderEditPieceCard(p, globalIndex);
-                                })}
-                              </div>
-                            ) : (
-                              <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                                No pieces yet. Click &quot;+ Add Piece&quot; above to add one.
-                              </div>
-                            )
-                          )}
                         </div>
-                      );
-                    })}
-                    {/* Unassigned pieces */}
-                    {unassignedPieces.length > 0 && (
-                      <div className="space-y-2">
-                        <div
-                          className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
-                          onClick={() => toggleRoomCollapse(-1)}
-                        >
-                          <div className="flex items-center gap-2">
-                            <svg
-                              className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
-                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
-                            >
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                            </svg>
-                            <h3 className="text-sm font-semibold text-amber-800">
-                              Unassigned
-                            </h3>
-                            <span className="text-xs text-amber-600">
-                              ({unassignedPieces.length} piece{unassignedPieces.length !== 1 ? 's' : ''})
-                            </span>
-                          </div>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); handleAddPiece(); }}
-                            className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
-                          >
-                            + Add Piece
-                          </button>
-                        </div>
-                        {!collapsedRooms.has(-1) && (
-                          <div className="space-y-2">
-                            {unassignedPieces.map(p => {
-                              globalIndex++;
-                              return renderEditPieceCard(p, globalIndex);
-                            })}
-                          </div>
+                        {/* Per-room spatial view (toggled, default collapsed — 12.J1 §2.7) */}
+                        {isSpatialOpen && (
+                          <RoomSpatialView
+                            roomName={room.name || 'Unassigned'}
+                            pieces={spatialRoomPieces}
+                            relationships={relationships.filter(r =>
+                              roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+                            )}
+                            mode="edit"
+                            selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
+                            onPieceSelect={(pieceId) => {
+                              setSelectedPieceId(Number(pieceId));
+                              setSelectedPieceIds(new Set());
+                              const el = document.getElementById(`piece-${pieceId}`);
+                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                            }}
+                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+                            quoteId={quoteIdStr}
+                            onRelationshipChange={fetchRelationships}
+                            roomId={room.id}
+                            allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
+                            onRoomRename={handleRoomRename}
+                            onRoomMoveUp={handleRoomMoveUp}
+                            onRoomMoveDown={handleRoomMoveDown}
+                            onRoomMerge={handleRoomMerge}
+                            onRoomDelete={handleRoomDelete}
+                            onAddRoomBelow={handleAddRoomBelow}
+                            onAddPiece={handleAddPieceToRoom}
+                            roomNotes={room.notes}
+                            onRoomNotesChange={handleRoomNotesChange}
+                            selectedPieceIds={selectedPieceIds}
+                            onPieceMultiSelect={handlePieceMultiSelect}
+                            onContextMenu={handleContextMenu}
+                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+                            onPieceEdgeChange={handlePieceEdgeChange}
+                            cutoutTypes={cutoutTypes}
+                            onBatchEdgeUpdate={handleBatchEdgeUpdate}
+                          />
+                        )}
+                        {/* Room pieces (hidden when collapsed) */}
+                        {!isCollapsed && (
+                          roomPieces.length > 0 ? (
+                            <div className="space-y-2">
+                              {roomPieces.map(p => {
+                                globalIndex++;
+                                return renderEditPieceCard(p, globalIndex);
+                              })}
+                            </div>
+                          ) : (
+                            <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                              No pieces yet. Click &quot;+ Add Piece&quot; above to add one.
+                            </div>
+                          )
                         )}
                       </div>
-                    )}
-                  </>
-                );
-              })()
-            ) : null}
+                    );
+                  })}
+                  {/* Unassigned pieces */}
+                  {unassignedPieces.length > 0 && (
+                    <div className="space-y-2">
+                      <div
+                        className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+                        onClick={() => toggleRoomCollapse(-1)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-amber-800">
+                            Unassigned
+                          </h3>
+                          <span className="text-xs text-amber-600">
+                            ({unassignedPieces.length} piece{unassignedPieces.length !== 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAddPiece(); }}
+                          className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
+                        >
+                          + Add Piece
+                        </button>
+                      </div>
+                      {!collapsedRooms.has(-1) && (
+                        <div className="space-y-2">
+                          {unassignedPieces.map(p => {
+                            globalIndex++;
+                            return renderEditPieceCard(p, globalIndex);
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </>
+              );
+            })()}
           </div>
 
         </div>
 
-        {/* Material Cost Section (edit mode — quote level) */}
-        {calculation?.breakdown?.materials && (
-          <div id="material-section" className="card p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-              Material
-            </h3>
-            <MaterialCostSection
-              materials={calculation.breakdown.materials}
-              pieceCount={effectivePieces.length}
-              mode="edit"
-              materialMarginAdjustPercent={
-                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
-              }
-              onMarginAdjustChange={(percent) => {
-                if (quoteOptions.activeOption) {
-                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
-                }
-              }}
-            />
+        {/* Open Full Job View in New Tab */}
+        {effectivePieces.length > 0 && (
+          <div className="flex justify-end">
+            <a
+              href={`/quotes/${quoteId}/job-view`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+              Open Full Job View in New Tab
+            </a>
           </div>
         )}
 
-        {/* Quote-Level Cost Sections */}
+        {/* ── DELIVERY & INSTALL ── */}
         {calculation && (
           <div id="quote-level-charges" className="card p-4">
             <QuoteLevelCostSections
@@ -3777,7 +3463,7 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* Machine Operations Accordion */}
+        {/* Machine Operations */}
         <MachineOperationsAccordion
           quoteId={quoteIdStr}
           pieces={effectivePieces.map(p => ({ id: p.id }))}
@@ -3788,6 +3474,56 @@ export default function QuoteDetailClient({
         {quoteOptions.options.length >= 2 && (
           <OptionComparisonSummary options={quoteOptions.options} />
         )}
+
+        {/* ── COLLAPSIBLE SECONDARY SECTIONS (bottom — 12.J1 §2.5) ── */}
+
+        {/* Slab Optimiser — collapsed by default */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Slab Optimiser
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <OptimizationDisplay
+              quoteId={quoteIdStr}
+              refreshKey={optimisationRefreshKey}
+              isOptimising={isOptimising}
+              hasPieces={effectivePieces.length > 0}
+              hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
+              optimiserError={optimiserError}
+              onEdgeAllowanceApplied={triggerOptimise}
+            />
+          </div>
+        </details>
+
+        {/* Drawings — collapsed by default, at the BOTTOM (12.J1: "move drawings to the bottom") */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Drawings
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+          </div>
+        </details>
+
+        {/* Version History — collapsed by default */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Version History
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <VersionHistoryTab quoteId={quoteId} />
+          </div>
+        </details>
+
       </div>
     );
   };

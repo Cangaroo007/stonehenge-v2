@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import {
@@ -65,22 +65,23 @@ const THICKNESS_OPTIONS = [20, 40];
 
 export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuoteWizardProps) {
   const router = useRouter();
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const projectNameRef = useRef<HTMLInputElement>(null);
   const [projectName, setProjectName] = useState('');
   const [rooms, setRooms] = useState<WizardRoom[]>([]);
   const [roomCount, setRoomCount] = useState<number>(1);
 
-  /* ─── Step 4 state: edge/cutout types + creation ─── */
+  /* ─── Edge/cutout types (loaded on mount — Rule 45: hooks before returns) ─── */
   const [edgeTypes, setEdgeTypes] = useState<EdgeTypeOption[]>([]);
   const [cutoutTypes, setCutoutTypes] = useState<CutoutTypeOption[]>([]);
   const [isCreating, setIsCreating] = useState(false);
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<ValidationError[]>([]);
 
-  /* ─── Load edge & cutout types when entering step 4 ─── */
-  useEffect(() => {
-    if (step !== 4) return;
+  /* ─── Track whether rooms have been expanded with pieces ─── */
+  const [piecesGenerated, setPiecesGenerated] = useState(false);
 
+  /* ─── Load edge & cutout types on mount (moved from step-4 gate per Rule 45) ─── */
+  useEffect(() => {
     let cancelled = false;
 
     const loadTypes = async () => {
@@ -112,12 +113,17 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
     loadTypes();
     return () => { cancelled = true; };
-  }, [step]);
+  }, []);
 
-  /* ─── Step 1 handlers ─── */
+  /* ─── Auto-focus project name on mount ─── */
+  useEffect(() => {
+    projectNameRef.current?.focus();
+  }, []);
 
+  /* ─── Initialise rooms when count changes ─── */
   const handleRoomCountSelect = useCallback((count: number) => {
     setRoomCount(count);
+    setPiecesGenerated(false);
     const defaults = getDefaultRoomNames(count);
     const newRooms: WizardRoom[] = [];
     for (let i = 0; i < count; i++) {
@@ -130,18 +136,14 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     setRooms(newRooms);
   }, []);
 
-  const canAdvanceStep1 = projectName.trim().length > 0 && roomCount > 0;
-
-  const handleStep1Next = useCallback(() => {
-    if (!canAdvanceStep1) return;
-    // Ensure rooms are initialised if user hasn't clicked a quick-select
-    if (!rooms.length) {
-      handleRoomCountSelect(roomCount);
+  /* ─── Initialise rooms on first render ─── */
+  useEffect(() => {
+    if (rooms.length === 0) {
+      handleRoomCountSelect(1);
     }
-    setStep(2);
-  }, [canAdvanceStep1, rooms.length, roomCount, handleRoomCountSelect]);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  /* ─── Step 2 handlers ─── */
+  /* ─── Room handlers ─── */
 
   const updateRoomName = useCallback((index: number, name: string) => {
     setRooms((prev) => {
@@ -157,9 +159,10 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     setRooms((prev) => {
       if (!prev.length) return prev;
       const updated = [...prev];
-      updated[index] = { ...updated[index], pieceCount: clamped };
+      updated[index] = { ...updated[index], pieceCount: clamped, pieces: [] };
       return updated;
     });
+    setPiecesGenerated(false);
   }, []);
 
   const handleChipClick = useCallback((chipName: string) => {
@@ -187,33 +190,67 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     });
   }, []);
 
-  const handleStep2Next = useCallback(() => {
-    if (!rooms.length) return;
-    // Generate pieces for each room using smart defaults
-    const updatedRooms = rooms.map((room) => {
-      const suggestions = getRoomPieceSuggestions(room.name);
-      const pieces: WizardPiece[] = [];
-
-      for (let i = 0; i < room.pieceCount; i++) {
-        const pieceName = suggestions[i] || `Piece ${i + 1}`;
-        const defaults = getPieceDefaults(pieceName);
-        pieces.push({
-          name: pieceName,
-          length_mm: 0, // User must enter — cannot guess
-          width_mm: defaults.width_mm,
-          thickness_mm: 20,
-          edges: { ...defaults.edges },
-          cutouts: [],
-        });
-      }
-
-      return { ...room, pieces };
+  const addRoom = useCallback(() => {
+    setRooms((prev) => {
+      if (prev.length >= 20) return prev;
+      return [...prev, { name: `Room ${prev.length + 1}`, pieceCount: 1, pieces: [] }];
     });
-    setRooms(updatedRooms);
-    setStep(3);
-  }, [rooms]);
+    setRoomCount((prev) => prev + 1);
+  }, []);
 
-  /* ─── Step 3 handlers ─── */
+  const removeRoom = useCallback((index: number) => {
+    setRooms((prev) => {
+      if (prev.length <= 1) return prev;
+      const updated = [...prev];
+      updated.splice(index, 1);
+      return updated;
+    });
+    setRoomCount((prev) => Math.max(1, prev - 1));
+    setPiecesGenerated(false);
+  }, []);
+
+  /* ─── Generate pieces for rooms (auto-fills names + defaults) ─── */
+  const generatePiecesForRooms = useCallback(() => {
+    setRooms((prev) => {
+      return prev.map((room) => {
+        // Only generate pieces if room doesn't already have them
+        if (room.pieces.length === room.pieceCount) return room;
+
+        const suggestions = getRoomPieceSuggestions(room.name);
+        const pieces: WizardPiece[] = [];
+
+        for (let i = 0; i < room.pieceCount; i++) {
+          // Preserve existing pieces if any
+          if (room.pieces[i]) {
+            pieces.push(room.pieces[i]);
+            continue;
+          }
+          const pieceName = suggestions[i] || `Piece ${i + 1}`;
+          const defaults = getPieceDefaults(pieceName);
+          pieces.push({
+            name: pieceName,
+            length_mm: 0, // User must enter
+            width_mm: defaults.width_mm,
+            thickness_mm: 20,
+            edges: { ...defaults.edges },
+            cutouts: [],
+          });
+        }
+
+        return { ...room, pieces };
+      });
+    });
+    setPiecesGenerated(true);
+  }, []);
+
+  /* ─── Auto-generate pieces when rooms change and haven't been generated ─── */
+  useEffect(() => {
+    if (!piecesGenerated && rooms.length > 0 && rooms.every((r) => r.name.trim())) {
+      generatePiecesForRooms();
+    }
+  }, [rooms, piecesGenerated, generatePiecesForRooms]);
+
+  /* ─── Piece handlers ─── */
 
   const updatePiece = useCallback(
     (roomIndex: number, pieceIndex: number, field: keyof WizardPiece, value: string | number) => {
@@ -245,18 +282,6 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     [],
   );
 
-  const allLengthsFilled = rooms.every((room) =>
-    room.pieces.every((piece) => piece.length_mm > 0),
-  );
-
-  const handleStep3Next = useCallback(() => {
-    if (!allLengthsFilled) return;
-    if (!rooms.length) return;
-    setStep(4);
-  }, [allLengthsFilled, rooms]);
-
-  /* ─── Step 4 handlers ─── */
-
   const updateWizardPiece = useCallback(
     (roomIndex: number, pieceIndex: number, updatedPiece: WizardPiece) => {
       setRooms((prev) => {
@@ -274,6 +299,15 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     },
     [],
   );
+
+  const allLengthsFilled = rooms.every((room) =>
+    room.pieces.every((piece) => piece.length_mm > 0),
+  );
+
+  const canSubmit = projectName.trim().length > 0 && roomCount > 0 && rooms.length > 0 &&
+    rooms.every((r) => r.pieces.length > 0) && allLengthsFilled;
+
+  /* ─── Create quote (same API payload as before) ─── */
 
   const handleCreateQuote = useCallback(async () => {
     if (!rooms.length) return;
@@ -379,89 +413,75 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
     }
   }, [rooms, isCreating, projectName, customerId, router]);
 
-  /* ─── Render helpers ─── */
+  /* ─── Handle Enter key on last field to submit ─── */
+  const handleFormKeyDown = useCallback((e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && canSubmit && !isCreating) {
+      // Only submit if we're on an input/select that isn't part of a multi-line flow
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'SELECT') {
+        e.preventDefault();
+        handleCreateQuote();
+      }
+    }
+  }, [canSubmit, isCreating, handleCreateQuote]);
 
-  const renderStepIndicator = () => (
-    <div className="flex items-centre gap-2 mb-6">
-      {[1, 2, 3, 4].map((s) => (
-        <div key={s} className="flex items-center gap-2">
-          <div
-            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
-              s === step
-                ? 'bg-amber-500 text-white'
-                : s < step
-                  ? 'bg-amber-100 text-amber-700'
-                  : 'bg-gray-100 text-gray-400'
-            }`}
-          >
-            {s < step ? '\u2713' : s}
-          </div>
-          {s < 4 && (
-            <div
-              className={`w-8 h-0.5 ${s < step ? 'bg-amber-300' : 'bg-gray-200'}`}
-            />
-          )}
-        </div>
-      ))}
-    </div>
-  );
+  /* ─── Render: ONE scrollable page ─── */
 
-  /* ─── Step 1: Project Name + Room Count ─── */
+  return (
+    <div className="max-w-4xl mx-auto" onKeyDown={handleFormKeyDown}>
+      {onBack && (
+        <button
+          onClick={onBack}
+          className="mb-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+        >
+          &larr; Back to options
+        </button>
+      )}
 
-  if (step === 1) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        {onBack && (
-          <button
-            onClick={onBack}
-            className="mb-4 text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
-          >
-            &larr; Back to options
-          </button>
-        )}
-        {renderStepIndicator()}
+      <h2 className="text-xl font-bold text-gray-900 mb-1">New Quote</h2>
+      <p className="text-sm text-gray-500 mb-6">Fill in the project details, rooms, and pieces below. One screen, one submit.</p>
 
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Project Details</h2>
-        <p className="text-sm text-gray-500 mb-6">Name your project and choose how many rooms.</p>
+      <div className="space-y-6">
 
-        <div className="space-y-6">
-          {/* Project name */}
-          <div>
-            <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-1">
-              Project Name <span className="text-red-500">*</span>
-            </label>
-            <input
-              id="projectName"
-              type="text"
-              value={projectName}
-              onChange={(e) => setProjectName(e.target.value)}
-              placeholder="e.g. Smith Kitchen Reno"
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              autoFocus
-            />
-          </div>
+        {/* ── Section A: Project Info ─────────────────────────────────── */}
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-[1fr_1fr] gap-4">
+            {/* Project name */}
+            <div>
+              <label htmlFor="projectName" className="block text-sm font-medium text-gray-700 mb-1">
+                Project Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                ref={projectNameRef}
+                id="projectName"
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                placeholder="e.g. Smith Kitchen Reno"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+              />
+            </div>
 
-          {/* Room count */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Number of Rooms
-            </label>
-            <div className="flex gap-2 flex-wrap">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => handleRoomCountSelect(n)}
-                  className={`w-12 h-12 rounded-lg border text-sm font-medium transition-colors ${
-                    roomCount === n
-                      ? 'border-amber-500 bg-amber-50 text-amber-700'
-                      : 'border-gray-300 bg-white text-gray-700 hover:border-amber-300'
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
-              <div className="flex items-center gap-2 ml-2">
-                <span className="text-sm text-gray-500">or</span>
+            {/* Room count */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Rooms
+              </label>
+              <div className="flex gap-2 flex-wrap items-center">
+                {[1, 2, 3, 4, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => handleRoomCountSelect(n)}
+                    className={`w-10 h-10 rounded-lg border text-sm font-medium transition-colors ${
+                      roomCount === n
+                        ? 'border-amber-500 bg-amber-50 text-amber-700'
+                        : 'border-gray-300 bg-white text-gray-700 hover:border-amber-300'
+                    }`}
+                  >
+                    {n}
+                  </button>
+                ))}
                 <input
                   type="number"
                   min={1}
@@ -473,159 +493,120 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                       handleRoomCountSelect(val);
                     }
                   }}
-                  placeholder="Custom"
-                  className="w-20 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  placeholder="5+"
+                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
               </div>
             </div>
           </div>
-        </div>
 
-        <div className="mt-8 flex justify-end">
-          <button
-            onClick={handleStep1Next}
-            disabled={!canAdvanceStep1}
-            className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next &rarr;
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ─── Step 2: Room Names + Piece Counts ─── */
-
-  if (step === 2) {
-    return (
-      <div className="max-w-2xl mx-auto">
-        {renderStepIndicator()}
-
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Room Setup</h2>
-        <p className="text-sm text-gray-500 mb-6">Name each room and set how many pieces it needs.</p>
-
-        {/* Room table */}
-        <div className="space-y-3">
-          <div className="grid grid-cols-[1fr_120px] gap-3 text-xs font-medium text-gray-500 uppercase tracking-wider px-1">
-            <span>Room Name</span>
-            <span>Pieces</span>
-          </div>
-          {rooms.map((room, i) => (
-            <div key={i} className="grid grid-cols-[1fr_120px] gap-3 items-center">
-              <input
-                type="text"
-                value={room.name}
-                onChange={(e) => updateRoomName(i, e.target.value)}
-                placeholder={`Room ${i + 1}`}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
-              <input
-                type="number"
-                min={1}
-                max={20}
-                value={room.pieceCount}
-                onChange={(e) => updateRoomPieceCount(i, parseInt(e.target.value, 10) || 1)}
-                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-              />
+          {/* Quick-suggestion chips */}
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Quick fill rooms:</p>
+            <div className="flex flex-wrap gap-1.5">
+              {ROOM_CHIPS.map((chip) => {
+                const alreadyUsed = rooms.some((r) => r.name === chip);
+                return (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => handleChipClick(chip)}
+                    disabled={alreadyUsed}
+                    className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
+                      alreadyUsed
+                        ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
+                        : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700'
+                    }`}
+                  >
+                    {alreadyUsed ? `\u2713 ${chip}` : chip}
+                  </button>
+                );
+              })}
             </div>
-          ))}
-        </div>
-
-        {/* Quick-suggestion chips */}
-        <div className="mt-4">
-          <p className="text-xs text-gray-500 mb-2">Quick fill — click to add room:</p>
-          <div className="flex flex-wrap gap-2">
-            {ROOM_CHIPS.map((chip) => {
-              const alreadyUsed = rooms.some((r) => r.name === chip);
-              return (
-                <button
-                  key={chip}
-                  onClick={() => handleChipClick(chip)}
-                  disabled={alreadyUsed}
-                  className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors ${
-                    alreadyUsed
-                      ? 'border-gray-100 bg-gray-50 text-gray-300 cursor-not-allowed'
-                      : 'border-gray-200 bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700'
-                  }`}
-                >
-                  {alreadyUsed ? `\u2713 ${chip}` : chip}
-                </button>
-              );
-            })}
           </div>
         </div>
 
-        <div className="mt-8 flex justify-between">
-          <button
-            onClick={() => setStep(1)}
-            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
-          >
-            &larr; Back
-          </button>
-          <button
-            onClick={handleStep2Next}
-            className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 transition-colors"
-          >
-            Next &rarr;
-          </button>
-        </div>
-      </div>
-    );
-  }
+        {/* ── Section B + C + D: Rooms with inline pieces ─────────── */}
+        {rooms.map((room, roomIndex) => (
+          <div key={roomIndex} className="border border-gray-200 rounded-lg overflow-hidden">
+            {/* Room header */}
+            <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <span className="text-xs font-semibold text-gray-400 uppercase">Room {roomIndex + 1}</span>
+                <input
+                  type="text"
+                  value={room.name}
+                  onChange={(e) => updateRoomName(roomIndex, e.target.value)}
+                  placeholder={`Room ${roomIndex + 1}`}
+                  className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                />
+                <div className="flex items-center gap-1">
+                  <span className="text-xs text-gray-500">Pieces:</span>
+                  {[1, 2, 3, 4].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => updateRoomPieceCount(roomIndex, n)}
+                      className={`w-7 h-7 rounded text-xs font-medium transition-colors ${
+                        room.pieceCount === n
+                          ? 'bg-amber-100 text-amber-700 border border-amber-300'
+                          : 'bg-white text-gray-600 border border-gray-200 hover:border-amber-300'
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  ))}
+                  <input
+                    type="number"
+                    min={1}
+                    max={20}
+                    value={room.pieceCount > 4 ? room.pieceCount : ''}
+                    onChange={(e) => updateRoomPieceCount(roomIndex, parseInt(e.target.value, 10) || 1)}
+                    placeholder="4+"
+                    className="w-12 rounded border border-gray-300 px-1 py-1 text-xs text-center focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                  />
+                </div>
+              </div>
+              {rooms.length > 1 && (
+                <button
+                  type="button"
+                  onClick={() => removeRoom(roomIndex)}
+                  className="ml-2 text-gray-400 hover:text-red-500 transition-colors"
+                  title="Remove room"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
 
-  /* ─── Step 3: Piece Names + Dimensions (spreadsheet-style) ─── */
-
-  if (step === 3) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        {renderStepIndicator()}
-
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Piece Dimensions</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Review names and widths (auto-filled from smart defaults). Enter length for each piece.
-        </p>
-
-        <div className="space-y-8">
-          {rooms.map((room, roomIndex) => {
-            if (!room.pieces.length) return null;
-
-            return (
-              <div key={roomIndex}>
-                <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-3">
-                  {room.name}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    ({room.pieces.length} {room.pieces.length === 1 ? 'piece' : 'pieces'})
-                  </span>
-                </h3>
-
+            {/* Pieces within this room — Section C (dimensions) */}
+            {room.pieces.length > 0 && (
+              <div className="p-4 space-y-3">
                 {/* Column headers */}
-                <div className="grid grid-cols-[1fr_120px_120px_130px] gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider px-1 mb-2">
-                  <span>Name</span>
+                <div className="grid grid-cols-[1fr_100px_100px_100px] gap-2 text-xs font-medium text-gray-500 uppercase tracking-wider px-1">
+                  <span>Piece Name</span>
                   <span>Length (mm)</span>
                   <span>Width (mm)</span>
                   <span>Thickness</span>
                 </div>
 
-                <div className="space-y-2">
-                  {room.pieces.map((piece, pieceIndex) => {
-                    const lengthMissing = piece.length_mm <= 0;
-                    return (
-                      <div
-                        key={pieceIndex}
-                        className="grid grid-cols-[1fr_120px_120px_130px] gap-2 items-center"
-                      >
-                        {/* Piece name */}
+                {room.pieces.map((piece, pieceIndex) => {
+                  const lengthMissing = piece.length_mm <= 0;
+                  return (
+                    <div key={pieceIndex} className="space-y-1">
+                      {/* Dimension row */}
+                      <div className="grid grid-cols-[1fr_100px_100px_100px] gap-2 items-center">
                         <input
                           type="text"
                           value={piece.name}
                           onChange={(e) =>
                             updatePiece(roomIndex, pieceIndex, 'name', e.target.value)
                           }
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                           tabIndex={0}
                         />
-
-                        {/* Length — required, blank by default */}
                         <input
                           type="number"
                           min={1}
@@ -639,15 +620,13 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                             )
                           }
                           placeholder="Required"
-                          className={`rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                          className={`rounded border px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
                             lengthMissing
                               ? 'border-red-300 bg-red-50'
                               : 'border-gray-300'
                           }`}
                           tabIndex={0}
                         />
-
-                        {/* Width — pre-filled from smart defaults */}
                         <input
                           type="number"
                           min={1}
@@ -660,11 +639,9 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                               parseInt(e.target.value, 10) || 0,
                             )
                           }
-                          className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+                          className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                           tabIndex={0}
                         />
-
-                        {/* Thickness */}
                         <ThicknessSelector
                           value={piece.thickness_mm}
                           onChange={(val) =>
@@ -672,86 +649,40 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                           }
                         />
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
-        {/* Validation message */}
-        {!allLengthsFilled && (
-          <p className="mt-4 text-sm text-red-600">
-            All pieces require a length before continuing.
-          </p>
+                      {/* Section D: Edges & Cutouts inline (MiniPieceEditor) */}
+                      <div className="ml-1">
+                        <MiniPieceEditor
+                          piece={piece}
+                          onChange={(updated) =>
+                            updateWizardPiece(roomIndex, pieceIndex, updated)
+                          }
+                          edgeTypes={edgeTypes}
+                          cutoutTypes={cutoutTypes}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        ))}
+
+        {/* Add room button */}
+        {rooms.length < 20 && (
+          <button
+            type="button"
+            onClick={addRoom}
+            className="w-full py-2 border-2 border-dashed border-gray-300 rounded-lg text-sm text-gray-500 hover:border-amber-300 hover:text-amber-700 transition-colors"
+          >
+            + Add Room
+          </button>
         )}
-
-        <div className="mt-8 flex justify-between">
-          <button
-            onClick={() => setStep(2)}
-            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
-          >
-            &larr; Back
-          </button>
-          <button
-            onClick={handleStep3Next}
-            disabled={!allLengthsFilled}
-            className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            Next &rarr; Edges &amp; Cutouts
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  /* ─── Step 4: Edges & Cutouts (MiniPieceEditor per piece) ─── */
-
-  if (step === 4) {
-    return (
-      <div className="max-w-4xl mx-auto">
-        {renderStepIndicator()}
-
-        <h2 className="text-xl font-bold text-gray-900 mb-1">Edges &amp; Cutouts</h2>
-        <p className="text-sm text-gray-500 mb-6">
-          Click an edge label to change its profile. Add cutouts with the quick buttons.
-        </p>
-
-        <div className="space-y-6">
-          {rooms.map((room, roomIndex) => {
-            if (!room.pieces.length) return null;
-
-            return (
-              <div key={roomIndex}>
-                <h3 className="text-sm font-semibold text-gray-800 uppercase tracking-wider mb-2">
-                  {room.name}
-                  <span className="ml-2 text-xs font-normal text-gray-400">
-                    ({room.pieces.length} {room.pieces.length === 1 ? 'piece' : 'pieces'})
-                  </span>
-                </h3>
-
-                <div className="space-y-1 divide-y divide-gray-100">
-                  {room.pieces.map((piece, pieceIndex) => (
-                    <MiniPieceEditor
-                      key={pieceIndex}
-                      piece={piece}
-                      onChange={(updated) =>
-                        updateWizardPiece(roomIndex, pieceIndex, updated)
-                      }
-                      edgeTypes={edgeTypes}
-                      cutoutTypes={cutoutTypes}
-                    />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div className="mt-6 rounded-lg border border-red-200 bg-red-50 p-4">
+          <div className="rounded-lg border border-red-200 bg-red-50 p-4">
             <h4 className="font-medium text-red-800 mb-2">Please fix the following:</h4>
             <ul className="list-disc pl-5 space-y-1">
               {validationErrors.map((err, i) => (
@@ -763,7 +694,7 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
 
         {/* Validation warnings */}
         {validationWarnings.length > 0 && (
-          <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3">
+          <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <ul className="space-y-1">
               {validationWarnings.map((warn, i) => (
                 <li key={i} className="text-sm text-amber-700">{warn.message}</li>
@@ -772,17 +703,20 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
           </div>
         )}
 
-        <div className="mt-8 flex justify-between">
+        {/* Length validation message */}
+        {rooms.some((r) => r.pieces.length > 0) && !allLengthsFilled && (
+          <p className="text-sm text-red-600">
+            All pieces require a length before creating the quote.
+          </p>
+        )}
+
+        {/* Single submit button */}
+        <div className="flex justify-end pt-2 pb-4">
           <button
-            onClick={() => setStep(3)}
-            className="px-4 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm hover:bg-gray-50 transition-colors"
-          >
-            &larr; Back
-          </button>
-          <button
+            type="button"
             onClick={handleCreateQuote}
-            disabled={isCreating || !allLengthsFilled}
-            className="px-6 py-2 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+            disabled={!canSubmit || isCreating}
+            className="px-8 py-3 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
           >
             {isCreating ? (
               <>
@@ -798,10 +732,8 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
           </button>
         </div>
       </div>
-    );
-  }
-
-  return null;
+    </div>
+  );
 }
 
 /* ─── Thickness Selector ─── */
@@ -826,11 +758,12 @@ function ThicknessSelector({
           step={1}
           value={value}
           onChange={(e) => onChange(parseInt(e.target.value, 10) || 20)}
-          className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
+          className="w-16 rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
           tabIndex={0}
         />
         <span className="text-xs text-gray-500">mm</span>
         <button
+          type="button"
           onClick={() => {
             setIsCustom(false);
             onChange(20);
@@ -855,7 +788,7 @@ function ThicknessSelector({
           onChange(parseInt(val, 10));
         }
       }}
-      className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
+      className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent bg-white"
       tabIndex={0}
     >
       {THICKNESS_OPTIONS.map((t) => (
