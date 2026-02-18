@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
-import EdgeSelector from './EdgeSelector';
+import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import { logger } from '@/lib/logger';
 
 interface EdgeType {
@@ -932,22 +932,23 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                     </div>
                   </div>
 
-                  {/* Edge Selector */}
+                  {/* Edge Profiles — PieceVisualEditor SVG (Rule 44: no banned edge components) */}
                   {piece.length > 0 && piece.width > 0 && (
-                    <div
-                      className="relative"
-                      style={{ zIndex: 100, isolation: 'isolate' }}
-                      onClick={(e) => e.stopPropagation()}
-                      onMouseDown={(e) => e.stopPropagation()}
-                    >
-                      <EdgeSelector
-                        lengthMm={piece.length}
-                        widthMm={piece.width}
-                        edgeSelections={piece.edgeSelections}
-                        edgeTypes={edgeTypes}
-                        onChange={(edges) => updatePieceEdges(piece.id, edges)}
-                      />
-                    </div>
+                    <PieceVisualEditor
+                      lengthMm={piece.length}
+                      widthMm={piece.width}
+                      edgeTop={piece.edgeSelections.edgeTop}
+                      edgeBottom={piece.edgeSelections.edgeBottom}
+                      edgeLeft={piece.edgeSelections.edgeLeft}
+                      edgeRight={piece.edgeSelections.edgeRight}
+                      edgeTypes={edgeTypes.filter((e: { isActive?: boolean }) => e.isActive !== false).map((e: { id: string; name: string }) => ({ id: e.id, name: e.name }))}
+                      cutouts={[]}
+                      isEditMode={true}
+                      onEdgeChange={(side, profileId) => {
+                        const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
+                        updatePieceEdges(piece.id, { ...piece.edgeSelections, [keyMap[side]]: profileId });
+                      }}
+                    />
                   )}
 
                   <div className="flex justify-end">

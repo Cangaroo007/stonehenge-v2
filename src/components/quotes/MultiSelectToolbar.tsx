@@ -51,7 +51,7 @@ export default function MultiSelectToolbar({
   onBatchDelete,
   onClearSelection,
 }: MultiSelectToolbarProps) {
-  const [showEdgeDropdown, setShowEdgeDropdown] = useState(false);
+  const [showEdgeMenu, setShowEdgeMenu] = useState(false);
   const [edgeSide, setEdgeSide] = useState<'all' | 'top' | 'bottom' | 'left' | 'right'>('all');
   const [showMoveDropdown, setShowMoveDropdown] = useState(false);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
@@ -66,7 +66,7 @@ export default function MultiSelectToolbar({
     } else {
       onBatchEdges({ [edgeSide]: profileId });
     }
-    setShowEdgeDropdown(false);
+    setShowEdgeMenu(false);
   };
 
   const handleMoveToRoom = (roomId: number) => {
@@ -129,12 +129,12 @@ export default function MultiSelectToolbar({
       {/* Edges */}
       <div className="relative">
         <button
-          onClick={() => setShowEdgeDropdown(!showEdgeDropdown)}
+          onClick={() => setShowEdgeMenu(!showEdgeMenu)}
           className="px-2 py-1 text-xs border border-gray-200 rounded-md bg-white text-gray-700 hover:border-gray-300"
         >
           Edges
         </button>
-        {showEdgeDropdown && (
+        {showEdgeMenu && (
           <div className="absolute bottom-full mb-1 left-0 bg-white border border-gray-200 rounded-lg shadow-lg p-2 w-48 space-y-2">
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Apply to</label>
@@ -171,7 +171,7 @@ export default function MultiSelectToolbar({
               </div>
             </div>
             <button
-              onClick={() => setShowEdgeDropdown(false)}
+              onClick={() => setShowEdgeMenu(false)}
               className="w-full text-[10px] text-gray-400 hover:text-gray-600 pt-1"
             >
               Cancel

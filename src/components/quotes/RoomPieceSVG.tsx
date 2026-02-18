@@ -163,7 +163,7 @@ export default function RoomPieceSVG({
 
   return (
     <g
-      style={{ cursor: isEditMode ? (isPaintMode ? 'crosshair' : 'pointer') : 'default' }}
+      style={{ cursor: isEditMode ? 'pointer' : 'default' }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => onMouseEnter?.(piece.id)}
@@ -202,13 +202,43 @@ export default function RoomPieceSVG({
       {/* Edge profile lines (only if piece is large enough) */}
       {w > 30 && h > 24 && (
         <>
+          {/* Hover highlight glow (edit mode only) */}
+          {hoveredEdge === 'top' && isEditMode && (
+            <line
+              x1={x + 3} y1={y + 1} x2={x + w - 3} y2={y + 1}
+              stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+              className="pointer-events-none"
+            />
+          )}
+          {hoveredEdge === 'bottom' && isEditMode && (
+            <line
+              x1={x + 3} y1={y + h - 1} x2={x + w - 3} y2={y + h - 1}
+              stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+              className="pointer-events-none"
+            />
+          )}
+          {hoveredEdge === 'left' && isEditMode && (
+            <line
+              x1={x + 1} y1={y + 3} x2={x + 1} y2={y + h - 3}
+              stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+              className="pointer-events-none"
+            />
+          )}
+          {hoveredEdge === 'right' && isEditMode && (
+            <line
+              x1={x + w - 1} y1={y + 3} x2={x + w - 1} y2={y + h - 3}
+              stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+              className="pointer-events-none"
+            />
+          )}
+
           {/* Top edge */}
           <line
             x1={x + 3}
             y1={y + 1}
             x2={x + w - 3}
             y2={y + 1}
-            stroke={hoveredEdge === 'top' && isEditMode ? '#22c55e' : edgeColour(topEdge)}
+            stroke={hoveredEdge === 'top' && isEditMode ? '#3b82f6' : edgeColour(topEdge)}
             strokeWidth={hoveredEdge === 'top' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(topEdge) ? '3 2' : undefined}
           />
@@ -218,7 +248,7 @@ export default function RoomPieceSVG({
             y1={y + h - 1}
             x2={x + w - 3}
             y2={y + h - 1}
-            stroke={hoveredEdge === 'bottom' && isEditMode ? '#22c55e' : edgeColour(bottomEdge)}
+            stroke={hoveredEdge === 'bottom' && isEditMode ? '#3b82f6' : edgeColour(bottomEdge)}
             strokeWidth={hoveredEdge === 'bottom' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(bottomEdge) ? '3 2' : undefined}
           />
@@ -228,7 +258,7 @@ export default function RoomPieceSVG({
             y1={y + 3}
             x2={x + 1}
             y2={y + h - 3}
-            stroke={hoveredEdge === 'left' && isEditMode ? '#22c55e' : edgeColour(leftEdge)}
+            stroke={hoveredEdge === 'left' && isEditMode ? '#3b82f6' : edgeColour(leftEdge)}
             strokeWidth={hoveredEdge === 'left' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(leftEdge) ? '3 2' : undefined}
           />
@@ -238,7 +268,7 @@ export default function RoomPieceSVG({
             y1={y + 3}
             x2={x + w - 1}
             y2={y + h - 3}
-            stroke={hoveredEdge === 'right' && isEditMode ? '#22c55e' : edgeColour(rightEdge)}
+            stroke={hoveredEdge === 'right' && isEditMode ? '#3b82f6' : edgeColour(rightEdge)}
             strokeWidth={hoveredEdge === 'right' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(rightEdge) ? '3 2' : undefined}
           />
@@ -249,7 +279,7 @@ export default function RoomPieceSVG({
               <line
                 x1={x + 3} y1={y + 1} x2={x + w - 3} y2={y + 1}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: isPaintMode ? 'crosshair' : 'pointer' }}
+                style={{ cursor: 'pointer' }}
                 onClick={e => handleEdgeClick('top', e)}
                 onMouseEnter={() => setHoveredEdge('top')}
                 onMouseLeave={() => setHoveredEdge(null)}
@@ -257,7 +287,7 @@ export default function RoomPieceSVG({
               <line
                 x1={x + 3} y1={y + h - 1} x2={x + w - 3} y2={y + h - 1}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: isPaintMode ? 'crosshair' : 'pointer' }}
+                style={{ cursor: 'pointer' }}
                 onClick={e => handleEdgeClick('bottom', e)}
                 onMouseEnter={() => setHoveredEdge('bottom')}
                 onMouseLeave={() => setHoveredEdge(null)}
@@ -265,7 +295,7 @@ export default function RoomPieceSVG({
               <line
                 x1={x + 1} y1={y + 3} x2={x + 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: isPaintMode ? 'crosshair' : 'pointer' }}
+                style={{ cursor: 'pointer' }}
                 onClick={e => handleEdgeClick('left', e)}
                 onMouseEnter={() => setHoveredEdge('left')}
                 onMouseLeave={() => setHoveredEdge(null)}
@@ -273,7 +303,7 @@ export default function RoomPieceSVG({
               <line
                 x1={x + w - 1} y1={y + 3} x2={x + w - 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: isPaintMode ? 'crosshair' : 'pointer' }}
+                style={{ cursor: 'pointer' }}
                 onClick={e => handleEdgeClick('right', e)}
                 onMouseEnter={() => setHoveredEdge('right')}
                 onMouseLeave={() => setHoveredEdge(null)}
