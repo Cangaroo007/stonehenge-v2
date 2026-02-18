@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import EdgeProfilePopover from './EdgeProfilePopover';
+import type { EdgeScope } from './EdgeProfilePopover';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -82,6 +83,12 @@ export interface PieceVisualEditorProps {
 
   /** Room name for scope selector labels */
   roomName?: string;
+
+  /** Room ID for scope selector filtering */
+  roomId?: string;
+
+  /** Callback for scope-aware edge profile application (clickedSide = edge that was clicked) */
+  onApplyWithScope?: (profileId: string | null, scope: EdgeScope, clickedSide: string) => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -151,6 +158,8 @@ export default function PieceVisualEditor({
   cutoutTypes = [],
   onBulkApply,
   roomName,
+  roomId,
+  onApplyWithScope,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -374,6 +383,16 @@ export default function PieceVisualEditor({
       setPopover(null);
     },
     [popover, onEdgeChange]
+  );
+
+  // Wrapper for scope-aware apply — captures the clicked side from popover state
+  const handlePopoverApplyWithScope = useCallback(
+    (profileId: string | null, scope: EdgeScope) => {
+      if (!onApplyWithScope || !popover) return;
+      onApplyWithScope(profileId, scope, popover.side);
+      setPopover(null);
+    },
+    [onApplyWithScope, popover]
   );
 
   const handleCutoutAddClick = useCallback(
@@ -951,7 +970,7 @@ export default function PieceVisualEditor({
         ))}
       </svg>
 
-      {/* Edge profile popover (single-click backward compat) */}
+      {/* Edge profile popover (single-click with scope selector) */}
       {popover && (
         <EdgeProfilePopover
           isOpen={true}
@@ -961,6 +980,10 @@ export default function PieceVisualEditor({
           isMitred={isMitred}
           onSelect={handleProfileSelect}
           onClose={() => setPopover(null)}
+          side={onApplyWithScope ? popover.side : undefined}
+          roomName={roomName}
+          roomId={roomId}
+          onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
         />
       )}
 
