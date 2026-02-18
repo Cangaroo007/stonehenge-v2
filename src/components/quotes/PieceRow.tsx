@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import InlinePieceEditor from './InlinePieceEditor';
 import type { InlinePieceData } from './InlinePieceEditor';
@@ -264,6 +265,72 @@ function getEdgeSummaryText(
   }
 
   return parts.join(', ');
+}
+
+// ── Structured Edge Summary (for colour dots in collapsed header) ────────────
+
+interface EdgeSummaryEntry {
+  label: string;
+  profileName: string;
+  code: string;
+  colour: string;
+}
+
+function getEdgeSummaryEntries(
+  piece: PieceRowProps['piece'],
+  breakdown?: PiecePricingBreakdown,
+  edgeTypes?: Array<{ id: string; name: string }>,
+): EdgeSummaryEntry[] {
+  const sides = [
+    { key: 'edgeTop' as const, label: 'T', side: 'top' as const },
+    { key: 'edgeBottom' as const, label: 'B', side: 'bottom' as const },
+    { key: 'edgeLeft' as const, label: 'L', side: 'left' as const },
+    { key: 'edgeRight' as const, label: 'R', side: 'right' as const },
+  ];
+
+  const hasDirectEdges = piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight;
+  const hasBreakdownEdges = breakdown?.fabrication?.edges && breakdown.fabrication.edges.length > 0;
+
+  if (!hasDirectEdges && !hasBreakdownEdges) return [];
+
+  const entries: EdgeSummaryEntry[] = [];
+
+  for (const s of sides) {
+    const edgeId = piece[s.key] as string | null;
+
+    if (edgeId) {
+      let profileName = '';
+      if (edgeTypes && edgeTypes.length > 0) {
+        const et = edgeTypes.find(e => e.id === edgeId);
+        if (et) profileName = et.name;
+      }
+      if (!profileName && breakdown?.fabrication?.edges) {
+        const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+        if (edge) profileName = edge.edgeTypeName;
+      }
+      entries.push({
+        label: s.label,
+        profileName,
+        code: edgeCode(profileName || null),
+        colour: edgeColour(profileName || null),
+      });
+      continue;
+    }
+
+    if (breakdown?.fabrication?.edges) {
+      const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+      if (edge) {
+        entries.push({
+          label: s.label,
+          profileName: edge.edgeTypeName,
+          code: edgeCode(edge.edgeTypeName),
+          colour: edgeColour(edge.edgeTypeName),
+        });
+      }
+    }
+  }
+
+  return entries;
 }
 
 // ── Cutout Summary Helper ───────────────────────────────────────────────────
@@ -666,7 +733,7 @@ export default function PieceRow({
 
   // Collapsed state display values
   const displayName = getDisplayName(piece);
-  const edgeSummary = getEdgeSummaryText(piece, breakdown, editData?.edgeTypes);
+  const edgeEntries = getEdgeSummaryEntries(piece, breakdown, editData?.edgeTypes);
   const cutoutSummary = getCutoutSummaryText(fullPiece, breakdown, editData?.cutoutTypes);
   const fullDescription = getFullDescription(piece);
 
@@ -713,11 +780,24 @@ export default function PieceRow({
                 </>
               )}
             </div>
-            {/* Line 3: Edges · Cutouts (only if any) */}
-            {(edgeSummary || cutoutSummary) && (
+            {/* Line 3: Edges (colour dots) · Cutouts (only if any) */}
+            {(edgeEntries.length > 0 || cutoutSummary) && (
               <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5 flex-wrap">
-                {edgeSummary && <span>Edges: {edgeSummary}</span>}
-                {edgeSummary && cutoutSummary && <span className="text-gray-300">&middot;</span>}
+                {edgeEntries.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    <span>Edges:</span>
+                    {edgeEntries.map(entry => (
+                      <span key={entry.label} className="inline-flex items-center gap-0.5">
+                        <span
+                          className="inline-block w-2 h-2 rounded-full"
+                          style={{ backgroundColor: entry.colour }}
+                        />
+                        <span className="text-xs">{entry.label}:{entry.code}</span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {edgeEntries.length > 0 && cutoutSummary && <span className="text-gray-300">&middot;</span>}
                 {cutoutSummary && <span>Cutouts: {cutoutSummary}</span>}
               </div>
             )}
