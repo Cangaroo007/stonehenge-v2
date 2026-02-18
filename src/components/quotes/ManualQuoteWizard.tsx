@@ -10,6 +10,7 @@ import {
 } from '@/lib/services/quote-setup-defaults';
 import { validateWizardData, type ValidationError } from '@/lib/services/quote-validation';
 import MiniPieceEditor from './MiniPieceEditor';
+import AutocompleteInput from '@/components/ui/AutocompleteInput';
 
 /* ─── Types ─── */
 
@@ -77,6 +78,10 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
   const [validationErrors, setValidationErrors] = useState<ValidationError[]>([]);
   const [validationWarnings, setValidationWarnings] = useState<ValidationError[]>([]);
 
+  /* ─── Autocomplete suggestions from previous quotes ─── */
+  const [roomSuggestions, setRoomSuggestions] = useState<string[]>([]);
+  const [pieceSuggestions, setPieceSuggestions] = useState<string[]>([]);
+
   /* ─── Track whether rooms have been expanded with pieces ─── */
   const [piecesGenerated, setPiecesGenerated] = useState(false);
 
@@ -118,6 +123,32 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
   /* ─── Auto-focus project name on mount ─── */
   useEffect(() => {
     projectNameRef.current?.focus();
+  }, []);
+
+  /* ─── Fetch autocomplete suggestions on mount ─── */
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSuggestions = async () => {
+      try {
+        const [roomRes, pieceRes] = await Promise.all([
+          fetch('/api/suggestions?type=room_names'),
+          fetch('/api/suggestions?type=piece_names'),
+        ]);
+        if (cancelled) return;
+        if (roomRes.ok) {
+          const data = await roomRes.json();
+          setRoomSuggestions(data.suggestions || []);
+        }
+        if (pieceRes.ok) {
+          const data = await pieceRes.json();
+          setPieceSuggestions(data.suggestions || []);
+        }
+      } catch {
+        // Non-blocking — autocomplete simply won't show suggestions
+      }
+    };
+    fetchSuggestions();
+    return () => { cancelled = true; };
   }, []);
 
   /* ─── Initialise rooms when count changes ─── */
@@ -533,10 +564,10 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <span className="text-xs font-semibold text-gray-400 uppercase">Room {roomIndex + 1}</span>
-                <input
-                  type="text"
+                <AutocompleteInput
                   value={room.name}
-                  onChange={(e) => updateRoomName(roomIndex, e.target.value)}
+                  onChange={(name) => updateRoomName(roomIndex, name)}
+                  suggestions={roomSuggestions}
                   placeholder={`Room ${roomIndex + 1}`}
                   className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />
@@ -598,14 +629,14 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
                     <div key={pieceIndex} className="space-y-1">
                       {/* Dimension row */}
                       <div className="grid grid-cols-[1fr_100px_100px_100px] gap-2 items-center">
-                        <input
-                          type="text"
+                        <AutocompleteInput
                           value={piece.name}
-                          onChange={(e) =>
-                            updatePiece(roomIndex, pieceIndex, 'name', e.target.value)
+                          onChange={(name) =>
+                            updatePiece(roomIndex, pieceIndex, 'name', name)
                           }
+                          suggestions={pieceSuggestions}
+                          placeholder="e.g., Island Bench"
                           className="rounded border border-gray-300 px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                          tabIndex={0}
                         />
                         <input
                           type="number"

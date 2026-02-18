@@ -64,6 +64,7 @@ import SaveAsTemplateButton from './components/SaveAsTemplateButton';
 import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 import ContactPicker from '@/components/quotes/ContactPicker';
+import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
 
@@ -356,6 +357,8 @@ export default function QuoteDetailClient({
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
   const [relationships, setRelationships] = useState<PieceRelationshipData[]>([]);
+  const [roomSuggestions, setRoomSuggestions] = useState<string[]>([]);
+  const [pieceSuggestions, setPieceSuggestions] = useState<string[]>([]);
   const [calculation, setCalculation] = useState<CalculationResult | null>(null);
   const calculationRef = useRef<CalculationResult | null>(null);
   const [viewCalculation, setViewCalculation] = useState<CalculationResult | null>(
@@ -669,6 +672,33 @@ export default function QuoteDetailClient({
     fetch(`/api/quotes/${serverData.id}/track-view`, { method: 'POST' }).catch(() => {});
   }, [serverData.id]);
 
+  // Fetch autocomplete suggestions for room/piece names
+  useEffect(() => {
+    if (mode !== 'edit') return;
+    let cancelled = false;
+    const fetchSuggestions = async () => {
+      try {
+        const [roomRes, pieceRes] = await Promise.all([
+          fetch('/api/suggestions?type=room_names'),
+          fetch('/api/suggestions?type=piece_names'),
+        ]);
+        if (cancelled) return;
+        if (roomRes.ok) {
+          const data = await roomRes.json();
+          setRoomSuggestions(data.suggestions || []);
+        }
+        if (pieceRes.ok) {
+          const data = await pieceRes.json();
+          setPieceSuggestions(data.suggestions || []);
+        }
+      } catch {
+        // Non-blocking
+      }
+    };
+    fetchSuggestions();
+    return () => { cancelled = true; };
+  }, [mode]);
+
   // Load edit-mode data when switching to edit or on initial mount in edit mode
   useEffect(() => {
     if (mode === 'edit' && !editDataLoaded.current) {
@@ -907,18 +937,42 @@ export default function QuoteDetailClient({
     }
     const pieceName = oldPiece?.name || `Piece #${pieceId}`;
 
+    // Auto-generate description from merged piece state
+    const merged = oldPiece ? { ...oldPiece, ...updates } : updates;
+    const mergedPiece = merged as QuotePiece;
+    const resolvedCutouts = (mergedPiece.cutouts || []).map((c: PieceCutout) => {
+      const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
+      return { type: ct?.name || 'unknown', quantity: c.quantity ?? 1 };
+    });
+    const autoDesc = generatePieceDescription({
+      name: mergedPiece.name || undefined,
+      length_mm: mergedPiece.lengthMm,
+      width_mm: mergedPiece.widthMm,
+      thickness: mergedPiece.thicknessMm,
+      material_name: mergedPiece.materialName || undefined,
+      edge_top: mergedPiece.edgeTop,
+      edge_bottom: mergedPiece.edgeBottom,
+      edge_left: mergedPiece.edgeLeft,
+      edge_right: mergedPiece.edgeRight,
+      cutouts: resolvedCutouts,
+    });
+    const updatesWithDesc = { ...updates };
+    if (autoDesc && !updates.description) {
+      (updatesWithDesc as Record<string, unknown>).description = autoDesc;
+    }
+
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(updates),
+        body: JSON.stringify(updatesWithDesc),
       });
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || 'Failed to update piece');
       }
       setPieces(prev => prev.map(p =>
-        p.id === pieceId ? { ...p, ...updates } : p
+        p.id === pieceId ? { ...p, ...updatesWithDesc } : p
       ));
       triggerRecalculate();
       triggerOptimise();
@@ -1083,6 +1137,31 @@ export default function QuoteDetailClient({
 
     setSaving(true);
     try {
+      // Auto-generate piece description from current attributes
+      const materialForDesc = materials.find(m => m.id === (data.materialId as number | null));
+      const pieceCutouts = ((data.cutouts as PieceCutout[]) || oldPiece?.cutouts || []);
+      const resolvedCutoutsForDesc = pieceCutouts.map((c: PieceCutout) => {
+        const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
+        return { type: ct?.name || 'unknown', quantity: c.quantity ?? 1 };
+      });
+      const autoDesc = generatePieceDescription({
+        name: (data.name as string) || oldPiece?.name || undefined,
+        length_mm: (data.lengthMm as number) || oldPiece?.lengthMm,
+        width_mm: (data.widthMm as number) || oldPiece?.widthMm,
+        thickness: (data.thicknessMm as number) || oldPiece?.thicknessMm,
+        material_name: materialForDesc?.name || (data.materialName as string) || oldPiece?.materialName || undefined,
+        edge_top: (data.edgeTop as string | null) ?? oldPiece?.edgeTop ?? null,
+        edge_bottom: (data.edgeBottom as string | null) ?? oldPiece?.edgeBottom ?? null,
+        edge_left: (data.edgeLeft as string | null) ?? oldPiece?.edgeLeft ?? null,
+        edge_right: (data.edgeRight as string | null) ?? oldPiece?.edgeRight ?? null,
+        cutouts: resolvedCutoutsForDesc,
+      });
+      // Only set auto-description if user hasn't manually edited it
+      const dataWithDesc = { ...data };
+      if (!data.description && autoDesc) {
+        dataWithDesc.description = autoDesc;
+      }
+
       const url = isCreate
         ? `/api/quotes/${quoteIdStr}/pieces`
         : `/api/quotes/${quoteIdStr}/pieces/${pieceId}`;
@@ -1091,7 +1170,7 @@ export default function QuoteDetailClient({
       const response = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...data, roomName }),
+        body: JSON.stringify({ ...dataWithDesc, roomName }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -2254,6 +2333,8 @@ export default function QuoteDetailClient({
     cutoutTypes,
     thicknessOptions,
     roomNames,
+    pieceSuggestions,
+    roomSuggestions,
   };
 
   // Pieces formatted for RelationshipEditor dropdown
@@ -3247,6 +3328,8 @@ export default function QuoteDetailClient({
                 saving={saving}
                 isNew
                 onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
+                pieceSuggestions={pieceSuggestions}
+                roomSuggestions={roomSuggestions}
               />
             </div>
           )}
