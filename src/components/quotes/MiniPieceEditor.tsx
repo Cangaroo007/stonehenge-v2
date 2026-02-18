@@ -304,7 +304,9 @@ export default function MiniPieceEditor({
                   stroke={colour}
                   strokeWidth={isFinished ? 2.5 : 1}
                   strokeDasharray={isFinished ? undefined : '3 2'}
-                />
+                >
+                  <title>{name || 'Raw / Unfinished'}</title>
+                </line>
 
                 {/* Hit area for clicking */}
                 {!readOnly && (
@@ -317,7 +319,9 @@ export default function MiniPieceEditor({
                     strokeWidth={14}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleEdgeClick(side, e)}
-                  />
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                  </line>
                 )}
 
                 {/* Edge label */}
@@ -333,6 +337,7 @@ export default function MiniPieceEditor({
                   style={!readOnly ? { cursor: 'pointer' } : undefined}
                   onClick={!readOnly ? (e) => handleEdgeClick(side, e) : undefined}
                 >
+                  <title>{name || 'Raw / Unfinished'}</title>
                   {code}
                 </text>
               </g>

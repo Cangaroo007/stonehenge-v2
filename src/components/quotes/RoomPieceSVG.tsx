@@ -98,6 +98,14 @@ function getEdgeProfile(edges: PieceData['edges'], position: string): string | n
   return edge?.profile ?? null;
 }
 
+/** Return a human-readable display name for an edge profile string */
+function edgeProfileDisplayName(profile: string | null | undefined): string {
+  if (!profile) return 'Raw / Unfinished';
+  const lower = profile.toLowerCase();
+  if (lower.includes('raw') || lower === 'none') return 'Raw / Unfinished';
+  return profile;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RoomPieceSVG({
@@ -241,7 +249,9 @@ export default function RoomPieceSVG({
             stroke={hoveredEdge === 'top' && isEditMode ? '#3b82f6' : edgeColour(topEdge)}
             strokeWidth={hoveredEdge === 'top' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(topEdge) ? '3 2' : undefined}
-          />
+          >
+            <title>{edgeProfileDisplayName(topEdge)}</title>
+          </line>
           {/* Bottom edge */}
           <line
             x1={x + 3}
@@ -251,7 +261,9 @@ export default function RoomPieceSVG({
             stroke={hoveredEdge === 'bottom' && isEditMode ? '#3b82f6' : edgeColour(bottomEdge)}
             strokeWidth={hoveredEdge === 'bottom' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(bottomEdge) ? '3 2' : undefined}
-          />
+          >
+            <title>{edgeProfileDisplayName(bottomEdge)}</title>
+          </line>
           {/* Left edge */}
           <line
             x1={x + 1}
@@ -261,7 +273,9 @@ export default function RoomPieceSVG({
             stroke={hoveredEdge === 'left' && isEditMode ? '#3b82f6' : edgeColour(leftEdge)}
             strokeWidth={hoveredEdge === 'left' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(leftEdge) ? '3 2' : undefined}
-          />
+          >
+            <title>{edgeProfileDisplayName(leftEdge)}</title>
+          </line>
           {/* Right edge */}
           <line
             x1={x + w - 1}
@@ -271,7 +285,9 @@ export default function RoomPieceSVG({
             stroke={hoveredEdge === 'right' && isEditMode ? '#3b82f6' : edgeColour(rightEdge)}
             strokeWidth={hoveredEdge === 'right' && isEditMode ? 4 : 2}
             strokeDasharray={isRawEdge(rightEdge) ? '3 2' : undefined}
-          />
+          >
+            <title>{edgeProfileDisplayName(rightEdge)}</title>
+          </line>
 
           {/* Edge hit areas for clicking individual edges (edit mode) */}
           {isEditMode && onEdgeClick && (
@@ -283,7 +299,9 @@ export default function RoomPieceSVG({
                 onClick={e => handleEdgeClick('top', e)}
                 onMouseEnter={() => setHoveredEdge('top')}
                 onMouseLeave={() => setHoveredEdge(null)}
-              />
+              >
+                <title>{edgeProfileDisplayName(topEdge)}</title>
+              </line>
               <line
                 x1={x + 3} y1={y + h - 1} x2={x + w - 3} y2={y + h - 1}
                 stroke="transparent" strokeWidth={edgeHitWidth}
@@ -291,7 +309,9 @@ export default function RoomPieceSVG({
                 onClick={e => handleEdgeClick('bottom', e)}
                 onMouseEnter={() => setHoveredEdge('bottom')}
                 onMouseLeave={() => setHoveredEdge(null)}
-              />
+              >
+                <title>{edgeProfileDisplayName(bottomEdge)}</title>
+              </line>
               <line
                 x1={x + 1} y1={y + 3} x2={x + 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
@@ -299,7 +319,9 @@ export default function RoomPieceSVG({
                 onClick={e => handleEdgeClick('left', e)}
                 onMouseEnter={() => setHoveredEdge('left')}
                 onMouseLeave={() => setHoveredEdge(null)}
-              />
+              >
+                <title>{edgeProfileDisplayName(leftEdge)}</title>
+              </line>
               <line
                 x1={x + w - 1} y1={y + 3} x2={x + w - 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
@@ -307,7 +329,9 @@ export default function RoomPieceSVG({
                 onClick={e => handleEdgeClick('right', e)}
                 onMouseEnter={() => setHoveredEdge('right')}
                 onMouseLeave={() => setHoveredEdge(null)}
-              />
+              >
+                <title>{edgeProfileDisplayName(rightEdge)}</title>
+              </line>
             </>
           )}
         </>
@@ -364,7 +388,7 @@ export default function RoomPieceSVG({
       {/* Cutout count indicator (top-right) */}
       {cutoutCount > 0 && w > 40 && (
         <g>
-          <title>{piece.cutouts?.map(c => `${c.quantity}x ${c.type}`).join(', ')}</title>
+          <title>{`${cutoutCount} cutout${cutoutCount !== 1 ? 's' : ''}: ${piece.cutouts?.map(c => `${c.quantity}x ${c.type}`).join(', ')}`}</title>
           <circle
             cx={x + w - 12}
             cy={y + 12}
