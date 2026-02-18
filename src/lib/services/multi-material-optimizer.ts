@@ -109,7 +109,7 @@ export function optimizeMultiMaterial(
   // ── Step 2: Run per-material optimisation ───────────────────────────────
   const materialGroups: MaterialGroupResult[] = [];
 
-  for (const [materialId, groupPieces] of groupMap) {
+  for (const [materialId, groupPieces] of Array.from(groupMap.entries())) {
     const material = materialMap.get(materialId);
     const materialName = material?.name ?? `Material ${materialId}`;
 
