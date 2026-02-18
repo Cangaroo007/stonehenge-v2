@@ -25,6 +25,7 @@ interface MaterialViewProps {
   pieces: MaterialViewPiece[];
   materials: MaterialViewMaterial[];
   onMaterialChange: (pieceId: number, materialId: number | null) => void;
+  onBulkMaterialChange?: (materialId: number) => void;
   isEditMode: boolean;
   selectedPieceIds: Set<string>;
   onSelectionChange: (pieceIds: Set<string>) => void;
@@ -34,6 +35,7 @@ export default function MaterialView({
   pieces,
   materials,
   onMaterialChange,
+  onBulkMaterialChange,
   isEditMode,
   selectedPieceIds,
   onSelectionChange,
@@ -113,6 +115,14 @@ export default function MaterialView({
           )}
         </div>
       )}
+      {isEditMode && selectedPieceIds.size > 1 && (
+        <div className="flex items-center gap-2 px-2 py-1.5 bg-orange-50 border border-orange-200 rounded-md text-xs text-orange-700">
+          <svg className="h-3.5 w-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>{selectedPieceIds.size} pieces selected — changing material on any selected piece applies to all selected</span>
+        </div>
+      )}
 
       {/* Compact table */}
       <div className="border rounded-lg overflow-hidden">
@@ -175,13 +185,18 @@ export default function MaterialView({
                     {isEditMode ? (
                       <select
                         value={piece.materialId ?? ''}
-                        onChange={(e) => onMaterialChange(
-                          piece.id,
-                          e.target.value ? parseInt(e.target.value) : null
-                        )}
+                        onChange={(e) => {
+                          const newMaterialId = e.target.value ? parseInt(e.target.value) : null;
+                          // If this piece is selected and there are multiple selections, apply to all selected
+                          if (newMaterialId !== null && selectedPieceIds.has(pieceIdStr) && selectedPieceIds.size > 1 && onBulkMaterialChange) {
+                            onBulkMaterialChange(newMaterialId);
+                          } else {
+                            onMaterialChange(piece.id, newMaterialId);
+                          }
+                        }}
                         className={`w-full border rounded px-2 py-1 text-sm ${
                           !hasMaterial ? 'border-amber-400 bg-amber-50' : 'border-gray-300'
-                        }`}
+                        } ${selectedPieceIds.has(pieceIdStr) && selectedPieceIds.size > 1 ? 'ring-2 ring-orange-300' : ''}`}
                       >
                         <option value="">— No material —</option>
                         {materials.map((m) => (
