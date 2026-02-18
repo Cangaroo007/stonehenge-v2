@@ -600,6 +600,7 @@ function PieceVisualEditorSection({
         onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
         cutoutTypes={editData?.cutoutTypes ?? []}
         onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
+        roomName={piece.roomName}
       />
     </div>
   );
