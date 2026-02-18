@@ -1073,6 +1073,32 @@ export default function QuoteDetailClient({
     }
   }, [pieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
+  // Single-edge change from RoomSpatialView (1-click edge editing — Rule 37)
+  const handlePieceEdgeChange = useCallback(async (pieceId: string, side: string, profileId: string | null) => {
+    const piece = pieces.find(p => String(p.id) === pieceId);
+    if (!piece) return;
+
+    const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
+      'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+
+    await handleInlineSavePiece(
+      piece.id,
+      {
+        lengthMm: piece.lengthMm,
+        widthMm: piece.widthMm,
+        thicknessMm: piece.thicknessMm,
+        materialId: piece.materialId,
+        materialName: piece.materialName,
+        edgeTop: edgeKey === 'edgeTop' ? profileId : piece.edgeTop,
+        edgeBottom: edgeKey === 'edgeBottom' ? profileId : piece.edgeBottom,
+        edgeLeft: edgeKey === 'edgeLeft' ? profileId : piece.edgeLeft,
+        edgeRight: edgeKey === 'edgeRight' ? profileId : piece.edgeRight,
+        cutouts: piece.cutouts || [],
+      },
+      piece.quote_rooms?.name || 'Kitchen'
+    );
+  }, [pieces, handleInlineSavePiece]);
+
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
     setSaving(true);
@@ -2676,6 +2702,10 @@ export default function QuoteDetailClient({
               onPieceMultiSelect={handlePieceMultiSelect}
               // Context menu
               onContextMenu={handleContextMenu}
+              // Edge editing (Rule 37: 1-click edge edit)
+              edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+              onPieceEdgeChange={handlePieceEdgeChange}
+              cutoutTypes={cutoutTypes}
             />
           );
         })}

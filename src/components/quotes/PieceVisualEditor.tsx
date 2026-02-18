@@ -79,13 +79,16 @@ export interface PieceVisualEditorProps {
     edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
     scope: 'room' | 'quote'
   ) => void;
+
+  /** Room name for scope selector labels */
+  roomName?: string;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const SVG_PADDING = 80;
 const MAX_HEIGHT = 300;
-const EDGE_HIT_WIDTH = 16;
+const EDGE_HIT_WIDTH = 24;
 const ALL_SIDES: EdgeSide[] = ['top', 'bottom', 'left', 'right'];
 
 /** Colour by edge profile name */
@@ -147,6 +150,7 @@ export default function PieceVisualEditor({
   onCutoutRemove,
   cutoutTypes = [],
   onBulkApply,
+  roomName,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -174,6 +178,13 @@ export default function PieceVisualEditor({
   const [bulkApplyInfo, setBulkApplyInfo] = useState<{
     templateName: string;
     edges: { top: string | null; bottom: string | null; left: string | null; right: string | null };
+  } | null>(null);
+
+  // ── Scope selector state (shows after multi-select profile apply) ──
+  const [scopeApplyInfo, setScopeApplyInfo] = useState<{
+    profileName: string;
+    profileId: string | null;
+    sides: EdgeSide[];
   } | null>(null);
 
   // ── Shortcuts tooltip ─────────────────────────────────────────────────
@@ -257,6 +268,7 @@ export default function PieceVisualEditor({
   const applyProfileToSelected = useCallback(
     (profileId: string | null) => {
       if (selectedEdges.size === 0) return;
+      const sides = Array.from(selectedEdges);
       if (onEdgesChange) {
         const changes: Record<string, string | null> = {};
         selectedEdges.forEach((side) => {
@@ -269,8 +281,16 @@ export default function PieceVisualEditor({
         });
       }
       clearSelection();
+
+      // Show scope selector if bulk apply is available
+      if (onBulkApply) {
+        const profileName = profileId
+          ? (edgeTypes.find(e => e.id === profileId)?.name ?? 'Profile')
+          : 'Raw';
+        setScopeApplyInfo({ profileName, profileId, sides });
+      }
     },
-    [selectedEdges, onEdgesChange, onEdgeChange, clearSelection]
+    [selectedEdges, onEdgesChange, onEdgeChange, clearSelection, onBulkApply, edgeTypes]
   );
 
   const applyProfileByIndex = useCallback(
@@ -412,6 +432,26 @@ export default function PieceVisualEditor({
     [bulkApplyInfo, onBulkApply]
   );
 
+  const handleScopeApply = useCallback(
+    (scope: 'room' | 'quote') => {
+      if (!scopeApplyInfo || !onBulkApply) return;
+      // Build edges object: apply profileId only to the selected sides
+      const edges = {
+        top: edgeTop,
+        bottom: edgeBottom,
+        left: edgeLeft,
+        right: edgeRight,
+      };
+      // Override the sides that were selected
+      for (const side of scopeApplyInfo.sides) {
+        edges[side] = scopeApplyInfo.profileId;
+      }
+      onBulkApply(edges, scope);
+      setScopeApplyInfo(null);
+    },
+    [scopeApplyInfo, onBulkApply, edgeTop, edgeBottom, edgeLeft, edgeRight]
+  );
+
   // ── Keyboard shortcuts ────────────────────────────────────────────────
 
   useEffect(() => {
@@ -438,6 +478,7 @@ export default function PieceVisualEditor({
           setEditMode('select');
           setPaintProfile(null);
           setBulkApplyInfo(null);
+          setScopeApplyInfo(null);
           break;
         case 't':
           e.preventDefault();
@@ -609,6 +650,17 @@ export default function PieceVisualEditor({
                 </option>
               ))}
             </select>
+          )}
+
+          {/* Select All button */}
+          {editMode === 'select' && (
+            <button
+              onClick={selectAllEdges}
+              className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
+              title="Select all edges (A)"
+            >
+              All edges
+            </button>
           )}
 
           {/* Separator */}
@@ -948,6 +1000,36 @@ export default function PieceVisualEditor({
             </button>
             <button
               onClick={() => setBulkApplyInfo(null)}
+              className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-gray-700"
+            >
+              Dismiss
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ── Scope apply banner (after multi-select profile application) ── */}
+      {scopeApplyInfo && onBulkApply && (
+        <div className="mt-1 px-2 py-2 bg-blue-50 border border-blue-200 rounded-md">
+          <div className="text-[10px] text-blue-800 font-medium mb-1">
+            Applied &ldquo;{scopeApplyInfo.profileName}&rdquo; to {scopeApplyInfo.sides.join(', ')} edge{scopeApplyInfo.sides.length > 1 ? 's' : ''} on this piece
+          </div>
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <span className="text-[10px] text-blue-700">Apply same to:</span>
+            <button
+              onClick={() => handleScopeApply('room')}
+              className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded transition-colors"
+            >
+              All in {roomName || 'room'}
+            </button>
+            <button
+              onClick={() => handleScopeApply('quote')}
+              className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded transition-colors"
+            >
+              All in quote
+            </button>
+            <button
+              onClick={() => setScopeApplyInfo(null)}
               className="px-2 py-0.5 text-[10px] text-gray-500 hover:text-gray-700"
             >
               Dismiss
