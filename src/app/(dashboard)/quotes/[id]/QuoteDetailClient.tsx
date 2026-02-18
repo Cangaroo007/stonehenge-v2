@@ -381,6 +381,40 @@ export default function QuoteDetailClient({
     return quoteOptions.getOverrideMap(quoteOptions.activeOptionId);
   }, [quoteOptions]);
 
+  // ── Option Independence: ref + derived state for non-base option handling ──
+  // Use a ref so handlers can access latest quoteOptions without dependency array bloat
+  const quoteOptionsRef = useRef(quoteOptions);
+  quoteOptionsRef.current = quoteOptions;
+
+  const isActiveNonBaseOption = !!(quoteOptions.activeOption && !quoteOptions.activeOption.isBase);
+
+  // Option Independence: merge active option overrides into piece data for display.
+  // Base option or no overrides → raw pieces; non-base → override values applied.
+  const effectivePieces = useMemo(() => {
+    if (!isActiveNonBaseOption || activeOverrideMap.size === 0) {
+      return pieces;
+    }
+    return pieces.map(p => {
+      const override = activeOverrideMap.get(p.id);
+      if (!override) return p;
+      return {
+        ...p,
+        lengthMm: override.lengthMm ?? p.lengthMm,
+        widthMm: override.widthMm ?? p.widthMm,
+        thicknessMm: override.thicknessMm ?? p.thicknessMm,
+        materialId: override.materialId ?? p.materialId,
+        materialName: override.materialId
+          ? (materials.find(m => m.id === override.materialId)?.name ?? p.materialName)
+          : p.materialName,
+        edgeTop: override.edgeTop ?? p.edgeTop,
+        edgeBottom: override.edgeBottom ?? p.edgeBottom,
+        edgeLeft: override.edgeLeft ?? p.edgeLeft,
+        edgeRight: override.edgeRight ?? p.edgeRight,
+        cutouts: (override.cutouts as PieceCutout[] | null) ?? p.cutouts,
+      };
+    });
+  }, [pieces, isActiveNonBaseOption, activeOverrideMap, materials]);
+
   // Recalculate all options when base pieces change
   const recalculateOptionsAfterPieceChange = useCallback(async () => {
     if (quoteOptions.options.length > 0) {
@@ -555,7 +589,7 @@ export default function QuoteDetailClient({
   // Stable fingerprint data for the hook (only fields that affect slab layout)
   const piecesForOptimiser = useMemo(
     () =>
-      pieces.map((p) => ({
+      effectivePieces.map((p) => ({
         id: p.id,
         lengthMm: p.lengthMm,
         widthMm: p.widthMm,
@@ -566,7 +600,7 @@ export default function QuoteDetailClient({
         edgeLeft: p.edgeLeft,
         edgeRight: p.edgeRight,
       })),
-    [pieces]
+    [effectivePieces]
   );
 
   const {
@@ -798,6 +832,28 @@ export default function QuoteDetailClient({
   };
 
   const handlePieceUpdate = useCallback(async (pieceId: number, updates: Partial<QuotePiece>) => {
+    // Option Independence: redirect edits to override API for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      const overrideData = {
+        pieceId,
+        ...(updates.materialId !== undefined ? { materialId: updates.materialId } : {}),
+        ...(updates.thicknessMm !== undefined ? { thicknessMm: updates.thicknessMm } : {}),
+        ...(updates.edgeTop !== undefined ? { edgeTop: updates.edgeTop } : {}),
+        ...(updates.edgeBottom !== undefined ? { edgeBottom: updates.edgeBottom } : {}),
+        ...(updates.edgeLeft !== undefined ? { edgeLeft: updates.edgeLeft } : {}),
+        ...(updates.edgeRight !== undefined ? { edgeRight: updates.edgeRight } : {}),
+        ...((updates as Record<string, unknown>).cutouts !== undefined ? { cutouts: (updates as Record<string, unknown>).cutouts } : {}),
+        ...(updates.lengthMm !== undefined ? { lengthMm: updates.lengthMm } : {}),
+        ...(updates.widthMm !== undefined ? { widthMm: updates.widthMm } : {}),
+      };
+      await qoRef.setOverrides(qoRef.activeOptionId, [overrideData]);
+      triggerRecalculate();
+      triggerOptimise();
+      markAsChanged();
+      return;
+    }
+
     // Capture before-state for undo
     const oldPiece = pieces.find(p => p.id === pieceId);
     const oldValues: Partial<QuotePiece> = {};
@@ -865,6 +921,20 @@ export default function QuoteDetailClient({
   const handleBulkMaterialApply = useCallback(async (changes: { pieceId: number; toMaterialId: number }[]) => {
     const toMaterial = materials.find(m => m.id === changes[0]?.toMaterialId);
     if (!toMaterial) throw new Error('Material not found');
+
+    // Option Independence: redirect to overrides for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      const overrideDataArray = changes.map(change => ({
+        pieceId: change.pieceId,
+        materialId: change.toMaterialId,
+      }));
+      await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+      triggerRecalculate();
+      triggerOptimise();
+      markAsChanged();
+      return;
+    }
 
     // Update each piece individually (no batch endpoint available)
     for (const change of changes) {
@@ -937,6 +1007,35 @@ export default function QuoteDetailClient({
         oldValues[key] = pieceRecord[key];
       }
       oldValues.roomName = oldPiece.quote_rooms?.name;
+    }
+
+    // Option Independence: redirect existing piece edits to override API for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (!isCreate && qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      setSaving(true);
+      try {
+        const overrideData = {
+          pieceId,
+          ...(data.materialId !== undefined ? { materialId: data.materialId as number | null } : {}),
+          ...(data.thicknessMm !== undefined ? { thicknessMm: data.thicknessMm as number | null } : {}),
+          ...(data.edgeTop !== undefined ? { edgeTop: data.edgeTop as string | null } : {}),
+          ...(data.edgeBottom !== undefined ? { edgeBottom: data.edgeBottom as string | null } : {}),
+          ...(data.edgeLeft !== undefined ? { edgeLeft: data.edgeLeft as string | null } : {}),
+          ...(data.edgeRight !== undefined ? { edgeRight: data.edgeRight as string | null } : {}),
+          ...(data.cutouts !== undefined ? { cutouts: data.cutouts } : {}),
+          ...(data.lengthMm !== undefined ? { lengthMm: data.lengthMm as number | null } : {}),
+          ...(data.widthMm !== undefined ? { widthMm: data.widthMm as number | null } : {}),
+        };
+        await qoRef.setOverrides(qoRef.activeOptionId, [overrideData]);
+        triggerRecalculate();
+        triggerOptimise();
+        markAsChanged();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to save override');
+      } finally {
+        setSaving(false);
+      }
+      return;
     }
 
     setSaving(true);
@@ -1032,20 +1131,37 @@ export default function QuoteDetailClient({
 
       if (scope === 'room') {
         // Find the room of the source piece, then get all piece IDs in that room
-        const sourcePiece = pieces.find(p => p.id === sourcePieceId);
+        const sourcePiece = effectivePieces.find(p => p.id === sourcePieceId);
         if (sourcePiece?.quote_rooms?.id) {
-          targetPieceIds = pieces
+          targetPieceIds = effectivePieces
             .filter(p => p.quote_rooms?.id === sourcePiece.quote_rooms?.id && p.id !== sourcePieceId)
             .map(p => p.id);
         }
       } else {
         // All pieces in quote except the source
-        targetPieceIds = pieces
+        targetPieceIds = effectivePieces
           .filter(p => p.id !== sourcePieceId)
           .map(p => p.id);
       }
 
       if (targetPieceIds.length === 0) return;
+
+      // Option Independence: redirect to overrides for non-base options
+      const qoRef = quoteOptionsRef.current;
+      if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+        const overrideDataArray = targetPieceIds.map(pid => ({
+          pieceId: pid,
+          edgeTop: edges.top,
+          edgeBottom: edges.bottom,
+          edgeLeft: edges.left,
+          edgeRight: edges.right,
+        }));
+        await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+        triggerRecalculate();
+        triggerOptimise();
+        markAsChanged();
+        return;
+      }
 
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
         method: 'PATCH',
@@ -1077,7 +1193,7 @@ export default function QuoteDetailClient({
 
   // Single-edge change from RoomSpatialView (1-click edge editing — Rule 37)
   const handlePieceEdgeChange = useCallback(async (pieceId: string, side: string, profileId: string | null) => {
-    const piece = pieces.find(p => String(p.id) === pieceId);
+    const piece = effectivePieces.find(p => String(p.id) === pieceId);
     if (!piece) return;
 
     const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
@@ -1124,22 +1240,22 @@ export default function QuoteDetailClient({
           updates.push({ pieceId: sourcePieceId, sides: ['top', 'bottom', 'left', 'right'] });
           break;
         case 'room-side':
-          pieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
+          effectivePieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
             updates.push({ pieceId: p.id, sides: [scope.side] });
           });
           break;
         case 'room-all':
-          pieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
+          effectivePieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
             updates.push({ pieceId: p.id, sides: ['top', 'bottom', 'left', 'right'] });
           });
           break;
         case 'quote-side':
-          pieces.forEach(p => {
+          effectivePieces.forEach(p => {
             updates.push({ pieceId: p.id, sides: [scope.side] });
           });
           break;
         case 'quote-all':
-          pieces.forEach(p => {
+          effectivePieces.forEach(p => {
             updates.push({ pieceId: p.id, sides: ['top', 'bottom', 'left', 'right'] });
           });
           break;
@@ -1168,7 +1284,7 @@ export default function QuoteDetailClient({
       // 3. Save to database
       if (scope.type === 'edge') {
         // Single edge — use existing individual save
-        const piece = pieces.find(p => p.id === sourcePieceId);
+        const piece = effectivePieces.find(p => p.id === sourcePieceId);
         if (!piece) return;
         const edgeKey = `edge${sourceSide.charAt(0).toUpperCase()}${sourceSide.slice(1)}` as
           'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
@@ -1197,6 +1313,27 @@ export default function QuoteDetailClient({
       const edges: Record<string, string | null> = {};
       for (const s of allSides) {
         edges[s] = profileId;
+      }
+
+      // Option Independence: batch edge update via overrides for non-base options
+      const qoRef = quoteOptionsRef.current;
+      if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+        const overrideDataArray = updates.map(({ pieceId: pid, sides }) => {
+          const edgeOverrides: { edgeTop?: string | null; edgeBottom?: string | null; edgeLeft?: string | null; edgeRight?: string | null } = {};
+          for (const s of sides) {
+            const key = `edge${s.charAt(0).toUpperCase()}${s.slice(1)}` as keyof typeof edgeOverrides;
+            edgeOverrides[key] = profileId;
+          }
+          return { pieceId: pid, ...edgeOverrides };
+        });
+        await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+        await fetchQuote();
+        triggerRecalculate();
+        triggerOptimise();
+        markAsChanged();
+        const pieceCount = targetPieceIds.length;
+        toast.success(`Updated ${totalEdges} edge${totalEdges > 1 ? 's' : ''} across ${pieceCount} piece${pieceCount > 1 ? 's' : ''}`);
+        return;
       }
 
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
@@ -1696,6 +1833,20 @@ export default function QuoteDetailClient({
     const material = materials.find(m => m.id === materialId);
     if (!material) return;
 
+    // Option Independence: redirect to overrides for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      const overrideDataArray = pieceIds.map(pid => ({
+        pieceId: pid,
+        materialId,
+      }));
+      await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+      toast.success(`Updated material on ${pieceIds.length} piece${pieceIds.length !== 1 ? 's' : ''} (override)`);
+      setSelectedPieceIds(new Set());
+      triggerRecalculate();
+      return;
+    }
+
     // Optimistic local state update (Rule 42: visual feedback within 100ms)
     const prevPieces = pieces;
     setPieces(prev => prev.map(p => {
@@ -1726,6 +1877,21 @@ export default function QuoteDetailClient({
 
   const handleBatchThickness = useCallback(async (thicknessMm: number) => {
     const pieceIds = Array.from(selectedPieceIds).map(Number);
+
+    // Option Independence: redirect to overrides for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      const overrideDataArray = pieceIds.map(pid => ({
+        pieceId: pid,
+        thicknessMm,
+      }));
+      await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+      toast.success(`Thickness updated on ${pieceIds.length} pieces (override)`);
+      setSelectedPieceIds(new Set());
+      triggerRecalculate();
+      return;
+    }
+
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
         method: 'PATCH',
@@ -1745,6 +1911,24 @@ export default function QuoteDetailClient({
 
   const handleBatchEdges = useCallback(async (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => {
     const pieceIds = Array.from(selectedPieceIds).map(Number);
+
+    // Option Independence: redirect to overrides for non-base options
+    const qoRef = quoteOptionsRef.current;
+    if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
+      const overrideDataArray = pieceIds.map(pid => ({
+        pieceId: pid,
+        ...(edges.top !== undefined ? { edgeTop: edges.top } : {}),
+        ...(edges.bottom !== undefined ? { edgeBottom: edges.bottom } : {}),
+        ...(edges.left !== undefined ? { edgeLeft: edges.left } : {}),
+        ...(edges.right !== undefined ? { edgeRight: edges.right } : {}),
+      }));
+      await qoRef.setOverrides(qoRef.activeOptionId, overrideDataArray);
+      toast.success(`Edges updated on ${pieceIds.length} pieces (override)`);
+      setSelectedPieceIds(new Set());
+      triggerRecalculate();
+      return;
+    }
+
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
         method: 'PATCH',
@@ -1865,7 +2049,7 @@ export default function QuoteDetailClient({
   // ── Context menu handlers ──────────────────────────────────────────────────
 
   const handleContextMenu = useCallback((pieceId: string, position: { x: number; y: number }) => {
-    const piece = pieces.find(p => p.id === Number(pieceId));
+    const piece = effectivePieces.find(p => p.id === Number(pieceId));
     setContextMenu({
       isOpen: true,
       pieceId,
@@ -1969,7 +2153,7 @@ export default function QuoteDetailClient({
   // ── Derived state ─────────────────────────────────────────────────────────
 
   const selectedPiece = selectedPieceId
-    ? pieces.find(p => p.id === selectedPieceId) ?? null
+    ? effectivePieces.find(p => p.id === selectedPieceId) ?? null
     : null;
 
   const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
@@ -1985,13 +2169,13 @@ export default function QuoteDetailClient({
 
   // Pieces formatted for RelationshipEditor dropdown
   const allPiecesForRelationships = useMemo(
-    () => pieces.map(p => ({
+    () => effectivePieces.map(p => ({
       id: String(p.id),
       description: p.name || 'Unnamed Piece',
       piece_type: null as string | null,
       room_name: p.quote_rooms?.name ?? null,
     })),
-    [pieces]
+    [effectivePieces]
   );
 
   // View-mode relationships derived from server data (no extra API call needed)
@@ -2744,8 +2928,8 @@ export default function QuoteDetailClient({
           quoteId={quoteIdStr}
           refreshKey={optimisationRefreshKey}
           isOptimising={isOptimising}
-          hasPieces={pieces.length > 0}
-          hasMaterial={pieces.some(p => !!p.materialId || !!p.materialName)}
+          hasPieces={effectivePieces.length > 0}
+          hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
           optimiserError={optimiserError}
           onEdgeAllowanceApplied={triggerOptimise}
         />
@@ -2863,7 +3047,7 @@ export default function QuoteDetailClient({
 
         {/* Room Spatial Views — room-grouped SVG spatial diagrams */}
         {rooms.map(room => {
-          const roomPieces = pieces
+          const roomPieces = effectivePieces
             .filter(p => p.quote_rooms?.id === room.id)
             .map(p => ({
               id: p.id,
@@ -2935,7 +3119,7 @@ export default function QuoteDetailClient({
         })}
 
         {/* Open Full Job View in New Tab */}
-        {pieces.length > 0 && (
+        {effectivePieces.length > 0 && (
           <div className="flex justify-end">
             <a
               href={`/quotes/${quoteId}/job-view`}
@@ -3174,7 +3358,7 @@ export default function QuoteDetailClient({
           {showBulkSwap && (
             <div className="px-4 pt-4">
               <BulkMaterialSwap
-                pieces={pieces.map(p => ({
+                pieces={effectivePieces.map(p => ({
                   id: p.id,
                   name: p.name,
                   lengthMm: p.lengthMm,
@@ -3199,7 +3383,7 @@ export default function QuoteDetailClient({
               /* ── Quick View: compact MiniPieceEditor per piece, grouped by room ── */
               rooms.length > 0 ? (
                 rooms.map(room => {
-                  const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                  const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
                   if (!roomPieces.length) return null;
                   const isCollapsed = collapsedRooms.has(room.id);
                   return (
@@ -3272,9 +3456,9 @@ export default function QuoteDetailClient({
                   );
                 })
               ) : (
-                pieces.length > 0 ? (
+                effectivePieces.length > 0 ? (
                   <div className="divide-y divide-gray-100">
-                    {pieces.map(p => (
+                    {effectivePieces.map(p => (
                       <MiniPieceEditor
                         key={p.id}
                         piece={{
@@ -3319,7 +3503,7 @@ export default function QuoteDetailClient({
               )
             ) : viewMode === 'material' ? (
               <MaterialView
-                pieces={pieces.map(p => ({
+                pieces={effectivePieces.map(p => ({
                   id: p.id,
                   name: p.name,
                   lengthMm: p.lengthMm,
@@ -3339,7 +3523,7 @@ export default function QuoteDetailClient({
               />
             ) : (viewMode === 'list' || viewMode === 'rooms') ? (
               (() => {
-                if (pieces.length === 0 && rooms.length === 0) {
+                if (effectivePieces.length === 0 && rooms.length === 0) {
                   return (
                     <div className="py-8 text-center text-gray-500">
                       <p className="mb-2">No pieces added yet</p>
@@ -3348,11 +3532,11 @@ export default function QuoteDetailClient({
                   );
                 }
                 let globalIndex = 0;
-                const unassignedPieces = pieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
+                const unassignedPieces = effectivePieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
                 return (
                   <>
                     {rooms.map(room => {
-                      const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                      const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
                       const isCollapsed = collapsedRooms.has(room.id);
                       return (
                         <div key={room.id} className="space-y-2">
@@ -3454,7 +3638,7 @@ export default function QuoteDetailClient({
             </h3>
             <MaterialCostSection
               materials={calculation.breakdown.materials}
-              pieceCount={pieces.length}
+              pieceCount={effectivePieces.length}
               mode="edit"
               materialMarginAdjustPercent={
                 Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
@@ -3481,7 +3665,7 @@ export default function QuoteDetailClient({
         {/* Machine Operations Accordion */}
         <MachineOperationsAccordion
           quoteId={quoteIdStr}
-          pieces={pieces.map(p => ({ id: p.id }))}
+          pieces={effectivePieces.map(p => ({ id: p.id }))}
           mode="edit"
         />
 
@@ -3569,12 +3753,12 @@ export default function QuoteDetailClient({
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">Total Pieces:</span>
-              <span className="font-medium">{pieces.length}</span>
+              <span className="font-medium">{effectivePieces.length}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">Total Area:</span>
               <span className="font-medium">
-                {formatAreaFromSqm(pieces.reduce((sum, p) => sum + (p.lengthMm * p.widthMm) / 1_000_000, 0), unitSystem)}
+                {formatAreaFromSqm(effectivePieces.reduce((sum, p) => sum + (p.lengthMm * p.widthMm) / 1_000_000, 0), unitSystem)}
               </span>
             </div>
             <div className="flex justify-between">
