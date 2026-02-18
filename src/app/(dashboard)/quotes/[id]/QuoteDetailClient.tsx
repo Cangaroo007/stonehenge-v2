@@ -321,6 +321,7 @@ export default function QuoteDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('list');
   const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
+  const [collapsedRooms, setCollapsedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
@@ -1101,12 +1102,13 @@ export default function QuoteDetailClient({
 
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
+    const trimmedName = name.trim();
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/rooms`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: name.trim() }),
+        body: JSON.stringify({ name: trimmedName }),
       });
       if (!response.ok) {
         const errorData = await response.json();
@@ -1116,6 +1118,9 @@ export default function QuoteDetailClient({
       setNewRoomName('');
       await fetchQuote();
       markAsChanged();
+      // Auto-trigger add piece flow for the new room
+      setAddingInlinePieceRoom(trimmedName);
+      setAddingInlinePiece(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create room');
     } finally {
@@ -1506,6 +1511,18 @@ export default function QuoteDetailClient({
       setAddingInlinePiece(true);
     }
   }, [rooms]);
+
+  const toggleRoomCollapse = useCallback((roomId: number) => {
+    setCollapsedRooms(prev => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  }, []);
 
   // ── Multi-select handlers ──────────────────────────────────────────────
 
@@ -2429,31 +2446,87 @@ export default function QuoteDetailClient({
                 );
               };
 
-              if (viewMode === 'list') {
-                return allViewPieces.length > 0 ? (
-                  allViewPieces.map((p, idx) => renderViewPieceCard(p, idx + 1))
-                ) : (
-                  <p className="text-center text-gray-500 py-8">No pieces in this quote</p>
+              // Both list and rooms views group pieces by room with collapsible headers
+              if (viewMode === 'list' || viewMode === 'rooms') {
+                if (allViewPieces.length === 0) {
+                  return <p className="text-center text-gray-500 py-8">No pieces in this quote</p>;
+                }
+                let viewGlobalIndex = 0;
+                const viewRooms = serverData.quote_rooms ?? [];
+                const assignedRoomIds = new Set(viewRooms.map(r => r.id));
+                const unassignedViewPieces = allViewPieces.filter(p => !assignedRoomIds.has(p.roomId));
+                return (
+                  <>
+                    {viewRooms.map(room => {
+                      const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
+                      if (roomPieces.length === 0) return null;
+                      const isCollapsed = collapsedRooms.has(room.id);
+                      return (
+                        <div key={room.id} className="space-y-2">
+                          <div
+                            className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={() => toggleRoomCollapse(room.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <svg
+                                className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                              <h3 className="text-sm font-semibold text-gray-800">
+                                {room.name}
+                              </h3>
+                              <span className="text-xs text-gray-500">
+                                ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                              </span>
+                            </div>
+                          </div>
+                          {!isCollapsed && (
+                            <div className="space-y-2">
+                              {roomPieces.map(p => {
+                                viewGlobalIndex++;
+                                return renderViewPieceCard(p, viewGlobalIndex);
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                    {unassignedViewPieces.length > 0 && (
+                      <div className="space-y-2">
+                        <div
+                          className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+                          onClick={() => toggleRoomCollapse(-1)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <h3 className="text-sm font-semibold text-amber-800">
+                              Unassigned
+                            </h3>
+                            <span className="text-xs text-amber-600">
+                              ({unassignedViewPieces.length} piece{unassignedViewPieces.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                        </div>
+                        {!collapsedRooms.has(-1) && (
+                          <div className="space-y-2">
+                            {unassignedViewPieces.map(p => {
+                              viewGlobalIndex++;
+                              return renderViewPieceCard(p, viewGlobalIndex);
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
                 );
               }
-
-              // By Room view
-              let viewGlobalIndex = 0;
-              return (serverData.quote_rooms ?? []).map(room => {
-                const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
-                if (roomPieces.length === 0) return null;
-                return (
-                  <div key={room.id} className="space-y-2">
-                    <h3 className="text-sm font-semibold text-gray-600 px-1">
-                      {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                    </h3>
-                    {roomPieces.map(p => {
-                      viewGlobalIndex++;
-                      return renderViewPieceCard(p, viewGlobalIndex);
-                    })}
-                  </div>
-                );
-              });
             })()}
           </div>
         </div>
@@ -2977,11 +3050,35 @@ export default function QuoteDetailClient({
                 rooms.map(room => {
                   const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
                   if (!roomPieces.length) return null;
+                  const isCollapsed = collapsedRooms.has(room.id);
                   return (
                     <div key={room.id} className="space-y-1">
-                      <h3 className="text-sm font-semibold text-gray-600 px-1">
-                        {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                      </h3>
+                      <div
+                        className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                        onClick={() => toggleRoomCollapse(room.id)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <svg
+                            className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                          >
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          <h3 className="text-sm font-semibold text-gray-800">
+                            {room.name}
+                          </h3>
+                          <span className="text-xs text-gray-500">
+                            ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                          </span>
+                        </div>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); handleAddPiece(room.name); }}
+                          className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
+                        >
+                          + Add Piece
+                        </button>
+                      </div>
+                      {!isCollapsed && (
                       <div className="divide-y divide-gray-100">
                         {roomPieces.map(p => (
                           <MiniPieceEditor
@@ -3019,6 +3116,7 @@ export default function QuoteDetailClient({
                           />
                         ))}
                       </div>
+                      )}
                     </div>
                   );
                 })
@@ -3087,53 +3185,111 @@ export default function QuoteDetailClient({
                 selectedPieceIds={selectedPieceIds}
                 onSelectionChange={setSelectedPieceIds}
               />
-            ) : viewMode === 'list' ? (
-              pieces.length > 0 ? (
-                pieces.map((p, idx) => renderEditPieceCard(p, idx + 1))
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  <p className="mb-2">No pieces added yet</p>
-                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
-                </div>
-              )
-            ) : (
-              rooms.length > 0 ? (
-                (() => {
-                  let globalIndex = 0;
-                  return rooms.map(room => {
-                    const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
-                    return (
-                      <div key={room.id} className="space-y-2">
-                        <h3 className="text-sm font-semibold text-gray-600 px-1">
-                          {room.name} ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
-                        </h3>
-                        {roomPieces.length > 0 ? (
-                          roomPieces.map(p => {
-                            globalIndex++;
-                            return renderEditPieceCard(p, globalIndex);
-                          })
-                        ) : (
-                        <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
-                          No pieces yet. Click &quot;+ Add Piece&quot; below to add one.
-                        </div>
-                      )}
-                      <button
-                        onClick={() => handleAddPiece(room.name)}
-                        className="w-full py-1.5 text-xs font-medium text-gray-500 hover:text-primary-600 hover:bg-primary-50 border border-dashed border-gray-300 hover:border-primary-300 rounded-lg transition-colors"
-                      >
-                        + Add Piece to {room.name}
-                      </button>
+            ) : (viewMode === 'list' || viewMode === 'rooms') ? (
+              (() => {
+                if (pieces.length === 0 && rooms.length === 0) {
+                  return (
+                    <div className="py-8 text-center text-gray-500">
+                      <p className="mb-2">No pieces added yet</p>
+                      <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
                     </div>
                   );
-                  });
-                })()
-              ) : (
-                <div className="py-8 text-center text-gray-500">
-                  <p className="mb-2">No pieces added yet</p>
-                  <p className="text-sm">Click &quot;Add Piece&quot; to start building your quote</p>
-                </div>
-              )
-            )}
+                }
+                let globalIndex = 0;
+                const unassignedPieces = pieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
+                return (
+                  <>
+                    {rooms.map(room => {
+                      const roomPieces = pieces.filter(p => p.quote_rooms?.id === room.id);
+                      const isCollapsed = collapsedRooms.has(room.id);
+                      return (
+                        <div key={room.id} className="space-y-2">
+                          {/* Room header — collapsible */}
+                          <div
+                            className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
+                            onClick={() => toggleRoomCollapse(room.id)}
+                          >
+                            <div className="flex items-center gap-2">
+                              <svg
+                                className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                                fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                              </svg>
+                              <h3 className="text-sm font-semibold text-gray-800">
+                                {room.name}
+                              </h3>
+                              <span className="text-xs text-gray-500">
+                                ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                              </span>
+                            </div>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); handleAddPiece(room.name); }}
+                              className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
+                            >
+                              + Add Piece
+                            </button>
+                          </div>
+                          {/* Room pieces (hidden when collapsed) */}
+                          {!isCollapsed && (
+                            roomPieces.length > 0 ? (
+                              <div className="space-y-2">
+                                {roomPieces.map(p => {
+                                  globalIndex++;
+                                  return renderEditPieceCard(p, globalIndex);
+                                })}
+                              </div>
+                            ) : (
+                              <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
+                                No pieces yet. Click &quot;+ Add Piece&quot; above to add one.
+                              </div>
+                            )
+                          )}
+                        </div>
+                      );
+                    })}
+                    {/* Unassigned pieces */}
+                    {unassignedPieces.length > 0 && (
+                      <div className="space-y-2">
+                        <div
+                          className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
+                          onClick={() => toggleRoomCollapse(-1)}
+                        >
+                          <div className="flex items-center gap-2">
+                            <svg
+                              className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                              fill="none" viewBox="0 0 24 24" stroke="currentColor"
+                            >
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                            </svg>
+                            <h3 className="text-sm font-semibold text-amber-800">
+                              Unassigned
+                            </h3>
+                            <span className="text-xs text-amber-600">
+                              ({unassignedPieces.length} piece{unassignedPieces.length !== 1 ? 's' : ''})
+                            </span>
+                          </div>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); handleAddPiece(); }}
+                            className="text-xs font-medium text-primary-600 hover:text-primary-700 hover:bg-primary-50 px-2 py-1 rounded transition-colors"
+                          >
+                            + Add Piece
+                          </button>
+                        </div>
+                        {!collapsedRooms.has(-1) && (
+                          <div className="space-y-2">
+                            {unassignedPieces.map(p => {
+                              globalIndex++;
+                              return renderEditPieceCard(p, globalIndex);
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                );
+              })()
+            ) : null}
           </div>
 
         </div>

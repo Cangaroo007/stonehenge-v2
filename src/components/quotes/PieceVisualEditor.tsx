@@ -919,6 +919,7 @@ export default function PieceVisualEditor({
             onMouseEnter={() => setHoveredCutout(c.id)}
             onMouseLeave={() => setHoveredCutout(null)}
           >
+            <title>{c.typeName}{c.quantity > 1 ? ` (x${c.quantity})` : ''}</title>
             {c.shape === 'circle' ? (
               <circle cx={c.cx} cy={c.cy} r={c.w / 2} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 2" />
             ) : c.shape === 'oval' ? (

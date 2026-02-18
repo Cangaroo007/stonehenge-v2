@@ -203,7 +203,7 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
           width_mm: defaults.width_mm,
           thickness_mm: 20,
           edges: { ...defaults.edges },
-          cutouts: defaults.suggestedCutouts.map((type) => ({ type, quantity: 1 })),
+          cutouts: [],
         });
       }
 
