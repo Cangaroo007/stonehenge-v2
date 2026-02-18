@@ -9,6 +9,7 @@ import type { InlinePieceData } from './InlinePieceEditor';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import type { EdgeSide } from './PieceVisualEditor';
+import PieceEditorErrorBoundary from './PieceEditorErrorBoundary';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
@@ -335,6 +336,26 @@ function getEdgeSummaryEntries(
 
 // ── Cutout Summary Helper ───────────────────────────────────────────────────
 
+function resolveCutoutTypeName(
+  cutout: Record<string, unknown>,
+  cutoutTypes?: CutoutType[],
+): string {
+  // Try UUID-based lookup first (builder-created cutouts with cutoutTypeId)
+  const typeId = (cutout.cutoutTypeId || cutout.typeId) as string | undefined;
+  if (typeId && cutoutTypes) {
+    const ct = cutoutTypes.find(t => t.id === typeId);
+    if (ct) return ct.name;
+  }
+  // Fallback to string-based name (wizard/template-created cutouts with type or name)
+  const typeName = (cutout.type || cutout.name) as string | undefined;
+  if (typeName && cutoutTypes) {
+    const ct = cutoutTypes.find(t => t.name === typeName);
+    if (ct) return ct.name;
+  }
+  // Last resort: use whatever string we have
+  return typeName || typeId || 'Unknown';
+}
+
 function getCutoutSummaryText(
   fullPiece?: InlinePieceData,
   breakdown?: PiecePricingBreakdown,
@@ -342,9 +363,12 @@ function getCutoutSummaryText(
 ): string {
   // Try from fullPiece first
   if (fullPiece && Array.isArray(fullPiece.cutouts) && fullPiece.cutouts.length > 0) {
-    return fullPiece.cutouts.map((c: PieceCutout) => {
-      const ct = cutoutTypes?.find(t => t.id === c.cutoutTypeId);
-      return `${c.quantity}\u00D7 ${ct?.name || c.cutoutTypeId}`;
+    // Prisma JSON double cast — actual JSON shape may differ from PieceCutout interface (Rule 9)
+    const rawCutouts = fullPiece.cutouts as unknown as Record<string, unknown>[];
+    return rawCutouts.map((c) => {
+      const name = resolveCutoutTypeName(c, cutoutTypes);
+      const qty = (c.quantity as number) ?? 1;
+      return `${qty}\u00D7 ${name}`;
     }).join(', ');
   }
   // Try from breakdown
@@ -507,19 +531,25 @@ function PieceVisualEditorSection({
       .map(e => ({ id: e.edgeTypeId, name: e.edgeTypeName }));
   }, [editData?.edgeTypes, breakdown]);
 
-  // Map cutouts to display format
+  // Map cutouts to display format — handles all JSON shapes:
+  // Builder: { id, cutoutTypeId, quantity }, Wizard: { name, quantity }, Template: { type, quantity }
   const cutoutDisplays = useMemo(() => {
     if (!fullPiece || !Array.isArray(fullPiece.cutouts)) return [];
     const cutoutTypes = editData?.cutoutTypes ?? [];
-    return fullPiece.cutouts.map((c: PieceCutout) => {
-      const ct = cutoutTypes.find((t) => t.id === c.cutoutTypeId);
-      return {
-        id: c.id,
-        typeId: c.cutoutTypeId,
-        typeName: ct?.name ?? c.cutoutTypeId,
-        quantity: c.quantity,
-      };
-    });
+    // Prisma JSON double cast — actual JSON shape may differ from PieceCutout interface (Rule 9)
+    const rawCutouts = fullPiece.cutouts as unknown as Record<string, unknown>[];
+    return rawCutouts
+      .filter((c) => !!c && typeof c === 'object')
+      .map((c, idx) => {
+        const typeName = resolveCutoutTypeName(c, cutoutTypes);
+        const typeId = (c.cutoutTypeId || c.typeId || '') as string;
+        return {
+          id: (c.id as string) || `cutout_${idx}`,
+          typeId,
+          typeName,
+          quantity: (c.quantity as number) ?? 1,
+        };
+      });
   }, [fullPiece, editData?.cutoutTypes]);
 
   // Also build cutout display from breakdown for view mode when fullPiece is not available
@@ -603,13 +633,20 @@ function PieceVisualEditorSection({
     [fullPiece, onSavePiece, piece.id]
   );
 
-  // Cutout remove handler
+  // Cutout remove handler — supports both builder (id-based) and legacy (index-based) cutouts
   const handleCutoutRemove = useCallback(
     (cutoutId: string) => {
       if (!fullPiece || !onSavePiece) return;
-      const updatedCutouts = (fullPiece.cutouts || []).filter(
-        (c: PieceCutout) => c.id !== cutoutId
-      );
+      // Prisma JSON double cast (Rule 9)
+      const raw = (fullPiece.cutouts || []) as unknown as Record<string, unknown>[];
+      // Try by id first; if no match found, try removing by synthetic index id (cutout_N)
+      let updatedCutouts = raw.filter(c => (c.id as string) !== cutoutId);
+      if (updatedCutouts.length === raw.length && cutoutId.startsWith('cutout_')) {
+        const idx = parseInt(cutoutId.replace('cutout_', ''), 10);
+        if (!isNaN(idx) && idx >= 0 && idx < raw.length) {
+          updatedCutouts = raw.filter((_, i) => i !== idx);
+        }
+      }
       onSavePiece(
         piece.id,
         {
@@ -869,16 +906,18 @@ export default function PieceRow({
 
       {/* ── Piece Visual Editor (SVG diagram) ── */}
       {l1Expanded && (
-        <PieceVisualEditorSection
-          piece={piece}
-          fullPiece={fullPiece}
-          editData={editData}
-          breakdown={breakdown}
-          mode={mode}
-          onSavePiece={onSavePiece}
-          onBulkEdgeApply={onBulkEdgeApply}
-          onBatchEdgeUpdate={onBatchEdgeUpdate}
-        />
+        <PieceEditorErrorBoundary pieceName={piece.name}>
+          <PieceVisualEditorSection
+            piece={piece}
+            fullPiece={fullPiece}
+            editData={editData}
+            breakdown={breakdown}
+            mode={mode}
+            onSavePiece={onSavePiece}
+            onBulkEdgeApply={onBulkEdgeApply}
+            onBatchEdgeUpdate={onBatchEdgeUpdate}
+          />
+        </PieceEditorErrorBoundary>
       )}
 
       {/* ── Relationships (edit mode only) ── */}
