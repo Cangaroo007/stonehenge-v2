@@ -65,7 +65,8 @@ export function edgeCode(name: string | null | undefined): string {
 // ── cutoutLabel ──────────────────────────────────────────────────────────────
 
 /** Returns short display name for a cutout type. Pure, stateless. */
-export function cutoutLabel(typeName: string): string {
+export function cutoutLabel(typeName: string | null | undefined): string {
+  if (!typeName) return '?';
   const lower = typeName.toLowerCase();
   if (lower.includes('undermount')) return 'U/M Sink';
   if (lower.includes('drop')) return 'D/I Sink';

@@ -534,8 +534,11 @@ export default function PieceVisualEditor({
     const { x, y, innerW, innerH } = layout;
     const pad = 8;
 
-    return cutouts.map((cutout, idx) => {
-      const lower = cutout.typeName.toLowerCase();
+    // Filter out cutouts with missing/invalid data to prevent crashes
+    const safeCutouts = cutouts.filter(c => c && typeof c === 'object' && c.typeName);
+
+    return safeCutouts.map((cutout, idx) => {
+      const lower = (cutout.typeName || 'unknown').toLowerCase();
       let cw: number;
       let ch: number;
       let shape: 'rect' | 'circle' | 'oval' | 'lines';
@@ -556,7 +559,7 @@ export default function PieceVisualEditor({
         cw = innerW * 0.15; ch = innerH * 0.3; shape = 'rect';
       }
 
-      const totalCutouts = cutouts.length;
+      const totalCutouts = safeCutouts.length;
       const slotW = (innerW - pad * 2) / totalCutouts;
       const cx = x + pad + slotW * idx + slotW / 2;
       const cy = y + innerH / 2;
@@ -940,7 +943,7 @@ export default function PieceVisualEditor({
                 ))}
               </>
             ) : (
-              <rect x={c.cx - c.w / 2} y={c.cy - c.h / 2} width={c.w} height={c.h} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray={c.typeName.toLowerCase().includes('undermount') ? '4 2' : undefined} />
+              <rect x={c.cx - c.w / 2} y={c.cy - c.h / 2} width={c.w} height={c.h} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray={(c.typeName || '').toLowerCase().includes('undermount') ? '4 2' : undefined} />
             )}
 
             <text x={c.cx} y={c.cy} textAnchor="middle" dominantBaseline="middle" className="text-[8px] fill-gray-500 select-none">
