@@ -3549,6 +3549,12 @@ export default function QuoteDetailClient({
                               name: ct.name,
                               baseRate: ct.baseRate,
                             }))}
+                            pieceId={p.id}
+                            roomName={room.name}
+                            roomId={String(room.id)}
+                            onApplyWithScope={(pid, side, profileId, scope) => {
+                              handleBatchEdgeUpdate(profileId, scope, pid, side, room.id);
+                            }}
                           />
                         ))}
                       </div>
@@ -3592,6 +3598,12 @@ export default function QuoteDetailClient({
                           name: ct.name,
                           baseRate: ct.baseRate,
                         }))}
+                        pieceId={p.id}
+                        roomName={p.quote_rooms?.name}
+                        roomId={p.quote_rooms?.id ? String(p.quote_rooms.id) : undefined}
+                        onApplyWithScope={(pid, side, profileId, scope) => {
+                          handleBatchEdgeUpdate(profileId, scope, pid, side, p.quote_rooms?.id ?? 0);
+                        }}
                       />
                     ))}
                   </div>

@@ -16,6 +16,7 @@
 import { useState, useCallback, useRef, useMemo } from 'react';
 import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
+import type { EdgeScope } from './EdgeProfilePopover';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -47,6 +48,16 @@ export interface MiniPieceEditorProps {
   edgeTypes: EdgeTypeOption[];
   cutoutTypes: CutoutTypeOption[];
   readOnly?: boolean;
+  /** Batch edge scope — when provided, EdgeProfilePopover shows scope selector */
+  pieceId?: number;
+  roomName?: string;
+  roomId?: string;
+  onApplyWithScope?: (
+    pieceId: number,
+    side: string,
+    profileId: string | null,
+    scope: EdgeScope,
+  ) => void;
 }
 
 // ── Suggested cutout labels (for quick-add buttons) ─────────────────────────
@@ -63,6 +74,10 @@ export default function MiniPieceEditor({
   edgeTypes,
   cutoutTypes,
   readOnly = false,
+  pieceId,
+  roomName,
+  roomId,
+  onApplyWithScope,
 }: MiniPieceEditorProps) {
   // ── ALL hooks MUST be called before any early returns (React Rule of Hooks) ──
 
@@ -73,6 +88,7 @@ export default function MiniPieceEditor({
     y: number;
   } | null>(null);
   const [showMoreCutouts, setShowMoreCutouts] = useState(false);
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const moreRef = useRef<HTMLDivElement>(null);
 
   // ── SVG layout ────────────────────────────────────────────────────────
@@ -185,6 +201,15 @@ export default function MiniPieceEditor({
     [popover, piece, onChange],
   );
 
+  const handlePopoverApplyWithScope = useCallback(
+    (profileId: string | null, scope: EdgeScope) => {
+      if (!onApplyWithScope || !popover || pieceId == null) return;
+      onApplyWithScope(pieceId, popover.side, profileId, scope);
+      setPopover(null);
+    },
+    [onApplyWithScope, popover, pieceId],
+  );
+
   const handleCutoutAdd = useCallback(
     (cutoutName: string) => {
       if (!piece) return;
@@ -280,9 +305,24 @@ export default function MiniPieceEditor({
             const isFinished = !!edgeId;
             const colour = edgeColour(name);
             const code = edgeCode(name);
+            const isHovered = hoveredEdge === side && !readOnly;
 
             return (
               <g key={side}>
+                {/* Hover glow (behind visible edge) */}
+                {isHovered && (
+                  <line
+                    x1={def.x1}
+                    y1={def.y1}
+                    x2={def.x2}
+                    y2={def.y2}
+                    stroke="#3b82f6"
+                    strokeWidth={8}
+                    strokeOpacity={0.15}
+                    strokeLinecap="round"
+                  />
+                )}
+
                 {/* Visible edge line */}
                 <line
                   x1={def.x1}
@@ -296,7 +336,7 @@ export default function MiniPieceEditor({
                   <title>{name || 'Raw / Unfinished'}</title>
                 </line>
 
-                {/* Hit area for clicking */}
+                {/* Hit area for clicking + hover */}
                 {!readOnly && (
                   <line
                     x1={def.x1}
@@ -307,6 +347,8 @@ export default function MiniPieceEditor({
                     strokeWidth={14}
                     style={{ cursor: 'pointer' }}
                     onClick={(e) => handleEdgeClick(side, e)}
+                    onMouseEnter={() => setHoveredEdge(side)}
+                    onMouseLeave={() => setHoveredEdge(null)}
                   >
                     <title>{name || 'Raw / Unfinished'}</title>
                   </line>
@@ -343,6 +385,10 @@ export default function MiniPieceEditor({
             isMitred={piece.thickness_mm === 40}
             onSelect={handleProfileSelect}
             onClose={() => setPopover(null)}
+            side={onApplyWithScope ? popover.side : undefined}
+            roomName={roomName}
+            roomId={roomId}
+            onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
           />
         )}
       </div>
