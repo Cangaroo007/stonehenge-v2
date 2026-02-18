@@ -12,7 +12,7 @@
  */
 
 import { useState, useMemo } from 'react';
-import { edgeColour, edgeCode } from './PieceVisualEditor';
+import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 

@@ -14,7 +14,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { edgeColour, edgeCode } from './PieceVisualEditor';
+import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -49,21 +49,9 @@ export interface MiniPieceEditorProps {
   readOnly?: boolean;
 }
 
-// ── Suggested cutout codes (for quick-add buttons) ──────────────────────────
+// ── Suggested cutout labels (for quick-add buttons) ─────────────────────────
 
-const SUGGESTED_CUTOUT_CODES = ['UMS', 'TH', 'HP', 'GPO'];
-
-function cutoutShortCode(name: string): string {
-  const lower = name.toLowerCase();
-  if (lower.includes('undermount')) return 'UMS';
-  if (lower.includes('tap')) return 'TH';
-  if (lower.includes('hotplate') || lower.includes('cooktop')) return 'HP';
-  if (lower.includes('gpo') || lower.includes('powerpoint')) return 'GPO';
-  if (lower.includes('drop')) return 'DIS';
-  if (lower.includes('basin')) return 'BSN';
-  if (lower.includes('drainer') || lower.includes('groove')) return 'DG';
-  return name.substring(0, 3).toUpperCase();
-}
+const SUGGESTED_CUTOUT_LABELS = ['U/M Sink', 'TH', 'HP', 'GPO'];
 
 type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
 
@@ -148,9 +136,9 @@ export default function MiniPieceEditor({
 
   const suggestedCutouts = useMemo(() => {
     if (!cutoutTypes?.length) return [];
-    return SUGGESTED_CUTOUT_CODES
+    return SUGGESTED_CUTOUT_LABELS
       .map((code) => {
-        const match = cutoutTypes.find((ct) => cutoutShortCode(ct.name) === code);
+        const match = cutoutTypes.find((ct) => cutoutLabel(ct.name) === code);
         return match ? { ...match, code } : null;
       })
       .filter((x): x is CutoutTypeOption & { code: string } => x !== null);
@@ -413,7 +401,7 @@ export default function MiniPieceEditor({
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded"
                 title={c.type}
               >
-                {cutoutShortCode(c.type)} x{c.quantity}
+                {cutoutLabel(c.type)} x{c.quantity}
                 {!readOnly && (
                   <button
                     onClick={() => handleCutoutRemove(c.type)}

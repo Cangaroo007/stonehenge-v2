@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
+import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
 
@@ -97,45 +98,6 @@ const SVG_PADDING = 80;
 const MAX_HEIGHT = 300;
 const EDGE_HIT_WIDTH = 24;
 const ALL_SIDES: EdgeSide[] = ['top', 'bottom', 'left', 'right'];
-
-/** Colour by edge profile name */
-export function edgeColour(name: string | undefined): string {
-  if (!name) return '#d1d5db';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return '#2563eb';
-  if (lower.includes('bullnose')) return '#16a34a';
-  if (lower.includes('ogee')) return '#9333ea';
-  if (lower.includes('mitr')) return '#ea580c';
-  if (lower.includes('bevel')) return '#0d9488';
-  return '#6b7280';
-}
-
-/** Short code for an edge profile */
-export function edgeCode(name: string | undefined): string {
-  if (!name) return 'RAW';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return 'PR';
-  if (lower.includes('bullnose')) return 'BN';
-  if (lower.includes('ogee')) return 'OG';
-  if (lower.includes('mitr')) return 'M';
-  if (lower.includes('bevel')) return 'BV';
-  if (lower.includes('polish')) return 'P';
-  return name.substring(0, 3).toUpperCase();
-}
-
-/** Short label for cutout type */
-function cutoutLabel(typeName: string): string {
-  const lower = typeName.toLowerCase();
-  if (lower.includes('undermount')) return 'U/M Sink';
-  if (lower.includes('drop')) return 'D/I Sink';
-  if (lower.includes('hotplate') || lower.includes('cooktop')) return 'HP';
-  if (lower.includes('tap')) return 'TH';
-  if (lower.includes('gpo')) return 'GPO';
-  if (lower.includes('basin')) return 'B';
-  if (lower.includes('drainer') || lower.includes('groove')) return 'DG';
-  if (lower.includes('flush')) return 'FC';
-  return typeName.substring(0, 4);
-}
 
 /** Map of edge profile short codes to full display names (fallback when DB name unavailable) */
 export const EDGE_PROFILE_NAMES: Record<string, string> = {
