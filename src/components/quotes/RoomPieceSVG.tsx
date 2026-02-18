@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { edgeColour } from '@/lib/utils/edge-utils';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -31,20 +32,6 @@ interface RoomPieceSVGProps {
   onContextMenu?: (pieceId: string, e: React.MouseEvent) => void;
   onMouseEnter?: (pieceId: string) => void;
   onMouseLeave?: () => void;
-}
-
-// ─── Edge Colour (matches MiniSpatialDiagram / PieceVisualEditor) ────────────
-
-function edgeColour(name: string | null | undefined): string {
-  if (!name) return '#d1d5db';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return '#2563eb';
-  if (lower.includes('bullnose')) return '#16a34a';
-  if (lower.includes('ogee')) return '#9333ea';
-  if (lower.includes('mitr')) return '#ea580c';
-  if (lower.includes('bevel')) return '#0d9488';
-  if (lower.includes('raw')) return '#9ca3af';
-  return '#6b7280';
 }
 
 function isRawEdge(name: string | null | undefined): boolean {

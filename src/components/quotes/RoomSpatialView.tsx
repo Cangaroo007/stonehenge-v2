@@ -8,6 +8,7 @@ import type { RelationshipSuggestion } from '@/lib/types/piece-relationship';
 import { RELATIONSHIP_DISPLAY, JOIN_POSITIONS } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
+import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import RoomPieceSVG from './RoomPieceSVG';
 import RelationshipConnector from './RelationshipConnector';
 import RelationshipSuggestions from './RelationshipSuggestions';
@@ -142,32 +143,6 @@ function countCutouts(piece: QuotePiece): number {
   if (!piece.piece_features) return 0;
   // Count features that look like cutouts
   return piece.piece_features.reduce((sum, f) => sum + f.quantity, 0);
-}
-
-/** Short code for an edge profile */
-function edgeCode(name: string | null | undefined): string {
-  if (!name) return 'RAW';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return 'PR';
-  if (lower.includes('bullnose')) return 'BN';
-  if (lower.includes('ogee')) return 'OG';
-  if (lower.includes('mitr')) return 'M';
-  if (lower.includes('bevel')) return 'BV';
-  if (lower.includes('polish')) return 'P';
-  return name.substring(0, 3).toUpperCase();
-}
-
-/** Edge colour by profile name */
-function edgeColour(name: string | null | undefined): string {
-  if (!name) return '#d1d5db';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return '#2563eb';
-  if (lower.includes('bullnose')) return '#16a34a';
-  if (lower.includes('ogee')) return '#9333ea';
-  if (lower.includes('mitr')) return '#ea580c';
-  if (lower.includes('bevel')) return '#0d9488';
-  if (lower.includes('raw')) return '#9ca3af';
-  return '#6b7280';
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────

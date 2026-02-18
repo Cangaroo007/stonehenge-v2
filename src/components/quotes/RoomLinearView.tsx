@@ -6,6 +6,7 @@
  * designed for clean A4 landscape printing.
  */
 
+import { cutoutLabel } from '@/lib/utils/edge-utils';
 import { calculateLinearLayout } from '@/lib/services/linear-layout-engine';
 import type { LinearPiecePosition } from '@/lib/services/linear-layout-engine';
 
@@ -84,19 +85,6 @@ const RELATIONSHIP_LABELS: Record<string, string> = {
   BUTT_JOIN: 'Butt Join',
 };
 
-// ─── Cutout abbreviations ────────────────────────────────────────────────────
-
-function abbreviateCutout(name: string): string {
-  const lower = name.toLowerCase();
-  if (lower.includes('undermount') || lower.includes('ums')) return 'UMS';
-  if (lower.includes('top mount') || lower.includes('tms')) return 'TMS';
-  if (lower.includes('tap hole') || lower.includes('taphole')) return 'TH';
-  if (lower.includes('cooktop') || lower.includes('cook top')) return 'CT';
-  if (lower.includes('powerpoint') || lower.includes('power point')) return 'PP';
-  if (lower.includes('soap')) return 'SD';
-  if (lower.includes('drain')) return 'DG';
-  return name.slice(0, 3).toUpperCase();
-}
 
 // ─── Piece type inference ────────────────────────────────────────────────────
 
@@ -281,7 +269,7 @@ export default function RoomLinearView({
           // Cutout summary
           const cutouts = piece.piece_features ?? [];
           const cutoutSummary = cutouts
-            .map(f => `${f.quantity}× ${abbreviateCutout(f.name)}`)
+            .map(f => `${f.quantity}× ${cutoutLabel(f.name)}`)
             .join(', ');
 
           return (

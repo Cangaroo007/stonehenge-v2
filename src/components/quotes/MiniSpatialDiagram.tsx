@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import { edgeColour } from '@/lib/utils/edge-utils';
 import type { PieceGroup, GroupedPiece } from '@/lib/types/piece-groups';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -36,19 +37,6 @@ const FILL_COLOURS: Record<string, string> = {
   BUTT_JOIN: '#f0f4f8',
   LAMINATION: '#f0f4f8',
 };
-
-// Edge profile colours (matches PieceVisualEditor)
-function edgeColour(name: string | null | undefined): string {
-  if (!name) return '#d1d5db';
-  const lower = name.toLowerCase();
-  if (lower.includes('pencil')) return '#2563eb';
-  if (lower.includes('bullnose')) return '#16a34a';
-  if (lower.includes('ogee')) return '#9333ea';
-  if (lower.includes('mitr')) return '#ea580c';
-  if (lower.includes('bevel')) return '#0d9488';
-  if (lower.includes('raw')) return '#9ca3af';
-  return '#6b7280';
-}
 
 function isRawEdge(name: string | null | undefined): boolean {
   if (!name) return true;
