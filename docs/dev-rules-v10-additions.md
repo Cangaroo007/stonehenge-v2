@@ -1,4 +1,10 @@
-# Dev Rules v10 Additions — Post-Incident 18 Feb 2026
+# Stone Henge — Dev Rulebook v10 Additions
+
+> **Date:** February 18, 2026
+> **Status:** ACTIVE — created from incident post-mortem
+> **Incident:** Complete quote system crash caused by missing migration + Prisma in browser
+
+---
 
 ## Incident Summary
 
@@ -17,6 +23,10 @@ Before any PR that adds Prisma queries for a new model:
 5. After merge, check Railway logs — migration count must increase
 
 If the migration doesn't exist, the PR MUST NOT be merged. No exceptions.
+
+> **Incident (Feb 18):** PR #124 added PieceRelationship model to schema.prisma but never
+> ran `npx prisma migrate dev`. Code was built on top of this across multiple PRs.
+> The table never existed in production, crashing every quote page for ~4 hours.
 
 ## Rule 47: New Table Deployment Checklist
 
@@ -56,4 +66,38 @@ NEVER use `import { X } from '@prisma/client'` (value import) in any file marked
 - `import type { X } from '@prisma/client'` (erased at compile time)
 - String literals instead of Prisma enums in client code
 
-Prisma requires Node.js APIs and crashes the browser if bundled into client JS.
+Prisma requires Node.js APIs (`fs`, `path`) and crashes the browser if bundled into client JS.
+
+> **Incident (Feb 18):** `QuoteViewTracker.tsx` used `import { UserRole } from '@prisma/client'`
+> in a `'use client'` component. `piece-relationship.ts` used a value import of `RelationshipType`.
+> Both pulled ~20kB of Prisma server code into the browser, crashing at runtime.
+
+## Enforcement
+
+Add to verification checks:
+
+```bash
+# Rule 46: Check for schema changes without migrations
+SCHEMA_CHANGED=$(git diff --name-only HEAD~1..HEAD | grep 'schema.prisma' | wc -l)
+MIGRATION_ADDED=$(git diff --name-only HEAD~1..HEAD | grep 'prisma/migrations/' | wc -l)
+if [ "$SCHEMA_CHANGED" -gt 0 ] && [ "$MIGRATION_ADDED" -eq 0 ]; then
+  echo "❌ RULE 46: schema.prisma changed but no migration added"
+  exit 1
+fi
+
+# Rule 50: Check for Prisma value imports in client code
+grep -rn "from '@prisma/client'" src/ --include='*.tsx' --include='*.ts' | grep -v 'import type' | grep -v '\.server\.' && {
+  echo "❌ RULE 50: Value import of @prisma/client found — use 'import type' or string literals"
+  exit 1
+} || echo "✅ No Prisma value imports in client code"
+```
+
+---
+
+## Updated Incident Log
+
+| Date | Incident | Rules Created | Root Cause |
+|------|----------|---------------|------------|
+| Feb 18 | Complete quote system crash — 4 hours | 46-50 | Missing migration (PR #124) + Prisma in browser |
+| Feb 18 | Wizard Step 4 crash — React #310 | 45 | Hooks inside conditional step rendering |
+| Feb 16-18 | Old edge UI survived 5 deletion attempts | 44 | No permanent ban list |

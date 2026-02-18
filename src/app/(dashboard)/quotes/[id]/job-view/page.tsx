@@ -28,6 +28,8 @@ export default async function FullJobViewPage({
             orderBy: { sort_order: 'asc' },
             include: {
               materials: true,
+              sourceRelationships: true,
+              targetRelationships: true,
             },
           },
         },

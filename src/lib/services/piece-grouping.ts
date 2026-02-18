@@ -47,14 +47,12 @@ export function groupPiecesForJobView(
   const explicitTargets = new Map<number, { sourcePieceId: number; relationType: string; side: string | null }>();
 
   for (const piece of pieces) {
-    if (piece.sourceRelationships) {
-      for (const rel of piece.sourceRelationships) {
-        explicitTargets.set(rel.targetPieceId, {
-          sourcePieceId: rel.sourcePieceId,
-          relationType: rel.relationType,
-          side: rel.side,
-        });
-      }
+    for (const rel of piece.sourceRelationships ?? []) {
+      explicitTargets.set(rel.targetPieceId, {
+        sourcePieceId: rel.sourcePieceId,
+        relationType: rel.relationType,
+        side: rel.side,
+      });
     }
   }
 
