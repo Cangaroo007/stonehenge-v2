@@ -3,6 +3,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SlabResults } from '@/components/slab-optimizer';
 import { OptimizationResult } from '@/types/slab-optimization';
+import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo } from '@/types/slab-optimization';
+import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { SlabEdgeAllowancePrompt } from './SlabEdgeAllowancePrompt';
 
 interface OptimizationDisplayProps {
@@ -34,6 +36,7 @@ export function OptimizationDisplay({
 }: OptimizationDisplayProps) {
   const [optimization, setOptimization] = useState<any>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   // Edge allowance state
@@ -97,7 +100,25 @@ export function OptimizationDisplay({
               ? []
               : rawPlacements.warnings || [];
 
-            // Reconstruct result for SlabResults component
+            // Check for multi-material metadata
+            const multiMaterialMeta = !Array.isArray(rawPlacements)
+              ? rawPlacements.multiMaterial
+              : null;
+
+            if (multiMaterialMeta && multiMaterialMeta.materialGroups?.length > 1) {
+              // Reconstruct multi-material result from saved metadata
+              const reconstructedMulti = reconstructMultiMaterialResult(
+                multiMaterialMeta,
+                placementsArray,
+                optimizerWarnings,
+                data
+              );
+              setMultiMaterialResult(reconstructedMulti);
+            } else {
+              setMultiMaterialResult(null);
+            }
+
+            // Reconstruct result for SlabResults component (backward compat)
             const reconstructedResult: OptimizationResult = {
               placements: placementsArray,
               slabs: [],
@@ -148,14 +169,17 @@ export function OptimizationDisplay({
           } else {
             setOptimization(null);
             setResult(null);
+            setMultiMaterialResult(null);
           }
         } else {
           setOptimization(null);
           setResult(null);
+          setMultiMaterialResult(null);
         }
       } catch (err) {
         setOptimization(null);
         setResult(null);
+        setMultiMaterialResult(null);
       } finally {
         setIsLoading(false);
       }
@@ -359,14 +383,143 @@ export function OptimizationDisplay({
         </div>
       </div>
 
-      {/* Detailed slab visualisation (always expanded) */}
+      {/* Detailed slab visualisation */}
       <div className={`p-4 border-t border-gray-200 ${isOptimising ? 'opacity-60' : ''}`}>
-        <SlabResults
-          result={result}
-          slabWidth={optimization.slabWidth}
-          slabHeight={optimization.slabHeight}
-        />
+        {multiMaterialResult && multiMaterialResult.materialGroups.length > 1 ? (
+          <MultiMaterialOptimisationDisplay
+            multiMaterialResult={multiMaterialResult}
+            isOptimising={isOptimising}
+          />
+        ) : (
+          <SlabResults
+            result={result}
+            slabWidth={optimization.slabWidth}
+            slabHeight={optimization.slabHeight}
+          />
+        )}
       </div>
     </div>
   );
+}
+
+/**
+ * Reconstruct a MultiMaterialOptimisationResult from saved DB metadata.
+ * The DB stores per-group summary info + all placements in a flat array.
+ * We re-group placements by materialId (via pieceIds stored in each group).
+ */
+function reconstructMultiMaterialResult(
+  multiMaterialMeta: any,
+  allPlacements: any[],
+  warnings: string[],
+  dbRecord: any
+): MultiMaterialOptimisationResult {
+  const groups: MaterialGroupResult[] = multiMaterialMeta.materialGroups.map((gMeta: any) => {
+    const pieceIdSet = new Set<string>(gMeta.pieceIds || []);
+
+    // Filter placements belonging to this material group
+    // Include placements whose pieceId is in the group's piece list,
+    // and also lamination strips whose parentPieceId is in the group
+    const groupPlacements = allPlacements.filter((p: any) => {
+      if (pieceIdSet.has(p.pieceId)) return true;
+      // Check for segments (pieceId is "originalId-seg-N")
+      const basePieceId = p.pieceId?.split('-seg-')[0]?.split('-lam-')[0];
+      if (basePieceId && pieceIdSet.has(basePieceId)) return true;
+      // Check parentPieceId for lamination strips
+      if (p.parentPieceId && pieceIdSet.has(p.parentPieceId)) return true;
+      return false;
+    });
+
+    // Group by slabIndex within this material
+    const slabMap = new Map<number, any[]>();
+    groupPlacements.forEach((p: any) => {
+      const si = p.slabIndex;
+      if (!slabMap.has(si)) slabMap.set(si, []);
+      slabMap.get(si)!.push(p);
+    });
+
+    const slabLayouts = Array.from(slabMap.entries())
+      .sort(([a], [b]) => a - b)
+      .map(([slabIndex, placements], idx) => {
+        const slabArea = gMeta.slabDimensions.length * gMeta.slabDimensions.width;
+        const usedArea = placements.reduce((s: number, p: any) => s + (p.width * p.height), 0);
+        const wasteArea = slabArea - usedArea;
+        return {
+          slabIndex: idx, // Re-index within this group
+          width: gMeta.slabDimensions.length,
+          height: gMeta.slabDimensions.width,
+          placements: placements.map((p: any) => ({ ...p, slabIndex: idx })),
+          usedArea,
+          wasteArea,
+          wastePercent: slabArea > 0 ? (wasteArea / slabArea) * 100 : 0,
+        };
+      });
+
+    const totalUsedArea = groupPlacements.reduce(
+      (s: number, p: any) => s + (p.width * p.height),
+      0
+    );
+
+    return {
+      materialId: gMeta.materialId,
+      materialName: gMeta.materialName,
+      slabDimensions: gMeta.slabDimensions,
+      pieces: (gMeta.pieceIds || []).map((pid: string) => ({
+        pieceId: pid,
+        label: groupPlacements.find((p: any) => p.pieceId === pid)?.label ?? pid,
+        dimensions: {
+          length: groupPlacements.find((p: any) => p.pieceId === pid)?.width ?? 0,
+          width: groupPlacements.find((p: any) => p.pieceId === pid)?.height ?? 0,
+        },
+      })),
+      slabCount: gMeta.slabCount,
+      wastePercentage: gMeta.wastePercentage,
+      slabLayouts,
+      oversizePieces: (gMeta.oversizePieces || []) as OversizePieceInfo[],
+      optimizationResult: {
+        placements: groupPlacements,
+        slabs: slabLayouts,
+        totalSlabs: gMeta.slabCount,
+        totalUsedArea,
+        totalWasteArea: gMeta.slabCount * gMeta.slabDimensions.length * gMeta.slabDimensions.width - totalUsedArea,
+        wastePercent: gMeta.wastePercentage,
+        unplacedPieces: [],
+        laminationSummary: reconstructGroupLaminationSummary(groupPlacements),
+      },
+    } as MaterialGroupResult;
+  });
+
+  return {
+    materialGroups: groups,
+    totalSlabCount: multiMaterialMeta.totalSlabCount,
+    overallWastePercentage: multiMaterialMeta.overallWastePercentage,
+    warnings: warnings.length > 0 ? warnings : undefined,
+  };
+}
+
+/**
+ * Reconstruct a LaminationSummary from saved placements for a single material group.
+ */
+function reconstructGroupLaminationSummary(placements: any[]) {
+  const strips = placements.filter((p: any) => p.isLaminationStrip === true);
+  if (strips.length === 0) return undefined;
+
+  const parentIds = Array.from(new Set(strips.map((s: any) => s.parentPieceId).filter(Boolean)));
+
+  return {
+    totalStrips: strips.length,
+    totalStripArea: strips.reduce((sum: number, s: any) => sum + (s.width * s.height) / 1_000_000, 0),
+    stripsByParent: parentIds.map((parentId: string) => {
+      const parentStrips = strips.filter((s: any) => s.parentPieceId === parentId);
+      const parent = placements.find((p: any) => p.pieceId === parentId);
+      return {
+        parentPieceId: parentId,
+        parentLabel: parent?.label ?? 'Unknown',
+        strips: parentStrips.map((s: any) => ({
+          position: s.stripPosition || 'unknown',
+          lengthMm: s.stripPosition === 'left' || s.stripPosition === 'right' ? s.height : s.width,
+          widthMm: s.stripPosition === 'left' || s.stripPosition === 'right' ? s.width : s.height,
+        })),
+      };
+    }),
+  };
 }

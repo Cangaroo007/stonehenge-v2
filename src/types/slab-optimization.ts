@@ -104,5 +104,39 @@ export interface OptimizationInput {
   edgeAllowanceMm?: number;
 }
 
+// ── Multi-Material Optimisation Types ─────────────────────────────────────
+
+export interface MultiMaterialOptimisationResult {
+  materialGroups: MaterialGroupResult[];
+  totalSlabCount: number;
+  overallWastePercentage: number;
+  warnings?: string[];
+}
+
+export interface MaterialGroupResult {
+  materialId: string;
+  materialName: string;
+  slabDimensions: { length: number; width: number };
+  pieces: Array<{
+    pieceId: string;
+    label: string;
+    dimensions: { length: number; width: number };
+  }>;
+  slabCount: number;
+  wastePercentage: number;
+  slabLayouts: SlabResult[];
+  oversizePieces: OversizePieceInfo[];
+  /** Full OptimizationResult from the per-group FFD run */
+  optimizationResult: OptimizationResult;
+}
+
+export interface OversizePieceInfo {
+  pieceId: string;
+  label: string;
+  joinStrategy: 'LENGTHWISE' | 'WIDTHWISE' | 'MULTI_JOIN';
+  segments: Array<{ length: number; width: number }>;
+  suggestedJoinPosition_mm: number;
+}
+
 // Re-export for convenience
 export type { Placement as SlabPlacement };

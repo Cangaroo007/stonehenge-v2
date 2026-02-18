@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
+import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
+import type { MultiMaterialPiece, MaterialInfo } from '@/lib/services/multi-material-optimizer';
 import { logger } from '@/lib/logger';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 
@@ -177,20 +179,24 @@ export async function POST(
       }
     }
 
-    // Extract pieces from quote with thickness, finished edges, and resolved edge type names
+    // Extract pieces from quote with thickness, finished edges, material, and resolved edge type names
+    type QuotePieceRow = {
+      id: number;
+      length_mm: number;
+      width_mm: number;
+      thickness_mm: number;
+      name: string;
+      material_id: number | null;
+      edge_top: string | null;
+      edge_bottom: string | null;
+      edge_left: string | null;
+      edge_right: string | null;
+      materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
+    };
+
     const pieces = quote.quote_rooms.flatMap((room: {
       name: string;
-      quote_pieces: Array<{
-        id: number;
-        length_mm: number;
-        width_mm: number;
-        thickness_mm: number;
-        name: string;
-        edge_top: string | null;
-        edge_bottom: string | null;
-        edge_left: string | null;
-        edge_right: string | null;
-      }>
+      quote_pieces: QuotePieceRow[];
     }) =>
       room.quote_pieces.map((piece) => ({
         id: piece.id.toString(),
@@ -210,6 +216,7 @@ export async function POST(
           left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
           right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
         },
+        materialId: piece.material_id?.toString() ?? null,
       }))
     );
 
@@ -220,6 +227,151 @@ export async function POST(
       );
     }
 
+    // ── Detect distinct materials to decide single vs multi-material path ──
+    const distinctMaterialIds = new Set(
+      pieces.map((p: { materialId: string | null }) => p.materialId).filter(Boolean)
+    );
+    const isMultiMaterial = distinctMaterialIds.size > 1;
+
+    // Collect unique material records from the pieces
+    const materialRecords = new Map<string, QuotePieceRow['materials']>();
+    for (const room of quote.quote_rooms) {
+      for (const piece of room.quote_pieces as QuotePieceRow[]) {
+        if (piece.materials && piece.material_id) {
+          materialRecords.set(piece.material_id.toString(), piece.materials);
+        }
+      }
+    }
+
+    if (isMultiMaterial) {
+      // ── Multi-material optimisation path ──────────────────────────────
+      logger.info(
+        `[Optimize API] Multi-material mode: ${distinctMaterialIds.size} materials detected for quote ${quoteId}`
+      );
+
+      const materialsInfo: MaterialInfo[] = Array.from(materialRecords.entries()).map(
+        ([id, mat]) => ({
+          id,
+          name: mat?.name ?? `Material ${id}`,
+          slabLengthMm: mat?.slab_length_mm,
+          slabWidthMm: mat?.slab_width_mm,
+          fabricationCategory: mat?.fabrication_category,
+        })
+      );
+
+      const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; materialId: string | null }) => ({
+          id: p.id,
+          width: p.width,
+          height: p.height,
+          label: p.label,
+          thickness: p.thickness,
+          finishedEdges: p.finishedEdges,
+          edgeTypeNames: p.edgeTypeNames,
+          materialId: p.materialId,
+        })
+      );
+
+      const primaryMaterialId = primaryMaterial
+        ? Array.from(materialRecords.entries()).find(([, mat]) => mat?.name === primaryMaterial.name)?.[0] ?? null
+        : null;
+
+      const multiResult = optimizeMultiMaterial({
+        pieces: multiMaterialPieces,
+        materials: materialsInfo,
+        primaryMaterialId,
+        kerfWidth,
+        allowRotation,
+        edgeAllowanceMm,
+      });
+
+      // Build a combined single-material-compatible result for backward-compat DB storage
+      const allPlacements = multiResult.materialGroups.flatMap((g) =>
+        g.optimizationResult.placements
+      );
+      const allUnplaced = multiResult.materialGroups.flatMap((g) =>
+        g.optimizationResult.unplacedPieces
+      );
+      const allWarnings = multiResult.warnings ?? [];
+
+      logger.info(
+        `[Optimize API] Multi-material complete: ${multiResult.totalSlabCount} total slabs, ${multiResult.overallWastePercentage.toFixed(2)}% waste`
+      );
+
+      // Save to database
+      const optimization = await prisma.slab_optimizations.create({
+        data: {
+          id: crypto.randomUUID(),
+          quoteId,
+          slabWidth,
+          slabHeight,
+          kerfWidth,
+          totalSlabs: multiResult.totalSlabCount,
+          totalWaste: multiResult.materialGroups.reduce(
+            (sum, g) => sum + g.optimizationResult.totalWasteArea,
+            0
+          ),
+          wastePercent: multiResult.overallWastePercentage,
+          placements: {
+            items: allPlacements,
+            unplacedPieces: allUnplaced,
+            warnings: allWarnings,
+            inputPieceCount: pieces.length,
+            edgeAllowanceMm,
+            // Multi-material metadata stored alongside
+            multiMaterial: {
+              materialGroups: multiResult.materialGroups.map((g) => ({
+                materialId: g.materialId,
+                materialName: g.materialName,
+                slabDimensions: g.slabDimensions,
+                slabCount: g.slabCount,
+                wastePercentage: g.wastePercentage,
+                oversizePieces: g.oversizePieces,
+                pieceIds: g.pieces.map((p) => p.pieceId),
+              })),
+              totalSlabCount: multiResult.totalSlabCount,
+              overallWastePercentage: multiResult.overallWastePercentage,
+            },
+          } as object,
+          laminationSummary: multiResult.materialGroups.reduce((acc, g) => {
+            const ls = g.optimizationResult.laminationSummary;
+            if (!ls) return acc;
+            return {
+              totalStrips: (acc?.totalStrips ?? 0) + ls.totalStrips,
+              totalStripArea: (acc?.totalStripArea ?? 0) + ls.totalStripArea,
+              stripsByParent: [...(acc?.stripsByParent ?? []), ...ls.stripsByParent],
+            };
+          }, null as any) as object || null,
+          updatedAt: new Date(),
+        } as any,
+      });
+
+      logger.info('[Optimize API] Saved multi-material optimization', optimization.id);
+
+      return NextResponse.json({
+        optimization,
+        result: {
+          placements: allPlacements,
+          slabs: multiResult.materialGroups.flatMap((g) => g.slabLayouts),
+          totalSlabs: multiResult.totalSlabCount,
+          totalUsedArea: multiResult.materialGroups.reduce(
+            (sum, g) => sum + g.optimizationResult.totalUsedArea,
+            0
+          ),
+          totalWasteArea: multiResult.materialGroups.reduce(
+            (sum, g) => sum + g.optimizationResult.totalWasteArea,
+            0
+          ),
+          wastePercent: multiResult.overallWastePercentage,
+          unplacedPieces: allUnplaced,
+          warnings: allWarnings.length > 0 ? allWarnings : undefined,
+        },
+        multiMaterialResult: multiResult,
+        operationKerfs,
+      });
+    }
+
+    // ── Single-material optimisation path (existing, backward compatible) ──
     // Run optimization
     const result = optimizeSlabs({
       pieces,

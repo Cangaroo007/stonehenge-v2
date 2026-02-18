@@ -51,7 +51,6 @@ export default function RoomTypePicker({
   customerId,
 }: RoomTypePickerProps) {
   const router = useRouter();
-  const [multiMode, setMultiMode] = useState(false);
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isCreating, setIsCreating] = useState(false);
 
@@ -59,38 +58,21 @@ export default function RoomTypePicker({
   const selectedPresets = Array.from(selectedIndices).map((i) => ROOM_PRESETS[i]);
   const totalPieces = countPresetPieces(selectedPresets);
 
-  // Toggle a card selection
+  // Toggle a card selection (always multi-select)
   const handleCardClick = useCallback(
     (index: number) => {
-      if (multiMode) {
-        setSelectedIndices((prev) => {
-          const next = new Set(prev);
-          if (next.has(index)) {
-            next.delete(index);
-          } else {
-            next.add(index);
-          }
-          return next;
-        });
-      } else {
-        // Single-select: immediately create quote with this preset
-        setSelectedIndices(new Set([index]));
-        createQuoteFromPresets([ROOM_PRESETS[index]]);
-      }
+      setSelectedIndices((prev) => {
+        const next = new Set(prev);
+        if (next.has(index)) {
+          next.delete(index);
+        } else {
+          next.add(index);
+        }
+        return next;
+      });
     },
-    [multiMode], // eslint-disable-line react-hooks/exhaustive-deps
+    [],
   );
-
-  // Toggle multi-room mode
-  const handleMultiToggle = useCallback(() => {
-    setMultiMode((prev) => {
-      if (prev) {
-        // Turning off multi-mode — clear selections
-        setSelectedIndices(new Set());
-      }
-      return !prev;
-    });
-  }, []);
 
   // Create quote from selected presets
   const createQuoteFromPresets = useCallback(
@@ -132,8 +114,8 @@ export default function RoomTypePicker({
     [isCreating, customerId, router],
   );
 
-  // Handle "Create Quote" button in multi-mode
-  const handleMultiCreate = useCallback(() => {
+  // Handle "Create Quote" button
+  const handleCreate = useCallback(() => {
     if (selectedPresets.length === 0) return;
     createQuoteFromPresets(selectedPresets);
   }, [selectedPresets, createQuoteFromPresets]);
@@ -150,9 +132,9 @@ export default function RoomTypePicker({
 
       {/* Header */}
       <div className="mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Choose a Room Type</h2>
+        <h2 className="text-xl font-bold text-gray-900">Choose Room Types</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Pick a starting point with pre-populated pieces, or start from scratch.
+          Select one or more rooms with pre-populated pieces, or start from scratch.
         </p>
       </div>
 
@@ -174,18 +156,16 @@ export default function RoomTypePicker({
                   : 'hover:border-amber-300 hover:shadow-md'
               } ${isCreating ? 'opacity-60 cursor-not-allowed' : ''}`}
             >
-              {/* Multi-mode checkbox indicator */}
-              {multiMode && (
-                <div
-                  className={`absolute top-3 right-3 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                    isSelected
-                      ? 'border-amber-500 bg-amber-500'
-                      : 'border-gray-300 bg-white'
-                  }`}
-                >
-                  {isSelected && <Check className="h-3 w-3 text-white" />}
-                </div>
-              )}
+              {/* Checkbox indicator (always visible) */}
+              <div
+                className={`absolute top-3 right-3 w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
+                  isSelected
+                    ? 'border-amber-500 bg-amber-500'
+                    : 'border-gray-300 bg-white'
+                }`}
+              >
+                {isSelected && <Check className="h-3 w-3 text-white" />}
+              </div>
 
               {/* Icon */}
               <div className="mb-3">
@@ -217,10 +197,57 @@ export default function RoomTypePicker({
         })}
       </div>
 
-      {/* Bottom actions */}
-      <div className="border-t border-gray-200 pt-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-4">
-          {/* Start from scratch link */}
+      {/* Bottom bar — always visible */}
+      <div className="border-t border-gray-200 pt-4 space-y-3">
+        <div className="flex items-center justify-between">
+          <span className="text-sm text-gray-600">
+            {selectedIndices.size > 0 ? (
+              <>
+                {selectedIndices.size} {selectedIndices.size === 1 ? 'room' : 'rooms'} selected
+                {' \u2014 '}
+                {totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'}
+              </>
+            ) : (
+              'Select one or more rooms to get started'
+            )}
+          </span>
+          <button
+            type="button"
+            onClick={handleCreate}
+            disabled={selectedIndices.size === 0 || isCreating}
+            className="px-6 py-2.5 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
+          >
+            {isCreating ? (
+              <>
+                <svg
+                  className="animate-spin h-4 w-4 text-white"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                >
+                  <circle
+                    className="opacity-25"
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeWidth="4"
+                  />
+                  <path
+                    className="opacity-75"
+                    fill="currentColor"
+                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
+                  />
+                </svg>
+                Creating...
+              </>
+            ) : (
+              'Create Quote \u2192'
+            )}
+          </button>
+        </div>
+
+        {/* Start from scratch link — below the bottom bar */}
+        <div>
           <button
             type="button"
             onClick={onStartFromScratch}
@@ -229,67 +256,7 @@ export default function RoomTypePicker({
           >
             Start from scratch
           </button>
-
-          {/* Multi-room toggle */}
-          <button
-            type="button"
-            onClick={handleMultiToggle}
-            disabled={isCreating}
-            className={`text-sm font-medium transition-colors disabled:opacity-50 ${
-              multiMode
-                ? 'text-amber-600 hover:text-amber-700'
-                : 'text-gray-500 hover:text-gray-700'
-            }`}
-          >
-            {multiMode ? 'Single room' : 'Add multiple rooms'}
-          </button>
         </div>
-
-        {/* Multi-mode summary + create button */}
-        {multiMode && (
-          <div className="flex items-center gap-3">
-            {selectedIndices.size > 0 && (
-              <span className="text-sm text-gray-600">
-                {selectedIndices.size} {selectedIndices.size === 1 ? 'room' : 'rooms'} selected
-                {' \u2014 '}
-                {totalPieces} {totalPieces === 1 ? 'piece' : 'pieces'}
-              </span>
-            )}
-            <button
-              type="button"
-              onClick={handleMultiCreate}
-              disabled={selectedIndices.size === 0 || isCreating}
-              className="px-6 py-2.5 rounded-lg bg-amber-500 text-white font-medium text-sm hover:bg-amber-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center gap-2"
-            >
-              {isCreating ? (
-                <>
-                  <svg
-                    className="animate-spin h-4 w-4 text-white"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    />
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    />
-                  </svg>
-                  Creating...
-                </>
-              ) : (
-                'Create Quote \u2192'
-              )}
-            </button>
-          </div>
-        )}
       </div>
     </div>
   );
