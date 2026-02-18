@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
-import { edgeColour } from '@/lib/utils/edge-utils';
+import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -319,6 +319,74 @@ export default function RoomPieceSVG({
               >
                 <title>{edgeProfileDisplayName(rightEdge)}</title>
               </line>
+            </>
+          )}
+
+          {/* Edge profile code labels (only when piece is large enough) */}
+          {w >= 40 && h >= 40 && (
+            <>
+              {/* Top edge label */}
+              {!isRawEdge(topEdge) && (
+                <text
+                  x={x + w / 2}
+                  y={y - 6}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={600}
+                  fill={edgeColour(topEdge)}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <title>{edgeProfileDisplayName(topEdge)}</title>
+                  {edgeCode(topEdge)}
+                </text>
+              )}
+              {/* Bottom edge label */}
+              {!isRawEdge(bottomEdge) && (
+                <text
+                  x={x + w / 2}
+                  y={y + h + 14}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={600}
+                  fill={edgeColour(bottomEdge)}
+                  style={{ pointerEvents: 'none' }}
+                >
+                  <title>{edgeProfileDisplayName(bottomEdge)}</title>
+                  {edgeCode(bottomEdge)}
+                </text>
+              )}
+              {/* Left edge label */}
+              {!isRawEdge(leftEdge) && (
+                <text
+                  x={x - 6}
+                  y={y + h / 2}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={600}
+                  fill={edgeColour(leftEdge)}
+                  style={{ pointerEvents: 'none' }}
+                  transform={`rotate(-90, ${x - 6}, ${y + h / 2})`}
+                >
+                  <title>{edgeProfileDisplayName(leftEdge)}</title>
+                  {edgeCode(leftEdge)}
+                </text>
+              )}
+              {/* Right edge label */}
+              {!isRawEdge(rightEdge) && (
+                <text
+                  x={x + w + 6}
+                  y={y + h / 2}
+                  textAnchor="middle"
+                  fontSize={9}
+                  fontWeight={600}
+                  fill={edgeColour(rightEdge)}
+                  style={{ pointerEvents: 'none' }}
+                  transform={`rotate(90, ${x + w + 6}, ${y + h / 2})`}
+                >
+                  <title>{edgeProfileDisplayName(rightEdge)}</title>
+                  {edgeCode(rightEdge)}
+                </text>
+              )}
             </>
           )}
         </>

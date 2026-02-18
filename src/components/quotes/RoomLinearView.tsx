@@ -6,7 +6,7 @@
  * designed for clean A4 landscape printing.
  */
 
-import { cutoutLabel } from '@/lib/utils/edge-utils';
+import { cutoutLabel, edgeColour } from '@/lib/utils/edge-utils';
 import { calculateLinearLayout } from '@/lib/services/linear-layout-engine';
 import type { LinearPiecePosition } from '@/lib/services/linear-layout-engine';
 
@@ -286,14 +286,38 @@ export default function RoomLinearView({
                 {pieceName.length > 20 ? pieceName.slice(0, 18) + '…' : pieceName}
               </text>
 
-              {/* Piece rectangle */}
+              {/* Piece rectangle (fill only) */}
               <rect
                 x={pos.x}
                 y={pos.y + yOffset}
                 width={pos.width}
                 height={pos.height}
                 fill="white"
-                stroke="#111827"
+                stroke="none"
+              />
+              {/* Individual edge lines with profile colours */}
+              <line
+                x1={pos.x} y1={pos.y + yOffset}
+                x2={pos.x + pos.width} y2={pos.y + yOffset}
+                stroke={edgeColour(piece.edge_top)}
+                strokeWidth={2}
+              />
+              <line
+                x1={pos.x} y1={pos.y + yOffset + pos.height}
+                x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height}
+                stroke={edgeColour(piece.edge_bottom)}
+                strokeWidth={2}
+              />
+              <line
+                x1={pos.x} y1={pos.y + yOffset}
+                x2={pos.x} y2={pos.y + yOffset + pos.height}
+                stroke={edgeColour(piece.edge_left)}
+                strokeWidth={2}
+              />
+              <line
+                x1={pos.x + pos.width} y1={pos.y + yOffset}
+                x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height}
+                stroke={edgeColour(piece.edge_right)}
                 strokeWidth={2}
               />
 
