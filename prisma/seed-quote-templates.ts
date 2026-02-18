@@ -1,0 +1,92 @@
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const NORTHCOAST_TEMPLATE_ID = 'northcoast-default-quote-template';
+
+const TERMS_AND_CONDITIONS = `1. A 50% deposit is required upon acceptance of this quotation.
+2. Balance payment is due upon completion of installation.
+3. Estimated lead time is 2–3 weeks from deposit and template/measure.
+4. Colours and patterns in natural and engineered stone may vary from samples displayed. Variation in veining, colour, and pattern is inherent to the product and is not considered a defect.
+5. This quotation is based on measurements provided or estimated. Final pricing may vary following on-site template/measure.
+6. Any additional works or variations requested after acceptance will be quoted separately.
+7. Northcoast Stone Pty Ltd is not responsible for plumbing, electrical, or carpentry works unless explicitly included.
+8. All materials remain the property of Northcoast Stone Pty Ltd until full payment is received.`;
+
+export async function seedQuoteTemplates() {
+  // Verify company exists
+  const company = await prisma.companies.findUnique({ where: { id: 1 } });
+  if (!company) {
+    console.warn('Company id=1 not found — skipping quote template seeding');
+    return;
+  }
+
+  // Upsert by known ID for idempotency
+  await prisma.quote_templates.upsert({
+    where: { id: NORTHCOAST_TEMPLATE_ID },
+    create: {
+      id: NORTHCOAST_TEMPLATE_ID,
+      company_id: 1,
+      name: 'Northcoast Stone — Default',
+      is_default: true,
+
+      // Header
+      company_name: 'Northcoast Stone Pty Ltd',
+      company_abn: null,
+      company_phone: null,
+      company_email: null,
+      company_address: null,
+      logo_url: null,
+
+      // Display settings — Northcoast shows room totals, hides internal breakdown
+      show_piece_breakdown: true,
+      show_edge_details: true,
+      show_cutout_details: true,
+      show_material_per_piece: false,
+      show_room_totals: true,
+      show_itemised_breakdown: false,
+      show_slab_count: false,
+      show_piece_descriptions: true,
+
+      // Pricing — room total mode, GST at 10%
+      pricing_mode: 'room_total',
+      show_gst: true,
+      gst_label: 'GST (10%)',
+      currency_symbol: '$',
+
+      // Footer
+      terms_and_conditions: TERMS_AND_CONDITIONS,
+      validity_days: 30,
+      footer_text: null,
+    },
+    update: {
+      name: 'Northcoast Stone — Default',
+      is_default: true,
+      company_name: 'Northcoast Stone Pty Ltd',
+      show_room_totals: true,
+      show_itemised_breakdown: false,
+      pricing_mode: 'room_total',
+      show_gst: true,
+      gst_label: 'GST (10%)',
+      currency_symbol: '$',
+      terms_and_conditions: TERMS_AND_CONDITIONS,
+      validity_days: 30,
+    },
+  });
+
+  console.log('✅ Quote templates: 1 row (Northcoast default)');
+}
+
+async function main() {
+  await seedQuoteTemplates();
+}
+
+if (require.main === module) {
+  main()
+    .then(() => prisma.$disconnect())
+    .catch((e) => {
+      console.error(e);
+      prisma.$disconnect();
+      process.exit(1);
+    });
+}
