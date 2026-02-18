@@ -20,9 +20,11 @@ export async function POST(request: NextRequest) {
 
     const { searchParams } = new URL(request.url);
     const customerIdParam = searchParams.get('customerId');
+    const contactIdParam = searchParams.get('contactId');
     const projectNameParam = searchParams.get('projectName');
 
     const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
+    const contactId = contactIdParam ? parseInt(contactIdParam, 10) : null;
 
     const lastQuote = await prisma.quotes.findFirst({
       orderBy: { quote_number: 'desc' },
@@ -34,6 +36,7 @@ export async function POST(request: NextRequest) {
       data: {
         quote_number: quoteNumber,
         customer_id: customerId && !isNaN(customerId) ? customerId : null,
+        contact_id: contactId && !isNaN(contactId) ? contactId : null,
         project_name: projectNameParam || null,
         status: 'draft',
         subtotal: 0,

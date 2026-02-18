@@ -100,7 +100,7 @@ async function generateQuoteNumber(): Promise<string> {
 export async function applyTemplateToQuote(
   request: ApplyTemplateRequest
 ): Promise<ApplyTemplateResult> {
-  const { templateId, materialAssignments, quoteId, customerId, projectName } = request;
+  const { templateId, materialAssignments, quoteId, customerId, contactId, projectName } = request;
 
   // 1. Load template
   const template = await prisma.starter_templates.findUnique({
@@ -161,6 +161,7 @@ export async function applyTemplateToQuote(
         data: {
           quote_number: quoteNumber,
           customer_id: customerId!,
+          contact_id: contactId || null,
           project_name: projectName || template.name,
           status: 'draft',
           subtotal: 0,

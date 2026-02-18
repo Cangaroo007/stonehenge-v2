@@ -11,6 +11,19 @@ async function getQuote(id: number) {
     where: { id },
     include: {
       customers: true,
+      contact: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+          phone: true,
+          mobile: true,
+          role: true,
+          role_title: true,
+          is_primary: true,
+        },
+      },
       quote_rooms: {
         orderBy: { sort_order: 'asc' },
         include: {
@@ -78,6 +91,19 @@ export default async function QuoteDetailPage({
           id: quote.customers.id,
           name: quote.customers.name,
           company: quote.customers.company,
+        }
+      : null,
+    contact: quote.contact
+      ? {
+          id: quote.contact.id,
+          first_name: quote.contact.first_name,
+          last_name: quote.contact.last_name,
+          email: quote.contact.email,
+          phone: quote.contact.phone,
+          mobile: quote.contact.mobile,
+          role: quote.contact.role,
+          role_title: quote.contact.role_title,
+          is_primary: quote.contact.is_primary,
         }
       : null,
     quote_rooms: quote.quote_rooms.map((room) => ({

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from 'react';
 import StreamlinedAnalysisView from './StreamlinedAnalysisView';
+import ContactPicker from './ContactPicker';
 
 interface Customer {
   id: number;
@@ -30,6 +31,7 @@ export default function DrawingUploadStep({
   const [error, setError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(preSelectedCustomerId);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [projectName, setProjectName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   // State for streamlined results view
@@ -107,6 +109,7 @@ export default function DrawingUploadStep({
       // Step 1: Create a draft quote to attach the drawing to
       const params = new URLSearchParams();
       if (selectedCustomerId) params.set('customerId', String(selectedCustomerId));
+      if (selectedContactId) params.set('contactId', String(selectedContactId));
       if (projectName) params.set('projectName', projectName);
       const draftRes = await fetch(`/api/quotes/create-draft?${params}`, { method: 'POST' });
       if (!draftRes.ok) throw new Error('Failed to create draft quote');
@@ -263,7 +266,11 @@ export default function DrawingUploadStep({
               </label>
               <select
                 value={selectedCustomerId || ''}
-                onChange={(e) => setSelectedCustomerId(e.target.value ? Number(e.target.value) : undefined)}
+                onChange={(e) => {
+                  const newId = e.target.value ? Number(e.target.value) : undefined;
+                  setSelectedCustomerId(newId);
+                  setSelectedContactId(null);
+                }}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-amber-500 focus:border-amber-500"
               >
                 <option value="">Select customer...</option>
@@ -283,6 +290,15 @@ export default function DrawingUploadStep({
               />
             </div>
           </div>
+          {selectedCustomerId && (
+            <div className="mt-4">
+              <ContactPicker
+                customerId={selectedCustomerId}
+                selectedContactId={selectedContactId}
+                onContactChange={setSelectedContactId}
+              />
+            </div>
+          )}
         </div>
 
         {/* Actions */}

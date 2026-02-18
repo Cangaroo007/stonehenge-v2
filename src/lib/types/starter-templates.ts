@@ -99,6 +99,7 @@ export interface ApplyTemplateRequest {
   materialAssignments: Record<MaterialRole, number>;  // role -> materialId
   quoteId?: number;       // Apply to existing quote (adds pieces), or omit to create new
   customerId?: number;    // Required if creating new quote
+  contactId?: number;     // Optional contact for new quote
   projectName?: string;   // Optional for new quote
 }
 

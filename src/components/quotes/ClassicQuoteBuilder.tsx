@@ -14,6 +14,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import ContactPicker from './ContactPicker';
 
 interface Customer {
   id: number;
@@ -31,6 +32,7 @@ export default function ClassicQuoteBuilder({ customerId: preSelectedCustomerId 
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(preSelectedCustomerId);
   const [projectName, setProjectName] = useState('');
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -61,6 +63,7 @@ export default function ClassicQuoteBuilder({ customerId: preSelectedCustomerId 
     try {
       const params = new URLSearchParams();
       if (selectedCustomerId) params.set('customerId', String(selectedCustomerId));
+      if (selectedContactId) params.set('contactId', String(selectedContactId));
       if (projectName) params.set('projectName', projectName);
       const url = `/api/quotes/create-draft${params.toString() ? `?${params}` : ''}`;
       const res = await fetch(url, { method: 'POST' });
@@ -102,7 +105,11 @@ export default function ClassicQuoteBuilder({ customerId: preSelectedCustomerId 
             </label>
             <select
               value={selectedCustomerId || ''}
-              onChange={(e) => setSelectedCustomerId(e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => {
+                const newId = e.target.value ? Number(e.target.value) : undefined;
+                setSelectedCustomerId(newId);
+                setSelectedContactId(null);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-amber-500 focus:border-amber-500"
             >
               <option value="">Select customer...</option>
@@ -122,6 +129,15 @@ export default function ClassicQuoteBuilder({ customerId: preSelectedCustomerId 
             />
           </div>
         </div>
+        {selectedCustomerId && (
+          <div className="mt-4">
+            <ContactPicker
+              customerId={selectedCustomerId}
+              selectedContactId={selectedContactId}
+              onContactChange={setSelectedContactId}
+            />
+          </div>
+        )}
       </div>
 
       <div className="flex justify-end gap-3">

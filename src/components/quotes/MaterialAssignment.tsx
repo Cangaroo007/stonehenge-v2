@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import ContactPicker from './ContactPicker';
 
 interface TemplateSummary {
   id: string;
@@ -51,6 +52,7 @@ export default function MaterialAssignment({
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [assignments, setAssignments] = useState<Record<string, number>>({});
   const [selectedCustomerId, setSelectedCustomerId] = useState<number | undefined>(preSelectedCustomerId);
+  const [selectedContactId, setSelectedContactId] = useState<number | null>(null);
   const [projectName, setProjectName] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isApplying, setIsApplying] = useState(false);
@@ -126,6 +128,7 @@ export default function MaterialAssignment({
         body: JSON.stringify({
           materialAssignments: assignments,
           customerId: selectedCustomerId || undefined,
+          contactId: selectedContactId || undefined,
           projectName: projectName || undefined,
         }),
       });
@@ -245,7 +248,11 @@ export default function MaterialAssignment({
             <label className="block text-sm text-gray-600 mb-1">Customer</label>
             <select
               value={selectedCustomerId || ''}
-              onChange={(e) => setSelectedCustomerId(e.target.value ? Number(e.target.value) : undefined)}
+              onChange={(e) => {
+                const newId = e.target.value ? Number(e.target.value) : undefined;
+                setSelectedCustomerId(newId);
+                setSelectedContactId(null);
+              }}
               className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-amber-500 focus:border-amber-500"
             >
               <option value="">Select customer...</option>
@@ -265,6 +272,15 @@ export default function MaterialAssignment({
             />
           </div>
         </div>
+        {selectedCustomerId && (
+          <div className="mt-4">
+            <ContactPicker
+              customerId={selectedCustomerId}
+              selectedContactId={selectedContactId}
+              onContactChange={setSelectedContactId}
+            />
+          </div>
+        )}
       </div>
 
       {/* Actions */}
