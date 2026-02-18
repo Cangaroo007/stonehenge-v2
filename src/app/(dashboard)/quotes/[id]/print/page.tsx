@@ -19,8 +19,6 @@ async function getQuote(id: number) {
             include: {
               piece_features: true,
               materials: true,
-              sourceRelationships: true,
-              targetRelationships: true,
             },
           },
         },
@@ -59,14 +57,14 @@ export default async function QuotePrintPage({
 
   for (const room of quote.quote_rooms) {
     for (const piece of room.quote_pieces) {
-      for (const sr of piece.sourceRelationships) {
+      for (const sr of (piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relationship_type?: string; relation_type?: string; side: string | null }> }).sourceRelationships ?? []) {
         if (!seen.has(sr.id)) {
           seen.add(sr.id);
           allRelationships.push({
             id: String(sr.id),
             parentPieceId: String(sr.source_piece_id),
             childPieceId: String(sr.target_piece_id),
-            relationshipType: sr.relationship_type || sr.relation_type,
+            relationshipType: sr.relationship_type || sr.relation_type || '',
             joinPosition: sr.side,
           });
         }

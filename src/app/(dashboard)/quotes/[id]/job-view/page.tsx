@@ -28,8 +28,6 @@ export default async function FullJobViewPage({
             orderBy: { sort_order: 'asc' },
             include: {
               materials: true,
-              sourceRelationships: true,
-              targetRelationships: true,
             },
           },
         },
@@ -65,14 +63,14 @@ export default async function FullJobViewPage({
       laminationMethod: piece.lamination_method,
       waterfallHeightMm: piece.waterfall_height_mm,
       sortOrder: piece.sort_order,
-      sourceRelationships: piece.sourceRelationships.map((rel) => ({
+      sourceRelationships: ((piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relation_type: string; side: string | null }> }).sourceRelationships ?? []).map((rel) => ({
         id: rel.id,
         sourcePieceId: rel.source_piece_id,
         targetPieceId: rel.target_piece_id,
         relationType: rel.relation_type,
         side: rel.side,
       })),
-      targetRelationships: piece.targetRelationships.map((rel) => ({
+      targetRelationships: ((piece as { targetRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relation_type: string; side: string | null }> }).targetRelationships ?? []).map((rel) => ({
         id: rel.id,
         sourcePieceId: rel.source_piece_id,
         targetPieceId: rel.target_piece_id,
