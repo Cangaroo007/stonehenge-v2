@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { OptimizationResult } from '@/types/slab-optimization';
+import type { MultiMaterialOptimisationResult } from '@/types/slab-optimization';
 import { SlabResults } from '@/components/slab-optimizer';
+import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { generateCutListCSV, downloadCSV } from '@/lib/services/cut-list-generator';
 import { logger } from '@/lib/logger';
 
@@ -40,6 +42,7 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
 
   // Results
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
@@ -200,6 +203,7 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
       const data = await response.json();
 
       setResult(data.result);
+      setMultiMaterialResult(data.multiMaterialResult ?? null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Optimisation failed');
     } finally {
@@ -520,11 +524,17 @@ export function OptimizeModal({ quoteId, onClose, onSaved, defaultKerfWidth = 8 
 
                 {result && (
                   <div className="space-y-4">
-                    <SlabResults 
-                      result={result}
-                      slabWidth={parseInt(slabWidth) || 3000}
-                      slabHeight={parseInt(slabHeight) || 1400}
-                    />
+                    {multiMaterialResult && multiMaterialResult.materialGroups.length > 1 ? (
+                      <MultiMaterialOptimisationDisplay
+                        multiMaterialResult={multiMaterialResult}
+                      />
+                    ) : (
+                      <SlabResults
+                        result={result}
+                        slabWidth={parseInt(slabWidth) || 3000}
+                        slabHeight={parseInt(slabHeight) || 1400}
+                      />
+                    )}
 
                     <div className="flex gap-2">
                       <button
