@@ -77,6 +77,7 @@ model companies {
   default_unit_system String?   @default("METRIC")
   user                user[]
   suppliers           suppliers[]
+  quoteTemplates      quote_templates[]
 }
 
 model customers {
@@ -1324,6 +1325,49 @@ model unit_block_files {
   createdAt DateTime @default(now())
 
   @@map("unit_block_files")
+}
+
+model quote_templates {
+  id              String   @id @default(uuid())
+  company_id      Int
+  name            String
+  is_default      Boolean  @default(false)
+
+  // Header
+  company_name    String?
+  company_abn     String?
+  company_phone   String?
+  company_email   String?
+  company_address String?
+  logo_url        String?
+
+  // Display settings
+  show_piece_breakdown    Boolean @default(true)
+  show_edge_details       Boolean @default(true)
+  show_cutout_details     Boolean @default(true)
+  show_material_per_piece Boolean @default(false)
+  show_room_totals        Boolean @default(true)
+  show_itemised_breakdown Boolean @default(false)
+  show_slab_count         Boolean @default(false)
+  show_piece_descriptions Boolean @default(true)
+
+  // Pricing display
+  pricing_mode    String   @default("room_total")
+  show_gst        Boolean  @default(true)
+  gst_label       String   @default("GST (10%)")
+  currency_symbol String   @default("$")
+
+  // Footer
+  terms_and_conditions  String?   @db.Text
+  validity_days         Int       @default(30)
+  footer_text           String?
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  company       companies  @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
 }
 
 model piece_relationships {
