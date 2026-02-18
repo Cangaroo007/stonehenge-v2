@@ -748,7 +748,7 @@ export default function PieceVisualEditor({
       {/* ── SVG Diagram ────────────────────────────────────────────────── */}
       <svg
         viewBox={`0 0 ${layout.svgW} ${layout.svgH}`}
-        className={`w-full max-w-lg ${editMode === 'paint' && isEditMode ? 'cursor-crosshair' : ''}`}
+        className="w-full max-w-lg"
         style={{ maxHeight: MAX_HEIGHT }}
         preserveAspectRatio="xMidYMid meet"
         onClick={handleSvgClick}
@@ -830,6 +830,20 @@ export default function PieceVisualEditor({
                 />
               )}
 
+              {/* Hover highlight glow (edit mode only) */}
+              {isHovered && isEditMode && (
+                <line
+                  x1={def.x1}
+                  y1={def.y1}
+                  x2={def.x2}
+                  y2={def.y2}
+                  stroke="#3b82f6"
+                  strokeWidth={10}
+                  opacity={0.15}
+                  className="pointer-events-none transition-opacity duration-100"
+                />
+              )}
+
               {/* Visible edge line */}
               <line
                 x1={def.x1}
@@ -839,7 +853,7 @@ export default function PieceVisualEditor({
                 stroke={isFlashing ? '#22c55e' : colour}
                 strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
                 strokeDasharray={isFinished ? undefined : '4 3'}
-                opacity={isHovered && isEditMode ? 0.7 : 1}
+                opacity={1}
                 className={isFlashing ? 'edge-flash' : undefined}
               />
 
@@ -852,7 +866,7 @@ export default function PieceVisualEditor({
                   y2={def.y2}
                   stroke="transparent"
                   strokeWidth={EDGE_HIT_WIDTH}
-                  style={{ cursor: editMode === 'paint' ? 'crosshair' : 'pointer' }}
+                  style={{ cursor: 'pointer' }}
                   onClick={(e) => handleEdgeClick(side, e)}
                   onMouseEnter={() => setHoveredEdge(side)}
                   onMouseLeave={() => setHoveredEdge(null)}

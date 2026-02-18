@@ -9,7 +9,7 @@
  * This component creates a lightweight SVG that matches PieceVisualEditor's
  * visual language while importing its shared colour/code helpers.
  *
- * Rule 33: The mini SVG IS the edge editor. No checkboxes, no dropdowns,
+ * Rule 33: The mini SVG IS the only edge editor. No legacy selectors,
  * no separate panels. Click an edge label → popover → done.
  */
 
