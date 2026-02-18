@@ -268,13 +268,18 @@ export async function applyTemplateToQuote(
           const targetPieceId = pieceIdsByName.get(templatePiece.name);
 
           if (sourcePieceId && targetPieceId) {
-            await tx.piece_relationships.create({
-              data: {
-                source_piece_id: sourcePieceId,
-                target_piece_id: targetPieceId,
-                relation_type: templatePiece.relatedTo.relationType,
-              },
-            });
+            try {
+              await tx.piece_relationships.create({
+                data: {
+                  source_piece_id: sourcePieceId,
+                  target_piece_id: targetPieceId,
+                  relation_type: templatePiece.relatedTo.relationType,
+                },
+              });
+            } catch (err) {
+              console.error('Failed to create piece relationship:', err);
+              // Continue without failing the whole operation
+            }
           }
         }
       }

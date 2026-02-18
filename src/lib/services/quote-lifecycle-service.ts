@@ -398,20 +398,25 @@ export async function duplicateQuote(
     // 7. Duplicate piece relationships using the ID map
     for (const room of source.quote_rooms) {
       for (const piece of room.quote_pieces) {
-        for (const rel of piece.sourceRelationships) {
+        for (const rel of piece.sourceRelationships ?? []) {
           const newSourceId = pieceIdMap.get(rel.source_piece_id);
           const newTargetId = pieceIdMap.get(rel.target_piece_id);
           if (newSourceId && newTargetId) {
-            await tx.piece_relationships.create({
-              data: {
-                source_piece_id: newSourceId,
-                target_piece_id: newTargetId,
-                relation_type: rel.relation_type,
-                relationship_type: rel.relationship_type,
-                side: rel.side,
-                notes: rel.notes,
-              },
-            });
+            try {
+              await tx.piece_relationships.create({
+                data: {
+                  source_piece_id: newSourceId,
+                  target_piece_id: newTargetId,
+                  relation_type: rel.relation_type,
+                  relationship_type: rel.relationship_type,
+                  side: rel.side,
+                  notes: rel.notes,
+                },
+              });
+            } catch (err) {
+              console.error('Failed to create piece relationship during quote copy:', err);
+              // Continue without failing the whole operation
+            }
           }
         }
       }

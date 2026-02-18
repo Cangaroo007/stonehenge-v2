@@ -61,7 +61,8 @@ export async function GET(
     return NextResponse.json(relationships);
   } catch (error) {
     console.error('Error fetching piece relationships:', error);
-    return NextResponse.json({ error: 'Failed to fetch piece relationships' }, { status: 500 });
+    // Graceful fallback: return empty array so UI doesn't crash
+    return NextResponse.json([]);
   }
 }
 

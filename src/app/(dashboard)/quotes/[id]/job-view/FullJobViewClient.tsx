@@ -250,8 +250,8 @@ export default function FullJobViewClient({ data }: { data: FullJobViewData }) {
         lamination_method: p.laminationMethod,
         waterfall_height_mm: p.waterfallHeightMm,
         sort_order: p.sortOrder,
-        sourceRelationships: p.sourceRelationships,
-        targetRelationships: p.targetRelationships,
+        sourceRelationships: p.sourceRelationships ?? [],
+        targetRelationships: p.targetRelationships ?? [],
       })),
     [data.pieces]
   );
