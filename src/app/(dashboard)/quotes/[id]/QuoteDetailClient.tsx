@@ -33,6 +33,7 @@ import type { RelationshipType } from '@prisma/client';
 // MiniPieceEditor available for future re-enablement (12.J1: quick view toggle removed)
 // import MiniPieceEditor from '@/components/quotes/MiniPieceEditor';
 import PieceRow from '@/components/quotes/PieceRow';
+import QuickViewPieceRow from '@/components/quotes/QuickViewPieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
@@ -2735,7 +2736,7 @@ export default function QuoteDetailClient({
               const renderViewPieceCard = (piece: typeof allViewPieces[0], pieceNumber: number) => {
                 const pb = viewBreakdownMap.get(piece.id);
                 return (
-                  <PieceRow
+                  <QuickViewPieceRow
                     key={piece.id}
                     pieceNumber={pieceNumber}
                     piece={{
@@ -3095,7 +3096,7 @@ export default function QuoteDetailClient({
       const isNonBaseOption = quoteOptions.activeOption && !quoteOptions.activeOption.isBase;
       return (
         <div key={p.id}>
-          <PieceRow
+          <QuickViewPieceRow
             pieceNumber={pieceNumber}
             piece={{
               id: p.id,
