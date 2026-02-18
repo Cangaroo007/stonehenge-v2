@@ -11,6 +11,8 @@ import {
 import { validateWizardData, type ValidationError } from '@/lib/services/quote-validation';
 import MiniPieceEditor from './MiniPieceEditor';
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
+import RoomNameAutocomplete from './RoomNameAutocomplete';
+import type { PresetPieceConfig } from '@/lib/services/room-preset-service';
 
 /* ─── Types ─── */
 
@@ -183,6 +185,30 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
       updated[index] = { ...updated[index], name };
       return updated;
     });
+  }, []);
+
+  /** When a preset is selected from autocomplete, prefill the room's pieces */
+  const handlePresetSelect = useCallback((roomIndex: number, presetPieces: PresetPieceConfig[]) => {
+    if (presetPieces.length === 0) return;
+    setRooms((prev) => {
+      if (!prev.length || !prev[roomIndex]) return prev;
+      const updated = [...prev];
+      const pieces: WizardPiece[] = presetPieces.map((p) => ({
+        name: p.name,
+        length_mm: p.length_mm,
+        width_mm: p.width_mm,
+        thickness_mm: p.thickness_mm,
+        edges: { ...p.edges },
+        cutouts: p.cutouts.map((c) => ({ type: c.type, quantity: c.quantity })),
+      }));
+      updated[roomIndex] = {
+        ...updated[roomIndex],
+        pieceCount: pieces.length,
+        pieces,
+      };
+      return updated;
+    });
+    setPiecesGenerated(true);
   }, []);
 
   const updateRoomPieceCount = useCallback((index: number, count: number) => {
@@ -564,10 +590,11 @@ export function ManualQuoteWizard({ onComplete, onBack, customerId }: ManualQuot
             <div className="bg-gray-50 px-4 py-3 flex items-center justify-between border-b border-gray-200">
               <div className="flex items-center gap-3 flex-1 min-w-0">
                 <span className="text-xs font-semibold text-gray-400 uppercase">Room {roomIndex + 1}</span>
-                <AutocompleteInput
+                <RoomNameAutocomplete
                   value={room.name}
                   onChange={(name) => updateRoomName(roomIndex, name)}
-                  suggestions={roomSuggestions}
+                  onPresetSelect={(pieces) => handlePresetSelect(roomIndex, pieces)}
+                  fallbackSuggestions={roomSuggestions}
                   placeholder={`Room ${roomIndex + 1}`}
                   className="flex-1 min-w-0 rounded border border-gray-300 px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                 />

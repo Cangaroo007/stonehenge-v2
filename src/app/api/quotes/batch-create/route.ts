@@ -10,6 +10,7 @@ import {
   validateBatchCreatePayload,
   validateQuoteForPricing,
 } from '@/lib/services/quote-validation';
+import { saveRoomAsPreset, extractPieceConfigs } from '@/lib/services/room-preset-service';
 
 // --- Request body interfaces ---
 
@@ -227,6 +228,14 @@ export async function POST(request: NextRequest) {
       await createInitialVersion(quote.id, userId);
     } catch {
       // Non-blocking — version creation failure should not fail the batch create
+    }
+
+    // 6b. Auto-save rooms as custom presets (fire-and-forget — J5)
+    for (const room of quote.quote_rooms) {
+      const pieceConfigs = extractPieceConfigs(room.quote_pieces);
+      saveRoomAsPreset(companyId, room.name, pieceConfigs).catch((err) => {
+        console.error('[batch-create] Preset auto-save failed for room:', room.name, err);
+      });
     }
 
     // 7. Calculate counts for response
