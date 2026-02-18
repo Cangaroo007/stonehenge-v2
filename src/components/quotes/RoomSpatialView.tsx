@@ -12,6 +12,7 @@ import RoomPieceSVG from './RoomPieceSVG';
 import RelationshipConnector from './RelationshipConnector';
 import RelationshipSuggestions from './RelationshipSuggestions';
 import EdgeProfilePopover from './EdgeProfilePopover';
+import type { EdgeScope } from './EdgeProfilePopover';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -93,6 +94,14 @@ interface RoomSpatialViewProps {
   // ── Multi-select props ──
   selectedPieceIds?: Set<string>;
   onPieceMultiSelect?: (pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => void;
+  /** Callback for batch edge update with scope selector */
+  onBatchEdgeUpdate?: (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
+  ) => void;
 }
 
 // Types that use join position
@@ -196,6 +205,8 @@ export default function RoomSpatialView({
   // Multi-select
   selectedPieceIds,
   onPieceMultiSelect,
+  // Batch edge update
+  onBatchEdgeUpdate,
 }: RoomSpatialViewProps) {
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
@@ -398,6 +409,14 @@ export default function RoomSpatialView({
     setEdgePopover(null);
     toast.success('Edge updated');
   }, [edgePopover, onPieceEdgeChange]);
+
+  // Scope-aware edge apply from RoomSpatialView popover
+  const handleEdgeApplyWithScope = useCallback((profileId: string | null, scope: EdgeScope) => {
+    if (!edgePopover || !onBatchEdgeUpdate) return;
+    const sourcePieceId = Number(edgePopover.pieceId);
+    onBatchEdgeUpdate(profileId, scope, sourcePieceId, edgePopover.side, roomId ?? 0);
+    setEdgePopover(null);
+  }, [edgePopover, onBatchEdgeUpdate, roomId]);
 
   // Connector popover state (edit mode)
   const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
@@ -948,7 +967,7 @@ export default function RoomSpatialView({
         })}
       </svg>
 
-      {/* Edge Profile Popover (1-click edge editing — Rule 37) */}
+      {/* Edge Profile Popover (1-click edge editing — Rule 37, with scope selector — 12.P23b) */}
       {edgePopover && mode === 'edit' && onPieceEdgeChange && (
         <EdgeProfilePopover
           isOpen={true}
@@ -957,6 +976,10 @@ export default function RoomSpatialView({
           profiles={edgeProfiles.map(ep => ({ id: ep.id, name: ep.name }))}
           onSelect={handleEdgePopoverSelect}
           onClose={() => setEdgePopover(null)}
+          side={onBatchEdgeUpdate ? edgePopover.side : undefined}
+          roomName={roomName}
+          roomId={roomId != null ? String(roomId) : undefined}
+          onApplyWithScope={onBatchEdgeUpdate ? handleEdgeApplyWithScope : undefined}
         />
       )}
 

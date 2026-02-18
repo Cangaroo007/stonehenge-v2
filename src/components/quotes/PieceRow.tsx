@@ -8,6 +8,7 @@ import type { InlinePieceData } from './InlinePieceEditor';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import type { EdgeSide } from './PieceVisualEditor';
+import type { EdgeScope } from './EdgeProfilePopover';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 
@@ -129,6 +130,14 @@ interface PieceRowProps {
   quoteIdStr?: string;
   /** Callback when relationships change */
   onRelationshipChange?: () => void;
+  /** Callback for batch edge update with scope selector */
+  onBatchEdgeUpdate?: (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
+  ) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -378,6 +387,7 @@ function PieceVisualEditorSection({
   mode,
   onSavePiece,
   onBulkEdgeApply,
+  onBatchEdgeUpdate,
 }: {
   piece: PieceRowProps['piece'];
   fullPiece?: InlinePieceData;
@@ -389,6 +399,13 @@ function PieceVisualEditorSection({
     edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
     scope: 'room' | 'quote',
     pieceId: number
+  ) => void;
+  onBatchEdgeUpdate?: (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
   ) => void;
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
@@ -580,6 +597,16 @@ function PieceVisualEditorSection({
     [onBulkEdgeApply, piece.id]
   );
 
+  // Scope-aware edge apply — delegates to parent batch handler
+  const handleApplyWithScope = useCallback(
+    (profileId: string | null, scope: EdgeScope, clickedSide: string) => {
+      if (!onBatchEdgeUpdate) return;
+      const roomId = fullPiece?.quote_rooms?.id ?? 0;
+      onBatchEdgeUpdate(profileId, scope, piece.id, clickedSide, roomId);
+    },
+    [onBatchEdgeUpdate, piece.id, fullPiece]
+  );
+
   return (
     <div className="px-4 py-3 border-t border-gray-100">
       <PieceVisualEditor
@@ -601,6 +628,8 @@ function PieceVisualEditorSection({
         cutoutTypes={editData?.cutoutTypes ?? []}
         onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
         roomName={piece.roomName}
+        roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
+        onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
       />
     </div>
   );
@@ -623,6 +652,7 @@ export default function PieceRow({
   onDelete,
   onDuplicate,
   onBulkEdgeApply,
+  onBatchEdgeUpdate,
   onExpand,
   relationships,
   allPiecesForRelationships,
@@ -767,6 +797,7 @@ export default function PieceRow({
           mode={mode}
           onSavePiece={onSavePiece}
           onBulkEdgeApply={onBulkEdgeApply}
+          onBatchEdgeUpdate={onBatchEdgeUpdate}
         />
       )}
 

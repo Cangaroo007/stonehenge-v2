@@ -50,6 +50,7 @@ import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useQuoteKeyboardShortcuts } from '@/hooks/useQuoteKeyboardShortcuts';
 import toast from 'react-hot-toast';
+import type { EdgeScope } from '@/components/quotes/EdgeProfilePopover';
 
 // View-mode components
 import DeleteQuoteButton from '@/components/DeleteQuoteButton';
@@ -1099,6 +1100,137 @@ export default function QuoteDetailClient({
       piece.quote_rooms?.name || 'Kitchen'
     );
   }, [pieces, handleInlineSavePiece]);
+
+  // Batch edge update — applies a single edge profile to multiple pieces/sides based on scope
+  const handleBatchEdgeUpdate = useCallback(async (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
+  ) => {
+    try {
+      // 1. Determine which pieces and sides to update
+      const updates: Array<{ pieceId: number; sides: string[] }> = [];
+
+      switch (scope.type) {
+        case 'edge':
+          updates.push({ pieceId: sourcePieceId, sides: [sourceSide] });
+          break;
+        case 'piece-side':
+          updates.push({ pieceId: sourcePieceId, sides: [scope.side] });
+          break;
+        case 'piece-all':
+          updates.push({ pieceId: sourcePieceId, sides: ['top', 'bottom', 'left', 'right'] });
+          break;
+        case 'room-side':
+          pieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
+            updates.push({ pieceId: p.id, sides: [scope.side] });
+          });
+          break;
+        case 'room-all':
+          pieces.filter(p => String(p.quote_rooms?.id) === scope.roomId).forEach(p => {
+            updates.push({ pieceId: p.id, sides: ['top', 'bottom', 'left', 'right'] });
+          });
+          break;
+        case 'quote-side':
+          pieces.forEach(p => {
+            updates.push({ pieceId: p.id, sides: [scope.side] });
+          });
+          break;
+        case 'quote-all':
+          pieces.forEach(p => {
+            updates.push({ pieceId: p.id, sides: ['top', 'bottom', 'left', 'right'] });
+          });
+          break;
+      }
+
+      if (updates.length === 0) return;
+
+      // 2. Optimistic UI — update ALL affected pieces in local state IMMEDIATELY (Rule 42)
+      const totalEdges = updates.reduce((sum, u) => sum + u.sides.length, 0);
+      setPieces(prevPieces => {
+        const next = [...prevPieces];
+        for (const { pieceId, sides } of updates) {
+          const idx = next.findIndex(p => p.id === pieceId);
+          if (idx === -1) continue;
+          const piece = { ...next[idx] };
+          for (const s of sides) {
+            const key = `edge${s.charAt(0).toUpperCase()}${s.slice(1)}` as
+              'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+            piece[key] = profileId;
+          }
+          next[idx] = piece;
+        }
+        return next;
+      });
+
+      // 3. Save to database
+      if (scope.type === 'edge') {
+        // Single edge — use existing individual save
+        const piece = pieces.find(p => p.id === sourcePieceId);
+        if (!piece) return;
+        const edgeKey = `edge${sourceSide.charAt(0).toUpperCase()}${sourceSide.slice(1)}` as
+          'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+        await handleInlineSavePiece(
+          piece.id,
+          {
+            lengthMm: piece.lengthMm,
+            widthMm: piece.widthMm,
+            thicknessMm: piece.thicknessMm,
+            materialId: piece.materialId,
+            materialName: piece.materialName,
+            edgeTop: edgeKey === 'edgeTop' ? profileId : piece.edgeTop,
+            edgeBottom: edgeKey === 'edgeBottom' ? profileId : piece.edgeBottom,
+            edgeLeft: edgeKey === 'edgeLeft' ? profileId : piece.edgeLeft,
+            edgeRight: edgeKey === 'edgeRight' ? profileId : piece.edgeRight,
+            cutouts: piece.cutouts || [],
+          },
+          piece.quote_rooms?.name || 'Kitchen'
+        );
+        return;
+      }
+
+      // Batch update — use bulk-edges API
+      const targetPieceIds = Array.from(new Set(updates.map(u => u.pieceId)));
+      const allSides = Array.from(new Set(updates.flatMap(u => u.sides)));
+      const edges: Record<string, string | null> = {};
+      for (const s of allSides) {
+        edges[s] = profileId;
+      }
+
+      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-edges`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ pieceIds: targetPieceIds, edges }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to batch update edges');
+      }
+
+      const result = await response.json() as { updated: number; skipped: number; skippedReasons: string[] };
+
+      // 4. Refresh data and trigger recalculation
+      await fetchQuote();
+      triggerRecalculate();
+      triggerOptimise();
+      markAsChanged();
+
+      // Toast notification
+      const pieceCount = targetPieceIds.length;
+      toast.success(`Updated ${totalEdges} edge${totalEdges > 1 ? 's' : ''} across ${pieceCount} piece${pieceCount > 1 ? 's' : ''}`);
+
+      if (result.skippedReasons?.length > 0) {
+        setError(result.skippedReasons.join('. '));
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to batch update edges');
+      // Revert optimistic update on error
+      await fetchQuote();
+    }
+  }, [pieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, handleInlineSavePiece]);
 
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
@@ -2664,6 +2796,7 @@ export default function QuoteDetailClient({
             onDuplicate={handleDuplicatePiece}
             quoteId={quoteId}
             onBulkEdgeApply={handleBulkEdgeApply}
+            onBatchEdgeUpdate={handleBatchEdgeUpdate}
             onExpand={(pieceId) => {
               window.open(`/quotes/${quoteId}/pieces/${pieceId}?mode=edit`, '_blank');
             }}
@@ -2779,6 +2912,8 @@ export default function QuoteDetailClient({
               edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
               onPieceEdgeChange={handlePieceEdgeChange}
               cutoutTypes={cutoutTypes}
+              // Batch edge update (12.P23b: scope selector)
+              onBatchEdgeUpdate={handleBatchEdgeUpdate}
             />
           );
         })}
