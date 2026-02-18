@@ -82,6 +82,7 @@ model companies {
   customers           customers[]
   materials           materials[]
   unitBlockProjects   unit_block_projects[]
+  customRoomPresets   custom_room_presets[]
 }
 
 model customers {
@@ -1348,6 +1349,24 @@ model unit_block_files {
   createdAt DateTime @default(now())
 
   @@map("unit_block_files")
+}
+
+model custom_room_presets {
+  id           String   @id @default(uuid())
+  company_id   Int
+  name         String
+  icon         String?
+  description  String?
+  piece_config Json
+  usage_count  Int      @default(1)
+  last_used_at DateTime @default(now())
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  tenant companies @relation(fields: [company_id], references: [id])
+
+  @@index([company_id, usage_count(sort: Desc)])
+  @@index([company_id, name])
 }
 
 model quote_templates {
