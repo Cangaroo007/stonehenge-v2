@@ -19,8 +19,6 @@ async function getQuote(id: number) {
             include: {
               piece_features: true,
               materials: true,
-              sourceRelationships: true,
-              targetRelationships: true,
             },
           },
         },
@@ -107,7 +105,7 @@ export default async function QuoteDetailPage({
           quantity: f.quantity,
         })),
         materials: piece.materials ? { name: piece.materials.name } : null,
-        sourceRelationships: piece.sourceRelationships.map((rel) => ({
+        sourceRelationships: ((piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relationship_type: string; relation_type: string; side: string | null }> }).sourceRelationships ?? []).map((rel) => ({
           id: rel.id,
           source_piece_id: rel.source_piece_id,
           target_piece_id: rel.target_piece_id,
@@ -115,7 +113,7 @@ export default async function QuoteDetailPage({
           relation_type: rel.relation_type,
           side: rel.side,
         })),
-        targetRelationships: piece.targetRelationships.map((rel) => ({
+        targetRelationships: ((piece as { targetRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relationship_type: string; relation_type: string; side: string | null }> }).targetRelationships ?? []).map((rel) => ({
           id: rel.id,
           source_piece_id: rel.source_piece_id,
           target_piece_id: rel.target_piece_id,
