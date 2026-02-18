@@ -7,8 +7,9 @@ import TemplateSelector from './TemplateSelector';
 import MaterialAssignment from './MaterialAssignment';
 import DrawingUploadStep from './DrawingUploadStep';
 import { ManualQuoteWizard } from './ManualQuoteWizard';
+import RoomTypePicker from './RoomTypePicker';
 
-type WizardStep = 'choose' | 'drawing' | 'template' | 'manual' | 'material-assignment' | 'creating';
+type WizardStep = 'choose' | 'drawing' | 'template' | 'manual' | 'manual-scratch' | 'material-assignment' | 'creating';
 
 interface RecentQuote {
   id: number;
@@ -34,7 +35,6 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
   const [step, setStep] = useState<WizardStep>('choose');
   const [selectedTemplate, setSelectedTemplate] = useState<TemplateSummary | null>(null);
   const [recentQuotes, setRecentQuotes] = useState<RecentQuote[]>([]);
-  const [isCreatingManual, setIsCreatingManual] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch recent quotes for quick-access links
@@ -53,26 +53,6 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     }
     fetchRecent();
   }, []);
-
-  // Manual: create blank draft and redirect (same as existing flow)
-  const handleManual = async () => {
-    setIsCreatingManual(true);
-    setError(null);
-    try {
-      const params = new URLSearchParams();
-      if (customerId) params.set('customerId', String(customerId));
-      const url = `/api/quotes/create-draft${params.toString() ? `?${params}` : ''}`;
-      const res = await fetch(url, { method: 'POST' });
-      if (!res.ok) {
-        throw new Error('Failed to create draft quote');
-      }
-      const { quoteId } = await res.json();
-      router.push(`/quotes/${quoteId}?mode=edit`);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to create quote');
-      setIsCreatingManual(false);
-    }
-  };
 
   // Template selected — move to material assignment
   const handleTemplateSelect = (template: TemplateSummary) => {
@@ -94,6 +74,8 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     if (step === 'material-assignment') {
       setStep('template');
       setSelectedTemplate(null);
+    } else if (step === 'manual-scratch') {
+      setStep('manual');
     } else {
       setStep('choose');
     }
@@ -205,12 +187,22 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     );
   }
 
-  // Step: Manual wizard (rooms, pieces, dimensions, edges & cutouts)
-  // ManualQuoteWizard now handles batch-create + redirect internally (step 4)
+  // Step: Manual — room type picker (J3: presets before blank builder)
   if (step === 'manual') {
     return (
-      <ManualQuoteWizard
+      <RoomTypePicker
         onBack={() => setStep('choose')}
+        onStartFromScratch={() => setStep('manual-scratch')}
+        customerId={customerId}
+      />
+    );
+  }
+
+  // Step: Manual scratch — blank quote builder (existing flow)
+  if (step === 'manual-scratch') {
+    return (
+      <ManualQuoteWizard
+        onBack={() => setStep('manual')}
         customerId={customerId}
         onComplete={() => {
           // No-op — ManualQuoteWizard step 4 handles batch-create + redirect
