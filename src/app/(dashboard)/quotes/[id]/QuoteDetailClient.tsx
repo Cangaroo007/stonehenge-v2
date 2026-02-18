@@ -1018,6 +1018,7 @@ export default function QuoteDetailClient({
   }, [materials, handlePieceUpdate]);
 
   const handleBulkMaterialApply = useCallback(async (changes: { pieceId: number; toMaterialId: number }[]) => {
+    if (changes.length === 0) return;
     const toMaterial = materials.find(m => m.id === changes[0]?.toMaterialId);
     if (!toMaterial) throw new Error('Material not found');
 
@@ -1035,34 +1036,35 @@ export default function QuoteDetailClient({
       return;
     }
 
-    // Update each piece individually (no batch endpoint available)
-    for (const change of changes) {
-      const mat = materials.find(m => m.id === change.toMaterialId);
-      const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${change.pieceId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ materialId: change.toMaterialId, materialName: mat?.name ?? null }),
-      });
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to update piece ${change.pieceId}`);
-      }
-    }
-
-    // Update local state in one pass
+    // Optimistic local state update (Rule 42: visual feedback within 100ms)
+    const prevPieces = pieces;
     setPieces(prev => prev.map(p => {
       const change = changes.find(c => c.pieceId === p.id);
       if (!change) return p;
-      const mat = materials.find(m => m.id === change.toMaterialId);
-      return { ...p, materialId: change.toMaterialId, materialName: mat?.name ?? null };
+      return { ...p, materialId: change.toMaterialId, materialName: toMaterial.name };
     }));
+
+    // Single bulk API call instead of N individual calls
+    const pieceIds = changes.map(c => c.pieceId);
+    const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pieceIds, materialId: changes[0].toMaterialId }),
+    });
+
+    if (!response.ok) {
+      // Revert optimistic update on failure
+      setPieces(prevPieces);
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to bulk update material');
+    }
 
     // Single recalculation after all changes
     triggerRecalculate();
     triggerOptimise();
     markAsChanged();
     recalculateOptionsAfterPieceChange();
-  }, [quoteIdStr, materials, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
+  }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -3054,7 +3056,7 @@ export default function QuoteDetailClient({
             Version History
           </summary>
           <div className="p-4 border-t border-gray-200">
-            <VersionHistoryTab quoteId={quoteId} />
+            <VersionHistoryTab quoteId={quoteId} mode="view" />
           </div>
         </details>
 
@@ -3661,7 +3663,7 @@ export default function QuoteDetailClient({
             Version History
           </summary>
           <div className="p-4 border-t border-gray-200">
-            <VersionHistoryTab quoteId={quoteId} />
+            <VersionHistoryTab quoteId={quoteId} mode="edit" />
           </div>
         </details>
 

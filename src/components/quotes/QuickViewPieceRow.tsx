@@ -294,8 +294,13 @@ export default function QuickViewPieceRow({
   const isMitred = piece.thicknessMm === 40;
 
   // ── Save helper (debounced) ─────────────────────────────────────────────
+  // Only recalculate when we have minimum viable data (positive dimensions).
+  // Prevents eager recalculation with incomplete piece data.
   const savePiece = useCallback((overrides: Record<string, unknown>) => {
     if (!fullPiece || !onSavePiece) return;
+    const mergedLength = (overrides.lengthMm as number) ?? fullPiece.lengthMm;
+    const mergedWidth = (overrides.widthMm as number) ?? fullPiece.widthMm;
+    if (mergedLength <= 0 || mergedWidth <= 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     saveTimerRef.current = setTimeout(() => {
       onSavePiece(
@@ -319,8 +324,12 @@ export default function QuickViewPieceRow({
   }, [fullPiece, onSavePiece, piece.id]);
 
   // ── Immediate save (no debounce, for dropdowns/selectors) ───────────────
+  // Same minimum viable data guard as savePiece.
   const savePieceImmediate = useCallback((overrides: Record<string, unknown>) => {
     if (!fullPiece || !onSavePiece) return;
+    const mergedLength = (overrides.lengthMm as number) ?? fullPiece.lengthMm;
+    const mergedWidth = (overrides.widthMm as number) ?? fullPiece.widthMm;
+    if (mergedLength <= 0 || mergedWidth <= 0) return;
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
     onSavePiece(
       piece.id,

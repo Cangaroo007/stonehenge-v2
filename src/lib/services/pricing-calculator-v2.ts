@@ -610,19 +610,46 @@ export async function calculateQuotePrice(
     const pieceFabCategory: string =
       (piece.materials as unknown as { fabrication_category?: string } | null)
         ?.fabrication_category ?? 'ENGINEERED';
-    pieceBreakdowns.push(
-      calculatePiecePricing(
-        piece,
-        serviceRates,
-        edgeTypeMap,
-        cutoutTypeMap,
-        fabricationDiscountPct,
-        pricingContext,
-        pieceFabCategory,
-        cutoutCategoryRates,
-        edgeCategoryRates
-      )
-    );
+    try {
+      pieceBreakdowns.push(
+        calculatePiecePricing(
+          piece,
+          serviceRates,
+          edgeTypeMap,
+          cutoutTypeMap,
+          fabricationDiscountPct,
+          pricingContext,
+          pieceFabCategory,
+          cutoutCategoryRates,
+          edgeCategoryRates
+        )
+      );
+    } catch (pieceError) {
+      // Gracefully handle pieces that fail pricing (e.g. no material assigned,
+      // missing service rate for their fabrication category). Return a zeroed-out
+      // breakdown so the rest of the quote still calculates.
+      console.warn(
+        `Pricing failed for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${pieceError instanceof Error ? pieceError.message : pieceError}. Returning $0 breakdown.`
+      );
+      pieceBreakdowns.push({
+        pieceId: piece.id,
+        pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+        fabricationCategory: pieceFabCategory,
+        dimensions: {
+          lengthMm: piece.length_mm,
+          widthMm: piece.width_mm,
+          thicknessMm: piece.thickness_mm,
+        },
+        fabrication: {
+          cutting: { quantity: 0, unit: pricingContext.cuttingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+          polishing: { quantity: 0, unit: pricingContext.polishingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+          edges: [],
+          cutouts: [],
+          subtotal: 0,
+        },
+        pieceTotal: 0,
+      });
+    }
   }
 
   // Calculate oversize/join costs per piece using DB-driven rates + grain matching surcharge
@@ -643,61 +670,69 @@ export async function calculateQuotePrice(
 
     if (!cutPlan.fitsOnSingleSlab) {
       // Look up JOIN rate from DB for this fabrication category
-      const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-      const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
-      const joinCost = roundToTwo(joinLengthLm * joinRate);
+      // Wrap in try-catch: JOIN rate may not exist for all fabrication categories
+      try {
+        const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+        const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
+        const joinCost = roundToTwo(joinLengthLm * joinRate);
 
-      // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
-      const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
-      const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
-      const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
+        // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
+        const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+        const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
+        const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
 
-      totalJoinCost += joinCost;
-      totalGrainMatchingSurcharge += grainSurcharge;
+        totalJoinCost += joinCost;
+        totalGrainMatchingSurcharge += grainSurcharge;
 
-      // Add oversize data to the piece breakdown
-      if (pieceBreakdowns[i]) {
-        pieceBreakdowns[i].oversize = {
-          isOversize: true,
-          joinCount: cutPlan.joins.length,
-          joinLengthLm,
-          joinRate,
-          joinCost,
-          grainMatchingSurchargeRate: grainMatchingSurchargeRate,
-          fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
-          grainMatchingSurcharge: grainSurcharge,
-          strategy: cutPlan.strategy,
-          warnings: cutPlan.warnings,
-        };
-        pieceBreakdowns[i].pieceTotal = roundToTwo(
-          pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
-        );
-      }
+        // Add oversize data to the piece breakdown
+        if (pieceBreakdowns[i]) {
+          pieceBreakdowns[i].oversize = {
+            isOversize: true,
+            joinCount: cutPlan.joins.length,
+            joinLengthLm,
+            joinRate,
+            joinCost,
+            grainMatchingSurchargeRate: grainMatchingSurchargeRate,
+            fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
+            grainMatchingSurcharge: grainSurcharge,
+            strategy: cutPlan.strategy,
+            warnings: cutPlan.warnings,
+          };
+          pieceBreakdowns[i].pieceTotal = roundToTwo(
+            pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
+          );
+        }
 
-      // Add to service-level items for aggregate display
-      serviceData.items.push({
-        serviceType: 'JOIN',
-        name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
-        quantity: joinLengthLm,
-        unit: 'LINEAR_METRE',
-        rate: joinRate,
-        subtotal: joinCost,
-        fabricationCategory: pieceFabCategory,
-      });
-      serviceData.subtotal += joinCost;
-
-      // Add grain matching surcharge as a separate line item
-      if (grainSurcharge > 0) {
+        // Add to service-level items for aggregate display
         serviceData.items.push({
           serviceType: 'JOIN',
-          name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
-          quantity: 1,
-          unit: 'FIXED',
-          rate: grainSurcharge,
-          subtotal: grainSurcharge,
+          name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
+          quantity: joinLengthLm,
+          unit: 'LINEAR_METRE',
+          rate: joinRate,
+          subtotal: joinCost,
           fabricationCategory: pieceFabCategory,
         });
-        serviceData.subtotal += grainSurcharge;
+        serviceData.subtotal += joinCost;
+
+        // Add grain matching surcharge as a separate line item
+        if (grainSurcharge > 0) {
+          serviceData.items.push({
+            serviceType: 'JOIN',
+            name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
+            quantity: 1,
+            unit: 'FIXED',
+            rate: grainSurcharge,
+            subtotal: grainSurcharge,
+            fabricationCategory: pieceFabCategory,
+          });
+          serviceData.subtotal += grainSurcharge;
+        }
+      } catch (joinError) {
+        // JOIN rate not configured — skip oversize costing for this piece
+        console.warn(
+          `Join pricing skipped for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${joinError instanceof Error ? joinError.message : joinError}`
+        );
       }
     }
   }
