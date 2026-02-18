@@ -40,8 +40,8 @@ export interface PieceContextMenuProps {
   onDuplicate?: (pieceId: string) => void;
   /** Move piece to another room */
   onMoveToRoom?: (pieceId: string, roomId: string) => void;
-  /** Paint all edges with a profile */
-  onPaintAllEdges?: (pieceId: string, profileId: string | null) => void;
+  /** Apply edge profile to all edges */
+  onQuickEdgeAll?: (pieceId: string, profileId: string | null) => void;
   /** Change material */
   onChangeMaterial?: (pieceId: string, materialId: number | null) => void;
   /** Open relationship editor */
@@ -66,7 +66,7 @@ export default function PieceContextMenu({
   onEdit,
   onDuplicate,
   onMoveToRoom,
-  onPaintAllEdges,
+  onQuickEdgeAll,
   onChangeMaterial,
   onAddRelationship,
   onDelete,
@@ -184,23 +184,23 @@ export default function PieceContextMenu({
         </SubMenuItem>
       )}
 
-      {/* Paint edges — submenu */}
+      {/* Quick Edge all — submenu */}
       {edgeProfiles.length > 0 && (
         <SubMenuItem
-          icon={<PaintIcon />}
-          label="Paint edges..."
+          icon={<QuickEdgeIcon />}
+          label="Quick Edge all..."
           isActive={activeSubmenu === 'edges'}
           onHover={() => setActiveSubmenu('edges')}
         >
           <MenuItem
             label="Raw (no finish)"
-            onClick={() => { onPaintAllEdges?.(pieceId, null); onClose(); }}
+            onClick={() => { onQuickEdgeAll?.(pieceId, null); onClose(); }}
           />
           {edgeProfiles.map(profile => (
             <MenuItem
               key={profile.id}
               label={profile.name}
-              onClick={() => { onPaintAllEdges?.(pieceId, profile.id); onClose(); }}
+              onClick={() => { onQuickEdgeAll?.(pieceId, profile.id); onClose(); }}
             />
           ))}
         </SubMenuItem>
@@ -345,7 +345,7 @@ function MoveIcon() {
   );
 }
 
-function PaintIcon() {
+function QuickEdgeIcon() {
   return (
     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01" />

@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
-import { OptimizationResult, OptimizationInput } from '@/types/slab-optimization';
+import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
+import type { MaterialInfo } from '@/lib/services/multi-material-optimizer';
+import { OptimizationResult, OptimizationInput, MultiMaterialOptimisationResult } from '@/types/slab-optimization';
 import { SlabResults } from '@/components/slab-optimizer';
+import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { generateCutListCSV, downloadCSV } from '@/lib/services/cut-list-generator';
 
 interface PieceInput {
@@ -11,13 +14,15 @@ interface PieceInput {
   width: string;
   height: string;
   label: string;
-  thickness: string; // NEW: "20", "30", "40", "60"
-  finishedEdges: {   // NEW: Which edges need lamination
+  thickness: string; // "20", "30", "40", "60"
+  finishedEdges: {   // Which edges need lamination
     top: boolean;
     bottom: boolean;
     left: boolean;
     right: boolean;
   };
+  materialId?: string | null;
+  materialName?: string | null;
 }
 
 interface Quote {
@@ -40,6 +45,8 @@ interface QuotePiece {
   edgeBottom?: string | null;
   edgeLeft?: string | null;
   edgeRight?: string | null;
+  materialId?: number | null;
+  materialName?: string | null;
   room?: { name: string };
 }
 
@@ -64,6 +71,7 @@ export default function OptimizePage() {
 
   // Results
   const [result, setResult] = useState<OptimizationResult | null>(null);
+  const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
   const [isOptimizing, setIsOptimizing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,6 +80,9 @@ export default function OptimizePage() {
   const [selectedQuoteId, setSelectedQuoteId] = useState<string>('');
   const [isLoadingQuotes, setIsLoadingQuotes] = useState(false);
   const [isLoadingPieces, setIsLoadingPieces] = useState(false);
+
+  // Materials loaded from API (for multi-material optimisation)
+  const [quoteMaterials, setQuoteMaterials] = useState<MaterialInfo[]>([]);
 
   // Fetch quotes on mount
   useEffect(() => {
@@ -105,11 +116,14 @@ export default function OptimizePage() {
 
       const quote = await response.json();
 
-      // Extract pieces from rooms
+      // Extract pieces from rooms (including material info)
       const quotePieces: PieceInput[] = [];
+      const materialIds = new Set<string>();
       if (quote.rooms) {
         quote.rooms.forEach((quote_rooms: { name: string; pieces: QuotePiece[] }) => {
           quote_rooms.pieces.forEach((piece: QuotePiece) => {
+            const matId = piece.materialId ? String(piece.materialId) : null;
+            if (matId) materialIds.add(matId);
             quotePieces.push({
               id: String(piece.id),
               width: String(piece.lengthMm),
@@ -122,6 +136,8 @@ export default function OptimizePage() {
                 left: !!piece.edgeLeft,
                 right: !!piece.edgeRight,
               },
+              materialId: matId,
+              materialName: piece.materialName ?? null,
             });
           });
         });
@@ -132,8 +148,34 @@ export default function OptimizePage() {
         return;
       }
 
+      // Fetch material slab dimensions if pieces have materials
+      if (materialIds.size > 0) {
+        try {
+          const matRes = await fetch('/api/materials');
+          if (matRes.ok) {
+            const allMaterials = await matRes.json();
+            const relevantMaterials: MaterialInfo[] = allMaterials
+              .filter((m: { id: number }) => materialIds.has(String(m.id)))
+              .map((m: { id: number; name: string; slabLengthMm?: number | null; slabWidthMm?: number | null; fabricationCategory?: string | null }) => ({
+                id: String(m.id),
+                name: m.name,
+                slabLengthMm: m.slabLengthMm ?? null,
+                slabWidthMm: m.slabWidthMm ?? null,
+                fabricationCategory: m.fabricationCategory ?? null,
+              }));
+            setQuoteMaterials(relevantMaterials);
+          }
+        } catch {
+          // Non-fatal: multi-material will fall back to manual slab dimensions
+          setQuoteMaterials([]);
+        }
+      } else {
+        setQuoteMaterials([]);
+      }
+
       setPieces(quotePieces);
-      setResult(null); // Clear previous results
+      setResult(null);
+      setMultiMaterialResult(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quote pieces');
     } finally {
@@ -188,6 +230,7 @@ export default function OptimizePage() {
   const runOptimization = () => {
     setError(null);
     setIsOptimizing(true);
+    setMultiMaterialResult(null);
 
     try {
       // Validate inputs
@@ -208,6 +251,7 @@ export default function OptimizePage() {
           label: p.label || `Piece ${p.id}`,
           thickness: parseInt(p.thickness) || 20,
           finishedEdges: p.finishedEdges,
+          materialId: p.materialId ?? null,
         }))
         .filter(p => p.width > 0 && p.height > 0);
 
@@ -215,16 +259,49 @@ export default function OptimizePage() {
         throw new Error('Add at least one valid piece');
       }
 
-      const input: OptimizationInput = {
-        pieces: validPieces,
-        slabWidth: slabW,
-        slabHeight: slabH,
-        kerfWidth: kerf,
-        allowRotation,
-      };
+      // Check if pieces have multiple different materials
+      const uniqueMaterialIds = Array.from(new Set(
+        validPieces.map(p => p.materialId).filter(Boolean)
+      ));
+      const hasMultipleMaterials = uniqueMaterialIds.length > 1;
 
-      const optimizationResult = optimizeSlabs(input);
-      setResult(optimizationResult);
+      if (hasMultipleMaterials && quoteMaterials.length > 0) {
+        // Multi-material optimisation
+        const multiResult = optimizeMultiMaterial({
+          pieces: validPieces,
+          materials: quoteMaterials,
+          kerfWidth: kerf,
+          allowRotation,
+        });
+        setMultiMaterialResult(multiResult);
+
+        // Also set single result for CSV export (combined placements)
+        const allPlacements = multiResult.materialGroups.flatMap(g => g.optimizationResult.placements);
+        const allSlabs = multiResult.materialGroups.flatMap(g => g.slabLayouts);
+        const totalUsedArea = allPlacements.reduce((sum, p) => sum + (p.width * p.height), 0);
+        setResult({
+          placements: allPlacements,
+          slabs: allSlabs,
+          totalSlabs: multiResult.totalSlabCount,
+          totalUsedArea,
+          totalWasteArea: 0,
+          wastePercent: multiResult.overallWastePercentage,
+          unplacedPieces: [],
+          warnings: multiResult.warnings,
+        });
+      } else {
+        // Single-material optimisation (original path)
+        const input: OptimizationInput = {
+          pieces: validPieces,
+          slabWidth: slabW,
+          slabHeight: slabH,
+          kerfWidth: kerf,
+          allowRotation,
+        };
+
+        const optimizationResult = optimizeSlabs(input);
+        setResult(optimizationResult);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Optimization failed');
     } finally {
@@ -235,6 +312,7 @@ export default function OptimizePage() {
   // Clear results
   const clearResults = () => {
     setResult(null);
+    setMultiMaterialResult(null);
     setError(null);
   };
 
@@ -553,11 +631,17 @@ export default function OptimizePage() {
 
           {result ? (
             <>
-              <SlabResults
-                result={result}
-                slabWidth={parseInt(slabWidth) || 3000}
-                slabHeight={parseInt(slabHeight) || 1400}
-              />
+              {multiMaterialResult && multiMaterialResult.materialGroups.length > 1 ? (
+                <MultiMaterialOptimisationDisplay
+                  multiMaterialResult={multiMaterialResult}
+                />
+              ) : (
+                <SlabResults
+                  result={result}
+                  slabWidth={parseInt(slabWidth) || 3000}
+                  slabHeight={parseInt(slabHeight) || 1400}
+                />
+              )}
 
               {/* Export Buttons */}
               <div className="mt-4 flex gap-2 justify-end print:hidden flex-wrap">

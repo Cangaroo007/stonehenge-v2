@@ -2286,7 +2286,7 @@ export default function QuoteDetailClient({
     }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
 
-  const handleContextMenuPaintAllEdges = useCallback(async (pieceId: string, profileId: string | null) => {
+  const handleContextMenuQuickEdgeAll = useCallback(async (pieceId: string, profileId: string | null) => {
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
         method: 'PATCH',
@@ -2304,7 +2304,7 @@ export default function QuoteDetailClient({
       triggerRecalculate();
       markAsChanged();
     } catch {
-      toast.error('Failed to paint edges');
+      toast.error('Failed to update edges');
     }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
 
@@ -3968,7 +3968,7 @@ export default function QuoteDetailClient({
         }}
         onDuplicate={(pieceId) => handleDuplicatePiece(Number(pieceId))}
         onMoveToRoom={handleContextMenuMovePiece}
-        onPaintAllEdges={handleContextMenuPaintAllEdges}
+        onQuickEdgeAll={handleContextMenuQuickEdgeAll}
         onChangeMaterial={handleContextMenuChangeMaterial}
         onAddRelationship={(pieceId) => {
           setSelectedPieceId(Number(pieceId));
