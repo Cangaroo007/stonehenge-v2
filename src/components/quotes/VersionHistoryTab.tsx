@@ -25,6 +25,7 @@ interface Version {
 
 interface VersionHistoryTabProps {
   quoteId: number;
+  mode?: 'view' | 'edit';
   onVersionSelect?: (version: number) => void;
   onVersionRestored?: () => void;
 }
@@ -48,7 +49,7 @@ const CHANGE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   IMPORTED_FROM_AI: { label: 'AI Import', color: 'bg-purple-100 text-purple-700' },
 };
 
-export default function VersionHistoryTab({ quoteId, onVersionSelect, onVersionRestored }: VersionHistoryTabProps) {
+export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSelect, onVersionRestored }: VersionHistoryTabProps) {
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
@@ -262,7 +263,7 @@ export default function VersionHistoryTab({ quoteId, onVersionSelect, onVersionR
                       </svg>
                       {isExpanded ? 'Hide Changes' : 'Show Changes'}
                     </button>
-                    {!version.isCurrent && (
+                    {!version.isCurrent && mode === 'edit' && (
                       <>
                         <span className="text-gray-300">|</span>
                         <button

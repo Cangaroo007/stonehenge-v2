@@ -124,7 +124,7 @@ export async function POST(
         );
       }
 
-      if (error.message.includes('Service rate not found for')) {
+      if (error.message.includes('Service rate not found for') || error.message.includes('rate found')) {
         return NextResponse.json(
           { error: error.message, code: 'MISSING_SERVICE_RATE' },
           { status: 400 }
