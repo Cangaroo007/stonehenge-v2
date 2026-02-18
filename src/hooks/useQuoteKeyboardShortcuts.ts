@@ -23,8 +23,8 @@ interface UseQuoteKeyboardShortcutsOptions {
   onDeletePiece?: (pieceId: string) => void;
   /** Called to open material selector */
   onMaterialSelect?: (pieceId: string) => void;
-  /** Called to toggle paint mode */
-  onTogglePaintMode?: () => void;
+  /** Called to toggle Quick Edge mode */
+  onToggleQuickEdgeMode?: () => void;
   /** Called to open relationship editor */
   onRelationshipEditor?: (pieceId: string) => void;
   /** Called to add a new piece to the room */
@@ -48,7 +48,7 @@ export function useQuoteKeyboardShortcuts({
   onDuplicatePiece,
   onDeletePiece,
   onMaterialSelect,
-  onTogglePaintMode,
+  onToggleQuickEdgeMode,
   onRelationshipEditor,
   onAddNewPiece,
   onEscape,
@@ -177,7 +177,7 @@ export function useQuoteKeyboardShortcuts({
         case 'p':
         case 'P':
           e.preventDefault();
-          onTogglePaintMode?.();
+          onToggleQuickEdgeMode?.();
           break;
 
         case 'r':
@@ -205,7 +205,7 @@ export function useQuoteKeyboardShortcuts({
     onDuplicatePiece,
     onDeletePiece,
     onMaterialSelect,
-    onTogglePaintMode,
+    onToggleQuickEdgeMode,
     onRelationshipEditor,
     onAddNewPiece,
     onEscape,
@@ -226,7 +226,7 @@ export const KEYBOARD_SHORTCUTS = [
   { key: 'Tab', description: 'Next piece', condition: 'piece selected' },
   { key: 'Shift+Tab', description: 'Previous piece', condition: 'piece selected' },
   { key: 'M', description: 'Material selector', condition: 'piece selected' },
-  { key: 'P', description: 'Toggle paint mode', condition: 'piece selected' },
+  { key: 'P', description: 'Toggle Quick Edge mode', condition: 'piece selected' },
   { key: 'R', description: 'Relationship editor', condition: 'piece selected' },
   { key: 'N', description: 'New piece', condition: 'room focused' },
   { key: 'Ctrl+Z', description: 'Undo', condition: 'any' },

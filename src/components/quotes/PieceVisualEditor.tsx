@@ -21,7 +21,7 @@ interface CutoutDisplay {
 }
 
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
-type EdgeEditMode = 'select' | 'paint';
+type EdgeEditMode = 'select' | 'quickEdge';
 
 interface EdgeTemplate {
   id: string;
@@ -155,10 +155,10 @@ export default function PieceVisualEditor({
   const [hoveredEdge, setHoveredEdge] = useState<EdgeSide | null>(null);
   const [hoveredCutout, setHoveredCutout] = useState<string | null>(null);
 
-  // ── Multi-select & Paint mode state ───────────────────────────────────
-  const [editMode, setEditMode] = useState<EdgeEditMode>('select');
+  // ── Multi-select & Quick Edge mode state ──────────────────────────────
+  const [editMode, setEditMode] = useState<EdgeEditMode>('quickEdge');
   const [selectedEdges, setSelectedEdges] = useState<Set<EdgeSide>>(new Set());
-  const [paintProfile, setPaintProfile] = useState<string | null>(null);
+  const [quickEdgeProfile, setQuickEdgeProfile] = useState<string | null>(null);
   const [flashEdge, setFlashEdge] = useState<EdgeSide | null>(null);
 
   // ── Template state ────────────────────────────────────────────────────
@@ -290,8 +290,8 @@ export default function PieceVisualEditor({
     (index: number) => {
       if (index < 0 || index >= edgeTypes.length) return;
       const profile = edgeTypes[index];
-      if (editMode === 'paint') {
-        setPaintProfile(profile.id);
+      if (editMode === 'quickEdge') {
+        setQuickEdgeProfile(profile.id);
       } else if (selectedEdges.size > 0) {
         applyProfileToSelected(profile.id);
       }
@@ -306,10 +306,10 @@ export default function PieceVisualEditor({
       if (!isEditMode || (!onEdgeChange && !onEdgesChange)) return;
       event.stopPropagation();
 
-      if (editMode === 'paint') {
-        // Paint mode: instantly apply selected profile
-        if (paintProfile !== null) {
-          if (onEdgeChange) onEdgeChange(side, paintProfile);
+      if (editMode === 'quickEdge') {
+        // Quick Edge mode: instantly apply selected profile
+        if (quickEdgeProfile !== null) {
+          if (onEdgeChange) onEdgeChange(side, quickEdgeProfile);
           // Flash animation
           setFlashEdge(side);
           setTimeout(() => setFlashEdge(null), 200);
@@ -357,7 +357,7 @@ export default function PieceVisualEditor({
         return next;
       });
     },
-    [isEditMode, onEdgeChange, onEdgesChange, editMode, paintProfile, selectedEdges.size]
+    [isEditMode, onEdgeChange, onEdgesChange, editMode, quickEdgeProfile, selectedEdges.size]
   );
 
   const handleProfileSelect = useCallback(
@@ -470,7 +470,7 @@ export default function PieceVisualEditor({
           break;
         case 'p':
           e.preventDefault();
-          setEditMode('paint');
+          setEditMode('quickEdge');
           break;
         case 'a':
           e.preventDefault();
@@ -479,7 +479,7 @@ export default function PieceVisualEditor({
         case 'escape':
           clearSelection();
           setEditMode('select');
-          setPaintProfile(null);
+          setQuickEdgeProfile(null);
           setBulkApplyInfo(null);
           setScopeApplyInfo(null);
           break;
@@ -614,11 +614,22 @@ export default function PieceVisualEditor({
       {/* ── Edit Mode Toolbar ──────────────────────────────────────────── */}
       {isEditMode && onEdgeChange && (
         <div className="flex items-center gap-1 mb-2 px-1 flex-wrap">
-          {/* Mode buttons */}
+          {/* Mode buttons — Quick Edge first (default mode) */}
           <div className="flex rounded-md border border-gray-200 overflow-hidden">
             <button
-              onClick={() => { setEditMode('select'); clearSelection(); }}
+              onClick={() => { setEditMode('quickEdge'); clearSelection(); }}
               className={`px-2 py-1 text-[10px] font-medium transition-colors ${
+                editMode === 'quickEdge'
+                  ? 'bg-blue-600 text-white'
+                  : 'bg-white text-gray-600 hover:bg-gray-50'
+              }`}
+              title="Quick Edge mode (P)"
+            >
+              Quick Edge
+            </button>
+            <button
+              onClick={() => { setEditMode('select'); clearSelection(); }}
+              className={`px-2 py-1 text-[10px] font-medium border-l border-gray-200 transition-colors ${
                 editMode === 'select'
                   ? 'bg-blue-600 text-white'
                   : 'bg-white text-gray-600 hover:bg-gray-50'
@@ -627,26 +638,15 @@ export default function PieceVisualEditor({
             >
               Select
             </button>
-            <button
-              onClick={() => { setEditMode('paint'); clearSelection(); }}
-              className={`px-2 py-1 text-[10px] font-medium border-l border-gray-200 transition-colors ${
-                editMode === 'paint'
-                  ? 'bg-blue-600 text-white'
-                  : 'bg-white text-gray-600 hover:bg-gray-50'
-              }`}
-              title="Paint mode (P)"
-            >
-              Paint
-            </button>
           </div>
 
-          {/* Profile dropdown (paint mode or numbered reference) */}
-          {editMode === 'paint' && (
+          {/* Profile dropdown (Quick Edge mode or numbered reference) */}
+          {editMode === 'quickEdge' && (
             <select
-              value={paintProfile ?? ''}
-              onChange={(e) => setPaintProfile(e.target.value || null)}
+              value={quickEdgeProfile ?? ''}
+              onChange={(e) => setQuickEdgeProfile(e.target.value || null)}
               className="px-2 py-1 text-[10px] border border-gray-200 rounded-md bg-white text-gray-700 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              title="Select profile to paint"
+              title="Select profile for Quick Edge"
             >
               <option value="">Pick profile...</option>
               <option value="">Raw (no finish)</option>
@@ -733,8 +733,8 @@ export default function PieceVisualEditor({
               <div className="absolute right-0 top-6 z-50 bg-white border border-gray-200 rounded-lg shadow-lg p-2 min-w-[160px]">
                 <div className="text-[10px] font-semibold text-gray-500 mb-1">Shortcuts</div>
                 {[
+                  ['P', 'Quick Edge mode'],
                   ['S', 'Select mode'],
-                  ['P', 'Paint mode'],
                   ['A', 'Select all edges'],
                   ['Esc', 'Clear selection'],
                   ['T', 'Toggle templates'],
@@ -1085,8 +1085,8 @@ export default function PieceVisualEditor({
       {isEditMode && (
         <div className="flex items-center gap-3 mt-1 px-1">
           <span className="text-[10px] text-gray-400 italic">
-            {editMode === 'paint'
-              ? 'Click any edge to apply selected profile'
+            {editMode === 'quickEdge'
+              ? 'Quick Edge mode \u2014 click any edge to apply selected profile'
               : 'Click edge to edit. Shift+click to multi-select.'}
           </span>
           {onCutoutAdd && cutoutTypes.length > 0 && (

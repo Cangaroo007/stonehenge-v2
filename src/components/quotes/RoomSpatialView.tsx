@@ -64,13 +64,13 @@ interface RoomSpatialViewProps {
   quoteId?: string;
   /** Callback when a relationship is changed via popover (edit mode) */
   onRelationshipChange?: () => void;
-  /** Callback when piece edge changes (edit mode, paint + accordion) */
+  /** Callback when piece edge changes (edit mode, Quick Edge + accordion) */
   onPieceEdgeChange?: (pieceId: string, side: string, profileId: string | null) => void;
   /** Callback when piece material changes (edit mode, accordion) */
   onPieceMaterialChange?: (pieceId: string, materialId: number | null) => void;
   /** Callback to add a cutout to a piece */
   onPieceCutoutAdd?: (pieceId: string, cutoutTypeId: string) => void;
-  /** Available edge profiles for paint mode and accordion */
+  /** Available edge profiles for Quick Edge mode and accordion */
   edgeProfiles?: EdgeProfileOption[];
   /** Available materials for accordion */
   materials?: MaterialOption[];
@@ -312,14 +312,14 @@ export default function RoomSpatialView({
 
   const multiSelectCount = selectedPieceIds?.size ?? 0;
 
-  // ── Paint mode state — always-on in edit mode ──
-  const [paintProfileId, setPaintProfileId] = useState<string | null>(null);
+  // ── Quick Edge mode state — always-on in edit mode ──
+  const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
 
   const handleEdgeClick = useCallback((pieceId: string, side: string) => {
     if (!onPieceEdgeChange) return;
-    onPieceEdgeChange(pieceId, side, paintProfileId);
+    onPieceEdgeChange(pieceId, side, quickEdgeProfileId);
     toast.success('Edge updated');
-  }, [paintProfileId, onPieceEdgeChange]);
+  }, [quickEdgeProfileId, onPieceEdgeChange]);
 
   // Connector popover state (edit mode)
   const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
@@ -746,9 +746,9 @@ export default function RoomSpatialView({
       {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
         <div className="flex items-center gap-1 mb-2 px-1 py-1.5 bg-blue-50 border border-blue-200 rounded-md flex-wrap">
           <button
-            onClick={() => setPaintProfileId(null)}
+            onClick={() => setQuickEdgeProfileId(null)}
             className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
-              paintProfileId === null
+              quickEdgeProfileId === null
                 ? 'bg-blue-600 text-white border-blue-600'
                 : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
             }`}
@@ -758,9 +758,9 @@ export default function RoomSpatialView({
           {edgeProfiles.map(ep => (
             <button
               key={ep.id}
-              onClick={() => setPaintProfileId(ep.id)}
+              onClick={() => setQuickEdgeProfileId(ep.id)}
               className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
-                paintProfileId === ep.id
+                quickEdgeProfileId === ep.id
                   ? 'bg-blue-600 text-white border-blue-600'
                   : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
               }`}
@@ -842,7 +842,7 @@ export default function RoomSpatialView({
               scale={layout.scale}
               isSelected={selectedPieceId === String(piece.id) || isPieceMultiSelected(String(piece.id))}
               isEditMode={mode === 'edit'}
-              isPaintMode={mode === 'edit' && !!onPieceEdgeChange}
+              isQuickEdgeMode={mode === 'edit' && !!onPieceEdgeChange}
               onPieceClick={onPieceMultiSelect
                 ? (pieceId: string, e?: React.MouseEvent) => {
                     if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {

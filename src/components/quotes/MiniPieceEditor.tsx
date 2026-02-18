@@ -3,8 +3,8 @@
 /**
  * MiniPieceEditor — compact piece editor for wizard step 4 + Quick View.
  *
- * Uses inline paint palette for edge selection: pick a profile chip, then click
- * edges on the SVG to apply. Matches PieceVisualEditor's paint mode pattern.
+ * Uses inline Quick Edge palette for edge selection: pick a profile chip, then
+ * click edges on the SVG to apply. Matches PieceVisualEditor's Quick Edge mode.
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react';
@@ -246,7 +246,7 @@ export default function MiniPieceEditor({
 
   return (
     <div ref={containerRef} className="py-2">
-      {/* ── Paint palette — edge profile chips ───────────────────────── */}
+      {/* ── Quick Edge palette — edge profile chips ─────────────────── */}
       {!readOnly && (
         <div className="flex items-center gap-1 mb-2 flex-wrap">
           <button

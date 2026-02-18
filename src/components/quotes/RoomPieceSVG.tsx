@@ -23,10 +23,10 @@ interface RoomPieceSVGProps {
   scale: number;
   isSelected?: boolean;
   isEditMode?: boolean;
-  /** Whether paint mode is active in the room (Task D) */
-  isPaintMode?: boolean;
+  /** Whether Quick Edge mode is active in the room */
+  isQuickEdgeMode?: boolean;
   onPieceClick?: (pieceId: string, e?: React.MouseEvent) => void;
-  /** Called when an edge is clicked in paint mode (pieceId, side) */
+  /** Called when an edge is clicked in Quick Edge mode (pieceId, side) */
   onEdgeClick?: (pieceId: string, side: string) => void;
   /** Called on right-click (edit mode only) */
   onContextMenu?: (pieceId: string, e: React.MouseEvent) => void;
@@ -101,7 +101,7 @@ export default function RoomPieceSVG({
   scale: _scale,
   isSelected = false,
   isEditMode = false,
-  isPaintMode = false,
+  isQuickEdgeMode = false,
   onPieceClick,
   onEdgeClick,
   onContextMenu,
@@ -128,7 +128,7 @@ export default function RoomPieceSVG({
     ? piece.cutouts.reduce((sum, c) => sum + c.quantity, 0)
     : 0;
 
-  // Edge hover state for paint mode
+  // Edge hover state for Quick Edge mode
   const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
 
   const handleClick = (e: React.MouseEvent) => {
