@@ -337,15 +337,18 @@ export default function RoomLinearView({
 
               {/* Cutout summary below dimensions */}
               {cutoutSummary && (
-                <text
-                  x={pos.x + pos.width / 2}
-                  y={pos.y + yOffset + pos.height + 26}
-                  textAnchor="middle"
-                  fontSize={8}
-                  fill="#6B7280"
-                >
-                  {cutoutSummary}
-                </text>
+                <g>
+                  <title>{cutouts.map(f => `${f.quantity}x ${f.name}`).join(', ')}</title>
+                  <text
+                    x={pos.x + pos.width / 2}
+                    y={pos.y + yOffset + pos.height + 26}
+                    textAnchor="middle"
+                    fontSize={8}
+                    fill="#6B7280"
+                  >
+                    {cutoutSummary}
+                  </text>
+                </g>
               )}
             </g>
           );

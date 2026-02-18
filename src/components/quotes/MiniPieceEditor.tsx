@@ -366,6 +366,7 @@ export default function MiniPieceEditor({
                 key={ct.id}
                 onClick={() => handleCutoutAdd(ct.name)}
                 className="px-2 py-0.5 text-[10px] font-medium border border-gray-200 rounded bg-white text-gray-600 hover:border-amber-300 hover:text-amber-700 transition-colours"
+                title={ct.name}
               >
                 + {ct.code}
               </button>
@@ -405,6 +406,7 @@ export default function MiniPieceEditor({
               <span
                 key={c.type}
                 className="inline-flex items-center gap-1 px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded"
+                title={c.type}
               >
                 {cutoutShortCode(c.type)} x{c.quantity}
                 {!readOnly && (

@@ -363,7 +363,8 @@ export default function RoomPieceSVG({
 
       {/* Cutout count indicator (top-right) */}
       {cutoutCount > 0 && w > 40 && (
-        <>
+        <g>
+          <title>{piece.cutouts?.map(c => `${c.quantity}x ${c.type}`).join(', ')}</title>
           <circle
             cx={x + w - 12}
             cy={y + 12}
@@ -381,7 +382,7 @@ export default function RoomPieceSVG({
           >
             {cutoutCount}
           </text>
-        </>
+        </g>
       )}
 
       {/* Hover effect styles (edit mode only) */}
