@@ -1691,6 +1691,20 @@ export default function QuoteDetailClient({
 
   const handleBatchMaterial = useCallback(async (materialId: number) => {
     const pieceIds = Array.from(selectedPieceIds).map(Number);
+    if (pieceIds.length === 0) return;
+
+    const material = materials.find(m => m.id === materialId);
+    if (!material) return;
+
+    // Optimistic local state update (Rule 42: visual feedback within 100ms)
+    const prevPieces = pieces;
+    setPieces(prev => prev.map(p => {
+      if (pieceIds.includes(p.id)) {
+        return { ...p, materialId, materialName: material.name };
+      }
+      return p;
+    }));
+
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
         method: 'PATCH',
@@ -1699,14 +1713,16 @@ export default function QuoteDetailClient({
       });
       if (!res.ok) throw new Error();
       const data = await res.json();
-      toast.success(`Material updated on ${data.updated} pieces`);
+      toast.success(`Updated material on ${data.updated} piece${data.updated !== 1 ? 's' : ''}`);
       setSelectedPieceIds(new Set());
       await fetchQuote();
       triggerRecalculate();
     } catch {
+      // Revert optimistic update on failure
+      setPieces(prevPieces);
       toast.error('Failed to update material');
     }
-  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate]);
+  }, [selectedPieceIds, quoteIdStr, fetchQuote, triggerRecalculate, materials, pieces]);
 
   const handleBatchThickness = useCallback(async (thicknessMm: number) => {
     const pieceIds = Array.from(selectedPieceIds).map(Number);
@@ -3316,6 +3332,7 @@ export default function QuoteDetailClient({
                 }))}
                 materials={materials}
                 onMaterialChange={handleMaterialChange}
+                onBulkMaterialChange={handleBatchMaterial}
                 isEditMode={true}
                 selectedPieceIds={selectedPieceIds}
                 onSelectionChange={setSelectedPieceIds}
