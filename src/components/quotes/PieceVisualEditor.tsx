@@ -137,6 +137,28 @@ function cutoutLabel(typeName: string): string {
   return typeName.substring(0, 4);
 }
 
+/** Map of edge profile short codes to full display names (fallback when DB name unavailable) */
+export const EDGE_PROFILE_NAMES: Record<string, string> = {
+  'RAW': 'Raw / Unfinished',
+  'PR': 'Pencil Round',
+  'BN': 'Bullnose',
+  'HBN': 'Half Bullnose',
+  'FE': 'Full Eased',
+  'OG': 'Ogee',
+  'BV': 'Bevel',
+  'M': 'Mitre',
+  'MIT': 'Mitre',
+  'CML': 'Chamfer',
+  'P': 'Polished',
+  'WAT': 'Waterfall',
+};
+
+/** Get the full display name for an edge profile code or name */
+export function getEdgeProfileFullName(codeOrName: string | undefined): string {
+  if (!codeOrName) return 'Raw / Unfinished';
+  return EDGE_PROFILE_NAMES[codeOrName] || codeOrName;
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function PieceVisualEditor({
@@ -874,7 +896,9 @@ export default function PieceVisualEditor({
                 strokeDasharray={isFinished ? undefined : '4 3'}
                 opacity={1}
                 className={isFlashing ? 'edge-flash' : undefined}
-              />
+              >
+                <title>{name || 'Raw / Unfinished'}</title>
+              </line>
 
               {/* Hit area for clicking (edit mode only) */}
               {isEditMode && (onEdgeChange || onEdgesChange) && (
@@ -889,7 +913,9 @@ export default function PieceVisualEditor({
                   onClick={(e) => handleEdgeClick(side, e)}
                   onMouseEnter={() => setHoveredEdge(side)}
                   onMouseLeave={() => setHoveredEdge(null)}
-                />
+                >
+                  <title>{name || 'Raw / Unfinished'}</title>
+                </line>
               )}
 
               {/* Edge profile label */}
@@ -903,6 +929,7 @@ export default function PieceVisualEditor({
                 }`}
                 fill={colour}
               >
+                <title>{name || 'Raw / Unfinished'}</title>
                 {isFinished
                   ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
                   : 'RAW'}

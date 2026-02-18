@@ -319,6 +319,12 @@ export default function RoomLinearView({
                   fontSize={8}
                   fill="#6B7280"
                 >
+                  <title>{[
+                    hasEdgeProfile(piece.edge_top) && `Top: ${piece.edge_top}`,
+                    hasEdgeProfile(piece.edge_bottom) && `Bottom: ${piece.edge_bottom}`,
+                    hasEdgeProfile(piece.edge_left) && `Left: ${piece.edge_left}`,
+                    hasEdgeProfile(piece.edge_right) && `Right: ${piece.edge_right}`,
+                  ].filter(Boolean).join(', ')}</title>
                   {edgeSummary}
                 </text>
               )}
