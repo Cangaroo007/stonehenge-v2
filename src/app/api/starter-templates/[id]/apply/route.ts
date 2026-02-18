@@ -27,7 +27,7 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { materialAssignments, quoteId, customerId, projectName } = body;
+    const { materialAssignments, quoteId, customerId, contactId, projectName } = body;
 
     // Validate materialAssignments
     if (!materialAssignments || typeof materialAssignments !== 'object') {
@@ -68,6 +68,7 @@ export async function POST(
       materialAssignments: materialAssignments as Record<MaterialRole, number>,
       quoteId: quoteId ? Number(quoteId) : undefined,
       customerId: customerId ? Number(customerId) : undefined,
+      contactId: contactId ? Number(contactId) : undefined,
       projectName,
     });
 

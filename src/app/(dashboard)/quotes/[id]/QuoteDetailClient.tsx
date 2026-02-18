@@ -60,6 +60,7 @@ import QuoteSignatureSection from './components/QuoteSignatureSection';
 import SaveAsTemplateButton from './components/SaveAsTemplateButton';
 import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
+import ContactPicker from '@/components/quotes/ContactPicker';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
 
@@ -121,6 +122,18 @@ interface EditQuote {
   status: string;
   subtotal: number;
   total: number;
+  contact_id: number | null;
+  contact: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    mobile: string | null;
+    role: string;
+    role_title: string | null;
+    is_primary: boolean;
+  } | null;
   customer: {
     id: number;
     name: string;
@@ -209,6 +222,17 @@ export interface ServerQuoteData {
     id: number;
     name: string;
     company: string | null;
+  } | null;
+  contact: {
+    id: number;
+    first_name: string;
+    last_name: string;
+    email: string | null;
+    phone: string | null;
+    mobile: string | null;
+    role: string;
+    role_title: string | null;
+    is_primary: boolean;
   } | null;
   quote_rooms: Array<{
     id: number;
@@ -796,7 +820,7 @@ export default function QuoteDetailClient({
     } else {
       setCustomerSearch('');
     }
-    // Optimistic update
+    // Optimistic update — clear contact when customer changes
     setEditQuote(prev => {
       if (!prev) return null;
       return {
@@ -810,9 +834,20 @@ export default function QuoteDetailClient({
               client_tiers: customer.client_tiers,
             }
           : null,
+        contact_id: null,
+        contact: null,
       };
     });
-    await handleMetadataSave({ customerId: customer?.id ?? null }, true);
+    await handleMetadataSave({ customerId: customer?.id ?? null, contactId: null }, true);
+  }, [handleMetadataSave]);
+
+  // ── Contact selection handler ──────────────────────────────────────────
+  const handleContactChange = useCallback(async (contactId: number | null) => {
+    setEditQuote(prev => {
+      if (!prev) return null;
+      return { ...prev, contact_id: contactId };
+    });
+    await handleMetadataSave({ contactId: contactId }, true);
   }, [handleMetadataSave]);
 
   // ── Edit-mode handlers ────────────────────────────────────────────────────
@@ -2348,6 +2383,17 @@ export default function QuoteDetailClient({
             </div>
           </div>
 
+          {/* Contact Picker — only when customer is selected */}
+          {editQuote.customer && (
+            <div className="mt-4">
+              <ContactPicker
+                customerId={editQuote.customer.id}
+                selectedContactId={editQuote.contact_id}
+                onContactChange={handleContactChange}
+              />
+            </div>
+          )}
+
           {/* Project Address — full width */}
           <div className="mt-4">
             <label className="block text-sm font-medium text-gray-700 mb-1">Project Address</label>
@@ -2390,6 +2436,23 @@ export default function QuoteDetailClient({
             <p className="font-medium">{serverData.customers?.name || '-'}</p>
             {serverData.customers?.company && (
               <p className="text-sm text-gray-500">{serverData.customers.company}</p>
+            )}
+            {serverData.contact && (
+              <div className="mt-1">
+                <p className="text-sm text-gray-600">
+                  {serverData.contact.first_name} {serverData.contact.last_name}
+                  {serverData.contact.role_title
+                    ? ` — ${serverData.contact.role_title}`
+                    : serverData.contact.role !== 'OTHER'
+                      ? ` — ${serverData.contact.role.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase())}`
+                      : ''}
+                </p>
+                {(serverData.contact.email || serverData.contact.phone || serverData.contact.mobile) && (
+                  <p className="text-xs text-gray-400">
+                    {[serverData.contact.email, serverData.contact.phone || serverData.contact.mobile].filter(Boolean).join('  |  ')}
+                  </p>
+                )}
+              </div>
             )}
           </div>
           <div>

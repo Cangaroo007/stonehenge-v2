@@ -59,6 +59,7 @@ interface CalculationData {
 
 interface QuoteUpdateData {
   customerId?: number | null;
+  contactId?: number | string | null;
   projectName?: string | null;
   projectAddress?: string | null;
   status?: string;
@@ -97,6 +98,19 @@ export async function GET(
           include: {
             client_types: true,
             client_tiers: true,
+          },
+        },
+        contact: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+            phone: true,
+            mobile: true,
+            role: true,
+            role_title: true,
+            is_primary: true,
           },
         },
         price_books: true,
@@ -222,6 +236,7 @@ export async function PUT(
       const updateFields: Record<string, unknown> = {};
       if (data.status !== undefined) updateFields.status = data.status;
       if (data.customerId !== undefined) updateFields.customer_id = data.customerId;
+      if (data.contactId !== undefined) updateFields.contact_id = data.contactId ? parseInt(String(data.contactId)) : null;
       if (data.projectName !== undefined) updateFields.project_name = data.projectName;
       if (data.projectAddress !== undefined) updateFields.project_address = data.projectAddress;
       if (data.notes !== undefined) updateFields.notes = data.notes;
@@ -299,6 +314,7 @@ export async function PUT(
         where: { id: quoteId },
         data: {
           customer_id: data.customerId,
+          ...(data.contactId !== undefined && { contact_id: data.contactId ? parseInt(String(data.contactId)) : null }),
           project_name: data.projectName,
           project_address: data.projectAddress,
           status: data.status,
@@ -400,6 +416,7 @@ function transformQuoteForClient(quote: any) {
     ...quote,
     // Add camelCase aliases for relations
     customer: quote.customers || null,
+    contact: quote.contact || null,
     rooms: (quote.quote_rooms || []).map((room: any) => ({
       ...room,
       sortOrder: room.sort_order,

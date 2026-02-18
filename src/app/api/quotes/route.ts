@@ -64,6 +64,7 @@ interface QuoteCreateData {
   // Accept both field names for drawing analysis
   drawingAnalysis?: DrawingAnalysisData | null;
   quote_drawing_analyses?: DrawingAnalysisData | null;
+  contactId?: number | string | null;
   // Delivery & Templating (accepted but not persisted to quotes table)
   deliveryAddress?: string | null;
   deliveryDistanceKm?: number | null;
@@ -104,6 +105,7 @@ export async function POST(request: NextRequest) {
       data: {
         quote_number: data.quote_number,
         customer_id: data.customerId,
+        contact_id: data.contactId ? parseInt(String(data.contactId)) : null,
         project_name: projectName,
         project_address: projectAddress,
         status: data.status || 'draft',
