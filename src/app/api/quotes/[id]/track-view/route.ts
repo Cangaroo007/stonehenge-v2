@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { trackQuoteView, getClientIp, getUserAgent } from '@/lib/audit';
 
 /**
@@ -11,6 +11,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -18,13 +23,15 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    // Get current user (may be null for public/shared links in future)
-    const currentUser = await getCurrentUser();
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     // Track the view
     await trackQuoteView(
       quoteId,
-      currentUser?.id,
+      auth.user.id,
       getClientIp(request.headers),
       getUserAgent(request.headers)
     );

@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import { formatDate } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
-async function getCustomers() {
+async function getCustomers(companyId: number) {
   return prisma.customers.findMany({
+    where: { company_id: companyId },
     orderBy: { name: 'asc' },
     include: {
       _count: { select: { quotes: true } },
@@ -16,7 +19,9 @@ async function getCustomers() {
 }
 
 export default async function CustomersPage() {
-  const customers = await getCustomers();
+  const auth = await requireAuth();
+  if ('error' in auth) redirect('/login');
+  const customers = await getCustomers(auth.user.companyId);
 
   return (
     <div className="space-y-6">

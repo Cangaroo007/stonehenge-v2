@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { generateManufacturingExport } from '@/lib/services/manufacturing-export';
 
 /**
@@ -30,6 +30,11 @@ export async function GET(
         { error: 'Invalid quote ID' },
         { status: 400 }
       );
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const exportData = await generateManufacturingExport(quoteId);

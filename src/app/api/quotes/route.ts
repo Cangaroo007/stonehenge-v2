@@ -79,7 +79,14 @@ interface QuoteCreateData {
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const quotes = await prisma.quotes.findMany({
+      where: { company_id: companyId },
       orderBy: { created_at: 'desc' },
       include: { customers: true },
     });
@@ -92,6 +99,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const data: QuoteCreateData = await request.json();
 
     // Normalise field names: accept both camelCase and snake_case
@@ -104,6 +117,7 @@ export async function POST(request: NextRequest) {
     const quote = await prisma.quotes.create({
       data: {
         quote_number: data.quote_number,
+        company_id: companyId,
         customer_id: data.customerId,
         contact_id: data.contactId ? parseInt(String(data.contactId)) : null,
         project_name: projectName,
@@ -168,9 +182,7 @@ export async function POST(request: NextRequest) {
 
     // Create initial version for version history
     try {
-      const authResult = await requireAuth();
-      const userId = 'error' in authResult ? (data.created_by ?? 1) : authResult.user.id;
-      await createInitialVersion(quote.id, userId);
+      await createInitialVersion(quote.id, auth.user.id);
     } catch (versionError) {
       console.error('Error creating initial version (non-blocking):', versionError);
     }

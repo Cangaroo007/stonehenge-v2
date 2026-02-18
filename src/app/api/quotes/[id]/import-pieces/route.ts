@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 interface ImportPieceData {
   name: string;
@@ -27,6 +28,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -34,12 +40,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    // Verify quote exists
-    const quote = await prisma.quotes.findUnique({
-      where: { id: quoteId },
-    });
-
-    if (!quote) {
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 

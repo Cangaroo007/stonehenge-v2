@@ -7,6 +7,13 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const userId = String(auth.user.id);
+    const { companyId } = auth.user;
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
@@ -14,14 +21,12 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    // Get user ID
-    let userId = '1';
-    try {
-      const authResult = await requireAuth();
-      if (!('error' in authResult)) {
-        userId = String(authResult.user.id);
-      }
-    } catch { /* use fallback */ }
+    // Verify quote belongs to user's company
+    const { verifyQuoteOwnership } = await import('@/lib/auth');
+    const quoteCheck = await verifyQuoteOwnership(quoteId, companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     // Parse optional body
     let body: { asRevision?: boolean; newTitle?: string } = {};

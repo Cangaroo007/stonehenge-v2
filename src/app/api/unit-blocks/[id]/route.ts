@@ -50,7 +50,7 @@ export async function GET(
       },
     });
 
-    if (!project) {
+    if (!project || project.company_id !== authResult.user.companyId) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -79,8 +79,9 @@ export async function PATCH(
 
     const existing = await prisma.unit_block_projects.findUnique({
       where: { id: projectId },
+      select: { company_id: true },
     });
-    if (!existing) {
+    if (!existing || existing.company_id !== authResult.user.companyId) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 
@@ -138,8 +139,9 @@ export async function DELETE(
 
     const existing = await prisma.unit_block_projects.findUnique({
       where: { id: projectId },
+      select: { company_id: true },
     });
-    if (!existing) {
+    if (!existing || existing.company_id !== authResult.user.companyId) {
       return NextResponse.json({ error: 'Project not found' }, { status: 404 });
     }
 

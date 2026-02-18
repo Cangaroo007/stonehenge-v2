@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuthLegacy as requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 
 // POST /api/quotes/[id]/pieces/[pieceId]/override
@@ -9,18 +9,28 @@ export async function POST(
   { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
-    const user = await requireAuth(request);
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const user = auth.user;
+
     const { id, pieceId: pieceIdParam } = await params;
     const quoteId = parseInt(id);
     const pieceId = parseInt(pieceIdParam);
-    
+
     if (isNaN(quoteId) || isNaN(pieceId)) {
       return NextResponse.json(
         { error: 'Invalid quote or piece ID' },
         { status: 400 }
       );
     }
-    
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     const body = await request.json();
     
     // Validate that at least one override is provided
@@ -106,17 +116,28 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string; pieceId: string }> }
 ) {
   try {
-    const user = await requireAuth(request);
-    const { pieceId: pieceIdParam } = await params;
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const user = auth.user;
+
+    const { id, pieceId: pieceIdParam } = await params;
+    const quoteId = parseInt(id);
     const pieceId = parseInt(pieceIdParam);
-    
-    if (isNaN(pieceId)) {
+
+    if (isNaN(quoteId) || isNaN(pieceId)) {
       return NextResponse.json(
-        { error: 'Invalid piece ID' },
+        { error: 'Invalid quote or piece ID' },
         { status: 400 }
       );
     }
-    
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {

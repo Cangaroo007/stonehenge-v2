@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, verifyCustomerOwnership } from '@/lib/auth';
 import { getLocationsForCustomer, createLocation } from '@/lib/services/customer-location-service';
 
 export async function GET(
@@ -7,15 +7,21 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const { companyId } = auth.user;
 
     const { id } = await params;
     const customerId = parseInt(id);
     if (isNaN(customerId)) {
       return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+    }
+
+    const ownerCheck = await verifyCustomerOwnership(customerId, companyId);
+    if (!ownerCheck) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
     const locations = await getLocationsForCustomer(customerId);
@@ -31,15 +37,21 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorised' }, { status: 401 });
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const { companyId } = auth.user;
 
     const { id } = await params;
     const customerId = parseInt(id);
     if (isNaN(customerId)) {
       return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+    }
+
+    const ownerCheck = await verifyCustomerOwnership(customerId, companyId);
+    if (!ownerCheck) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
     const body = await request.json();

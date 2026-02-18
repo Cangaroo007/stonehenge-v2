@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { assembleQuotePdfData } from '@/lib/services/quote-pdf-service';
 import { renderQuotePdf } from '@/lib/services/quote-pdf-renderer';
@@ -23,6 +23,12 @@ export async function GET(
 
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Assemble PDF data (validates quote exists and has pricing)

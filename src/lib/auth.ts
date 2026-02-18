@@ -174,6 +174,31 @@ export async function requireAuth(
 }
 
 /**
+ * Verify that a quote belongs to the authenticated user's company.
+ * Returns the quote if it belongs to the company, or null if not found / wrong company.
+ */
+export async function verifyQuoteOwnership(quoteId: number, companyId: number) {
+  const quote = await prisma.quotes.findUnique({
+    where: { id: quoteId },
+    select: { id: true, company_id: true },
+  });
+  if (!quote || quote.company_id !== companyId) return null;
+  return quote;
+}
+
+/**
+ * Verify that a customer belongs to the authenticated user's company.
+ */
+export async function verifyCustomerOwnership(customerId: number, companyId: number) {
+  const customer = await prisma.customers.findUnique({
+    where: { id: customerId },
+    select: { id: true, company_id: true },
+  });
+  if (!customer || customer.company_id !== companyId) return null;
+  return customer;
+}
+
+/**
  * Legacy requireAuth for backwards compatibility with existing routes
  */
 export async function requireAuthLegacy(

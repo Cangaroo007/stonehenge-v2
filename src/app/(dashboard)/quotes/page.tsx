@@ -1,11 +1,14 @@
 import Link from 'next/link';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
+import { redirect } from 'next/navigation';
 import QuotesListClient from './QuotesListClient';
 
 export const dynamic = 'force-dynamic';
 
-async function getQuotes() {
+async function getQuotes(companyId: number) {
   const quotes = await prisma.quotes.findMany({
+    where: { company_id: companyId },
     orderBy: [
       { status_changed_at: 'desc' },
       { created_at: 'desc' },
@@ -27,7 +30,9 @@ async function getQuotes() {
 }
 
 export default async function QuotesPage() {
-  const quotes = await getQuotes();
+  const auth = await requireAuth();
+  if ('error' in auth) redirect('/login');
+  const quotes = await getQuotes(auth.user.companyId);
 
   return (
     <div className="space-y-6">

@@ -160,6 +160,7 @@ export async function applyTemplateToQuote(
       const newQuote = await tx.quotes.create({
         data: {
           quote_number: quoteNumber,
+          company_id: template.companyId,
           customer_id: customerId!,
           contact_id: contactId || null,
           project_name: projectName || template.name,

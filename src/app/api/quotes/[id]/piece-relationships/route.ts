@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 const VALID_RELATION_TYPES = [
   'WATERFALL',
@@ -33,6 +33,11 @@ export async function GET(
     const quoteId = parseInt(id);
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Get all piece IDs for this quote
@@ -86,6 +91,11 @@ export async function POST(
     const quoteId = parseInt(id);
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const body = await request.json();
@@ -190,6 +200,11 @@ export async function DELETE(
     const quoteId = parseInt(id);
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const { searchParams } = new URL(request.url);

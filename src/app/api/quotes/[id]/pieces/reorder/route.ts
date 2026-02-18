@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 interface ReorderItem {
   id: number;
@@ -12,11 +13,21 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const data = await request.json();

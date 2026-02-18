@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
-import { hasPermissionAsync, Permission } from '@/lib/permissions';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
 
 /**
@@ -12,43 +11,20 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = await params;
-    const currentUser = await getCurrentUser();
-    
-    if (!currentUser) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
 
+    const { id } = await params;
     const quoteId = parseInt(id);
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    // Check if user can view this quote
-    const canViewAll = await hasPermissionAsync(currentUser.id, Permission.VIEW_ALL_QUOTES);
-    
-    // Get the quote to check ownership
-    const quote = await prisma.quotes.findUnique({
-      where: { id: quoteId },
-      select: {
-        id: true,
-        customer_id: true,
-        created_by: true,
-      },
-    });
-
-    if (!quote) {
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-    }
-
-    // Check access
-    const hasAccess = 
-      canViewAll || 
-      quote.created_by === currentUser.id || 
-      (currentUser.customerId && quote.customer_id === currentUser.customerId);
-
-    if (!hasAccess) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
     // Get view history

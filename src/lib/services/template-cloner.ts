@@ -178,10 +178,20 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
   const quoteNumber = await generateQuoteNumber();
 
   const result = await prisma.$transaction(async (tx) => {
+    // Get customer's company_id for tenant isolation
+    const customer = await tx.customers.findUnique({
+      where: { id: customerId },
+      select: { company_id: true },
+    });
+    if (!customer) {
+      throw new Error(`Customer not found: ${customerId}`);
+    }
+
     // Create the quote
     const quote = await tx.quotes.create({
       data: {
         quote_number: quoteNumber,
+        company_id: customer.company_id,
         customer_id: customerId,
         project_name: projectName || `${template.name} — Unit ${unitNumber}`,
         status: 'draft',

@@ -187,9 +187,9 @@ export class QuoteCalculator {
 
     this.quoteData = quote as unknown as QuoteData;
 
-    // Load pricing context
-    // Note: Using '1' as default org ID - multi-tenancy would use customer's company
-    this.pricingContext = await this.loadPricingContext('1');
+    // Load pricing context using the quote's company
+    const organisationId = `company-${(quote as any).company_id}`;
+    this.pricingContext = await this.loadPricingContext(organisationId);
 
     // Load pricing configuration
     const [edgeTypes, cutoutTypes, serviceRates] = await Promise.all([

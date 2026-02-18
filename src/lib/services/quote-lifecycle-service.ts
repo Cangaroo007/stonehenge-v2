@@ -299,6 +299,7 @@ export async function duplicateQuote(
       data: {
         quote_number: newQuoteNumber,
         revision: revisionNumber,
+        company_id: source.company_id,
         customer_id: source.customer_id,
         contact_id: source.contact_id,
         project_name: projectName,
