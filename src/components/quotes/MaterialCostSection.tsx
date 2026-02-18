@@ -189,17 +189,42 @@ function MarginAdjustmentInput({
   onChange: (percent: number) => void;
   margin?: MaterialBreakdown['margin'];
 }) {
+  const handleMarginChange = (newValue: number) => {
+    // Clamp between -100 and 100
+    const clamped = Math.max(-100, Math.min(100, newValue));
+    onChange(clamped);
+  };
+
   return (
     <div className="pt-2 border-t border-gray-200">
       <div className="flex items-center gap-2">
         <label className="text-xs text-gray-500">Margin adjustment:</label>
-        <input
-          type="number"
-          step="0.5"
-          className="w-20 border border-gray-300 rounded px-2 py-1 text-sm"
-          value={value}
-          onChange={(e) => onChange(parseFloat(e.target.value) || 0)}
-        />
+        <div className="flex items-center">
+          <button
+            type="button"
+            onClick={() => handleMarginChange(value - 1)}
+            className="px-2 py-1 border border-gray-300 rounded-l bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors"
+          >
+            &minus;
+          </button>
+          <input
+            type="number"
+            min={-100}
+            max={100}
+            step={1}
+            className="w-16 border-t border-b border-gray-300 px-2 py-1 text-sm text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+            value={value}
+            onChange={(e) => handleMarginChange(parseFloat(e.target.value) || 0)}
+            onWheel={(e) => e.currentTarget.blur()}
+          />
+          <button
+            type="button"
+            onClick={() => handleMarginChange(value + 1)}
+            className="px-2 py-1 border border-gray-300 rounded-r bg-gray-50 hover:bg-gray-100 text-sm font-medium text-gray-600 transition-colors"
+          >
+            +
+          </button>
+        </div>
         <span className="text-xs text-gray-500">%</span>
       </div>
       {margin && (
