@@ -12,7 +12,6 @@ import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import RoomPieceSVG from './RoomPieceSVG';
 import RelationshipConnector from './RelationshipConnector';
 import RelationshipSuggestions from './RelationshipSuggestions';
-import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -313,85 +312,14 @@ export default function RoomSpatialView({
 
   const multiSelectCount = selectedPieceIds?.size ?? 0;
 
-  // ── Paint mode state (Task D) ──
-  const [paintMode, setPaintMode] = useState(false);
+  // ── Paint mode state — always-on in edit mode ──
   const [paintProfileId, setPaintProfileId] = useState<string | null>(null);
-
-  const handleTogglePaintMode = useCallback(() => {
-    setPaintMode(prev => !prev);
-  }, []);
-
-  // ── Edge popover state (non-paint mode — 1-click edge editing) ──
-  const [edgePopover, setEdgePopover] = useState<{
-    pieceId: string;
-    side: string;
-    currentProfileId: string | null;
-    x: number;
-    y: number;
-  } | null>(null);
-  const svgRef = useRef<SVGSVGElement>(null);
 
   const handleEdgeClick = useCallback((pieceId: string, side: string) => {
     if (!onPieceEdgeChange) return;
-
-    if (paintMode) {
-      // Paint mode: instantly apply selected profile
-      onPieceEdgeChange(pieceId, side, paintProfileId);
-      toast.success('Edge updated');
-      return;
-    }
-
-    // Select mode: open edge profile popover
-    const piece = pieces.find(p => String(p.id) === pieceId);
-    if (!piece) return;
-
-    const sideKey = `edge_${side}` as keyof typeof piece;
-    const currentEdge = piece[sideKey] as string | null;
-
-    // Calculate popover position relative to the SVG container
-    const svgEl = svgRef.current;
-    if (!svgEl) return;
-    const svgRect = svgEl.getBoundingClientRect();
-    const pos = layout.pieces.find(p => p.pieceId === pieceId);
-    if (!pos) return;
-
-    // Map piece SVG coords to container pixel coords
-    const scaleX = svgRect.width / layout.viewBox.width;
-    const scaleY = svgRect.height / layout.viewBox.height;
-
-    let popX: number;
-    let popY: number;
-    if (side === 'top') {
-      popX = (pos.x + pos.width / 2) * scaleX;
-      popY = pos.y * scaleY;
-    } else if (side === 'bottom') {
-      popX = (pos.x + pos.width / 2) * scaleX;
-      popY = (pos.y + pos.height) * scaleY;
-    } else if (side === 'left') {
-      popX = pos.x * scaleX;
-      popY = (pos.y + pos.height / 2) * scaleY;
-    } else {
-      popX = (pos.x + pos.width) * scaleX;
-      popY = (pos.y + pos.height / 2) * scaleY;
-    }
-
-    setEdgePopover({ pieceId, side, currentProfileId: currentEdge, x: popX, y: popY });
-  }, [paintMode, paintProfileId, onPieceEdgeChange, pieces, layout]);
-
-  const handleEdgePopoverSelect = useCallback((profileId: string | null) => {
-    if (!edgePopover || !onPieceEdgeChange) return;
-    onPieceEdgeChange(edgePopover.pieceId, edgePopover.side, profileId);
-    setEdgePopover(null);
+    onPieceEdgeChange(pieceId, side, paintProfileId);
     toast.success('Edge updated');
-  }, [edgePopover, onPieceEdgeChange]);
-
-  // Scope-aware edge apply from RoomSpatialView popover
-  const handleEdgeApplyWithScope = useCallback((profileId: string | null, scope: EdgeScope) => {
-    if (!edgePopover || !onBatchEdgeUpdate) return;
-    const sourcePieceId = Number(edgePopover.pieceId);
-    onBatchEdgeUpdate(profileId, scope, sourcePieceId, edgePopover.side, roomId ?? 0);
-    setEdgePopover(null);
-  }, [edgePopover, onBatchEdgeUpdate, roomId]);
+  }, [paintProfileId, onPieceEdgeChange]);
 
   // Connector popover state (edit mode)
   const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
@@ -573,20 +501,6 @@ export default function RoomSpatialView({
           >
             {roomName}
           </h3>
-        )}
-        {/* Paint mode toggle (edit mode only, Task D) */}
-        {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
-          <button
-            onClick={handleTogglePaintMode}
-            className={`px-2 py-0.5 text-[10px] font-medium rounded-md border transition-colors ${
-              paintMode
-                ? 'bg-blue-600 text-white border-blue-600'
-                : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50'
-            }`}
-            title="Toggle paint mode (P)"
-          >
-            Paint
-          </button>
         )}
         {/* + Piece button (edit mode) */}
         {mode === 'edit' && onAddPiece && roomId && (
@@ -828,27 +742,33 @@ export default function RoomSpatialView({
       {renderRoomHeader()}
       {renderRoomNotes()}
 
-      {/* Paint mode profile selector bar (Task D) */}
-      {paintMode && mode === 'edit' && (
-        <div className="flex items-center gap-2 mb-2 px-1 py-1.5 bg-blue-50 border border-blue-200 rounded-md">
-          <span className="text-[10px] font-medium text-blue-700">Paint profile:</span>
-          <select
-            value={paintProfileId ?? ''}
-            onChange={e => setPaintProfileId(e.target.value || null)}
-            className="px-2 py-0.5 text-[10px] border border-blue-200 rounded bg-white text-gray-700 focus:ring-1 focus:ring-blue-500"
-          >
-            <option value="">Raw (no finish)</option>
-            {edgeProfiles.map(ep => (
-              <option key={ep.id} value={ep.id}>{ep.name}</option>
-            ))}
-          </select>
-          <span className="text-[10px] text-blue-500 italic ml-auto">Click any edge to apply</span>
+      {/* Edge profile palette — always visible in edit mode */}
+      {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
+        <div className="flex items-center gap-1 mb-2 px-1 py-1.5 bg-blue-50 border border-blue-200 rounded-md flex-wrap">
           <button
-            onClick={() => setPaintMode(false)}
-            className="text-[10px] text-blue-600 hover:text-blue-800 font-medium"
+            onClick={() => setPaintProfileId(null)}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+              paintProfileId === null
+                ? 'bg-blue-600 text-white border-blue-600'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+            }`}
           >
-            Exit
+            Raw
           </button>
+          {edgeProfiles.map(ep => (
+            <button
+              key={ep.id}
+              onClick={() => setPaintProfileId(ep.id)}
+              className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+                paintProfileId === ep.id
+                  ? 'bg-blue-600 text-white border-blue-600'
+                  : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+              }`}
+            >
+              {ep.name}
+            </button>
+          ))}
+          <span className="text-[10px] text-blue-500 italic ml-auto">Click any edge to apply</span>
         </div>
       )}
 
@@ -864,9 +784,8 @@ export default function RoomSpatialView({
 
       {/* SVG canvas */}
       <svg
-        ref={svgRef}
         viewBox={`0 0 ${layout.viewBox.width} ${layout.viewBox.height}`}
-        className={`w-full h-auto ${paintMode ? 'cursor-crosshair' : ''}`}
+        className={`w-full h-auto ${mode === 'edit' && onPieceEdgeChange ? 'cursor-crosshair' : ''}`}
         style={{ maxHeight: 500 }}
       >
         {/* Relationship connectors (rendered BELOW pieces for z-order) */}
@@ -923,7 +842,7 @@ export default function RoomSpatialView({
               scale={layout.scale}
               isSelected={selectedPieceId === String(piece.id) || isPieceMultiSelected(String(piece.id))}
               isEditMode={mode === 'edit'}
-              isPaintMode={paintMode}
+              isPaintMode={mode === 'edit' && !!onPieceEdgeChange}
               onPieceClick={onPieceMultiSelect
                 ? (pieceId: string, e?: React.MouseEvent) => {
                     if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
@@ -942,21 +861,6 @@ export default function RoomSpatialView({
         })}
       </svg>
 
-      {/* Edge Profile Popover (1-click edge editing — Rule 37, with scope selector — 12.P23b) */}
-      {edgePopover && mode === 'edit' && onPieceEdgeChange && (
-        <EdgeProfilePopover
-          isOpen={true}
-          position={{ x: edgePopover.x, y: edgePopover.y }}
-          currentProfileId={edgePopover.currentProfileId}
-          profiles={edgeProfiles.map(ep => ({ id: ep.id, name: ep.name }))}
-          onSelect={handleEdgePopoverSelect}
-          onClose={() => setEdgePopover(null)}
-          side={onBatchEdgeUpdate ? edgePopover.side : undefined}
-          roomName={roomName}
-          roomId={roomId != null ? String(roomId) : undefined}
-          onApplyWithScope={onBatchEdgeUpdate ? handleEdgeApplyWithScope : undefined}
-        />
-      )}
 
       {/* Connector Popover Editor (edit mode) */}
       {connectorPopover && mode === 'edit' && quoteId && (
