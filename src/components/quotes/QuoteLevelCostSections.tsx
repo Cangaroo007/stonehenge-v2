@@ -12,6 +12,10 @@ interface QuoteLevelCostSectionsProps {
   /** Editable fields in edit mode */
   onDeliveryAddressChange?: (address: string) => void;
   onTemplatingToggle?: (required: boolean) => void;
+  /** Whether delivery is enabled (edit mode toggle) */
+  deliveryEnabled?: boolean;
+  /** Called when the delivery toggle changes (edit mode) */
+  onDeliveryEnabledChange?: (enabled: boolean) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -86,6 +90,8 @@ export default function QuoteLevelCostSections({
   mode,
   onDeliveryAddressChange,
   onTemplatingToggle,
+  deliveryEnabled,
+  onDeliveryEnabledChange,
 }: QuoteLevelCostSectionsProps) {
   // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
   if (!calculation.breakdown) {
@@ -102,10 +108,17 @@ export default function QuoteLevelCostSections({
   const hasTemplatingData = !!(templating && (templating.required || templating.finalCost > 0));
   const hasInstallationData = installationData.totalCost > 0 || installationData.items.length > 0;
 
-  // If nothing to show at all, return null
-  if (!hasDeliveryData && !hasTemplatingData && !hasInstallationData) {
+  const isEditMode = mode === 'edit';
+  const showDeliveryToggle = isEditMode && onDeliveryEnabledChange;
+
+  // In edit mode, always show the section (for the delivery toggle)
+  // In view mode, only show if there's data
+  if (!isEditMode && !hasDeliveryData && !hasTemplatingData && !hasInstallationData) {
     return null;
   }
+
+  const effectiveDeliveryEnabled = deliveryEnabled ?? hasDeliveryData;
+  const deliveryCost = effectiveDeliveryEnabled ? (delivery?.finalCost ?? 0) : 0;
 
   return (
     <div className="space-y-2">
@@ -113,47 +126,72 @@ export default function QuoteLevelCostSections({
         Quote-Level Charges
       </h3>
 
-      {/* Delivery */}
-      {delivery && (
-        <SectionRow
-          label="Delivery"
-          total={delivery.finalCost}
-          hasData={hasDeliveryData}
-        >
-          {delivery.address && (
-            mode === 'edit' && onDeliveryAddressChange ? (
-              <div>
-                <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
-                <input
-                  type="text"
-                  defaultValue={delivery.address}
-                  onBlur={(e) => onDeliveryAddressChange(e.target.value)}
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
-            ) : (
-              <DetailRow label="Address" value={delivery.address} />
-            )
+      {/* Delivery with toggle */}
+      <div className={`rounded-lg border ${!effectiveDeliveryEnabled ? 'border-gray-100 bg-gray-50/50' : 'border-gray-200 bg-white'}`}>
+        <div className="flex items-center gap-3 px-4 py-3 text-sm">
+          {showDeliveryToggle ? (
+            <button
+              type="button"
+              role="switch"
+              aria-checked={effectiveDeliveryEnabled}
+              onClick={() => onDeliveryEnabledChange(!effectiveDeliveryEnabled)}
+              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                effectiveDeliveryEnabled ? 'bg-primary-600' : 'bg-gray-200'
+              }`}
+            >
+              <span
+                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                  effectiveDeliveryEnabled ? 'translate-x-4' : 'translate-x-0'
+                }`}
+              />
+            </button>
+          ) : (
+            <span className="w-3.5" />
           )}
-          {delivery.zone && <DetailRow label="Zone" value={delivery.zone} />}
-          {delivery.distanceKm != null && (
-            <DetailRow label="Distance" value={`${Number(delivery.distanceKm).toFixed(1)} km`} />
-          )}
-          {delivery.calculatedCost != null && (
-            <DetailRow label="Calculated Cost" value={formatCurrency(delivery.calculatedCost)} />
-          )}
-          {delivery.overrideCost != null && (
-            <DetailRow
-              label="Override Applied"
-              value={<span className="text-amber-600">{formatCurrency(delivery.overrideCost)}</span>}
-            />
-          )}
-          <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
-            <span>Final Delivery Cost</span>
-            <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
+          <span className={`font-medium ${!effectiveDeliveryEnabled ? 'text-gray-400' : 'text-gray-900'}`}>
+            {showDeliveryToggle ? 'Include Delivery' : 'Delivery'}
+          </span>
+          <span className={`ml-auto font-medium tabular-nums ${!effectiveDeliveryEnabled ? 'text-gray-400' : 'text-gray-900'}`}>
+            {formatCurrency(deliveryCost)}
+          </span>
+        </div>
+        {effectiveDeliveryEnabled && hasDeliveryData && delivery && (
+          <div className="px-4 pb-3 pt-1 border-t border-gray-100 space-y-2 text-xs text-gray-600">
+            {delivery.address && (
+              isEditMode && onDeliveryAddressChange ? (
+                <div>
+                  <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
+                  <input
+                    type="text"
+                    defaultValue={delivery.address}
+                    onBlur={(e) => onDeliveryAddressChange(e.target.value)}
+                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+              ) : (
+                <DetailRow label="Address" value={delivery.address} />
+              )
+            )}
+            {delivery.zone && <DetailRow label="Zone" value={delivery.zone} />}
+            {delivery.distanceKm != null && (
+              <DetailRow label="Distance" value={`${Number(delivery.distanceKm).toFixed(1)} km`} />
+            )}
+            {delivery.calculatedCost != null && (
+              <DetailRow label="Calculated Cost" value={formatCurrency(delivery.calculatedCost)} />
+            )}
+            {delivery.overrideCost != null && (
+              <DetailRow
+                label="Override Applied"
+                value={<span className="text-amber-600">{formatCurrency(delivery.overrideCost)}</span>}
+              />
+            )}
+            <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
+              <span>Final Delivery Cost</span>
+              <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
+            </div>
           </div>
-        </SectionRow>
-      )}
+        )}
+      </div>
 
       {/* Templating */}
       {templating && (

@@ -337,6 +337,10 @@ export default function QuoteDetailClient({
   const [showFromTemplate, setShowFromTemplate] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
+  const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
+    const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
+    return !!(del && (del.address || del.distanceKm || del.finalCost > 0));
+  });
   const [discountDisplayMode, setDiscountDisplayMode] = useState<'ITEMIZED' | 'TOTAL_ONLY'>('ITEMIZED');
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
 
@@ -1521,6 +1525,40 @@ export default function QuoteDetailClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to reorder pieces');
       await fetchQuote();
+    }
+  };
+
+  const handleDeliveryEnabledChange = async (enabled: boolean) => {
+    setDeliveryEnabled(enabled);
+    markAsChanged();
+    try {
+      if (!enabled) {
+        // Disable delivery: zero out delivery fields
+        await fetch(`/api/quotes/${quoteIdStr}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deliveryCost: 0,
+            deliveryDistanceKm: 0,
+            deliveryAddress: null,
+            overrideDeliveryCost: null,
+          }),
+        });
+      } else {
+        // Enable delivery: clear cost so calculator auto-calculates from address
+        await fetch(`/api/quotes/${quoteIdStr}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deliveryCost: null,
+            deliveryDistanceKm: null,
+          }),
+        });
+      }
+      triggerRecalculate();
+    } catch (err) {
+      console.error('Failed to update delivery toggle:', err);
+      setDeliveryEnabled(!enabled); // Revert on failure
     }
   };
 
@@ -3658,6 +3696,8 @@ export default function QuoteDetailClient({
             <QuoteLevelCostSections
               calculation={calculation}
               mode="edit"
+              deliveryEnabled={deliveryEnabled}
+              onDeliveryEnabledChange={handleDeliveryEnabledChange}
             />
           </div>
         )}
