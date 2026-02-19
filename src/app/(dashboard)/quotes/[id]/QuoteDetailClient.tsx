@@ -3213,7 +3213,7 @@ export default function QuoteDetailClient({
                 showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
               }`}
             >
-              Bulk Swap
+              Bulk Material
             </button>
           </div>
           {showBulkSwap && (

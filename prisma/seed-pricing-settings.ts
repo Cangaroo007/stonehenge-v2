@@ -6,7 +6,7 @@ async function main() {
   console.log('🌱 Seeding pricing settings, service rates, and cutout rates...');
 
   // ============================================
-  // 1. UPSERT PRICING SETTINGS (org '1')
+  // 1. UPSERT PRICING SETTINGS (company-1)
   // ============================================
   const settingsData = {
     material_pricing_basis: 'PER_SLAB' as const,
@@ -24,11 +24,11 @@ async function main() {
   };
 
   const settings = await prisma.pricing_settings.upsert({
-    where: { organisation_id: '1' },
+    where: { organisation_id: 'company-1' },
     update: settingsData,
     create: {
       id: 'ps-org-1',
-      organisation_id: '1',
+      organisation_id: 'company-1',
       ...settingsData,
     },
   });

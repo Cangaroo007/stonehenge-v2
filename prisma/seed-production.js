@@ -27,12 +27,12 @@ async function seedPricingSettings() {
   const settings = await prisma.pricing_settings.upsert({
     where: { id: 'ps-org-1' },
     update: {
-      organisation_id: '1',
+      organisation_id: 'company-1',
       ...settingsData,
     },
     create: {
       id: 'ps-org-1',
-      organisation_id: '1',
+      organisation_id: 'company-1',
       ...settingsData,
     },
   });

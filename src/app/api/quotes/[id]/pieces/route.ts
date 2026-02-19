@@ -168,7 +168,9 @@ export async function POST(
         ));
 
         if (edgeIds.length > 0) {
-          const pricingSettings = await prisma.pricing_settings.findFirst();
+          const pricingSettings = await prisma.pricing_settings.findUnique({
+            where: { organisation_id: `company-${auth.user.companyId}` },
+          });
           if (pricingSettings) {
             const compatibilityRules = await prisma.material_edge_compatibility.findMany({
               where: {

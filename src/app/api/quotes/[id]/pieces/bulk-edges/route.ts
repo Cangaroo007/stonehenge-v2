@@ -76,7 +76,9 @@ export async function PATCH(
     }
 
     // Fetch compatibility rules
-    const pricingSettings = await prisma.pricing_settings.findFirst();
+    const pricingSettings = await prisma.pricing_settings.findUnique({
+      where: { organisation_id: `company-${authResult.user.companyId}` },
+    });
     let compatRules: Array<{
       fabricationCategory: string;
       edgeTypeId: string;
