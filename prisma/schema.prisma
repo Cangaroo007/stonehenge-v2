@@ -247,6 +247,7 @@ model drawings {
   thumbnailKey String?
   customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
   quotes       quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  corrections  drawing_corrections[]
 
   @@index([customerId])
   @@index([quoteId])
@@ -493,6 +494,7 @@ model quote_drawing_analyses {
   metadata        Json?
   imported_pieces String[]
   quotes          quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  corrections     drawing_corrections[]
 }
 
 model quote_files {
@@ -1478,4 +1480,33 @@ model piece_relationships {
   updated_at      DateTime @updatedAt @default(now())
 
   @@unique([source_piece_id, target_piece_id])
+}
+
+model drawing_corrections {
+  id              Int      @id @default(autoincrement())
+  drawing_id      String?  // nullable — correction might be on a manually-created piece
+  analysis_id     Int?     // link to the AI analysis that produced the original value
+  quote_id        Int?     // the quote where the correction was made
+  piece_id        Int?     // the specific piece that was corrected
+  company_id      Int      // tenant isolation
+
+  correction_type String   // DIMENSION | SHAPE | CUTOUT_TYPE | CUTOUT_QUANTITY | EDGE_PROFILE | ROOM_ASSIGNMENT | MISSING_PIECE | EXTRA_PIECE | MATERIAL
+  field_name      String   // specific field: 'length_mm', 'width_mm', 'shape', 'cutouts[0].type', etc.
+
+  original_value  Json?    // what the AI extracted (null if piece was missing entirely)
+  corrected_value Json     // what the user changed it to
+
+  ai_confidence   String?  // what confidence the AI had: HIGH, MEDIUM, LOW (if available)
+
+  created_at      DateTime @default(now())
+  created_by      String?  // user ID who made the correction
+
+  // Relations
+  drawing         drawings?                @relation(fields: [drawing_id], references: [id])
+  analysis        quote_drawing_analyses?  @relation(fields: [analysis_id], references: [id])
+
+  @@index([company_id])
+  @@index([drawing_id])
+  @@index([correction_type])
+  @@index([created_at])
 }
