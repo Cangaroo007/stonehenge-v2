@@ -5,6 +5,7 @@ import {
   SlabResult,
   LaminationSummary
 } from '@/types/slab-optimization';
+import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
 
 interface Rect {
@@ -21,10 +22,11 @@ interface Slab {
   freeRects: Rect[];
 }
 
-// Lamination strip constants
-// Strip widths from business rules (kerf is added separately by the optimizer during placement)
-const LAMINATION_STRIP_WIDTH_DEFAULT = 60; // mm - standard laminated strip width (~60mm + kerf = 68mm)
-const LAMINATION_STRIP_WIDTH_MITRE = 40; // mm - mitred strip width (~40mm + kerf = 48mm)
+// Lamination strip constants — sourced from STRIP_CONFIGURATIONS (Northcoast Stone)
+// These represent the strip width that must be cut from the slab (visible portion only).
+// Kerf is added separately during placement by the optimizer.
+const LAMINATION_STRIP_WIDTH_DEFAULT = STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm; // 60mm
+const LAMINATION_STRIP_WIDTH_MITRE = STRIP_CONFIGURATIONS.STANDARD.laminationWidthMm; // 40mm
 const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
 
 // Internal type for pieces during optimization (includes lamination and segment data)
@@ -35,6 +37,8 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   isSegment?: boolean;
   segmentIndex?: number;
   totalSegments?: number;
+  /** Per-piece kerf override — mitre strips use the MITRING machine's kerf */
+  pieceKerfWidth?: number;
 };
 
 /**
@@ -56,10 +60,18 @@ function getStripWidthForEdge(edgeTypeName?: string, _thickness?: number, _kerfW
 /**
  * Generates lamination strips for a 40mm+ piece.
  * Strips are needed under each finished edge to create the thickness appearance.
- * Mitre strip width: ~40mm (kerf added separately by optimizer).
+ * Mitre strip width: ~40mm (kerf added separately by optimizer via pieceKerfWidth).
  * Standard/waterfall strip width: ~60mm (kerf added separately by optimizer).
+ *
+ * @param piece - The piece to generate strips for
+ * @param kerfWidth - Default kerf (INITIAL_CUT)
+ * @param mitreKerfWidth - Kerf for MITRING machine (falls back to kerfWidth)
  */
-function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number): OptimizationPiece[] {
+function generateLaminationStrips(
+  piece: OptimizationPiece,
+  kerfWidth?: number,
+  mitreKerfWidth?: number
+): OptimizationPiece[] {
   // Only generate strips for 40mm+ pieces
   if (!piece.thickness || piece.thickness < LAMINATION_THRESHOLD) {
     return [];
@@ -74,8 +86,15 @@ function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number):
   const edges = piece.finishedEdges;
   const edgeNames = piece.edgeTypeNames;
 
+  // Helper: determine if an edge is a mitre edge
+  const isMitreEdge = (name?: string): boolean => {
+    if (!name) return false;
+    return name.toLowerCase().includes('mitre');
+  };
+
   // Top edge strip (runs along the width)
   if (edges.top) {
+    const isMitre = isMitreEdge(edgeNames?.top);
     const stripW = getStripWidthForEdge(edgeNames?.top, piece.thickness, kerfWidth);
     strips.push({
       id: `${piece.id}-lam-top`,
@@ -85,12 +104,15 @@ function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number):
       label: `${piece.label} (Lam-Top${edgeNames?.top ? ` ${edgeNames.top}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
-      stripPosition: 'top'
+      stripPosition: 'top',
+      // Mitre strips use the MITRING machine's kerf for placement spacing
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
 
   // Bottom edge strip (runs along the width)
   if (edges.bottom) {
+    const isMitre = isMitreEdge(edgeNames?.bottom);
     const stripW = getStripWidthForEdge(edgeNames?.bottom, piece.thickness, kerfWidth);
     strips.push({
       id: `${piece.id}-lam-bottom`,
@@ -100,12 +122,14 @@ function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number):
       label: `${piece.label} (Lam-Bottom${edgeNames?.bottom ? ` ${edgeNames.bottom}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
-      stripPosition: 'bottom'
+      stripPosition: 'bottom',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
 
   // Left edge strip (runs along the height)
   if (edges.left) {
+    const isMitre = isMitreEdge(edgeNames?.left);
     const stripW = getStripWidthForEdge(edgeNames?.left, piece.thickness, kerfWidth);
     strips.push({
       id: `${piece.id}-lam-left`,
@@ -115,12 +139,14 @@ function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number):
       label: `${piece.label} (Lam-Left${edgeNames?.left ? ` ${edgeNames.left}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
-      stripPosition: 'left'
+      stripPosition: 'left',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
 
   // Right edge strip (runs along the height)
   if (edges.right) {
+    const isMitre = isMitreEdge(edgeNames?.right);
     const stripW = getStripWidthForEdge(edgeNames?.right, piece.thickness, kerfWidth);
     strips.push({
       id: `${piece.id}-lam-right`,
@@ -130,7 +156,8 @@ function generateLaminationStrips(piece: OptimizationPiece, kerfWidth?: number):
       label: `${piece.label} (Lam-Right${edgeNames?.right ? ` ${edgeNames.right}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
-      stripPosition: 'right'
+      stripPosition: 'right',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
 
@@ -292,7 +319,7 @@ function preprocessOversizePieces(
  * Main optimization function using First Fit Decreasing algorithm
  */
 export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
-  const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation, edgeAllowanceMm = 0 } = input;
+  const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation, edgeAllowanceMm = 0, mitreKerfWidth } = input;
 
   // Usable dimensions after subtracting edge allowance from both sides
   const usableWidth = slabWidth - (edgeAllowanceMm * 2);
@@ -341,7 +368,8 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
 
     // Generate and add lamination strips if needed
     // (segments have finishedEdges cleared, so no strips are generated for them)
-    const strips = generateLaminationStrips(piece, kerfWidth);
+    // Pass mitreKerfWidth so mitre strips use the MITRING machine's kerf
+    const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
     allPieces.push(...strips);
   }
 
@@ -373,8 +401,10 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // Process each piece
   for (const piece of sortedPieces) {
     // Add kerf to piece dimensions
-    const pieceWidth = piece.width + kerfWidth;
-    const pieceHeight = piece.height + kerfWidth;
+    // Use per-piece kerf if set (mitre strips use MITRING kerf), otherwise INITIAL_CUT kerf
+    const effectiveKerf = piece.pieceKerfWidth ?? kerfWidth;
+    const pieceWidth = piece.width + effectiveKerf;
+    const pieceHeight = piece.height + effectiveKerf;
 
     // Check if piece can fit on the usable area of a slab
     const fitsNormal = pieceWidth <= usableWidth && pieceHeight <= usableHeight;
@@ -443,6 +473,16 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
       if (!placed) {
         unplacedPieces.push(piece.id);
       }
+    }
+  }
+
+  // ── Offset placements by edge allowance for visual display ───────────────
+  // The FFD places pieces at (0,0) within the usable area. To display them
+  // correctly within the full slab, offset by the edge allowance.
+  if (edgeAllowanceMm > 0) {
+    for (const p of placements) {
+      p.x += edgeAllowanceMm;
+      p.y += edgeAllowanceMm;
     }
   }
 

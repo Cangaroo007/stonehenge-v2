@@ -12,6 +12,8 @@ interface SlabCanvasProps {
   showDimensions?: boolean;
   highlightPieceId?: string;
   maxWidth?: number;
+  /** Edge allowance in mm per side — shown as a shaded border zone */
+  edgeAllowanceMm?: number;
 }
 
 // Color palette for main pieces
@@ -48,6 +50,7 @@ export function SlabCanvas({
   showDimensions = true,
   highlightPieceId,
   maxWidth = 600,
+  edgeAllowanceMm = 0,
 }: SlabCanvasProps) {
   // Calculate scale to fit container
   const scale = propScale ?? Math.min(maxWidth / slabWidth, 400 / slabHeight);
@@ -111,6 +114,41 @@ export function SlabCanvas({
           </pattern>
         </defs>
         <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+
+        {/* Edge allowance zone — shaded border around the slab perimeter */}
+        {edgeAllowanceMm > 0 && (
+          <>
+            {/* Top allowance strip */}
+            <rect x={0} y={0} width={canvasWidth} height={edgeAllowanceMm * scale}
+              fill="#FEF3C7" opacity={0.6} />
+            {/* Bottom allowance strip */}
+            <rect x={0} y={canvasHeight - edgeAllowanceMm * scale}
+              width={canvasWidth} height={edgeAllowanceMm * scale}
+              fill="#FEF3C7" opacity={0.6} />
+            {/* Left allowance strip */}
+            <rect x={0} y={edgeAllowanceMm * scale}
+              width={edgeAllowanceMm * scale}
+              height={canvasHeight - edgeAllowanceMm * scale * 2}
+              fill="#FEF3C7" opacity={0.6} />
+            {/* Right allowance strip */}
+            <rect x={canvasWidth - edgeAllowanceMm * scale}
+              y={edgeAllowanceMm * scale}
+              width={edgeAllowanceMm * scale}
+              height={canvasHeight - edgeAllowanceMm * scale * 2}
+              fill="#FEF3C7" opacity={0.6} />
+            {/* Inner usable area border */}
+            <rect
+              x={edgeAllowanceMm * scale}
+              y={edgeAllowanceMm * scale}
+              width={canvasWidth - edgeAllowanceMm * scale * 2}
+              height={canvasHeight - edgeAllowanceMm * scale * 2}
+              fill="none"
+              stroke="#F59E0B"
+              strokeWidth={1}
+              strokeDasharray="4 2"
+            />
+          </>
+        )}
 
         {/* Placed pieces */}
         {placements.map((placement, index) => {
@@ -253,6 +291,12 @@ export function SlabCanvas({
           <div className="w-3 h-3 bg-red-500 rounded-full"></div>
           <span>Rotated 90°</span>
         </div>
+        {edgeAllowanceMm > 0 && (
+          <div className="flex items-center gap-1.5">
+            <div className="w-4 h-4 rounded-sm border border-amber-400" style={{ backgroundColor: '#FEF3C7' }}></div>
+            <span>Edge Allowance ({edgeAllowanceMm}mm)</span>
+          </div>
+        )}
       </div>
     </div>
   );
