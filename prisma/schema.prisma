@@ -1373,7 +1373,13 @@ model quote_templates {
   id              String   @id @default(uuid())
   company_id      Int
   name            String
+  description     String?
+  format_type     String   @default("COMPREHENSIVE") // COMPREHENSIVE | SUMMARY
   is_default      Boolean  @default(false)
+  is_active       Boolean  @default(true)
+
+  // Section toggles — JSON object (QuoteTemplateSections interface)
+  sections_config Json     @default("{}")
 
   // Header
   company_name    String?
@@ -1382,6 +1388,7 @@ model quote_templates {
   company_email   String?
   company_address String?
   logo_url        String?
+  show_logo       Boolean  @default(true)
 
   // Display settings
   show_piece_breakdown    Boolean @default(true)
@@ -1399,10 +1406,17 @@ model quote_templates {
   gst_label       String   @default("GST (10%)")
   currency_symbol String   @default("$")
 
-  // Footer
-  terms_and_conditions  String?   @db.Text
+  // Custom text overrides (null = use company defaults)
+  custom_intro_text    String?  @db.Text
+  terms_and_conditions String?  @db.Text
+  footer_text          String?
+
+  // Styling overrides (null = use company defaults)
+  custom_primary_colour String?
+  custom_accent_colour  String?
+
+  // Other overrides
   validity_days         Int       @default(30)
-  footer_text           String?
 
   created_at    DateTime @default(now())
   updated_at    DateTime @updatedAt
