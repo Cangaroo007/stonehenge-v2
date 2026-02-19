@@ -16,6 +16,8 @@ import {
   renderToBuffer,
 } from '@react-pdf/renderer';
 import type { QuotePdfData, QuotePdfRoom, QuotePdfPiece } from './quote-pdf-service';
+import type { QuoteTemplateSections } from '@/lib/types/quote-template';
+import { getDefaultSectionsConfig } from '@/lib/types/quote-template';
 
 // ── Template Settings Interface ──────────────────────────────────────────────
 
@@ -46,6 +48,17 @@ export interface PdfTemplateSettings {
   termsAndConditions: string | null;
   validityDays: number;
   footerText: string | null;
+
+  // Section configuration (optional — defaults to all-on COMPREHENSIVE)
+  sections?: QuoteTemplateSections;
+
+  // Branding overrides (optional)
+  primaryColour?: string;
+  accentColour?: string;
+  showLogo?: boolean;
+
+  // Custom text (optional — falls back to existing fields)
+  introText?: string | null;
 }
 
 // ── Default Settings (Northcoast format) ─────────────────────────────────────
@@ -325,6 +338,7 @@ const h = React.createElement;
 // ── Component Builders ───────────────────────────────────────────────────────
 
 function buildHeader(settings: PdfTemplateSettings) {
+  const accentColour = settings.primaryColour || BLUE;
   return h(View, { key: 'header' },
     h(View, { style: styles.headerRow },
       h(View, null,
@@ -345,7 +359,7 @@ function buildHeader(settings: PdfTemplateSettings) {
           : null,
       ),
     ),
-    h(View, { style: styles.accentLine }),
+    h(View, { style: { ...styles.accentLine, backgroundColor: accentColour } }),
   );
 }
 
@@ -406,6 +420,7 @@ function buildPieceRow(
   piece: QuotePdfPiece,
   settings: PdfTemplateSettings,
   showPrice: boolean,
+  sections: QuoteTemplateSections,
 ): React.ReactElement {
   const dimensions = `${piece.lengthMm} × ${piece.widthMm}mm`;
   const details: string[] = [];
@@ -413,13 +428,13 @@ function buildPieceRow(
   if (settings.showPieceDescriptions && piece.description) {
     details.push(piece.description);
   }
-  if (settings.showEdgeDetails && piece.edgeSummary) {
+  if (sections.edgeProfiles && settings.showEdgeDetails && piece.edgeSummary) {
     details.push(`Edges: ${piece.edgeSummary}`);
   }
-  if (settings.showCutoutDetails && piece.cutoutSummary) {
+  if (sections.cutoutDetails && settings.showCutoutDetails && piece.cutoutSummary) {
     details.push(`Cutouts: ${piece.cutoutSummary}`);
   }
-  if (settings.showMaterialPerPiece && piece.materialName) {
+  if (sections.materialNames && settings.showMaterialPerPiece && piece.materialName) {
     details.push(`Material: ${piece.materialName}`);
   }
 
@@ -428,8 +443,10 @@ function buildPieceRow(
       h(Text, { style: styles.pieceName },
         `${piece.name}`,
       ),
-      h(Text, { style: styles.pieceDimensions }, dimensions),
-      showPrice
+      sections.pieceDimensions
+        ? h(Text, { style: styles.pieceDimensions }, dimensions)
+        : null,
+      showPrice && sections.perPiecePricing
         ? h(Text, { style: styles.piecePrice }, fmtCurrency(piece.pricing.pieceTotal))
         : null,
     ),
@@ -442,9 +459,10 @@ function buildPieceRow(
 function buildRoomSection(
   room: QuotePdfRoom,
   settings: PdfTemplateSettings,
+  sections: QuoteTemplateSections,
 ): React.ReactElement {
   const showPiecePrice = settings.pricingMode === 'itemised';
-  const showRoomTotal = settings.showRoomTotals && settings.pricingMode !== 'total_only';
+  const showRoomTotal = sections.roomSubtotals && settings.showRoomTotals && settings.pricingMode !== 'total_only';
 
   return h(View, { key: `room-${room.id}`, wrap: false },
     // Room header bar
@@ -454,14 +472,14 @@ function buildRoomSection(
         ? h(Text, { style: styles.roomTotal }, fmtCurrency(room.roomTotal))
         : null,
     ),
-    // Pieces
-    settings.showPieceBreakdown
-      ? room.pieces.map(piece => buildPieceRow(piece, settings, showPiecePrice))
+    // Pieces (only if piece details enabled)
+    sections.pieceDetails && settings.showPieceBreakdown
+      ? room.pieces.map(piece => buildPieceRow(piece, settings, showPiecePrice, sections))
       : null,
   );
 }
 
-function buildCharges(data: QuotePdfData): React.ReactElement | null {
+function buildCharges(data: QuotePdfData, sections: QuoteTemplateSections): React.ReactElement | null {
   const { delivery, templating, installation } = data.charges;
   const hasCharges = delivery > 0 || templating > 0 || installation > 0;
 
@@ -469,7 +487,7 @@ function buildCharges(data: QuotePdfData): React.ReactElement | null {
 
   const rows: React.ReactElement[] = [];
 
-  if (delivery > 0) {
+  if (sections.deliveryLine && delivery > 0) {
     rows.push(
       h(View, { style: styles.chargeRow, key: 'charge-delivery' },
         h(Text, { style: styles.chargeLabel }, 'Delivery'),
@@ -478,7 +496,7 @@ function buildCharges(data: QuotePdfData): React.ReactElement | null {
     );
   }
 
-  if (templating > 0) {
+  if (sections.templatingLine && templating > 0) {
     rows.push(
       h(View, { style: styles.chargeRow, key: 'charge-templating' },
         h(Text, { style: styles.chargeLabel }, 'Templating'),
@@ -487,7 +505,7 @@ function buildCharges(data: QuotePdfData): React.ReactElement | null {
     );
   }
 
-  if (installation > 0) {
+  if (sections.installationLine && installation > 0) {
     rows.push(
       h(View, { style: styles.chargeRow, key: 'charge-installation' },
         h(Text, { style: styles.chargeLabel }, 'Installation'),
@@ -496,31 +514,40 @@ function buildCharges(data: QuotePdfData): React.ReactElement | null {
     );
   }
 
+  if (rows.length === 0) return null;
+
   return h(View, { style: styles.chargesSection, key: 'charges' }, ...rows);
 }
 
 function buildTotals(
   data: QuotePdfData,
   settings: PdfTemplateSettings,
+  sections: QuoteTemplateSections,
 ): React.ReactElement {
+  const accentColour = settings.primaryColour || BLUE;
+
   return h(View, { style: styles.totalsSection, key: 'totals' },
     // Subtotal ex GST
-    h(View, { style: styles.totalRow },
-      h(Text, { style: styles.totalLabel }, 'Subtotal (excl. GST)'),
-      h(Text, { style: styles.totalValue }, fmtCurrency(data.subtotalExGst)),
-    ),
+    sections.subtotalExGst
+      ? h(View, { style: styles.totalRow },
+          h(Text, { style: styles.totalLabel }, 'Subtotal (excl. GST)'),
+          h(Text, { style: styles.totalValue }, fmtCurrency(data.subtotalExGst)),
+        )
+      : null,
     // GST
-    settings.showGst
+    sections.gstLine && settings.showGst
       ? h(View, { style: styles.totalRow },
           h(Text, { style: styles.totalLabel }, settings.gstLabel),
           h(Text, { style: styles.totalValue }, fmtCurrency(data.gstAmount)),
         )
       : null,
     // Grand total
-    h(View, { style: styles.grandTotalRow },
-      h(Text, { style: styles.grandTotalLabel }, 'Total (incl. GST)'),
-      h(Text, { style: styles.grandTotalValue }, fmtCurrency(data.totalIncGst)),
-    ),
+    sections.grandTotal
+      ? h(View, { style: styles.grandTotalRow },
+          h(Text, { style: styles.grandTotalLabel }, 'Total (incl. GST)'),
+          h(Text, { style: { ...styles.grandTotalValue, color: accentColour } }, fmtCurrency(data.totalIncGst)),
+        )
+      : null,
   );
 }
 
@@ -557,6 +584,9 @@ export async function renderQuotePdf(
     ...templateSettings,
   };
 
+  // Resolve sections config — default to COMPREHENSIVE all-on if not provided
+  const sections: QuoteTemplateSections = settings.sections || getDefaultSectionsConfig('COMPREHENSIVE');
+
   // Build the document tree
   const doc = h(Document, {
     title: `Quote ${data.quoteNumber}`,
@@ -564,23 +594,32 @@ export async function renderQuotePdf(
     subject: `Quote for ${data.customer?.name || 'Customer'}`,
   },
     h(Page, { size: 'A4', style: styles.page, wrap: true },
-      // Company header
-      buildHeader(settings),
+      // Company header (always shown — controlled by coverPage section)
+      sections.coverPage !== false ? buildHeader(settings) : null,
 
       // Quote info (number, date, customer, job address, material)
-      buildQuoteInfo(data),
+      sections.customerDetails !== false ? buildQuoteInfo(data) : null,
+
+      // Introduction text (if configured)
+      sections.introductionText && settings.introText
+        ? h(View, { key: 'intro', style: { marginBottom: 12 } },
+            h(Text, { style: { fontSize: 9, color: DARK_GRAY, lineHeight: 1.5 } }, settings.introText),
+          )
+        : null,
 
       // Room sections
-      ...data.rooms.map(room => buildRoomSection(room, settings)),
+      ...(sections.roomBreakdown !== false
+        ? data.rooms.map(room => buildRoomSection(room, settings, sections))
+        : []),
 
       // Quote-level charges (delivery, templating, installation)
-      buildCharges(data),
+      buildCharges(data, sections),
 
       // Totals (subtotal, GST, grand total)
-      buildTotals(data, settings),
+      buildTotals(data, settings, sections),
 
       // Terms & conditions
-      buildTerms(settings),
+      sections.termsAndConditions !== false ? buildTerms(settings) : null,
 
       // Page numbers footer
       buildPageFooter(settings),

@@ -4,11 +4,14 @@ import prisma from '@/lib/db';
 import { assembleQuotePdfData } from '@/lib/services/quote-pdf-service';
 import { renderQuotePdf } from '@/lib/services/quote-pdf-renderer';
 import type { PdfTemplateSettings } from '@/lib/services/quote-pdf-renderer';
+import type { QuoteTemplateSections } from '@/lib/types/quote-template';
+import { getDefaultSectionsConfig } from '@/lib/types/quote-template';
+import type { QuoteFormatType } from '@/lib/types/quote-template';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -49,17 +52,42 @@ export async function GET(
       throw err;
     }
 
-    // Load default template settings for this company
-    const template = await prisma.quote_templates.findFirst({
-      where: {
-        company_id: authResult.user.companyId,
-        is_default: true,
-      },
-    });
+    // Check for optional templateId query param
+    const url = new URL(request.url);
+    const templateId = url.searchParams.get('templateId');
+
+    // Load template: specific by ID, or fall back to default
+    let template;
+    if (templateId) {
+      template = await prisma.quote_templates.findFirst({
+        where: {
+          id: templateId,
+          company_id: authResult.user.companyId,
+        },
+      });
+    }
+
+    // Fall back to default template if no specific template found
+    if (!template) {
+      template = await prisma.quote_templates.findFirst({
+        where: {
+          company_id: authResult.user.companyId,
+          is_default: true,
+        },
+      });
+    }
 
     // Build template settings from DB template (with Northcoast defaults)
     let templateSettings: Partial<PdfTemplateSettings> | undefined;
     if (template) {
+      // Resolve sections_config — Prisma JSON double cast (Rule 9)
+      const rawSections = template.sections_config as unknown as Partial<QuoteTemplateSections> | null;
+      const formatType = (template.format_type || 'COMPREHENSIVE') as QuoteFormatType;
+      const defaultSections = getDefaultSectionsConfig(formatType);
+      const sections: QuoteTemplateSections = rawSections
+        ? { ...defaultSections, ...rawSections }
+        : defaultSections;
+
       templateSettings = {
         companyName: template.company_name || undefined,
         companyAbn: template.company_abn,
@@ -80,6 +108,12 @@ export async function GET(
         termsAndConditions: template.terms_and_conditions,
         validityDays: template.validity_days,
         footerText: template.footer_text,
+        // New: sections config and branding overrides
+        sections,
+        primaryColour: template.custom_primary_colour || undefined,
+        accentColour: template.custom_accent_colour || undefined,
+        showLogo: template.show_logo,
+        introText: template.custom_intro_text || undefined,
       };
     }
 

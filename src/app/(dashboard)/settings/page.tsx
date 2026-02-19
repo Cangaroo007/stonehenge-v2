@@ -24,6 +24,23 @@ export default function SettingsPage() {
         </div>
       </Link>
 
+      {/* Quote Templates Card */}
+      <Link href="/settings/quote-templates" className="block">
+        <div className="card p-6 hover:shadow-lg transition-shadow cursor-pointer border-2 border-transparent hover:border-blue-200">
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 mb-2">Quote PDF Templates</h2>
+              <p className="text-sm text-gray-600">
+                Customise PDF sections, branding, and create templates for different audiences
+              </p>
+            </div>
+            <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </div>
+      </Link>
+
       <div className="card p-6">
         <h2 className="text-lg font-semibold mb-4">Company Information</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
