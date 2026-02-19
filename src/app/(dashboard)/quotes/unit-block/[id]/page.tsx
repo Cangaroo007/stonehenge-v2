@@ -136,6 +136,9 @@ export default function UnitBlockDetailPage() {
   const [newUnitLevel, setNewUnitLevel] = useState('');
   const [addingUnit, setAddingUnit] = useState(false);
 
+  // Recalculation state
+  const [recalculating, setRecalculating] = useState(false);
+
   // Change tracking state
   const [changeReport, setChangeReport] = useState<ChangeReport | null>(null);
   const [showChangeReport, setShowChangeReport] = useState(false);
@@ -189,10 +192,36 @@ export default function UnitBlockDetailPage() {
     }
   }, [projectId]);
 
+  const recalculatePricing = useCallback(async () => {
+    setRecalculating(true);
+    try {
+      const res = await fetch(`/api/unit-blocks/${projectId}/calculate`, {
+        method: 'POST',
+      });
+      if (res.ok) {
+        await fetchProject();
+      }
+    } catch (err) {
+      console.error('Failed to recalculate pricing:', err);
+    } finally {
+      setRecalculating(false);
+    }
+  }, [projectId, fetchProject]);
+
   useEffect(() => {
     fetchProject();
     fetchChangeReport();
   }, [fetchProject, fetchChangeReport]);
+
+  // Auto-recalculate when data is stale (units with quotes but grandTotal is null/zero)
+  useEffect(() => {
+    if (!project) return;
+    const hasUnitsWithQuotes = project.units.some((u) => u.quote !== null);
+    const grandTotalValue = Number(project.grandTotal || 0);
+    if (hasUnitsWithQuotes && grandTotalValue === 0) {
+      recalculatePricing();
+    }
+  }, [project?.units?.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleAddUnit = async () => {
     if (!newUnitNumber.trim()) return;
@@ -302,9 +331,22 @@ export default function UnitBlockDetailPage() {
   const totalArea = Number(project.totalArea_sqm || 0);
   const subtotal = Number(project.subtotalExGst || 0);
   const discount = Number(project.discountAmount || 0);
+  const gst = Number(project.gstAmount || 0);
   const grandTotal = Number(project.grandTotal || 0);
+  const volumeDiscountPercent = Number(project.volumeDiscount || 0);
+  const totalAfterDiscount = subtotal - discount;
+
+  const unitsWithQuotes = project.units.filter((u) => u.quote !== null).length;
+  const unitsWithoutQuotes = project.units.length - unitsWithQuotes;
 
   const hasChanges = changeReport && changeReport.totalChanges > 0;
+
+  const tierBadgeColour: Record<string, string> = {
+    SMALL: 'bg-gray-100 text-gray-800',
+    MEDIUM: 'bg-blue-100 text-blue-800',
+    LARGE: 'bg-green-100 text-green-800',
+    ENTERPRISE: 'bg-purple-100 text-purple-800',
+  };
 
   return (
     <div className="space-y-6">
@@ -328,19 +370,79 @@ export default function UnitBlockDetailPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="bg-white rounded-lg shadow p-6"><p className="text-sm text-gray-500 mb-1">Units</p><p className="text-3xl font-bold text-gray-900">{project.units.length}</p></div>
-        <div className="bg-white rounded-lg shadow p-6"><p className="text-sm text-gray-500 mb-1">Total Area</p><p className="text-3xl font-bold text-gray-900">{totalArea.toFixed(2)} m&sup2;</p></div>
-        <div className="bg-white rounded-lg shadow p-6"><p className="text-sm text-gray-500 mb-1">Volume Tier</p><p className="text-2xl font-bold text-blue-600">{project.volumeTier || 'N/A'}</p></div>
-        <div className="bg-white rounded-lg shadow p-6"><p className="text-sm text-gray-500 mb-1">Grand Total</p><p className="text-3xl font-bold text-green-600">{formatCurrency(grandTotal)}</p></div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-sm text-gray-500 mb-1">Units</p>
+          <p className="text-3xl font-bold text-gray-900">{project.units.length}</p>
+          <p className="text-xs text-gray-400 mt-1">{unitsWithQuotes} quoted, {unitsWithoutQuotes} pending</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-sm text-gray-500 mb-1">Total Area</p>
+          <p className="text-3xl font-bold text-gray-900">{totalArea.toFixed(2)} m&sup2;</p>
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-sm text-gray-500 mb-1">Volume Tier</p>
+          {project.volumeTier ? (
+            <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-semibold ${tierBadgeColour[project.volumeTier] || 'bg-gray-100 text-gray-800'}`}>
+              {project.volumeTier}
+            </span>
+          ) : (
+            <p className="text-2xl font-bold text-gray-400">N/A</p>
+          )}
+          {volumeDiscountPercent > 0 && (
+            <p className="text-xs text-green-600 mt-1">{volumeDiscountPercent}% discount</p>
+          )}
+        </div>
+        <div className="bg-white rounded-lg shadow p-6">
+          <p className="text-sm text-gray-500 mb-1">Grand Total (inc GST)</p>
+          <p className="text-3xl font-bold text-green-600">{formatCurrency(grandTotal)}</p>
+        </div>
       </div>
 
       <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b border-gray-200"><h2 className="text-lg font-semibold text-gray-900">Pricing Summary</h2></div>
+        <div className="p-6 border-b border-gray-200 flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Pricing Summary</h2>
+          <button
+            onClick={recalculatePricing}
+            disabled={recalculating}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {recalculating ? (
+              <>
+                <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+                Recalculating...
+              </>
+            ) : (
+              'Recalculate Pricing'
+            )}
+          </button>
+        </div>
         <div className="p-6">
           <div className="max-w-md space-y-3">
-            <div className="flex justify-between text-sm"><span className="text-gray-600">Subtotal ({project.units.length} units):</span><span className="font-medium">{formatCurrency(subtotal)}</span></div>
-            <div className="flex justify-between text-sm text-green-600"><span>Volume Discount:</span><span className="font-medium">-{formatCurrency(discount)}</span></div>
-            <div className="flex justify-between text-lg font-semibold pt-3 border-t border-gray-200"><span>Grand Total (incl. GST):</span><span className="text-blue-600">{formatCurrency(grandTotal)}</span></div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Subtotal (ex GST) &mdash; {unitsWithQuotes} unit{unitsWithQuotes !== 1 ? 's' : ''}:</span>
+              <span className="font-medium">{formatCurrency(subtotal)}</span>
+            </div>
+            {volumeDiscountPercent > 0 && (
+              <div className="flex justify-between text-sm text-green-600">
+                <span>Volume Discount ({volumeDiscountPercent}% {project.volumeTier}):</span>
+                <span className="font-medium">-{formatCurrency(discount)}</span>
+              </div>
+            )}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Total After Discount:</span>
+              <span className="font-medium">{formatCurrency(totalAfterDiscount)}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">GST:</span>
+              <span className="font-medium">{formatCurrency(gst)}</span>
+            </div>
+            <div className="flex justify-between text-lg font-semibold pt-3 border-t border-gray-200">
+              <span>Grand Total (inc GST):</span>
+              <span className="text-green-700">{formatCurrency(grandTotal)}</span>
+            </div>
           </div>
         </div>
       </div>
