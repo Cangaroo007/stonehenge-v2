@@ -46,7 +46,7 @@ import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 // MaterialView available for future re-enablement (12.J1: toggle removed, not component)
 // import MaterialView from '@/components/quotes/MaterialView';
-import BulkMaterialSwap from '@/components/quotes/BulkMaterialSwap';
+import BulkMaterialDialog from '@/components/quotes/BulkMaterialDialog';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
@@ -3216,25 +3216,23 @@ export default function QuoteDetailClient({
               Bulk Material
             </button>
           </div>
-          {showBulkSwap && (
-            <BulkMaterialSwap
-              pieces={effectivePieces.map(p => ({
-                id: p.id,
-                name: p.name,
-                lengthMm: p.lengthMm,
-                widthMm: p.widthMm,
-                materialId: p.materialId,
-                materialName: p.materialName,
-                materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
-                roomName: p.quote_rooms?.name ?? null,
-              }))}
-              materials={materials}
-              selectedPieceIds={selectedPieceIds}
-              onApply={handleBulkMaterialApply}
-              onClose={() => setShowBulkSwap(false)}
-              quoteTotal={calculation?.total ?? null}
-            />
-          )}
+          <BulkMaterialDialog
+            isOpen={showBulkSwap}
+            onClose={() => setShowBulkSwap(false)}
+            pieces={effectivePieces.map(p => ({
+              id: p.id,
+              name: p.name,
+              lengthMm: p.lengthMm,
+              widthMm: p.widthMm,
+              materialId: p.materialId,
+              materialName: p.materialName,
+              materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+              roomName: p.quote_rooms?.name ?? null,
+            }))}
+            materials={materials}
+            onApply={handleBulkMaterialApply}
+            quoteTotal={calculation?.total ?? null}
+          />
           {calculation?.breakdown?.materials ? (
             <MaterialCostSection
               materials={calculation.breakdown.materials}
