@@ -11,6 +11,8 @@ interface QuoteAdjustmentsProps {
   baseSubtotal: number;
   mode: 'view' | 'edit';
   onChanged: () => void;
+  /** When true, renders without card wrapper (for embedding inside a parent card) */
+  embedded?: boolean;
 }
 
 export default function QuoteAdjustments({
@@ -20,6 +22,7 @@ export default function QuoteAdjustments({
   baseSubtotal,
   mode,
   onChanged,
+  embedded = false,
 }: QuoteAdjustmentsProps) {
   // ── Custom Charges State ─────────────────────────────────────────────────
   const [showAddForm, setShowAddForm] = useState(false);
@@ -254,8 +257,12 @@ export default function QuoteAdjustments({
 
     if (!hasCharges && !hasDiscount) return null;
 
+    const wrapperClass = embedded
+      ? 'mt-3 border-t border-gray-200'
+      : 'card border border-gray-200 rounded-lg overflow-hidden';
+
     return (
-      <div className="card border border-gray-200 rounded-lg overflow-hidden">
+      <div className={wrapperClass}>
         {hasCharges && (
           <div className="p-4">
             <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs</h4>
@@ -292,8 +299,12 @@ export default function QuoteAdjustments({
   }
 
   // ── Edit Mode ────────────────────────────────────────────────────────────
+  const editWrapperClass = embedded
+    ? 'mt-3 border-t border-gray-200'
+    : 'card border border-gray-200 rounded-lg overflow-hidden';
+
   return (
-    <div className="card border border-gray-200 rounded-lg overflow-hidden">
+    <div className={editWrapperClass}>
       {/* Additional Costs Section */}
       <div className="p-4">
         <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs</h4>

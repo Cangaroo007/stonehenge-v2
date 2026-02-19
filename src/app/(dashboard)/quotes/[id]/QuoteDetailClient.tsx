@@ -2940,24 +2940,24 @@ export default function QuoteDetailClient({
               calculation={viewCalculation}
               mode="view"
             />
+            {/* Quote Adjustments — Custom Charges + Discount (view mode) */}
+            <QuoteAdjustments
+              quoteId={serverData.id}
+              customCharges={serverData.customCharges || []}
+              discount={serverData.discount_type ? {
+                type: serverData.discount_type as DiscountType,
+                value: Number(serverData.discount_value),
+                appliesTo: (serverData.discount_applies_to as DiscountAppliesTo) || 'ALL',
+              } : null}
+              baseSubtotal={(viewCalculation as any)?.baseSubtotal ?? viewCalculation?.subtotal ?? Number(serverData.subtotal) ?? 0}
+              mode="view"
+              onChanged={() => {
+                // View mode: no-op, but required by interface
+              }}
+              embedded
+            />
           </div>
         )}
-
-        {/* Quote Adjustments — Custom Charges + Discount (view mode) */}
-        <QuoteAdjustments
-          quoteId={serverData.id}
-          customCharges={serverData.customCharges || []}
-          discount={serverData.discount_type ? {
-            type: serverData.discount_type as DiscountType,
-            value: Number(serverData.discount_value),
-            appliesTo: (serverData.discount_applies_to as DiscountAppliesTo) || 'ALL',
-          } : null}
-          baseSubtotal={(viewCalculation as any)?.baseSubtotal ?? viewCalculation?.subtotal ?? Number(serverData.subtotal) ?? 0}
-          mode="view"
-          onChanged={() => {
-            // View mode: no-op, but required by interface
-          }}
-        />
 
         {/* ── PRICING SUMMARY — always visible ── */}
         {/* Machine Operations */}
@@ -3644,6 +3644,23 @@ export default function QuoteDetailClient({
               deliveryEnabled={deliveryEnabled}
               onDeliveryEnabledChange={handleDeliveryEnabledChange}
             />
+            {/* Quote Adjustments — Custom Charges + Discount */}
+            <QuoteAdjustments
+              quoteId={parseInt(quoteIdStr)}
+              customCharges={editQuote.customCharges || []}
+              discount={editQuote.discount_type ? {
+                type: editQuote.discount_type as DiscountType,
+                value: Number(editQuote.discount_value),
+                appliesTo: (editQuote.discount_applies_to as DiscountAppliesTo) || 'ALL',
+              } : null}
+              baseSubtotal={(calculation as any)?.baseSubtotal ?? calculation?.subtotal ?? 0}
+              mode="edit"
+              onChanged={() => {
+                triggerRecalculate();
+                fetchQuote();
+              }}
+              embedded
+            />
           </div>
         )}
 
@@ -3780,23 +3797,6 @@ export default function QuoteDetailClient({
           onCalculationComplete={handleCalculationUpdate}
           discountDisplayMode={discountDisplayMode}
           onDiscountDisplayModeChange={setDiscountDisplayMode}
-        />
-
-        {/* Quote Adjustments — Custom Charges + Discount */}
-        <QuoteAdjustments
-          quoteId={parseInt(quoteIdStr)}
-          customCharges={editQuote.customCharges || []}
-          discount={editQuote.discount_type ? {
-            type: editQuote.discount_type as DiscountType,
-            value: Number(editQuote.discount_value),
-            appliesTo: (editQuote.discount_applies_to as DiscountAppliesTo) || 'ALL',
-          } : null}
-          baseSubtotal={(calculation as any)?.baseSubtotal ?? calculation?.subtotal ?? 0}
-          mode="edit"
-          onChanged={() => {
-            triggerRecalculate();
-            fetchQuote();
-          }}
         />
 
         {/* Piece Stats */}
