@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SlabResults } from '@/components/slab-optimizer';
 import { OptimizationResult } from '@/types/slab-optimization';
-import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo } from '@/types/slab-optimization';
+import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo, SlabCutoutInfo } from '@/types/slab-optimization';
 import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { SlabEdgeAllowancePrompt } from './SlabEdgeAllowancePrompt';
 
@@ -38,6 +38,9 @@ export function OptimizationDisplay({
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+
+  // Cutout data for slab canvas overlay (pieceId -> cutout info)
+  const [pieceCutouts, setPieceCutouts] = useState<Record<string, SlabCutoutInfo[]>>({});
 
   // Edge allowance state
   const [pricingDefaultAllowance, setPricingDefaultAllowance] = useState<number | null | undefined>(undefined);
@@ -186,6 +189,48 @@ export function OptimizationDisplay({
     };
 
     loadOptimization();
+  }, [quoteId, refreshKey]);
+
+  // Fetch piece cutout data for slab canvas overlay
+  useEffect(() => {
+    const loadPieceCutouts = async () => {
+      try {
+        // Fetch pieces (includes cutouts JSON) and cutout types in parallel
+        const [piecesRes, typesRes] = await Promise.all([
+          fetch(`/api/quotes/${quoteId}/pieces`),
+          fetch('/api/admin/pricing/cutout-types'),
+        ]);
+
+        if (!piecesRes.ok || !typesRes.ok) return;
+
+        const pieces: any[] = await piecesRes.json();
+        const cutoutTypes: Array<{ id: string; name: string }> = await typesRes.json();
+
+        // Build a map: cutoutTypeId -> typeName
+        const typeNameMap = new Map<string, string>();
+        cutoutTypes.forEach((ct) => typeNameMap.set(ct.id, ct.name));
+
+        // Build pieceCutouts: pieceId -> SlabCutoutInfo[]
+        const cutoutsMap: Record<string, SlabCutoutInfo[]> = {};
+        pieces.forEach((piece: any) => {
+          const rawCutouts = piece.cutouts as unknown as Array<{ cutoutTypeId: string; quantity: number }> | null;
+          if (!rawCutouts || !Array.isArray(rawCutouts) || rawCutouts.length === 0) return;
+
+          cutoutsMap[piece.id] = rawCutouts
+            .filter((c) => c.cutoutTypeId && typeNameMap.has(c.cutoutTypeId))
+            .map((c) => ({
+              typeName: typeNameMap.get(c.cutoutTypeId) ?? 'Unknown',
+              quantity: c.quantity || 1,
+            }));
+        });
+
+        setPieceCutouts(cutoutsMap);
+      } catch {
+        // Non-critical — cutout overlay is optional, don't break the display
+      }
+    };
+
+    loadPieceCutouts();
   }, [quoteId, refreshKey]);
 
   // ── Loading state (initial fetch) ────────────────────────────────────────
@@ -389,6 +434,7 @@ export function OptimizationDisplay({
           <MultiMaterialOptimisationDisplay
             multiMaterialResult={multiMaterialResult}
             isOptimising={isOptimising}
+            pieceCutouts={pieceCutouts}
           />
         ) : (
           <SlabResults
@@ -396,6 +442,7 @@ export function OptimizationDisplay({
             slabWidth={optimization.slabWidth}
             slabHeight={optimization.slabHeight}
             edgeAllowanceMm={resolvedAllowance}
+            pieceCutouts={pieceCutouts}
           />
         )}
       </div>

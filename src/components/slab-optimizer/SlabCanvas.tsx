@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Placement } from '@/types/slab-optimization';
+import type { SlabCutoutInfo } from '@/types/slab-optimization';
 
 interface SlabCanvasProps {
   slabWidth: number;
@@ -14,6 +15,8 @@ interface SlabCanvasProps {
   maxWidth?: number;
   /** Edge allowance in mm per side — shown as a shaded border zone */
   edgeAllowanceMm?: number;
+  /** Cutout data per piece (keyed by pieceId) for overlay rendering */
+  pieceCutouts?: Record<string, SlabCutoutInfo[]>;
 }
 
 // Color palette for main pieces
@@ -41,6 +44,120 @@ function getColorForPiece(index: number, isLaminationStrip?: boolean): string {
   return PIECE_COLORS[index % PIECE_COLORS.length];
 }
 
+/** Common SVG style for cutout shapes */
+const CUTOUT_STYLE = {
+  stroke: '#666',
+  strokeWidth: 1,
+  strokeDasharray: '4 2',
+  fill: 'rgba(0,0,0,0.08)',
+} as const;
+
+/**
+ * Render cutout shapes inside a piece on the slab layout.
+ * Only renders when piece is large enough to show cutouts meaningfully.
+ */
+function renderCutouts(
+  cutouts: SlabCutoutInfo[],
+  pieceX: number,
+  pieceY: number,
+  pieceW: number,
+  pieceH: number,
+  scale: number,
+  pieceId: string,
+) {
+  // Skip if piece is too small to show cutouts meaningfully
+  if (pieceW < 40 || pieceH < 25) return null;
+
+  // Expand quantity > 1 into individual cutout entries for positioning
+  const expandedCutouts: Array<{ typeName: string; width?: number; height?: number; idx: number }> = [];
+  cutouts.forEach((c) => {
+    for (let q = 0; q < c.quantity; q++) {
+      expandedCutouts.push({ typeName: c.typeName, width: c.width, height: c.height, idx: expandedCutouts.length });
+    }
+  });
+
+  if (expandedCutouts.length === 0) return null;
+
+  return expandedCutouts.map((cutout) => {
+    const lower = cutout.typeName.toLowerCase();
+
+    if (lower.includes('undermount') || lower.includes('drop')) {
+      // Undermount / Drop-in Sink: dashed rectangle, centred
+      const w = Math.min((cutout.width ?? 750) * scale, pieceW * 0.85);
+      const h = Math.min((cutout.height ?? 450) * scale, pieceH * 0.7);
+      const cx = pieceX + (pieceW - w) / 2;
+      const cy = pieceY + (pieceH - h) / 2;
+      return <rect key={`${pieceId}-cut-${cutout.idx}`} x={cx} y={cy} width={w} height={h} rx={4} {...CUTOUT_STYLE} />;
+    }
+
+    if (lower.includes('cooktop') || lower.includes('flush') || lower.includes('hotplate')) {
+      // Cooktop / Flush Cooktop / Hotplate: dashed rectangle
+      const w = Math.min((cutout.width ?? 600) * scale, pieceW * 0.8);
+      const h = Math.min((cutout.height ?? 500) * scale, pieceH * 0.75);
+      const cx = pieceX + (pieceW - w) / 2;
+      const cy = pieceY + (pieceH - h) / 2;
+      return <rect key={`${pieceId}-cut-${cutout.idx}`} x={cx} y={cy} width={w} height={h} {...CUTOUT_STYLE} />;
+    }
+
+    if (lower.includes('tap')) {
+      // Tap Hole: small circle
+      const r = Math.min(17.5 * scale, pieceW * 0.08, pieceH * 0.15);
+      // Offset multiple tap holes horizontally
+      const tapCount = expandedCutouts.filter(c => c.typeName.toLowerCase().includes('tap')).length;
+      const tapIdx = expandedCutouts.filter(c => c.typeName.toLowerCase().includes('tap') && c.idx < cutout.idx).length;
+      const spacing = pieceW / (tapCount + 1);
+      const cx = pieceX + spacing * (tapIdx + 1);
+      const cy = pieceY + Math.min(80 * scale, pieceH * 0.3);
+      return <circle key={`${pieceId}-cut-${cutout.idx}`} cx={cx} cy={cy} r={r} {...CUTOUT_STYLE} />;
+    }
+
+    if (lower.includes('gpo')) {
+      // GPO: small rounded rectangle
+      const w = Math.min(50 * scale, pieceW * 0.15);
+      const h = Math.min(50 * scale, pieceH * 0.25);
+      // Offset multiple GPOs horizontally
+      const gpoCount = expandedCutouts.filter(c => c.typeName.toLowerCase().includes('gpo')).length;
+      const gpoIdx = expandedCutouts.filter(c => c.typeName.toLowerCase().includes('gpo') && c.idx < cutout.idx).length;
+      const spacing = pieceW / (gpoCount + 1);
+      const cx = pieceX + spacing * (gpoIdx + 1) - w / 2;
+      const cy = pieceY + Math.min(80 * scale, pieceH * 0.3) - h / 2;
+      return <rect key={`${pieceId}-cut-${cutout.idx}`} x={cx} y={cy} width={w} height={h} rx={2} {...CUTOUT_STYLE} />;
+    }
+
+    if (lower.includes('basin')) {
+      // Basin: ellipse, centred
+      const w = Math.min((cutout.width ?? 400) * scale, pieceW * 0.7);
+      const h = Math.min((cutout.height ?? 350) * scale, pieceH * 0.65);
+      const cx = pieceX + pieceW / 2;
+      const cy = pieceY + pieceH / 2;
+      return <ellipse key={`${pieceId}-cut-${cutout.idx}`} cx={cx} cy={cy} rx={w / 2} ry={h / 2} {...CUTOUT_STYLE} />;
+    }
+
+    if (lower.includes('drain') || lower.includes('groove')) {
+      // Drainer Grooves: parallel lines pattern
+      const startX = pieceX + pieceW * 0.1;
+      const endX = pieceX + pieceW * 0.4;
+      const startY = pieceY + pieceH * 0.2;
+      const lineCount = 5;
+      const spacing = (pieceH * 0.6) / lineCount;
+      return (
+        <g key={`${pieceId}-cut-${cutout.idx}`}>
+          {Array.from({ length: lineCount }).map((_, j) => (
+            <line
+              key={j}
+              x1={startX} y1={startY + j * spacing}
+              x2={endX} y2={startY + j * spacing}
+              stroke="#666" strokeWidth={0.5} opacity={0.5}
+            />
+          ))}
+        </g>
+      );
+    }
+
+    return null;
+  });
+}
+
 export function SlabCanvas({
   slabWidth,
   slabHeight,
@@ -51,12 +168,16 @@ export function SlabCanvas({
   highlightPieceId,
   maxWidth = 600,
   edgeAllowanceMm = 0,
+  pieceCutouts,
 }: SlabCanvasProps) {
   // Calculate scale to fit container
   const scale = propScale ?? Math.min(maxWidth / slabWidth, 400 / slabHeight);
 
   const canvasWidth = slabWidth * scale;
   const canvasHeight = slabHeight * scale;
+
+  // Track whether any cutouts are rendered (for legend)
+  const hasCutouts = pieceCutouts && Object.values(pieceCutouts).some(c => c.length > 0);
 
   return (
     <div className="inline-block">
@@ -93,7 +214,7 @@ export function SlabCanvas({
               strokeWidth={0.5}
             />
           </pattern>
-          
+
           {/* Diagonal stripe pattern for lamination strips */}
           <pattern
             id="laminationPattern"
@@ -150,15 +271,22 @@ export function SlabCanvas({
           </>
         )}
 
-        {/* Placed pieces */}
+        {/* Placed pieces — rendered bottom-up (Y-axis flipped) */}
         {placements.map((placement, index) => {
           const x = placement.x * scale;
-          const y = placement.y * scale;
+          // Bottom-up: flip Y so (0,0) is at bottom-left visually
+          const visualY = slabHeight - placement.y - placement.height;
+          const y = visualY * scale;
           const width = placement.width * scale;
           const height = placement.height * scale;
           const isHighlighted = highlightPieceId === placement.pieceId;
           const isLaminationStrip = placement.isLaminationStrip === true;
           const isSegment = placement.isSegment === true;
+
+          // Look up cutouts for this piece (skip for lamination strips)
+          const cutouts = (!isLaminationStrip && pieceCutouts)
+            ? pieceCutouts[placement.pieceId] ?? []
+            : [];
 
           return (
             <g key={`${placement.pieceId}-${index}`}>
@@ -175,6 +303,9 @@ export function SlabCanvas({
                 opacity={isLaminationStrip ? 0.7 : 0.85}
                 className="transition-opacity hover:opacity-100"
               />
+
+              {/* Cutout overlay shapes (inside piece rectangle) */}
+              {cutouts.length > 0 && renderCutouts(cutouts, x, y, width, height, scale, placement.pieceId)}
 
               {/* Label */}
               {showLabels && width > 40 && height > 20 && (
@@ -258,7 +389,7 @@ export function SlabCanvas({
           </>
         )}
       </svg>
-      
+
       {/* Legend */}
       <div className="flex gap-4 mt-3 text-xs text-gray-600 flex-wrap">
         <div className="flex items-center gap-1.5">
@@ -295,6 +426,15 @@ export function SlabCanvas({
           <div className="flex items-center gap-1.5">
             <div className="w-4 h-4 rounded-sm border border-amber-400" style={{ backgroundColor: '#FEF3C7' }}></div>
             <span>Edge Allowance ({edgeAllowanceMm}mm)</span>
+          </div>
+        )}
+        {hasCutouts && (
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="16" className="border border-gray-400 rounded-sm">
+              <rect x={2} y={2} width={12} height={12} rx={1}
+                fill="rgba(0,0,0,0.08)" stroke="#666" strokeWidth={1} strokeDasharray="3 1" />
+            </svg>
+            <span>Cutout/Feature</span>
           </div>
         )}
       </div>

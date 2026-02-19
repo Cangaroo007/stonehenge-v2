@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { OptimizationResult } from '@/types/slab-optimization';
+import type { SlabCutoutInfo } from '@/types/slab-optimization';
 import { SlabCanvas } from './SlabCanvas';
 
 interface SlabResultsProps {
@@ -10,6 +11,8 @@ interface SlabResultsProps {
   slabHeight: number;
   /** Edge allowance in mm per side — passed to SlabCanvas for visual display */
   edgeAllowanceMm?: number;
+  /** Cutout data per piece (keyed by pieceId) — passed to SlabCanvas for overlay */
+  pieceCutouts?: Record<string, SlabCutoutInfo[]>;
 }
 
 // Color palette for pieces (must match SlabCanvas)
@@ -26,7 +29,7 @@ const PIECE_COLORS = [
   '#6366F1', // Indigo
 ];
 
-export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0 }: SlabResultsProps) {
+export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0, pieceCutouts }: SlabResultsProps) {
   if (result.totalSlabs === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -166,6 +169,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
               showLabels={true}
               showDimensions={true}
               edgeAllowanceMm={edgeAllowanceMm}
+              pieceCutouts={pieceCutouts}
             />
 
             {/* Piece list for this slab */}
