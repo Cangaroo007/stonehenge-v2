@@ -81,10 +81,21 @@ export default function QuoteCostSummaryBar({
   const templatingTotal = breakdown.templating?.finalCost ?? 0;
   const installationTotal = pieces.length > 0 ? computeInstallationTotal(pieces) : 0;
 
+  const calcAny = calculation as any;
+  const customChargesTotal = calcAny.customChargesTotal ?? 0;
+  const quoteDiscountAmount = calcAny.discountAmount ?? 0;
+  const baseSubtotalValue = calcAny.baseSubtotal ?? calculation.subtotal ?? 0;
+  const discountTypeLabel = calcAny.discountType === 'PERCENTAGE'
+    ? `${calcAny.discountValue ?? 0}%`
+    : calcAny.discountType === 'ABSOLUTE'
+    ? formatCurrency(calcAny.discountValue ?? 0)
+    : '';
+  const discountAppliesToLabel = calcAny.discountAppliesTo === 'FABRICATION_ONLY'
+    ? 'fabrication only'
+    : 'entire quote';
+
   const discountAmount = calculation.totalDiscount ?? 0;
   const subtotal = calculation.subtotal ?? 0;
-  const discountPercent =
-    subtotal > 0 ? Math.round((discountAmount / subtotal) * 100) : 0;
   const adjustedSubtotal = calculation.total ?? 0;
   const gstRate = calculation.gstRate ?? 0.1;
   const gstAmount = calculation.gstAmount ?? Math.round(adjustedSubtotal * gstRate * 100) / 100;
@@ -224,24 +235,44 @@ export default function QuoteCostSummaryBar({
                 ))}
               </div>
 
-              {/* Subtotal / Discount / GST */}
+              {/* Base Subtotal / Custom Charges / Discount / GST */}
               <div>
                 <div className="border-t-2 border-zinc-300 mb-2" />
                 <div className="space-y-0.5">
+                  <div className="flex items-center justify-between">
+                    <span className={`text-sm ${lblCls(baseSubtotalValue)}`}>
+                      Base Subtotal
+                    </span>
+                    <span className={`text-sm tabular-nums font-medium ${amtCls(baseSubtotalValue)}`}>
+                      {formatCurrency(baseSubtotalValue)}
+                    </span>
+                  </div>
+                  {customChargesTotal > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className={`text-sm ${lblCls(customChargesTotal)}`}>
+                        Additional Costs
+                      </span>
+                      <span className={`text-sm tabular-nums font-medium ${amtCls(customChargesTotal)}`}>
+                        {formatCurrency(customChargesTotal)}
+                      </span>
+                    </div>
+                  )}
+                  {quoteDiscountAmount > 0 && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-red-600">
+                        Discount ({discountTypeLabel}, {discountAppliesToLabel})
+                      </span>
+                      <span className="text-sm tabular-nums font-medium text-red-600">
+                        -{formatCurrency(quoteDiscountAmount)}
+                      </span>
+                    </div>
+                  )}
                   <div className="flex items-center justify-between">
                     <span className={`text-sm ${lblCls(adjustedSubtotal)}`}>
                       Subtotal (ex GST)
                     </span>
                     <span className={`text-sm tabular-nums font-medium ${amtCls(adjustedSubtotal)}`}>
                       {formatCurrency(adjustedSubtotal)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className={`text-sm ${lblCls(discountAmount)}`}>
-                      Discount ({discountPercent}%)
-                    </span>
-                    <span className={`text-sm tabular-nums font-medium ${amtCls(discountAmount)}`}>
-                      {formatCurrency(-discountAmount)}
                     </span>
                   </div>
                   <div className="flex items-center justify-between">

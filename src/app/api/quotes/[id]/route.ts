@@ -83,6 +83,10 @@ interface QuoteUpdateData {
   templatingDistanceKm?: number | null;
   templatingCost?: number | null;
   overrideTemplatingCost?: number | null;
+  // Quote-level discount
+  discount_type?: string | null;
+  discount_value?: number | null;
+  discount_applies_to?: string | null;
 }
 
 export async function GET(
@@ -137,6 +141,9 @@ export async function GET(
         },
         quote_files: true,
         quote_drawing_analyses: true,
+        custom_charges: {
+          orderBy: { sort_order: 'asc' },
+        },
       },
     });
 
@@ -262,6 +269,10 @@ export async function PUT(
       if (data.templatingDistanceKm !== undefined) updateFields.templatingDistanceKm = data.templatingDistanceKm;
       if (data.templatingCost !== undefined) updateFields.templatingCost = data.templatingCost;
       if (data.overrideTemplatingCost !== undefined) updateFields.overrideTemplatingCost = data.overrideTemplatingCost;
+      // Quote-level discount fields
+      if (data.discount_type !== undefined) updateFields.discount_type = data.discount_type;
+      if (data.discount_value !== undefined) updateFields.discount_value = data.discount_value;
+      if (data.discount_applies_to !== undefined) updateFields.discount_applies_to = data.discount_applies_to;
 
       if (Object.keys(updateFields).length === 0) {
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
@@ -434,6 +445,14 @@ function transformQuoteForClient(quote: any) {
       ...room,
       sortOrder: room.sort_order,
       pieces: (room.quote_pieces || []).map((piece: any) => transformPieceForClient(piece)),
+    })),
+    // Custom charges and discount
+    customCharges: (quote.custom_charges || []).map((c: any) => ({
+      id: c.id,
+      quoteId: c.quote_id,
+      description: c.description,
+      amount: Number(c.amount),
+      sortOrder: c.sort_order,
     })),
   };
 }

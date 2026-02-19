@@ -15,6 +15,7 @@
 
 import prisma from '@/lib/db';
 import { calculateCutPlan } from './multi-slab-calculator';
+import type { DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 import {
   calculateDistance,
   getDeliveryZone,
@@ -55,6 +56,13 @@ const COMPANY_ADDRESS =
  */
 export interface EnhancedCalculationResult extends CalculationResult {
   fabricationCategory?: string;
+  baseSubtotal?: number;
+  customCharges?: Array<{ id: number; description: string; amount: number }>;
+  customChargesTotal?: number;
+  discountType?: string | null;
+  discountValue?: number;
+  discountAppliesTo?: string;
+  discountAmount?: number;
   breakdown: CalculationResult['breakdown'] & {
     services?: {
       items: ServiceBreakdown[];
@@ -793,10 +801,59 @@ export async function calculateQuotePrice(
     cutoutData.subtotal +
     serviceData.subtotal;
 
-  const subtotal =
+  const baseSubtotal =
     piecesSubtotal +
     deliveryBreakdown.finalCost +
     templatingBreakdown.finalCost;
+
+  // Load custom charges for this quote
+  const customCharges = await prisma.quote_custom_charges.findMany({
+    where: { quote_id: quoteIdNum },
+    orderBy: { sort_order: 'asc' },
+  });
+  const customChargesTotal = customCharges.reduce(
+    (sum, charge) => sum + Number(charge.amount), 0
+  );
+
+  // Load quote discount settings
+  const discountRecord = await prisma.quotes.findUnique({
+    where: { id: quoteIdNum },
+    select: { discount_type: true, discount_value: true, discount_applies_to: true },
+  });
+
+  const discountType = discountRecord?.discount_type as DiscountType | null;
+  const discountValue = discountRecord?.discount_value ? Number(discountRecord.discount_value) : 0;
+  const discountAppliesTo = (discountRecord?.discount_applies_to as DiscountAppliesTo) || 'ALL';
+
+  // Apply the formula based on discount_applies_to
+  let discountAmount: number;
+  let discountedSubtotal: number;
+
+  if (discountAppliesTo === 'ALL') {
+    // Discount covers everything including custom charges
+    const preDiscountTotal = baseSubtotal + customChargesTotal;
+    discountAmount = discountType === 'PERCENTAGE'
+      ? preDiscountTotal * (discountValue / 100)
+      : discountType === 'ABSOLUTE'
+      ? discountValue
+      : 0;
+    discountedSubtotal = preDiscountTotal - discountAmount;
+  } else {
+    // FABRICATION_ONLY: Discount on base subtotal only, custom charges added after
+    discountAmount = discountType === 'PERCENTAGE'
+      ? baseSubtotal * (discountValue / 100)
+      : discountType === 'ABSOLUTE'
+      ? discountValue
+      : 0;
+    discountedSubtotal = (baseSubtotal - discountAmount) + customChargesTotal;
+  }
+
+  // Ensure discount doesn't make total negative
+  discountAmount = roundToTwo(discountAmount);
+  discountedSubtotal = Math.max(0, roundToTwo(discountedSubtotal));
+
+  // For backwards compatibility, keep `subtotal` variable name pointing to the effective subtotal
+  const subtotal = discountedSubtotal;
 
   // Get applicable pricing rules
   const priceBookId = options?.priceBookId || quote.price_book_id;
@@ -846,11 +903,23 @@ export async function calculateQuotePrice(
     quoteId,
     fabricationCategory: primaryFabricationCategory,
     subtotal: roundToTwo(subtotal),
-    totalDiscount: 0, // Calculated from rules
+    baseSubtotal: roundToTwo(baseSubtotal),
+    totalDiscount: roundToTwo(discountAmount),
     total: roundToTwo(finalTotal),
     gstRate,
     gstAmount,
     totalIncGst,
+    // Custom charges and discount details
+    customCharges: customCharges.map(c => ({
+      id: c.id,
+      description: c.description,
+      amount: Number(c.amount),
+    })),
+    customChargesTotal: roundToTwo(customChargesTotal),
+    discountType,
+    discountValue,
+    discountAppliesTo,
+    discountAmount: roundToTwo(discountAmount),
     breakdown: {
       materials: materialBreakdown,
       edges: {

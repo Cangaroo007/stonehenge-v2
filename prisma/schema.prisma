@@ -656,7 +656,32 @@ model quotes {
   overrideBy             Int?
   overrideAt             DateTime?
 
+  // Quote-level discount
+  discount_type       String?
+  discount_value      Decimal?  @db.Decimal(10, 2)
+  discount_applies_to String?   @default("ALL")
+
+  // Relation
+  custom_charges      quote_custom_charges[]
+
   @@index([company_id])
+}
+
+model quote_custom_charges {
+  id          Int      @id @default(autoincrement())
+  quote_id    Int
+  company_id  Int
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  quote       quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id])
+  @@index([company_id])
+  @@index([company_id, description])
 }
 
 model quote_versions {

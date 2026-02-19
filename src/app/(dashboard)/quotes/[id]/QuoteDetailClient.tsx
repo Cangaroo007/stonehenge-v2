@@ -39,6 +39,8 @@ import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
+import QuoteAdjustments from '@/components/quotes/QuoteAdjustments';
+import type { DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 import OptionTabsBar from '@/components/quotes/OptionTabsBar';
 import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
 import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
@@ -148,6 +150,11 @@ interface EditQuote {
   } | null;
   price_books?: { id: string; name: string } | null;
   rooms: QuoteRoom[];
+  // Custom charges and discount
+  customCharges?: Array<{ id: number; quoteId: number; description: string; amount: number; sortOrder: number }>;
+  discount_type?: string | null;
+  discount_value?: number | null;
+  discount_applies_to?: string | null;
 }
 
 interface CustomerOption {
@@ -303,6 +310,11 @@ export interface ServerQuoteData {
       email: string;
     } | null;
   } | null;
+  // Custom charges and discount
+  customCharges?: Array<{ id: number; quoteId: number; description: string; amount: number; sortOrder: number }>;
+  discount_type?: string | null;
+  discount_value?: number | null;
+  discount_applies_to?: string | null;
 }
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -2931,6 +2943,22 @@ export default function QuoteDetailClient({
           </div>
         )}
 
+        {/* Quote Adjustments — Custom Charges + Discount (view mode) */}
+        <QuoteAdjustments
+          quoteId={serverData.id}
+          customCharges={serverData.customCharges || []}
+          discount={serverData.discount_type ? {
+            type: serverData.discount_type as DiscountType,
+            value: Number(serverData.discount_value),
+            appliesTo: (serverData.discount_applies_to as DiscountAppliesTo) || 'ALL',
+          } : null}
+          baseSubtotal={(viewCalculation as any)?.baseSubtotal ?? viewCalculation?.subtotal ?? Number(serverData.subtotal) ?? 0}
+          mode="view"
+          onChanged={() => {
+            // View mode: no-op, but required by interface
+          }}
+        />
+
         {/* ── PRICING SUMMARY — always visible ── */}
         {/* Machine Operations */}
         <MachineOperationsAccordion
@@ -3752,6 +3780,23 @@ export default function QuoteDetailClient({
           onCalculationComplete={handleCalculationUpdate}
           discountDisplayMode={discountDisplayMode}
           onDiscountDisplayModeChange={setDiscountDisplayMode}
+        />
+
+        {/* Quote Adjustments — Custom Charges + Discount */}
+        <QuoteAdjustments
+          quoteId={parseInt(quoteIdStr)}
+          customCharges={editQuote.customCharges || []}
+          discount={editQuote.discount_type ? {
+            type: editQuote.discount_type as DiscountType,
+            value: Number(editQuote.discount_value),
+            appliesTo: (editQuote.discount_applies_to as DiscountAppliesTo) || 'ALL',
+          } : null}
+          baseSubtotal={(calculation as any)?.baseSubtotal ?? calculation?.subtotal ?? 0}
+          mode="edit"
+          onChanged={() => {
+            triggerRecalculate();
+            fetchQuote();
+          }}
         />
 
         {/* Piece Stats */}
