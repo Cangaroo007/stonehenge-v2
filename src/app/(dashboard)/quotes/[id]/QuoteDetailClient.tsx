@@ -721,12 +721,11 @@ export default function QuoteDetailClient({
   }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers, fetchRelationships]);
 
   // ── Auto-calculate pricing independent of sidebar visibility ──────────────
-  // PricingSummary (in sidebar) handles calculation when the sidebar is open,
-  // but the sidebar starts collapsed. This ensures pricing runs regardless.
+  // Rule 23: Business logic must NOT depend on sidebar visibility.
+  // Always run calculation regardless of sidebar state. PricingSummary in the
+  // sidebar will also call calculate when open, but that's additive — never skip.
   useEffect(() => {
     if (mode !== 'edit' || editLoading || !editDataLoaded.current) return;
-    // When sidebar is open, PricingSummary handles calculation
-    if (sidebarOpen) return;
 
     let cancelled = false;
     const calculate = async () => {
@@ -736,9 +735,17 @@ export default function QuoteDetailClient({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         });
-        if (!cancelled && res.ok) {
+        if (cancelled) return;
+        if (res.ok) {
           const data = await res.json();
           handleCalculationUpdate(data);
+        } else {
+          // Show pricing errors to user instead of silent $0
+          const errorData = await res.json().catch(() => ({ error: 'Pricing calculation failed' }));
+          console.error('Pricing calculation returned error:', errorData);
+          if (errorData.code === 'MISSING_SERVICE_RATES' || errorData.code === 'MISSING_PRICING_SETTINGS') {
+            toast.error(errorData.error || 'Pricing configuration missing — check Pricing Admin');
+          }
         }
       } catch (err) {
         console.error('Auto-calculation failed:', err);
@@ -747,7 +754,7 @@ export default function QuoteDetailClient({
 
     calculate();
     return () => { cancelled = true; };
-  }, [mode, editLoading, sidebarOpen, quoteIdStr, refreshTrigger, handleCalculationUpdate]);
+  }, [mode, editLoading, quoteIdStr, refreshTrigger, handleCalculationUpdate]);
 
   // ── Fresh calculation for view mode ────────────────────────────────────────
   // The stored calculation_breakdown may be stale. Fetch a fresh calculation
@@ -763,9 +770,13 @@ export default function QuoteDetailClient({
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({}),
         });
-        if (!cancelled && res.ok) {
+        if (cancelled) return;
+        if (res.ok) {
           const data = await res.json();
           setViewCalculation(data);
+        } else {
+          const errorData = await res.json().catch(() => ({ error: 'Pricing calculation failed' }));
+          console.error('View-mode pricing error:', errorData);
         }
       } catch {
         // Keep the server-provided calculation_breakdown as fallback
@@ -3190,41 +3201,41 @@ export default function QuoteDetailClient({
     return (
       <div className="space-y-6">
 
-        {/* ── MATERIAL — above pieces (12.J1: "first pick your stone") ── */}
-        {calculation?.breakdown?.materials && (
-          <div id="material-section" className="card p-4 space-y-2">
-            <div className="flex items-center justify-between">
-              <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-                Material
-              </h3>
-              <button
-                onClick={() => setShowBulkSwap(!showBulkSwap)}
-                className={`px-3 py-1 text-xs font-medium border rounded-md transition-colors ${
-                  showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-                }`}
-              >
-                Bulk Swap
-              </button>
-            </div>
-            {showBulkSwap && (
-              <BulkMaterialSwap
-                pieces={effectivePieces.map(p => ({
-                  id: p.id,
-                  name: p.name,
-                  lengthMm: p.lengthMm,
-                  widthMm: p.widthMm,
-                  materialId: p.materialId,
-                  materialName: p.materialName,
-                  materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
-                  roomName: p.quote_rooms?.name ?? null,
-                }))}
-                materials={materials}
-                selectedPieceIds={selectedPieceIds}
-                onApply={handleBulkMaterialApply}
-                onClose={() => setShowBulkSwap(false)}
-                quoteTotal={calculation?.total ?? null}
-              />
-            )}
+        {/* ── MATERIAL — always visible in edit mode (12.J1: "first pick your stone") ── */}
+        <div id="material-section" className="card p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <button
+              onClick={() => setShowBulkSwap(!showBulkSwap)}
+              className={`px-3 py-1 text-xs font-medium border rounded-md transition-colors ${
+                showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Bulk Swap
+            </button>
+          </div>
+          {showBulkSwap && (
+            <BulkMaterialSwap
+              pieces={effectivePieces.map(p => ({
+                id: p.id,
+                name: p.name,
+                lengthMm: p.lengthMm,
+                widthMm: p.widthMm,
+                materialId: p.materialId,
+                materialName: p.materialName,
+                materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+                roomName: p.quote_rooms?.name ?? null,
+              }))}
+              materials={materials}
+              selectedPieceIds={selectedPieceIds}
+              onApply={handleBulkMaterialApply}
+              onClose={() => setShowBulkSwap(false)}
+              quoteTotal={calculation?.total ?? null}
+            />
+          )}
+          {calculation?.breakdown?.materials ? (
             <MaterialCostSection
               materials={calculation.breakdown.materials}
               pieceCount={effectivePieces.length}
@@ -3238,8 +3249,12 @@ export default function QuoteDetailClient({
                 }
               }}
             />
-          </div>
-        )}
+          ) : (
+            <p className="text-xs text-gray-400 italic px-1">
+              Assign materials to pieces to see cost breakdown
+            </p>
+          )}
+        </div>
 
         {/* Option Tabs — only shown when options exist */}
         {hasOptions && (

@@ -1100,20 +1100,21 @@ function getServiceRate(
   thickness: number,
   fabricationCategory?: string
 ): { rate: number; rateRecord: ServiceRateRecord } {
-  const rateRecord = rates.find(r => {
-    if (r.serviceType !== serviceType) return false;
-    if (fabricationCategory) {
-      // When a category is specified, require exact match
-      return r.fabricationCategory === fabricationCategory;
-    }
-    // When no category specified, prefer rates without a category set
-    return !r.fabricationCategory;
-  }) ?? (
-    // Fallback: if no uncategorised rate exists, pick the first matching serviceType
-    !fabricationCategory
-      ? rates.find(r => r.serviceType === serviceType)
-      : undefined
-  );
+  // 1. Try exact match: serviceType + fabricationCategory
+  let rateRecord = fabricationCategory
+    ? rates.find(r => r.serviceType === serviceType && r.fabricationCategory === fabricationCategory)
+    : rates.find(r => r.serviceType === serviceType && !r.fabricationCategory);
+
+  // 2. Fallback: uncategorised rate for this service type
+  if (!rateRecord) {
+    rateRecord = rates.find(r => r.serviceType === serviceType && !r.fabricationCategory);
+  }
+
+  // 3. Fallback: any rate for this service type (first match)
+  if (!rateRecord) {
+    rateRecord = rates.find(r => r.serviceType === serviceType);
+  }
+
   if (!rateRecord) {
     throw new Error(
       `No ${serviceType} rate found` +
@@ -1191,8 +1192,13 @@ function calculateServiceCosts(
   }
 
   // Polishing: use tenant's configured polishing_unit
+  // Try exact category match, then uncategorised, then any POLISHING rate
   const polishingRateRecord = serviceRates.find(
     sr => sr.serviceType === 'POLISHING' && sr.fabricationCategory === primaryCategory
+  ) ?? serviceRates.find(
+    sr => sr.serviceType === 'POLISHING' && !sr.fabricationCategory
+  ) ?? serviceRates.find(
+    sr => sr.serviceType === 'POLISHING'
   );
   if (!polishingRateRecord) {
     throw new Error(
