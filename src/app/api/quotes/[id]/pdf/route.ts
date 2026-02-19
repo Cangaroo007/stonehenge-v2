@@ -83,8 +83,13 @@ export async function GET(
       };
     }
 
+    // Parse sections config from template (defaults applied by renderer)
+    const sectionsConfig = template?.sections_config
+      ? (template.sections_config as Record<string, boolean>)
+      : undefined;
+
     // Render PDF
-    const pdfBuffer = await renderQuotePdf(data, templateSettings);
+    const pdfBuffer = await renderQuotePdf(data, templateSettings, sectionsConfig);
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {

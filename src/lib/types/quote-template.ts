@@ -34,6 +34,11 @@ export interface QuoteTemplateSections {
   slabSummary: boolean;          // technical info for builders
   machineOperations: boolean;    // very technical
 
+  // Additional costs & discount (added by QA1-PDF)
+  additionalCosts: boolean;          // default: true — show custom charge section
+  additionalCostDetails: boolean;    // default: true — list each charge vs just total
+  quoteDiscount: boolean;            // default: true — show discount line item
+
   // Totals
   subtotalExGst: boolean;
   gstLine: boolean;
@@ -88,6 +93,11 @@ export function getDefaultSectionsConfig(formatType: QuoteFormatType): QuoteTemp
     slabSummary: false,
     machineOperations: false,
 
+    // Additional costs & discount
+    additionalCosts: true,
+    additionalCostDetails: true,
+    quoteDiscount: true,
+
     // Totals
     subtotalExGst: true,
     gstLine: true,
@@ -112,6 +122,7 @@ export function getDefaultSectionsConfig(formatType: QuoteFormatType): QuoteTemp
       fabricationBreakdown: false,
       slabSummary: false,
       machineOperations: false,
+      additionalCostDetails: false, // summary just shows "Additional costs: $X"
     };
   }
 
@@ -156,6 +167,9 @@ export const SECTION_GROUPS = [
       { key: 'deliveryLine', label: 'Delivery' },
       { key: 'installationLine', label: 'Installation' },
       { key: 'templatingLine', label: 'Templating' },
+      { key: 'additionalCosts', label: 'Additional costs' },
+      { key: 'additionalCostDetails', label: 'Show individual charge details', indent: true },
+      { key: 'quoteDiscount', label: 'Discount line' },
     ],
   },
   {
