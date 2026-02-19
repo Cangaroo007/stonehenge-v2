@@ -161,6 +161,7 @@ export default function BulkMaterialDialog({
       return {
         pieceId: piece.id,
         pieceName: piece.name || 'Unnamed',
+        roomName: piece.roomName || 'Unassigned',
         oldMaterialName: piece.materialName,
         oldCost,
         newCost,
@@ -420,7 +421,11 @@ export default function BulkMaterialDialog({
               <div className="space-y-1 max-h-32 overflow-y-auto">
                 {assignPreview.pieceChanges.map((pc) => (
                   <div key={pc.pieceId} className="flex justify-between text-xs text-gray-600">
-                    <span>{pc.pieceName}</span>
+                    <span>
+                      <span className="text-gray-400">{pc.roomName}</span>
+                      <span className="text-gray-400"> — </span>
+                      {pc.pieceName}
+                    </span>
                     <span>
                       {formatCost(pc.oldCost)} &rarr; {formatCost(pc.newCost)}{' '}
                       <span className={pc.difference >= 0 ? 'text-red-600' : 'text-green-600'}>
