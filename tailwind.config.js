@@ -145,9 +145,25 @@ module.exports = {
       transitionDuration: {
         '250': '250ms',
       },
-      
+
       transitionTimingFunction: {
         'linear-ease': 'cubic-bezier(0.4, 0, 0.2, 1)',
+      },
+
+      keyframes: {
+        shimmer: {
+          '0%': { backgroundPosition: '-200% 0' },
+          '100%': { backgroundPosition: '200% 0' },
+        },
+        'fade-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+      },
+
+      animation: {
+        shimmer: 'shimmer 1.5s infinite linear',
+        'fade-in': 'fade-in 0.15s ease',
       },
     },
   },

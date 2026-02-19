@@ -67,6 +67,7 @@ import SaveAsTemplateButton from './components/SaveAsTemplateButton';
 import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 import ContactPicker from '@/components/quotes/ContactPicker';
+import QuoteReadinessChecker from '@/components/quotes/QuoteReadinessChecker';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
@@ -381,6 +382,7 @@ export default function QuoteDetailClient({
   const [showFromTemplate, setShowFromTemplate] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [showReadinessCheck, setShowReadinessCheck] = useState(false);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -2632,7 +2634,7 @@ export default function QuoteDetailClient({
 
   const viewActionButtons = (
     <>
-      <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
+      <button onClick={() => setShowReadinessCheck(true)} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
         {downloadingPdf ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -2685,7 +2687,7 @@ export default function QuoteDetailClient({
         onDuplicateQuote={handleDuplicateQuote}
         saving={saving}
       />
-      <button onClick={handleDownloadPdf} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
+      <button onClick={() => setShowReadinessCheck(true)} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
         {downloadingPdf ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -3945,6 +3947,19 @@ export default function QuoteDetailClient({
           existingOptions={quoteOptions.options}
           onCreateOption={quoteOptions.createOption}
           onClose={() => setShowCreateOptionDialog(false)}
+        />
+      )}
+
+      {/* PDF Readiness Checker */}
+      {showReadinessCheck && (
+        <QuoteReadinessChecker
+          quoteId={quoteIdStr}
+          quoteNumber={editQuote?.quote_number ?? serverData.quote_number}
+          onClose={() => setShowReadinessCheck(false)}
+          onGeneratePdf={() => {
+            setShowReadinessCheck(false);
+            handleDownloadPdf();
+          }}
         />
       )}
 
