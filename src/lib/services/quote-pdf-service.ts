@@ -99,6 +99,15 @@ export interface QuotePdfData {
     installation: number;
   };
 
+  /** Custom charges (from QA1) */
+  customCharges: { description: string; amount: number }[];
+  customChargesTotal: number;
+
+  /** Quote-level discount (from QA1) */
+  discountType: string | null;   // 'PERCENTAGE' | 'ABSOLUTE' | null
+  discountValue: number | null;
+  discountAmount: number;
+
   /** Totals */
   subtotalExGst: number;
   /** GST amount — hardcoded at 10% for now. TODO: read from pricing_settings after MT2 */
@@ -221,6 +230,9 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
           },
         },
       },
+      custom_charges: {
+        orderBy: { sort_order: 'asc' },
+      },
     },
   });
 
@@ -339,6 +351,26 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     }
   }
 
+  // 6b. Custom charges (QA1)
+  const customCharges = (quote.custom_charges || []).map(cc => ({
+    description: cc.description,
+    amount: toNumber(cc.amount),
+  }));
+  const customChargesTotal = customCharges.reduce((sum, cc) => sum + cc.amount, 0);
+
+  // 6c. Quote-level discount (QA1)
+  const discountType = quote.discount_type ?? null;
+  const discountValue = quote.discount_value ? toNumber(quote.discount_value) : null;
+  // Calculate discount amount from the stored values
+  let discountAmount = 0;
+  if (discountType && discountValue) {
+    if (discountType === 'PERCENTAGE') {
+      discountAmount = subtotal * (discountValue / 100);
+    } else if (discountType === 'ABSOLUTE') {
+      discountAmount = discountValue;
+    }
+  }
+
   // 7. Calculate totals
   // GST hardcoded at 10% for now. TODO: read from pricing_settings after MT2
   const GST_RATE = 0.10;
@@ -413,6 +445,12 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
       templating: templatingCost,
       installation: installationCost,
     },
+
+    customCharges,
+    customChargesTotal,
+    discountType,
+    discountValue,
+    discountAmount,
 
     subtotalExGst,
     gstAmount,

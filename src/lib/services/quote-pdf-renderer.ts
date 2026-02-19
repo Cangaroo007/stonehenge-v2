@@ -16,6 +16,8 @@ import {
   renderToBuffer,
 } from '@react-pdf/renderer';
 import type { QuotePdfData, QuotePdfRoom, QuotePdfPiece } from './quote-pdf-service';
+import type { QuoteTemplateSections } from '@/lib/types/quote-template';
+import { getDefaultSectionsConfig } from '@/lib/types/quote-template';
 
 // ── Template Settings Interface ──────────────────────────────────────────────
 
@@ -461,11 +463,16 @@ function buildRoomSection(
   );
 }
 
-function buildCharges(data: QuotePdfData): React.ReactElement | null {
+function buildCharges(
+  data: QuotePdfData,
+  sections: QuoteTemplateSections,
+): React.ReactElement | null {
   const { delivery, templating, installation } = data.charges;
-  const hasCharges = delivery > 0 || templating > 0 || installation > 0;
+  const hasBaseCharges = delivery > 0 || templating > 0 || installation > 0;
+  const hasCustomCharges = sections.additionalCosts && data.customChargesTotal > 0;
+  const hasDiscount = sections.quoteDiscount && data.discountAmount > 0;
 
-  if (!hasCharges) return null;
+  if (!hasBaseCharges && !hasCustomCharges && !hasDiscount) return null;
 
   const rows: React.ReactElement[] = [];
 
@@ -492,6 +499,44 @@ function buildCharges(data: QuotePdfData): React.ReactElement | null {
       h(View, { style: styles.chargeRow, key: 'charge-installation' },
         h(Text, { style: styles.chargeLabel }, 'Installation'),
         h(Text, { style: styles.chargeValue }, fmtCurrency(installation)),
+      )
+    );
+  }
+
+  // Custom charges (QA1)
+  if (hasCustomCharges) {
+    if (sections.additionalCostDetails) {
+      // Render each custom charge as its own line
+      for (const charge of data.customCharges) {
+        if (charge.amount > 0) {
+          rows.push(
+            h(View, { style: styles.chargeRow, key: `charge-custom-${charge.description}` },
+              h(Text, { style: styles.chargeLabel }, charge.description),
+              h(Text, { style: styles.chargeValue }, fmtCurrency(charge.amount)),
+            )
+          );
+        }
+      }
+    } else {
+      // Render single summary line
+      rows.push(
+        h(View, { style: styles.chargeRow, key: 'charge-custom-total' },
+          h(Text, { style: styles.chargeLabel }, 'Additional costs'),
+          h(Text, { style: styles.chargeValue }, fmtCurrency(data.customChargesTotal)),
+        )
+      );
+    }
+  }
+
+  // Discount (QA1)
+  if (hasDiscount) {
+    const discountLabel = data.discountType === 'PERCENTAGE' && data.discountValue
+      ? `Discount (${data.discountValue}%)`
+      : 'Discount';
+    rows.push(
+      h(View, { style: styles.chargeRow, key: 'charge-discount' },
+        h(Text, { style: styles.chargeLabel }, discountLabel),
+        h(Text, { style: styles.chargeValue }, `-${fmtCurrency(data.discountAmount)}`),
       )
     );
   }
@@ -551,10 +596,16 @@ function buildPageFooter(settings: PdfTemplateSettings) {
 export async function renderQuotePdf(
   data: QuotePdfData,
   templateSettings?: Partial<PdfTemplateSettings>,
+  sectionsConfig?: Partial<QuoteTemplateSections>,
 ): Promise<Buffer> {
   const settings: PdfTemplateSettings = {
     ...DEFAULT_TEMPLATE_SETTINGS,
     ...templateSettings,
+  };
+
+  const sections: QuoteTemplateSections = {
+    ...getDefaultSectionsConfig('COMPREHENSIVE'),
+    ...sectionsConfig,
   };
 
   // Build the document tree
@@ -573,8 +624,8 @@ export async function renderQuotePdf(
       // Room sections
       ...data.rooms.map(room => buildRoomSection(room, settings)),
 
-      // Quote-level charges (delivery, templating, installation)
-      buildCharges(data),
+      // Quote-level charges (delivery, templating, installation, custom charges, discount)
+      buildCharges(data, sections),
 
       // Totals (subtotal, GST, grand total)
       buildTotals(data, settings),
