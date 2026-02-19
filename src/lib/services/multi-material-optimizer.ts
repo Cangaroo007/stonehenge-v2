@@ -49,6 +49,8 @@ export interface MultiMaterialOptimizationInput {
   kerfWidth: number;
   allowRotation: boolean;
   edgeAllowanceMm?: number;
+  /** Kerf width (mm) for the MITRING machine — passed through to per-group optimisation */
+  mitreKerfWidth?: number;
 }
 
 // ── Core orchestrator ────────────────────────────────────────────────────────
@@ -67,6 +69,7 @@ export function optimizeMultiMaterial(
     kerfWidth,
     allowRotation,
     edgeAllowanceMm = 0,
+    mitreKerfWidth,
   } = input;
 
   const warnings: string[] = [];
@@ -138,6 +141,7 @@ export function optimizeMultiMaterial(
       kerfWidth,
       allowRotation,
       edgeAllowanceMm,
+      mitreKerfWidth,
     };
 
     // Run the existing FFD algorithm

@@ -395,6 +395,7 @@ export function OptimizationDisplay({
             result={result}
             slabWidth={optimization.slabWidth}
             slabHeight={optimization.slabHeight}
+            edgeAllowanceMm={resolvedAllowance}
           />
         )}
       </div>

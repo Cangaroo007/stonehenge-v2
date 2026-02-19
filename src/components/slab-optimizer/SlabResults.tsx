@@ -8,6 +8,8 @@ interface SlabResultsProps {
   result: OptimizationResult;
   slabWidth: number;
   slabHeight: number;
+  /** Edge allowance in mm per side — passed to SlabCanvas for visual display */
+  edgeAllowanceMm?: number;
 }
 
 // Color palette for pieces (must match SlabCanvas)
@@ -24,7 +26,7 @@ const PIECE_COLORS = [
   '#6366F1', // Indigo
 ];
 
-export function SlabResults({ result, slabWidth, slabHeight }: SlabResultsProps) {
+export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0 }: SlabResultsProps) {
   if (result.totalSlabs === 0) {
     return (
       <div className="text-center py-8 text-gray-500">
@@ -163,6 +165,7 @@ export function SlabResults({ result, slabWidth, slabHeight }: SlabResultsProps)
               placements={slab.placements}
               showLabels={true}
               showDimensions={true}
+              edgeAllowanceMm={edgeAllowanceMm}
             />
 
             {/* Piece list for this slab */}

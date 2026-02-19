@@ -92,8 +92,10 @@ export async function POST(
     // Fetch operation-specific kerfs from machine_operation_defaults
     const operationKerfs = await getOperationKerfs();
     const initialCutKerf = operationKerfs['INITIAL_CUT'] ?? 3;
+    const mitreKerf = operationKerfs['MITRING'] ?? initialCutKerf;
 
     // Use INITIAL_CUT kerf as the default for slab nesting (primary cuts)
+    // MITRING kerf is passed separately for mitre strip width calculations
     const {
       kerfWidth = initialCutKerf,
       allowRotation = true,
@@ -151,7 +153,7 @@ export async function POST(
       ?? 1600;
 
     logger.info('[Optimize API] Starting optimization for quote', quoteId,
-      'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm, edge allowance:' + edgeAllowanceMm + 'mm',
+      'settings:', slabWidth + 'x' + slabHeight + 'mm, kerf:' + kerfWidth + 'mm (INITIAL_CUT), mitre kerf:' + mitreKerf + 'mm (MITRING), edge allowance:' + edgeAllowanceMm + 'mm',
       'material:', primaryMaterial?.name ?? 'none',
       'source:', body.slabWidth ? 'user-provided' : primaryMaterial?.slab_length_mm ? 'material-record' : primaryMaterial?.fabrication_category ? 'category-default' : 'ultimate-fallback'
     );
@@ -283,6 +285,7 @@ export async function POST(
         kerfWidth,
         allowRotation,
         edgeAllowanceMm,
+        mitreKerfWidth: mitreKerf,
       });
 
       // Build a combined single-material-compatible result for backward-compat DB storage
@@ -372,7 +375,7 @@ export async function POST(
     }
 
     // ── Single-material optimisation path (existing, backward compatible) ──
-    // Run optimization
+    // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
     const result = optimizeSlabs({
       pieces,
       slabWidth,
@@ -380,6 +383,7 @@ export async function POST(
       kerfWidth,
       allowRotation,
       edgeAllowanceMm,
+      mitreKerfWidth: mitreKerf,
     });
 
     // Piece count validation at the API level

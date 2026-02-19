@@ -102,6 +102,9 @@ export interface OptimizationInput {
   allowRotation: boolean;
   /** Slab edge allowance in mm — unusable material per side. Reduces usable area. */
   edgeAllowanceMm?: number;
+  /** Kerf width (mm) for the MITRING machine — used for mitre strip width calculations.
+   *  Falls back to kerfWidth if not provided. */
+  mitreKerfWidth?: number;
 }
 
 // ── Multi-Material Optimisation Types ─────────────────────────────────────
