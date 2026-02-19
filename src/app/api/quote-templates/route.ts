@@ -73,7 +73,13 @@ export async function POST(request: NextRequest) {
         data: {
           company_id: user.companyId,
           name: body.name.trim(),
+          description: body.description ?? null,
+          format_type: body.format_type ?? 'COMPREHENSIVE',
           is_default: body.is_default ?? false,
+          is_active: body.is_active ?? true,
+
+          // Section toggles
+          sections_config: body.sections_config ?? {},
 
           // Header
           company_name: body.company_name ?? null,
@@ -82,6 +88,7 @@ export async function POST(request: NextRequest) {
           company_email: body.company_email ?? null,
           company_address: body.company_address ?? null,
           logo_url: body.logo_url ?? null,
+          show_logo: body.show_logo ?? true,
 
           // Display settings
           show_piece_breakdown: body.show_piece_breakdown ?? true,
@@ -99,10 +106,17 @@ export async function POST(request: NextRequest) {
           gst_label: body.gst_label ?? 'GST (10%)',
           currency_symbol: body.currency_symbol ?? '$',
 
-          // Footer
+          // Custom text overrides
+          custom_intro_text: body.custom_intro_text ?? null,
           terms_and_conditions: body.terms_and_conditions ?? null,
-          validity_days: body.validity_days ?? 30,
           footer_text: body.footer_text ?? null,
+
+          // Styling overrides
+          custom_primary_colour: body.custom_primary_colour ?? null,
+          custom_accent_colour: body.custom_accent_colour ?? null,
+
+          // Other overrides
+          validity_days: body.validity_days ?? 30,
         },
       });
     });
