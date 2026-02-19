@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import type { MaterialGroupResult, MultiMaterialOptimisationResult } from '@/types/slab-optimization';
+import type { MaterialGroupResult, MultiMaterialOptimisationResult, SlabCutoutInfo } from '@/types/slab-optimization';
 import { SlabCanvas } from '@/components/slab-optimizer/SlabCanvas';
 import { PIECE_COLORS } from '@/components/slab-optimizer/SlabResults';
 import { OversizePieceIndicator } from './OversizePieceIndicator';
@@ -11,9 +11,10 @@ import { OversizePieceIndicator } from './OversizePieceIndicator';
 interface MaterialGroupSectionProps {
   group: MaterialGroupResult;
   defaultExpanded?: boolean;
+  pieceCutouts?: Record<string, SlabCutoutInfo[]>;
 }
 
-function MaterialGroupSection({ group, defaultExpanded = false }: MaterialGroupSectionProps) {
+function MaterialGroupSection({ group, defaultExpanded = false, pieceCutouts }: MaterialGroupSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   return (
@@ -101,6 +102,7 @@ function MaterialGroupSection({ group, defaultExpanded = false }: MaterialGroupS
                 placements={slab.placements}
                 showLabels={true}
                 showDimensions={true}
+                pieceCutouts={pieceCutouts}
               />
 
               {/* Piece tags for this slab */}
@@ -190,11 +192,13 @@ function UnassignedMaterialWarning({ warnings }: UnassignedWarningProps) {
 interface MultiMaterialOptimisationDisplayProps {
   multiMaterialResult: MultiMaterialOptimisationResult;
   isOptimising?: boolean;
+  pieceCutouts?: Record<string, SlabCutoutInfo[]>;
 }
 
 export function MultiMaterialOptimisationDisplay({
   multiMaterialResult,
   isOptimising = false,
+  pieceCutouts,
 }: MultiMaterialOptimisationDisplayProps) {
   return (
     <div className={`space-y-4 ${isOptimising ? 'opacity-60' : ''}`}>
@@ -209,6 +213,7 @@ export function MultiMaterialOptimisationDisplay({
           key={group.materialId}
           group={group}
           defaultExpanded={index === 0}
+          pieceCutouts={pieceCutouts}
         />
       ))}
 

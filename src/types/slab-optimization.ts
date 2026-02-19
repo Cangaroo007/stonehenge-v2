@@ -141,5 +141,14 @@ export interface OversizePieceInfo {
   suggestedJoinPosition_mm: number;
 }
 
+// ── Cutout display info for slab canvas overlay ────────────────────────────
+
+export interface SlabCutoutInfo {
+  typeName: string;
+  quantity: number;
+  width?: number;
+  height?: number;
+}
+
 // Re-export for convenience
 export type { Placement as SlabPlacement };
