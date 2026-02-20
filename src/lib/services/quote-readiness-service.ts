@@ -290,15 +290,18 @@ export async function checkQuoteReadiness(
     });
   }
 
+  // ── Filter out any undefined entries (belt-and-suspenders) ──
+  const validChecks = checks.filter(Boolean);
+
   // ── Tally ──
-  const failCount = checks.filter((c) => c.status === 'fail').length;
-  const warnCount = checks.filter((c) => c.status === 'warn').length;
-  const passCount = checks.filter((c) => c.status === 'pass').length;
+  const failCount = validChecks.filter((c) => c.status === 'fail').length;
+  const warnCount = validChecks.filter((c) => c.status === 'warn').length;
+  const passCount = validChecks.filter((c) => c.status === 'pass').length;
 
   return {
     quoteId: quote.id,
     quoteNumber: quote.quote_number,
-    checks,
+    checks: validChecks,
     canGenerate: failCount === 0,
     failCount,
     warnCount,

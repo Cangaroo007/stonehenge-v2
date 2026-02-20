@@ -178,20 +178,22 @@ export default function QuoteReadinessChecker({
       }
 
       const data: ReadinessResult = await response.json();
-      setTotalChecks(data.checks.length);
+      setTotalChecks(data.checks.filter(Boolean).length);
 
       // Animate checks appearing one at a time
+      const validChecks = data.checks.filter(Boolean);
       let i = 0;
       const interval = setInterval(() => {
-        if (i < data.checks.length) {
-          setChecks((prev) => [...prev, data.checks[i]]);
+        if (i < validChecks.length) {
+          const currentCheck = validChecks[i];
+          setChecks((prev) => [...prev, currentCheck]);
           setCheckedCount(i + 1);
           i++;
         } else {
           clearInterval(interval);
           setIsChecking(false);
           // Auto-expand first failing check
-          const firstFail = data.checks.find((c) => c.status === 'fail');
+          const firstFail = validChecks.find((c) => c.status === 'fail');
           if (firstFail) setExpandedId(firstFail.id);
         }
       }, 100);
@@ -207,9 +209,10 @@ export default function QuoteReadinessChecker({
     runChecks();
   }, [runChecks]);
 
-  const failCount = checks.filter((c) => c.status === 'fail').length;
-  const warnCount = checks.filter((c) => c.status === 'warn').length;
-  const passCount = checks.filter((c) => c.status === 'pass').length;
+  const validChecks = checks.filter(Boolean);
+  const failCount = validChecks.filter((c) => c.status === 'fail').length;
+  const warnCount = validChecks.filter((c) => c.status === 'warn').length;
+  const passCount = validChecks.filter((c) => c.status === 'pass').length;
   const hasBlockers = !isChecking && failCount > 0;
 
   return (
@@ -280,7 +283,7 @@ export default function QuoteReadinessChecker({
             </div>
           ) : (
             <>
-              {checks.map((check) => (
+              {checks.filter(Boolean).map((check) => (
                 <CheckItem
                   key={check.id}
                   check={check}
