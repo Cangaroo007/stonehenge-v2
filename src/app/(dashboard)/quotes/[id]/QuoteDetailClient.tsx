@@ -1786,6 +1786,23 @@ export default function QuoteDetailClient({
     }
   };
 
+  // ── Save-then-open readiness checker ─────────────────────────────────────
+  // The readiness checker reads quote.subtotal from the DB. If pricing was
+  // calculated client-side but never saved, the DB still has $0 and the
+  // checker will block PDF generation (chicken-and-egg). Persist pricing
+  // BEFORE opening the readiness modal so the server-side check sees the
+  // calculated total.
+  const handleOpenReadinessCheck = async () => {
+    if (calculationRef.current) {
+      try {
+        await handleSaveQuote();
+      } catch {
+        // Save failed — still open readiness checker so user sees diagnostic
+      }
+    }
+    setShowReadinessCheck(true);
+  };
+
   // ── Download PDF handler ──────────────────────────────────────────────────
   const handleDownloadPdf = async () => {
     setDownloadingPdf(true);
@@ -2634,14 +2651,14 @@ export default function QuoteDetailClient({
 
   const viewActionButtons = (
     <>
-      <button onClick={() => setShowReadinessCheck(true)} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
-        {downloadingPdf ? (
+      <button onClick={handleOpenReadinessCheck} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
+        {downloadingPdf || saving ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Generating...
+            {saving ? 'Saving...' : 'Generating...'}
           </>
         ) : (
           <>
@@ -2685,17 +2702,17 @@ export default function QuoteDetailClient({
         onSave={handleSaveQuote}
         onStatusChange={handleStatusChange}
         onDuplicateQuote={handleDuplicateQuote}
-        onPreviewPdf={() => setShowReadinessCheck(true)}
+        onPreviewPdf={handleOpenReadinessCheck}
         saving={saving}
       />
-      <button onClick={() => setShowReadinessCheck(true)} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
-        {downloadingPdf ? (
+      <button onClick={handleOpenReadinessCheck} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
+        {downloadingPdf || saving ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
               <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
               <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
             </svg>
-            Generating...
+            {saving ? 'Saving...' : 'Generating...'}
           </>
         ) : (
           <>
@@ -3959,12 +3976,8 @@ export default function QuoteDetailClient({
           onClose={() => setShowReadinessCheck(false)}
           onGeneratePdf={async () => {
             setShowReadinessCheck(false);
-            // Auto-save to persist pricing to DB before PDF generation
-            try {
-              await handleSaveQuote();
-            } catch {
-              // Save failed — still attempt PDF so user sees the API error
-            }
+            // Pricing already persisted by handleOpenReadinessCheck before
+            // the checker opened — go straight to PDF download.
             handleDownloadPdf();
           }}
         />
