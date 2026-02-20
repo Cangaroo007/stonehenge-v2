@@ -10,6 +10,7 @@ interface QuoteActionsProps {
   onSave: () => Promise<void>;
   onStatusChange?: (newStatus: string, options?: { declinedReason?: string }) => Promise<void>;
   onDuplicateQuote?: () => Promise<void>;
+  onPreviewPdf?: () => void;
   saving?: boolean;
 }
 
@@ -20,6 +21,7 @@ export default function QuoteActions({
   onSave,
   onStatusChange,
   onDuplicateQuote,
+  onPreviewPdf,
   saving = false,
 }: QuoteActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -38,11 +40,14 @@ export default function QuoteActions({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle PDF preview
+  // Handle PDF preview — use readiness checker if available, else direct open
   const handlePreviewPdf = async () => {
+    if (onPreviewPdf) {
+      onPreviewPdf();
+      return;
+    }
     setIsPreviewLoading(true);
     try {
-      // Open PDF in new tab
       window.open(`/api/quotes/${quoteId}/pdf`, '_blank');
     } catch (error) {
       console.error('Error opening PDF:', error);

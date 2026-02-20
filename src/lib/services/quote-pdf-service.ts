@@ -240,13 +240,8 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     throw new Error('QUOTE_NOT_FOUND');
   }
 
-  // 2. Validate: throw if total_ex_gst <= 0 (UB-AUDIT critical: prevent $0 quotes)
+  // 2. Read subtotal (readiness checker validates pricing client-side)
   const subtotal = toNumber(quote.subtotal);
-  if (subtotal <= 0) {
-    throw new Error(
-      'PRICING_MISSING: Quote total is $0. Please calculate pricing before generating a PDF.'
-    );
-  }
 
   // 3. Fetch all cutout types for resolution
   const cutoutTypes = await prisma.cutout_types.findMany({

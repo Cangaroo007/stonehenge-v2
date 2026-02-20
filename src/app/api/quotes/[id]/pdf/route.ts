@@ -31,7 +31,7 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Assemble PDF data (validates quote exists and has pricing)
+    // Assemble PDF data (readiness checker validates pricing client-side)
     let data;
     try {
       data = await assembleQuotePdfData(quoteId);
@@ -39,12 +39,6 @@ export async function GET(
       const msg = err instanceof Error ? err.message : 'Unknown error';
       if (msg === 'QUOTE_NOT_FOUND') {
         return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
-      }
-      if (msg.startsWith('PRICING_MISSING')) {
-        return NextResponse.json(
-          { error: msg.replace('PRICING_MISSING: ', '') },
-          { status: 400 },
-        );
       }
       throw err;
     }
