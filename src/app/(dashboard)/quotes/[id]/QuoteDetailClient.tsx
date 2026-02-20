@@ -2685,6 +2685,7 @@ export default function QuoteDetailClient({
         onSave={handleSaveQuote}
         onStatusChange={handleStatusChange}
         onDuplicateQuote={handleDuplicateQuote}
+        onPreviewPdf={() => setShowReadinessCheck(true)}
         saving={saving}
       />
       <button onClick={() => setShowReadinessCheck(true)} disabled={downloadingPdf} className="btn-secondary flex items-center gap-2">
@@ -3956,8 +3957,14 @@ export default function QuoteDetailClient({
           quoteId={quoteIdStr}
           quoteNumber={editQuote?.quote_number ?? serverData.quote_number}
           onClose={() => setShowReadinessCheck(false)}
-          onGeneratePdf={() => {
+          onGeneratePdf={async () => {
             setShowReadinessCheck(false);
+            // Auto-save to persist pricing to DB before PDF generation
+            try {
+              await handleSaveQuote();
+            } catch {
+              // Save failed — still attempt PDF so user sees the API error
+            }
             handleDownloadPdf();
           }}
         />
