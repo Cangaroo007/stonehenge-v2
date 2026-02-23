@@ -327,7 +327,7 @@ async function seedEdgeTypes() {
     {
       id: 'et-beveled',
       name: 'Beveled',
-      code: 'BV',
+      code: 'BEV',
       description: 'Beveled edge profile',
       category: 'polish',
       baseRate: 50.00,
@@ -409,29 +409,30 @@ async function seedCutoutTypes() {
   ];
 
   for (const cutout of cutoutTypes) {
-    const existing = await prisma.cutout_types.findUnique({
-      where: { name: cutout.name },
-    });
-
-    if (existing) {
+    // 1. Try canonical ID first (idempotent re-runs)
+    const byId = await prisma.cutout_types.findUnique({ where: { id: cutout.id } });
+    if (byId) {
       await prisma.cutout_types.update({
-        where: { name: cutout.name },
-        data: {
-          baseRate: cutout.baseRate,
-          sortOrder: cutout.sortOrder,
-          isActive: true,
-          updatedAt: new Date(),
-        },
+        where: { id: cutout.id },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
       });
-    } else {
-      await prisma.cutout_types.create({
-        data: {
-          ...cutout,
-          isActive: true,
-          updatedAt: new Date(),
-        },
-      });
+      continue;
     }
+
+    // 2. Fall back to name match — update rate on the existing record
+    const byName = await prisma.cutout_types.findUnique({ where: { name: cutout.name } });
+    if (byName) {
+      await prisma.cutout_types.update({
+        where: { id: byName.id },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
+      });
+      continue;
+    }
+
+    // 3. Neither exists — create with canonical ID
+    await prisma.cutout_types.create({
+      data: { ...cutout, isActive: true, updatedAt: new Date() },
+    });
   }
   console.log(`  ✅ Cutout types: ${cutoutTypes.length} rows`);
 }
@@ -674,30 +675,30 @@ async function seedEdgeCategoryRates() {
     return;
   }
 
-  // Specific rates per edge profile per fabrication category (AUD per lineal metre).
-  // Keys are edge type IDs. Each category entry has [rate20mm, rate40mm].
+  // Specific rates per edge profile name per fabrication category (AUD per lineal metre).
+  // Keys are normalised edge type names (lowercase). Each category entry has [rate20mm, rate40mm].
   const edgeCategoryRateTable = {
-    'et-arris': {
+    'arris': {
       ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
     },
-    'et-pencil-round': {
+    'pencil round': {
       ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
     },
-    'et-bullnose': {
+    'bullnose': {
       ENGINEERED:      [15, 35],
       NATURAL_HARD:    [18, 42],
       NATURAL_SOFT:    [16, 38],
       NATURAL_PREMIUM: [25, 58],
       SINTERED:        [22, 50],
     },
-    'et-ogee': {
+    'ogee': {
       ENGINEERED:      [25, 25],
       NATURAL_HARD:    [30, 30],
       NATURAL_SOFT:    [27, 27],
       NATURAL_PREMIUM: [40, 40],
       SINTERED:        [35, 35],
     },
-    'et-waterfall': {
+    'waterfall': {
       ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
     },
   };
@@ -710,7 +711,8 @@ async function seedEdgeCategoryRates() {
 
   let count = 0;
   for (const edgeType of edgeTypes) {
-    const explicitRates = edgeCategoryRateTable[edgeType.id];
+    const nameKey = edgeType.name.toLowerCase();
+    const explicitRates = edgeCategoryRateTable[nameKey];
 
     for (const category of categories) {
       let rate20mm, rate40mm;
@@ -719,9 +721,11 @@ async function seedEdgeCategoryRates() {
         [rate20mm, rate40mm] = explicitRates[category];
       } else {
         // Fallback: derive from edge_types base rates with category multiplier
-        const isZeroProfile = edgeType.name.toLowerCase().includes('pencil') ||
-                              edgeType.name.toLowerCase().includes('arris') ||
-                              edgeType.name.toLowerCase().includes('waterfall');
+        const isZeroProfile = nameKey.includes('pencil') ||
+                              nameKey.includes('arris') ||
+                              nameKey.includes('waterfall') ||
+                              nameKey.includes('square') ||
+                              nameKey.includes('eased');
         if (isZeroProfile) {
           rate20mm = 0;
           rate40mm = 0;
