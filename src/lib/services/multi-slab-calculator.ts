@@ -39,13 +39,19 @@ export interface PieceDimensions {
 /**
  * Calculate a cut plan for a piece.
  * Determines if it fits on one slab or needs joins.
+ * When slabLength_mm and slabWidth_mm are provided (from the material DB record),
+ * they take precedence over the category-level defaults from getSlabSize.
  */
 export function calculateCutPlan(
   piece: PieceDimensions,
   materialCategory: string,
-  edgeTrimMm: number = 20
+  edgeTrimMm: number = 20,
+  slabLength_mm?: number | null,
+  slabWidth_mm?: number | null
 ): CutPlan {
-  const slabSize = getSlabSize(materialCategory);
+  const slabSize: SlabSize = (slabLength_mm && slabWidth_mm)
+    ? { lengthMm: slabLength_mm, widthMm: slabWidth_mm, name: 'material-db' }
+    : getSlabSize(materialCategory);
   const usable = getMaxUsableDimensions(slabSize, edgeTrimMm);
 
   // Try normal orientation first
