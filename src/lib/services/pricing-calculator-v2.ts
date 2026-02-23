@@ -583,8 +583,13 @@ export async function calculateQuotePrice(
     options?.materialMarginAdjustPercent ?? 0
   );
 
-  // Calculate edge costs with thickness variants
-  const edgeData = calculateEdgeCostV2(allPieces, edgeTypes);
+  // Determine primary fabrication category for the quote (used in aggregate edge rate lookup)
+  const primaryFabricationCategory: string =
+    (allPieces[0]?.materials as unknown as { fabrication_category?: string } | null)
+      ?.fabrication_category ?? 'ENGINEERED';
+
+  // Calculate edge costs with thickness variants, using category-specific rates
+  const edgeData = calculateEdgeCostV2(allPieces, edgeTypes, edgeCategoryRates, primaryFabricationCategory);
 
   // Calculate cutout costs with category-aware rates and thickness multiplier
   const cutoutData = calculateCutoutCostV2(
@@ -607,11 +612,6 @@ export async function calculateQuotePrice(
     cutoutTypeMap.set(ct.id, ct);
   }
   const fabricationDiscountPct = extractFabricationDiscount(quote.customers?.client_tiers);
-
-  // Determine primary fabrication category for the quote
-  const primaryFabricationCategory: string =
-    (allPieces[0]?.materials as unknown as { fabrication_category?: string } | null)
-      ?.fabrication_category ?? 'ENGINEERED';
 
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
   for (const piece of allPieces) {
@@ -983,7 +983,14 @@ function calculateEdgeCostV2(
     minimumCharge: { toNumber: () => number } | null;
     minimumLength: { toNumber: () => number } | null;
     isCurved: boolean;
-  }>
+  }>,
+  edgeCategoryRates: Array<{
+    edgeTypeId: string;
+    fabricationCategory: string;
+    rate20mm: { toNumber: () => number } | number;
+    rate40mm: { toNumber: () => number } | number;
+  }> = [],
+  primaryFabricationCategory: string = 'ENGINEERED'
 ): { totalLinearMeters: number; byType: EdgeBreakdown[]; subtotal: number } {
   const edgeTotals = new Map<string, { linearMeters: number; thickness: number; edgeType: typeof edgeTypes[number] }>();
 
@@ -1015,9 +1022,21 @@ function calculateEdgeCostV2(
   let subtotal = 0;
 
   for (const [, data] of Array.from(edgeTotals.entries())) {
-    // Select appropriate rate based on thickness
+    // Try category-specific rate first, fall back to flat rate from edge_types
+    const categoryRate = edgeCategoryRates.find(
+      r => r.edgeTypeId === data.edgeType.id && r.fabricationCategory === primaryFabricationCategory
+    );
+
     let rate: number;
-    if (data.thickness <= 20 && data.edgeType.rate20mm) {
+    if (categoryRate) {
+      const catRate20 = typeof categoryRate.rate20mm === 'number'
+        ? categoryRate.rate20mm
+        : categoryRate.rate20mm.toNumber();
+      const catRate40 = typeof categoryRate.rate40mm === 'number'
+        ? categoryRate.rate40mm
+        : categoryRate.rate40mm.toNumber();
+      rate = data.thickness > 20 ? catRate40 : catRate20;
+    } else if (data.thickness <= 20 && data.edgeType.rate20mm) {
       rate = data.edgeType.rate20mm.toNumber();
     } else if (data.thickness > 20 && data.edgeType.rate40mm) {
       rate = data.edgeType.rate40mm.toNumber();
