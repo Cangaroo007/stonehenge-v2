@@ -464,12 +464,32 @@ export default function PieceForm({
           edgeLeft={edgeSelections.edgeLeft}
           edgeRight={edgeSelections.edgeRight}
           edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
-          cutouts={[]}
+          cutouts={cutouts.map((c, idx) => {
+            const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
+            return {
+              id: c.id || `cutout_${idx}`,
+              typeId: c.cutoutTypeId,
+              typeName: ct?.name || 'Unknown',
+              quantity: c.quantity,
+            };
+          })}
           isEditMode={true}
           onEdgeChange={(side, profileId) => {
             const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
             setEdgeSelections(prev => ({ ...prev, [keyMap[side]]: profileId }));
           }}
+          onCutoutAdd={(cutoutTypeId: string) => {
+            const newCutout: PieceCutout = {
+              id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              cutoutTypeId,
+              quantity: 1,
+            };
+            setCutouts(prev => [...prev, newCutout]);
+          }}
+          onCutoutRemove={(cutoutId: string) => {
+            setCutouts(prev => prev.filter(c => c.id !== cutoutId));
+          }}
+          cutoutTypes={cutoutTypes.filter(t => t.isActive).map(t => ({ id: t.id, name: t.name, baseRate: Number(t.baseRate) }))}
         />
       )}
 

@@ -1264,7 +1264,10 @@ export default function QuoteDetailClient({
         });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to save piece');
+      const msg = err instanceof Error ? err.message : 'Failed to save piece';
+      setError(msg);
+      toast.error(isCreate ? 'Failed to create piece' : 'Failed to update piece');
+      console.error('handleInlineSavePiece error:', err);
     } finally {
       setSaving(false);
     }
@@ -1363,6 +1366,36 @@ export default function QuoteDetailClient({
         edgeLeft: edgeKey === 'edgeLeft' ? profileId : piece.edgeLeft,
         edgeRight: edgeKey === 'edgeRight' ? profileId : piece.edgeRight,
         cutouts: piece.cutouts || [],
+      },
+      piece.quote_rooms?.name || 'Kitchen'
+    );
+  }, [pieces, handleInlineSavePiece]);
+
+  // Cutout add from RoomSpatialView (Rule 21: cutout management reachable in 2 clicks)
+  const handlePieceCutoutAdd = useCallback(async (pieceId: string, cutoutTypeId: string) => {
+    const piece = effectivePieces.find(p => String(p.id) === pieceId);
+    if (!piece) return;
+
+    const newCutout: PieceCutout = {
+      id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      cutoutTypeId,
+      quantity: 1,
+    };
+    const updatedCutouts = [...(piece.cutouts || []), newCutout];
+
+    await handleInlineSavePiece(
+      piece.id,
+      {
+        lengthMm: piece.lengthMm,
+        widthMm: piece.widthMm,
+        thicknessMm: piece.thicknessMm,
+        materialId: piece.materialId,
+        materialName: piece.materialName,
+        edgeTop: piece.edgeTop,
+        edgeBottom: piece.edgeBottom,
+        edgeLeft: piece.edgeLeft,
+        edgeRight: piece.edgeRight,
+        cutouts: updatedCutouts,
       },
       piece.quote_rooms?.name || 'Kitchen'
     );
@@ -3572,6 +3605,7 @@ export default function QuoteDetailClient({
                             edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
                             onPieceEdgeChange={handlePieceEdgeChange}
                             cutoutTypes={cutoutTypes}
+                            onPieceCutoutAdd={handlePieceCutoutAdd}
                             onBatchEdgeUpdate={handleBatchEdgeUpdate}
                           />
                         )}
