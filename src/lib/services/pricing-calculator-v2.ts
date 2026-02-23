@@ -671,9 +671,16 @@ export async function calculateQuotePrice(
         ?.fabrication_category ?? 'ENGINEERED';
     const materialName: string =
       (piece.materials as unknown as { name?: string } | null)?.name ?? 'caesarstone';
+    const pieceSlabLengthMm =
+      (piece.materials as unknown as { slab_length_mm?: number | null } | null)?.slab_length_mm ?? null;
+    const pieceSlabWidthMm =
+      (piece.materials as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? null;
     const cutPlan = calculateCutPlan(
       { lengthMm: piece.length_mm, widthMm: piece.width_mm },
-      materialName
+      materialName,
+      20,
+      pieceSlabLengthMm,
+      pieceSlabWidthMm
     );
 
     if (!cutPlan.fitsOnSingleSlab) {
