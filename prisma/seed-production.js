@@ -70,11 +70,14 @@ async function seedPricingSettings() {
       const rateId = `sr-${rate.serviceType.toLowerCase()}-${category.toLowerCase()}`;
 
       await prisma.service_rates.upsert({
-        where: { id: rateId },
+        where: {
+          pricing_settings_id_serviceType_fabricationCategory: {
+            pricing_settings_id: settings.id,
+            serviceType: rate.serviceType,
+            fabricationCategory: category,
+          },
+        },
         update: {
-          pricing_settings_id: settings.id,
-          serviceType: rate.serviceType,
-          fabricationCategory: category,
           name: rate.name,
           description: rate.description,
           rate20mm: r20,
@@ -116,10 +119,13 @@ async function seedPricingSettings() {
 
   for (const cutout of cutoutRates) {
     await prisma.cutout_rates.upsert({
-      where: { id: cutout.id },
+      where: {
+        pricing_settings_id_cutout_type: {
+          pricing_settings_id: settings.id,
+          cutout_type: cutout.cutout_type,
+        },
+      },
       update: {
-        pricing_settings_id: settings.id,
-        cutout_type: cutout.cutout_type,
         name: cutout.name,
         rate: cutout.rate,
         isActive: true,
@@ -167,9 +173,8 @@ async function seedMachineProfiles() {
 
   for (const machine of machines) {
     await prisma.machine_profiles.upsert({
-      where: { id: machine.id },
+      where: { name: machine.name },
       update: {
-        name: machine.name,
         kerf_width_mm: machine.kerf_width_mm,
         max_slab_length_mm: machine.max_slab_length_mm,
         max_slab_width_mm: machine.max_slab_width_mm,
@@ -245,12 +250,12 @@ async function seedEdgeTypes() {
 
   const edgeTypes = [
     {
-      id: 'et-pencil-round',
-      name: 'Pencil Round',
-      code: 'PR',
-      description: 'Standard pencil round edge - included in base polishing',
+      id: 'et-arris',
+      name: 'Arris',
+      code: 'AR',
+      description: 'Standard arris (eased) edge — no surcharge',
       category: 'polish',
-      baseRate: 45.00,
+      baseRate: 0.00,
       rate20mm: 0.00,
       rate40mm: 0.00,
       minimumCharge: null,
@@ -260,18 +265,33 @@ async function seedEdgeTypes() {
       isActive: true,
     },
     {
+      id: 'et-pencil-round',
+      name: 'Pencil Round',
+      code: 'PR',
+      description: 'Standard pencil round edge — no surcharge',
+      category: 'polish',
+      baseRate: 45.00,
+      rate20mm: 0.00,
+      rate40mm: 0.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 2,
+      isActive: true,
+    },
+    {
       id: 'et-bullnose',
       name: 'Bullnose',
       code: 'BN',
       description: 'Full bullnose profile',
       category: 'polish',
       baseRate: 55.00,
-      rate20mm: 10.00,
-      rate40mm: 10.00,
+      rate20mm: 15.00,
+      rate40mm: 35.00,
       minimumCharge: null,
       minimumLength: null,
       isCurved: false,
-      sortOrder: 2,
+      sortOrder: 3,
       isActive: true,
     },
     {
@@ -281,18 +301,33 @@ async function seedEdgeTypes() {
       description: 'Decorative ogee profile',
       category: 'polish',
       baseRate: 65.00,
-      rate20mm: 20.00,
+      rate20mm: 25.00,
       rate40mm: 25.00,
       minimumCharge: null,
       minimumLength: null,
       isCurved: false,
-      sortOrder: 3,
+      sortOrder: 4,
+      isActive: true,
+    },
+    {
+      id: 'et-waterfall',
+      name: 'Waterfall',
+      code: 'WF',
+      description: 'Waterfall return — no edge surcharge (priced via Waterfall End service)',
+      category: 'polish',
+      baseRate: 0.00,
+      rate20mm: 0.00,
+      rate40mm: 0.00,
+      minimumCharge: null,
+      minimumLength: null,
+      isCurved: false,
+      sortOrder: 5,
       isActive: true,
     },
     {
       id: 'et-beveled',
       name: 'Beveled',
-      code: 'BV',
+      code: 'BEV',
       description: 'Beveled edge profile',
       category: 'polish',
       baseRate: 50.00,
@@ -301,14 +336,14 @@ async function seedEdgeTypes() {
       minimumCharge: null,
       minimumLength: null,
       isCurved: false,
-      sortOrder: 4,
+      sortOrder: 6,
       isActive: true,
     },
     {
       id: 'et-curved-finished',
       name: 'Curved Finished Edge',
       code: 'CF',
-      description: 'Curved/radius edge - premium rate with 1m minimum',
+      description: 'Curved/radius edge — premium rate with 1m minimum',
       category: 'polish',
       baseRate: 300.00,
       rate20mm: 255.00,
@@ -316,7 +351,7 @@ async function seedEdgeTypes() {
       minimumCharge: 300.00,
       minimumLength: 1.0,
       isCurved: true,
-      sortOrder: 5,
+      sortOrder: 7,
       isActive: true,
     },
   ];
@@ -360,38 +395,44 @@ async function seedCutoutTypes() {
   console.log('🌱 Seeding cutout types...');
 
   const cutoutTypes = [
-    { id: 'ct-undermount-sink', name: 'Undermount Sink', baseRate: 220.00, sortOrder: 1 },
-    { id: 'ct-drop-in-sink', name: 'Drop-in Sink', baseRate: 180.00, sortOrder: 2 },
-    { id: 'ct-hotplate', name: 'Hotplate', baseRate: 180.00, sortOrder: 3 },
-    { id: 'ct-tap-hole', name: 'Tap Hole', baseRate: 45.00, sortOrder: 4 },
-    { id: 'ct-powerpoint', name: 'Powerpoint Cutout', baseRate: 65.00, sortOrder: 5 },
-    { id: 'ct-cooktop', name: 'Cooktop Cutout', baseRate: 180.00, sortOrder: 6 },
+    { id: 'ct-hotplate',       name: 'Hotplate',         baseRate: 65.00,  sortOrder: 1 },
+    { id: 'ct-gpo',            name: 'GPO',              baseRate: 25.00,  sortOrder: 2 },
+    { id: 'ct-tap-hole',       name: 'Tap Hole',         baseRate: 25.00,  sortOrder: 3 },
+    { id: 'ct-drop-in-sink',   name: 'Drop-in Sink',     baseRate: 65.00,  sortOrder: 4 },
+    { id: 'ct-undermount-sink',name: 'Undermount Sink',  baseRate: 300.00, sortOrder: 5 },
+    { id: 'ct-flush-cooktop',  name: 'Flush Cooktop',    baseRate: 450.00, sortOrder: 6 },
+    { id: 'ct-basin',          name: 'Basin',            baseRate: 90.00,  sortOrder: 7 },
+    { id: 'ct-drainer-grooves',name: 'Drainer Grooves',  baseRate: 150.00, sortOrder: 8 },
+    // Legacy types kept for backward compatibility with existing piece data
+    { id: 'ct-powerpoint',     name: 'Powerpoint Cutout',baseRate: 25.00,  sortOrder: 9 },
+    { id: 'ct-cooktop',        name: 'Cooktop Cutout',   baseRate: 450.00, sortOrder: 10 },
   ];
 
   for (const cutout of cutoutTypes) {
-    const existing = await prisma.cutout_types.findUnique({
-      where: { name: cutout.name },
-    });
-
-    if (existing) {
+    // 1. Try canonical ID first (idempotent re-runs)
+    const byId = await prisma.cutout_types.findUnique({ where: { id: cutout.id } });
+    if (byId) {
       await prisma.cutout_types.update({
-        where: { name: cutout.name },
-        data: {
-          baseRate: cutout.baseRate,
-          sortOrder: cutout.sortOrder,
-          isActive: true,
-          updatedAt: new Date(),
-        },
+        where: { id: cutout.id },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
       });
-    } else {
-      await prisma.cutout_types.create({
-        data: {
-          ...cutout,
-          isActive: true,
-          updatedAt: new Date(),
-        },
-      });
+      continue;
     }
+
+    // 2. Fall back to name match — update rate on the existing record
+    const byName = await prisma.cutout_types.findUnique({ where: { name: cutout.name } });
+    if (byName) {
+      await prisma.cutout_types.update({
+        where: { id: byName.id },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
+      });
+      continue;
+    }
+
+    // 3. Neither exists — create with canonical ID
+    await prisma.cutout_types.create({
+      data: { ...cutout, isActive: true, updatedAt: new Date() },
+    });
   }
   console.log(`  ✅ Cutout types: ${cutoutTypes.length} rows`);
 }
@@ -527,9 +568,8 @@ async function seedMachineOperationDefaults() {
     // Find or create machine profile (idempotent via upsert on id)
     const machineId = `machine-${def.machineName.toLowerCase().replace(/[\s/]+/g, '-')}`;
     const machine = await prisma.machine_profiles.upsert({
-      where: { id: machineId },
+      where: { name: def.machineName },
       update: {
-        name: def.machineName,
         kerf_width_mm: def.kerfMm,
         is_active: true,
         updated_at: new Date(),
@@ -635,25 +675,66 @@ async function seedEdgeCategoryRates() {
     return;
   }
 
-  const categoryMultipliers = {
-    ENGINEERED: 1.0,
-    NATURAL_SOFT: 1.1,
-    NATURAL_HARD: 1.15,
-    SINTERED: 1.4,
-    NATURAL_PREMIUM: 1.5,
+  // Specific rates per edge profile name per fabrication category (AUD per lineal metre).
+  // Keys are normalised edge type names (lowercase). Each category entry has [rate20mm, rate40mm].
+  const edgeCategoryRateTable = {
+    'arris': {
+      ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
+    },
+    'pencil round': {
+      ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
+    },
+    'bullnose': {
+      ENGINEERED:      [15, 35],
+      NATURAL_HARD:    [18, 42],
+      NATURAL_SOFT:    [16, 38],
+      NATURAL_PREMIUM: [25, 58],
+      SINTERED:        [22, 50],
+    },
+    'ogee': {
+      ENGINEERED:      [25, 25],
+      NATURAL_HARD:    [30, 30],
+      NATURAL_SOFT:    [27, 27],
+      NATURAL_PREMIUM: [40, 40],
+      SINTERED:        [35, 35],
+    },
+    'waterfall': {
+      ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
+    },
   };
-  const categories = Object.keys(categoryMultipliers);
+
+  const categories = ['ENGINEERED', 'NATURAL_HARD', 'NATURAL_SOFT', 'NATURAL_PREMIUM', 'SINTERED'];
+  // Category multipliers used as fallback for edge types not in the explicit table above
+  const categoryMultipliers = {
+    ENGINEERED: 1.0, NATURAL_HARD: 1.15, NATURAL_SOFT: 1.10, NATURAL_PREMIUM: 1.50, SINTERED: 1.40,
+  };
 
   let count = 0;
   for (const edgeType of edgeTypes) {
-    const isPencilRound = edgeType.name.toLowerCase().includes('pencil');
-    const baseRate20mm = Number(edgeType.rate20mm ?? edgeType.baseRate);
-    const baseRate40mm = Number(edgeType.rate40mm ?? edgeType.baseRate);
+    const nameKey = edgeType.name.toLowerCase();
+    const explicitRates = edgeCategoryRateTable[nameKey];
 
     for (const category of categories) {
-      const multiplier = categoryMultipliers[category];
-      const rate20mm = isPencilRound ? 0 : Math.round(baseRate20mm * multiplier * 100) / 100;
-      const rate40mm = isPencilRound ? 0 : Math.round(baseRate40mm * multiplier * 100) / 100;
+      let rate20mm, rate40mm;
+
+      if (explicitRates && explicitRates[category]) {
+        [rate20mm, rate40mm] = explicitRates[category];
+      } else {
+        // Fallback: derive from edge_types base rates with category multiplier
+        const isZeroProfile = nameKey.includes('pencil') ||
+                              nameKey.includes('arris') ||
+                              nameKey.includes('waterfall') ||
+                              nameKey.includes('square') ||
+                              nameKey.includes('eased');
+        if (isZeroProfile) {
+          rate20mm = 0;
+          rate40mm = 0;
+        } else {
+          const multiplier = categoryMultipliers[category] || 1.0;
+          rate20mm = Math.round(Number(edgeType.rate20mm ?? edgeType.baseRate) * multiplier * 100) / 100;
+          rate40mm = Math.round(Number(edgeType.rate40mm ?? edgeType.baseRate) * multiplier * 100) / 100;
+        }
+      }
 
       await prisma.edge_type_category_rates.upsert({
         where: {
