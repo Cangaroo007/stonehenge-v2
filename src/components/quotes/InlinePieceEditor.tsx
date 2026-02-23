@@ -236,9 +236,9 @@ export default function InlinePieceEditor({
     // Auto-set lamination method based on thickness
     const laminationMethod = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
 
-    // For existing pieces, edges and cutouts are managed via PieceVisualEditor —
-    // pass through the current piece prop values to avoid overriding them with
-    // potentially stale local state.
+    // Edges: for existing pieces, edges are managed via PieceVisualEditor in
+    // QuickViewPieceRow — pass through the piece prop values to avoid overriding.
+    // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
       lengthMm: parseInt(lengthMm),
       widthMm: parseInt(widthMm),
@@ -250,7 +250,7 @@ export default function InlinePieceEditor({
       edgeBottom: isNew ? edgeSelections.edgeBottom : piece.edgeBottom,
       edgeLeft: isNew ? edgeSelections.edgeLeft : piece.edgeLeft,
       edgeRight: isNew ? edgeSelections.edgeRight : piece.edgeRight,
-      cutouts: isNew ? cutouts : piece.cutouts,
+      cutouts,
     };
 
     // Include name for new pieces
@@ -437,8 +437,8 @@ export default function InlinePieceEditor({
         </div>
       )}
 
-      {/* Cutouts — only shown for new pieces; existing pieces use PieceVisualEditor SVG */}
-      {isNew && cutoutTypes.length > 0 && (
+      {/* Cutouts — shown for all pieces (new and existing) */}
+      {cutoutTypes.length > 0 && (
         <div onClick={(e) => e.stopPropagation()} onMouseDown={(e) => e.stopPropagation()}>
           <CutoutSelector
             cutouts={cutouts}

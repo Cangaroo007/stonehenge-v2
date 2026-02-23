@@ -839,15 +839,15 @@ export default function QuickViewPieceRow({
                 <span className="text-[10px] text-gray-300">No cutouts</span>
               )}
               {/* Add cutout button */}
-              {isEditMode && (
+              {isEditMode && editData?.cutoutTypes && editData.cutoutTypes.filter(ct => ct.isActive).length > 0 && (
                 <div className="relative" ref={cutoutRef}>
                   <button
                     onClick={() => setShowCutoutPopover(!showCutoutPopover)}
                     className="px-1.5 py-0.5 text-[10px] font-medium border border-dashed border-gray-300 rounded text-gray-500 hover:border-amber-300 hover:text-amber-700 transition-colours"
                   >
-                    + Add
+                    + Add Cutout
                   </button>
-                  {showCutoutPopover && editData?.cutoutTypes && (
+                  {showCutoutPopover && (
                     <div className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px] max-h-[200px] overflow-y-auto">
                       {editData.cutoutTypes.filter(ct => ct.isActive).map(ct => (
                         <button
