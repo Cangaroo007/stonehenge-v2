@@ -8,8 +8,8 @@ import { requireAuth } from '@/lib/auth';
  */
 const VOLUME_TIERS = [
   { tierId: 'SMALL', name: 'Small Project', min: 0, max: 50, discountPercent: 0 },
-  { tierId: 'MEDIUM', name: 'Medium Project', min: 50, max: 150, discountPercent: 5 },
-  { tierId: 'LARGE', name: 'Large Project', min: 150, max: 500, discountPercent: 10 },
+  { tierId: 'MEDIUM', name: 'Medium Project', min: 50, max: 200, discountPercent: 5 },
+  { tierId: 'LARGE', name: 'Large Project', min: 200, max: 500, discountPercent: 10 },
   { tierId: 'ENTERPRISE', name: 'Enterprise', min: 500, max: null, discountPercent: 15 },
 ];
 
@@ -89,8 +89,13 @@ export async function POST(
     const discountAmount = subtotalExGst.times(discountPercent).dividedBy(100);
     const afterDiscount = subtotalExGst.minus(discountAmount);
 
-    // GST at 10%
-    const gstRate = new Decimal('0.10');
+    // GST from tenant's pricing settings (Rule 22: no hardcoded prices)
+    const pricingSettings = await prisma.pricing_settings.findUnique({
+      where: { organisation_id: `company-${project.company_id}` },
+    });
+    const gstRate = pricingSettings?.gst_rate
+      ? new Decimal(pricingSettings.gst_rate.toString())
+      : new Decimal('0.10');
     const gstAmount = afterDiscount.times(gstRate);
     const grandTotal = afterDiscount.plus(gstAmount);
 

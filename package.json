@@ -24,7 +24,7 @@
     "@napi-rs/canvas": "^0.1.89",
     "@prisma/adapter-pg": "^7.3.0",
     "@prisma/client": "^5.22.0",
-    "@react-pdf/renderer": "^3.4.0",
+    "@react-pdf/renderer": "^3.4.4",
     "bcryptjs": "^2.4.3",
     "browser-image-compression": "^2.0.2",
     "clsx": "^2.1.0",

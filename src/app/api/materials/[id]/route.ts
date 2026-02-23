@@ -1,17 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
     const material = await prisma.materials.findUnique({
       where: { id: parseInt(id) },
     });
 
-    if (!material) {
+    if (!material || material.company_id !== companyId) {
       return NextResponse.json({ error: 'Material not found' }, { status: 404 });
     }
 
@@ -38,7 +45,24 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const materialId = parseInt(id);
+
+    // Verify material belongs to user's company
+    const existing = await prisma.materials.findUnique({
+      where: { id: materialId },
+      select: { company_id: true },
+    });
+    if (!existing || existing.company_id !== companyId) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
     const data = await request.json();
 
     const updateData: Record<string, unknown> = {
@@ -57,9 +81,12 @@ export async function PUT(
     if (data.slabWidthMm !== undefined) {
       updateData.slab_width_mm = data.slabWidthMm === null || data.slabWidthMm === '' ? null : parseInt(String(data.slabWidthMm));
     }
+    if (data.marginOverridePercent !== undefined) {
+      updateData.margin_override_percent = data.marginOverridePercent === null ? null : parseFloat(String(data.marginOverridePercent));
+    }
 
     const material = await prisma.materials.update({
-      where: { id: parseInt(id) },
+      where: { id: materialId },
       data: updateData,
     });
 
@@ -75,9 +102,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const materialId = parseInt(id);
+
+    // Verify material belongs to user's company
+    const existing = await prisma.materials.findUnique({
+      where: { id: materialId },
+      select: { company_id: true },
+    });
+    if (!existing || existing.company_id !== companyId) {
+      return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+    }
+
     await prisma.materials.delete({
-      where: { id: parseInt(id) },
+      where: { id: materialId },
     });
 
     return NextResponse.json({ success: true });

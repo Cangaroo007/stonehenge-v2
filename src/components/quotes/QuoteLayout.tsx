@@ -2,13 +2,16 @@
 
 import { useState, useCallback } from 'react';
 import { getStatusColor, getStatusLabel, formatCurrency } from '@/lib/utils';
+import StatusBadge from '@/components/quotes/StatusBadge';
 
 export type QuoteMode = 'view' | 'edit';
-export type QuoteTab = 'pieces' | 'optimiser' | 'history';
+export type QuoteTab = 'pieces' | 'optimiser' | 'history' | 'views';
 
 interface QuoteLayoutProps {
   /** Quote number e.g. "Q-0042" */
   quoteNumber: string;
+  /** Quote ID for API calls */
+  quoteId?: string;
   /** Project name */
   projectName: string | null;
   /** Quote status e.g. "draft", "sent" */
@@ -27,6 +30,22 @@ interface QuoteLayoutProps {
   saving?: boolean;
   /** Unsaved changes indicator */
   hasUnsavedChanges?: boolean;
+  /** Whether the status badge should be interactive (clickable with transitions) */
+  interactiveStatus?: boolean;
+  /** Callback when status is changed via the status badge */
+  onStatusChange?: (newStatus: string, options?: { declinedReason?: string }) => Promise<void>;
+  /** Whether edit mode is disabled due to read-only status */
+  editDisabled?: boolean;
+  /** Message to show when edit is disabled */
+  editDisabledMessage?: string;
+
+  /** Undo/Redo support (edit mode) */
+  canUndo?: boolean;
+  canRedo?: boolean;
+  undoDescription?: string | null;
+  redoDescription?: string | null;
+  onUndo?: () => void;
+  onRedo?: () => void;
 
   /** Metadata section rendered between header and action buttons */
   metadataContent?: React.ReactNode;
@@ -61,6 +80,7 @@ interface QuoteLayoutProps {
 
 export default function QuoteLayout({
   quoteNumber,
+  quoteId,
   projectName,
   status,
   customerName,
@@ -70,6 +90,16 @@ export default function QuoteLayout({
   showModeToggle = true,
   saving = false,
   hasUnsavedChanges = false,
+  interactiveStatus = false,
+  onStatusChange,
+  editDisabled = false,
+  editDisabledMessage,
+  canUndo = false,
+  canRedo = false,
+  undoDescription,
+  redoDescription,
+  onUndo,
+  onRedo,
   metadataContent,
   actionButtons,
   activeTab,
@@ -94,11 +124,12 @@ export default function QuoteLayout({
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
               <h1 className="text-xl font-bold text-gray-900 truncate">{quoteNumber}</h1>
-              <span
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}
-              >
-                {getStatusLabel(status)}
-              </span>
+              <StatusBadge
+                status={status}
+                quoteId={quoteId || ''}
+                interactive={interactiveStatus}
+                onStatusChange={onStatusChange}
+              />
               {saving && (
                 <span className="inline-flex items-center gap-1 text-xs text-gray-500">
                   <svg className="animate-spin h-3 w-3" fill="none" viewBox="0 0 24 24">
@@ -112,6 +143,39 @@ export default function QuoteLayout({
                 <span className="inline-flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full">
                   <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
                   Unsaved changes
+                </span>
+              )}
+              {/* Undo/Redo buttons (edit mode only) */}
+              {mode === 'edit' && onUndo && onRedo && (
+                <span className="inline-flex items-center gap-1 ml-2">
+                  <button
+                    onClick={onUndo}
+                    disabled={!canUndo}
+                    title={undoDescription ? `Undo: ${undoDescription}` : 'Nothing to undo'}
+                    className={`p-1 rounded transition-colors ${
+                      canUndo
+                        ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        : 'text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h10a5 5 0 015 5v2M3 10l4-4M3 10l4 4" />
+                    </svg>
+                  </button>
+                  <button
+                    onClick={onRedo}
+                    disabled={!canRedo}
+                    title={redoDescription ? `Redo: ${redoDescription}` : 'Nothing to redo'}
+                    className={`p-1 rounded transition-colors ${
+                      canRedo
+                        ? 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
+                        : 'text-gray-300 cursor-not-allowed'
+                    }`}
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10H11a5 5 0 00-5 5v2M21 10l-4-4M21 10l-4 4" />
+                    </svg>
+                  </button>
                 </span>
               )}
             </div>
@@ -143,11 +207,15 @@ export default function QuoteLayout({
                   View
                 </button>
                 <button
-                  onClick={() => onModeChange('edit')}
+                  onClick={() => !editDisabled && onModeChange('edit')}
+                  disabled={editDisabled}
+                  title={editDisabled ? editDisabledMessage : undefined}
                   className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
-                    mode === 'edit'
-                      ? 'bg-white text-gray-900 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900'
+                    editDisabled
+                      ? 'text-gray-400 cursor-not-allowed'
+                      : mode === 'edit'
+                        ? 'bg-white text-gray-900 shadow-sm'
+                        : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
                   Edit
@@ -168,6 +236,16 @@ export default function QuoteLayout({
         </div>
       </div>
 
+      {/* ── Read-only banner ── */}
+      {editDisabled && editDisabledMessage && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center gap-2 text-sm text-amber-800">
+          <svg className="h-4 w-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+          </svg>
+          {editDisabledMessage}
+        </div>
+      )}
+
       {/* ── Metadata Section ── */}
       {metadataContent}
 
@@ -178,52 +256,8 @@ export default function QuoteLayout({
         </div>
       )}
 
-      {/* ── Tab Bar ── */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8">
-          <button
-            onClick={() => onTabChange('pieces')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'pieces'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            Pieces &amp; Pricing
-          </button>
-          <button
-            onClick={() => onTabChange('optimiser')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'optimiser'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                      d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-              </svg>
-              Slab Optimiser
-            </div>
-          </button>
-          <button
-            onClick={() => onTabChange('history')}
-            className={`py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-              activeTab === 'history'
-                ? 'border-blue-500 text-blue-600'
-                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-              Version History
-            </div>
-          </button>
-        </nav>
-      </div>
+      {/* ── Tab Bar — hidden in favour of stacked sections (12.J1) ── */}
+      {/* Tab state kept for deep-linking and backwards compatibility */}
 
       {/* ── Main Content + Sidebar ── */}
       <div

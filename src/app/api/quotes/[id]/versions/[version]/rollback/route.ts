@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
-import { requireAuth } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { hasPermission, Permission } from '@/lib/permissions';
 import { rollbackToVersion } from '@/lib/services/quote-version-service';
 
@@ -24,6 +24,12 @@ export async function POST(
     const quoteId = parseInt(id);
     const versionNumber = parseInt(version);
 
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, authResult.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     // Get optional reason from body
     let reason: string | undefined;
     try {
@@ -33,15 +39,8 @@ export async function POST(
       // No body provided, that's fine
     }
 
-    // Verify quote exists and user has access
-    const quote = await prisma.quotes.findFirst({
-      where: {
-        id: quoteId,
-        OR: [
-          { created_by: authResult.user.id },
-          { customers: { user: { some: { id: authResult.user.id } } } },
-        ],
-      },
+    const quote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
       select: { id: true, revision: true },
     });
 

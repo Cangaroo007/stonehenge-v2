@@ -68,6 +68,14 @@ export default function RoomGrouping({
   // Track expanded state for each room
   const [expandedRooms, setExpandedRooms] = useState<Record<string, boolean>>({});
 
+  // Build a global piece-index map (1-indexed, sorted by sortOrder across all rooms)
+  const globalPieceIndex = useMemo(() => {
+    const sorted = [...pieces].sort((a, b) => a.sortOrder - b.sortOrder);
+    const map = new Map<number, number>();
+    sorted.forEach((piece, idx) => map.set(piece.id, idx + 1));
+    return map;
+  }, [pieces]);
+
   // Group pieces by room
   const roomGroups = useMemo(() => {
     const groups: Record<string, QuotePiece[]> = {};
@@ -189,12 +197,17 @@ export default function RoomGrouping({
                 <div
                   key={piece.id}
                   onClick={() => onSelectPiece(piece.id)}
-                  className={`px-4 py-3 pl-10 flex items-center justify-between cursor-pointer border-b border-gray-100 last:border-0 transition-colors ${
+                  className={`px-4 py-3 pl-10 flex items-center gap-3 cursor-pointer border-b border-gray-100 last:border-0 transition-colors ${
                     selectedPieceId === piece.id
                       ? 'bg-primary-50 border-l-4 border-l-primary-500'
                       : 'hover:bg-gray-100'
                   }`}
                 >
+                  {/* Piece number badge — global across all rooms */}
+                  <span className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white font-bold text-lg">
+                    {globalPieceIndex.get(piece.id) ?? '?'}
+                  </span>
+
                   {/* Piece Info */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">

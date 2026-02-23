@@ -76,6 +76,13 @@ model companies {
   signature_title     String?
   default_unit_system String?   @default("METRIC")
   user                user[]
+  suppliers           suppliers[]
+  quoteTemplates      quote_templates[]
+  quotes              quotes[]
+  customers           customers[]
+  materials           materials[]
+  unitBlockProjects   unit_block_projects[]
+  customRoomPresets   custom_room_presets[]
 }
 
 model customers {
@@ -91,6 +98,8 @@ model customers {
   client_tier_id        String?
   client_type_id        String?
   default_price_book_id String?
+  company_id            Int
+  tenant                companies              @relation(fields: [company_id], references: [id])
   client_tiers          client_tiers?          @relation(fields: [client_tier_id], references: [id])
   client_types          client_types?          @relation(fields: [client_type_id], references: [id])
   price_books           price_books?           @relation(fields: [default_price_book_id], references: [id])
@@ -99,6 +108,59 @@ model customers {
   quotes                quotes[]
   user                  user[]
   unitBlockProjects     unit_block_projects[]
+  contacts              customer_contacts[]
+  locations             customer_locations[]
+
+  @@index([company_id])
+}
+
+model customer_contacts {
+  id                Int         @id @default(autoincrement())
+  customer_id       Int
+  first_name        String
+  last_name         String
+  email             String?
+  phone             String?
+  mobile            String?
+  role              ContactRole @default(PRIMARY)
+  role_title        String?
+  is_primary        Boolean     @default(false)
+  notes             String?
+
+  has_portal_access Boolean     @default(false)
+  portal_user_id    Int?        @unique
+
+  created_at        DateTime    @default(now())
+  updated_at        DateTime    @updatedAt
+
+  customer          customers   @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  portal_user       user?       @relation("ContactPortalUser", fields: [portal_user_id], references: [id])
+  quotes            quotes[]    @relation("QuoteContact")
+
+  @@index([customer_id])
+  @@map("customer_contacts")
+}
+
+model customer_locations {
+  id            Int      @id @default(autoincrement())
+  customer_id   Int
+  label         String?
+  address_line1 String
+  address_line2 String?
+  suburb        String
+  state         String
+  postcode      String
+  country       String   @default("Australia")
+  is_default    Boolean  @default(false)
+  notes         String?
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  customer      customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+
+  @@index([customer_id])
+  @@map("customer_locations")
 }
 
 model cutout_rates {
@@ -185,6 +247,7 @@ model drawings {
   thumbnailKey String?
   customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
   quotes       quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  corrections  drawing_corrections[]
 
   @@index([customerId])
   @@index([quoteId])
@@ -248,8 +311,34 @@ model materials {
   slab_length_mm         Int?
   slab_width_mm          Int?
   fabrication_category   FabricationCategory      @default(ENGINEERED)
+
+  // Tenant isolation
+  company_id             Int
+  tenant                 companies                @relation(fields: [company_id], references: [id])
+
+  // Supplier link
+  supplier_id            String?
+  supplier               suppliers?               @relation(fields: [supplier_id], references: [id])
+
+  // Pricing — wholesale is supplier's list price; price_per_slab serves as cost price
+  wholesale_price        Decimal?                 @db.Decimal(10, 2)
+
+  // Product identification
+  product_code           String?
+  supplier_range         String?
+  surface_finish         String?
+
+  // Margin override (null = use supplier default)
+  margin_override_percent Decimal?                @db.Decimal(5, 2)
+
+  // Discontinuation tracking
+  is_discontinued        Boolean                  @default(false)
+  discontinued_at        DateTime?
+
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
+
+  @@index([company_id])
 }
 
 model piece_features {
@@ -385,6 +474,7 @@ model pricing_settings {
   grain_matching_surcharge_percent Decimal                @default(15.0) @db.Decimal(5, 2)
   cutout_thickness_multiplier      Decimal                @default(1.0) @db.Decimal(5, 2)
   waterfall_pricing_method         WaterfallPricingMethod @default(FIXED_PER_END)
+  slab_edge_allowance_mm           Int?
   created_at                       DateTime               @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
@@ -404,6 +494,7 @@ model quote_drawing_analyses {
   metadata        Json?
   imported_pieces String[]
   quotes          quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  corrections     drawing_corrections[]
 }
 
 model quote_files {
@@ -444,9 +535,11 @@ model quote_pieces {
   joinCount         Int              @default(0)
   joinLengthMm      Int?
   waterfall_height_mm Int?
-  piece_features    piece_features[]
-  materials         materials?       @relation(fields: [material_id], references: [id])
-  quote_rooms       quote_rooms      @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  piece_features      piece_features[]
+  materials           materials?           @relation(fields: [material_id], references: [id])
+  quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sourceRelationships piece_relationships[] @relation("source_relationships")
+  targetRelationships piece_relationships[] @relation("target_relationships")
 }
 
 model quote_rooms {
@@ -454,6 +547,7 @@ model quote_rooms {
   quote_id     Int
   name         String
   sort_order   Int            @default(0)
+  notes        String?
   quote_pieces quote_pieces[]
   quotes       quotes         @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 }
@@ -496,6 +590,8 @@ model quotes {
   quote_number           String                   @unique
   revision               Int                      @default(1)
   customer_id            Int?
+  contact_id             Int?
+  company_id             Int
   project_name           String?
   project_address        String?
   status                 String                   @default("draft")
@@ -513,6 +609,7 @@ model quotes {
   calculated_at          DateTime?
   calculated_total       Decimal?                 @db.Decimal(10, 2)
   calculation_breakdown  Json?
+  tenant                 companies                @relation(fields: [company_id], references: [id])
   drawings               drawings[]
   quote_drawing_analyses quote_drawing_analyses?
   quote_files            quote_files[]
@@ -521,11 +618,28 @@ model quotes {
   quote_views            quote_views[]
   user                   user?                    @relation(fields: [created_by], references: [id])
   customers              customers?               @relation(fields: [customer_id], references: [id])
+  contact                customer_contacts?       @relation("QuoteContact", fields: [contact_id], references: [id])
   price_books            price_books?             @relation(fields: [price_book_id], references: [id])
   slab_optimizations     slab_optimizations[]
   unitBlockUnit          unit_block_units?
   buyerChangeSnapshots   buyer_change_snapshots[]
   versions               quote_versions[]
+  options                quote_options[]
+
+  // Status lifecycle fields
+  status_changed_at DateTime?
+  status_changed_by String?
+  sent_at           DateTime?
+  accepted_at       DateTime?
+  declined_at       DateTime?
+  declined_reason   String?
+  revision_number   Int         @default(1)
+  parent_quote_id   Int?
+  parent_quote      quotes?     @relation("QuoteRevisions", fields: [parent_quote_id], references: [id])
+  child_quotes      quotes[]    @relation("QuoteRevisions")
+
+  // Slab edge allowance (per-quote override, mm)
+  slabEdgeAllowanceMm  Int?     @map("slab_edge_allowance_mm")
 
   // Delivery & templating fields
   deliveryCost         Decimal? @db.Decimal(10, 2)
@@ -543,6 +657,33 @@ model quotes {
   overrideReason         String?
   overrideBy             Int?
   overrideAt             DateTime?
+
+  // Quote-level discount
+  discount_type       String?
+  discount_value      Decimal?  @db.Decimal(10, 2)
+  discount_applies_to String?   @default("ALL")
+
+  // Relation
+  custom_charges      quote_custom_charges[]
+
+  @@index([company_id])
+}
+
+model quote_custom_charges {
+  id          Int      @id @default(autoincrement())
+  quote_id    Int
+  company_id  Int
+  description String
+  amount      Decimal  @db.Decimal(10, 2)
+  sort_order  Int      @default(0)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  quote       quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+
+  @@index([quote_id])
+  @@index([company_id])
+  @@index([company_id, description])
 }
 
 model quote_versions {
@@ -662,8 +803,75 @@ model user {
   customers          customers?            @relation(fields: [customer_id], references: [id])
   unitBlockProjects  unit_block_projects[]
   quote_versions     quote_versions[]
+  contact_portal     customer_contacts?   @relation("ContactPortalUser")
 
   @@map("users")
+}
+
+model suppliers {
+  id                       String              @id @default(cuid())
+  company_id               Int
+  company                  companies           @relation(fields: [company_id], references: [id])
+  name                     String
+
+  contact_email            String?
+  phone                    String?
+  website                  String?
+
+  // Default margin applied to all materials from this supplier
+  default_margin_percent   Decimal?            @default(0) @db.Decimal(5, 2)
+
+  // Default slab dimensions for this supplier's products
+  default_slab_length_mm   Int?
+  default_slab_width_mm    Int?
+  default_thickness_mm     Int?
+
+  notes                    String?
+  is_active                Boolean             @default(true)
+  created_at               DateTime            @default(now())
+  updated_at               DateTime            @updatedAt
+
+  materials                materials[]
+  price_list_uploads       price_list_uploads[]
+
+  @@unique([company_id, name])
+  @@index([company_id])
+}
+
+model price_list_uploads {
+  id                    String          @id @default(cuid())
+  supplier_id           String
+  supplier              suppliers       @relation(fields: [supplier_id], references: [id])
+  company_id            Int
+
+  file_name             String
+  file_url              String
+  uploaded_at           DateTime        @default(now())
+
+  // AI extraction results
+  extracted_data        Json?
+  status                PriceListStatus @default(PENDING)
+
+  // Stats
+  materials_created     Int             @default(0)
+  materials_updated     Int             @default(0)
+  materials_discontinued Int            @default(0)
+  materials_skipped     Int             @default(0)
+
+  // Audit
+  processed_at          DateTime?
+  error_message         String?
+
+  @@index([supplier_id])
+  @@index([company_id])
+}
+
+enum PriceListStatus {
+  PENDING
+  PROCESSING
+  REVIEW
+  APPLIED
+  FAILED
 }
 
 enum CustomerUserRole {
@@ -786,6 +994,35 @@ enum UserRole {
   CUSTOMER
 }
 
+enum ContactRole {
+  PRIMARY
+  SITE_SUPERVISOR
+  ACCOUNTS
+  PROJECT_MANAGER
+  OTHER
+}
+
+enum QuoteStatus {
+  DRAFT
+  REVIEW
+  SENT
+  ACCEPTED
+  DECLINED
+  REVISION
+  IN_PRODUCTION
+  COMPLETED
+  ARCHIVED
+}
+
+enum RelationshipType {
+  WATERFALL
+  SPLASHBACK
+  RETURN
+  WINDOW_SILL
+  MITRE_JOIN
+  BUTT_JOIN
+}
+
 enum UnitBlockProjectType {
   APARTMENTS
   TOWNHOUSES
@@ -815,11 +1052,58 @@ enum UnitStatus {
   ON_HOLD
 }
 
+model edge_profile_templates {
+  id                 String   @id @default(cuid())
+  companyId          Int      @map("company_id")
+  name               String
+  description        String?
+
+  // Edge assignments (edge type IDs)
+  edgeTop            String?  @map("edge_top")
+  edgeBottom         String?  @map("edge_bottom")
+  edgeLeft           String?  @map("edge_left")
+  edgeRight          String?  @map("edge_right")
+
+  // Scope
+  isBuiltIn          Boolean  @default(false) @map("is_built_in")
+  isShared           Boolean  @default(true)  @map("is_shared")
+  createdById        Int?     @map("created_by_id")
+
+  // Piece type hint
+  suggestedPieceType String?  @map("suggested_piece_type")
+
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt      @map("updated_at")
+
+  @@map("edge_profile_templates")
+}
+
+model starter_templates {
+  id           String   @id @default(cuid())
+  companyId    Int      @map("company_id")
+  name         String
+  description  String?
+  category     String   // kitchen, bathroom, laundry, multi-room
+  isBuiltIn    Boolean  @default(false) @map("is_built_in")
+  isShared     Boolean  @default(true)  @map("is_shared")
+  templateData Json     @map("template_data") // Full room/piece/edge/cutout structure
+  createdById  Int?     @map("created_by_id")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt      @map("updated_at")
+
+  @@unique([companyId, name])
+  @@map("starter_templates")
+}
+
 model unit_block_projects {
   id          Int                  @id @default(autoincrement())
   name        String
   projectType UnitBlockProjectType @default(APARTMENTS)
   status      ProjectStatus        @default(DRAFT)
+
+  // Tenant isolation
+  company_id Int
+  tenant     companies @relation(fields: [company_id], references: [id])
 
   // Client
   customerId Int?
@@ -864,6 +1148,7 @@ model unit_block_projects {
   files     unit_block_files[]
   templates unit_type_templates[]
 
+  @@index([company_id])
   @@map("unit_block_projects")
 }
 
@@ -1020,6 +1305,58 @@ model buyer_change_records {
   @@map("buyer_change_records")
 }
 
+model quote_options {
+  id             Int       @id @default(autoincrement())
+  quoteId        Int
+  quote          quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name           String
+  description    String?
+  sortOrder      Int       @default(0)
+  isBase         Boolean   @default(false)
+
+  // Cached pricing totals (recalculated when pieces/overrides change)
+  subtotal       Decimal?  @db.Decimal(10, 2)
+  discountAmount Decimal?  @db.Decimal(10, 2)
+  gstAmount      Decimal?  @db.Decimal(10, 2)
+  total          Decimal?  @db.Decimal(10, 2)
+
+  // Per-quote material margin +/- adjustment
+  material_margin_adjust_percent Decimal? @default(0) @db.Decimal(5, 2)
+
+  overrides      quote_option_overrides[]
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([quoteId])
+  @@map("quote_options")
+}
+
+model quote_option_overrides {
+  id              Int             @id @default(autoincrement())
+  optionId        Int
+  option          quote_options   @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  pieceId         Int
+
+  // ALL override fields are nullable — null means "use base piece value"
+  materialId      Int?
+  thicknessMm     Int?
+  edgeTop         String?
+  edgeBottom      String?
+  edgeLeft        String?
+  edgeRight       String?
+  cutouts         Json?
+  lengthMm        Int?
+  widthMm         Int?
+
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@unique([optionId, pieceId])
+  @@index([optionId])
+  @@map("quote_option_overrides")
+}
+
 model unit_block_files {
   id        Int                 @id @default(autoincrement())
   projectId Int
@@ -1039,4 +1376,137 @@ model unit_block_files {
   createdAt DateTime @default(now())
 
   @@map("unit_block_files")
+}
+
+model custom_room_presets {
+  id           String   @id @default(uuid())
+  company_id   Int
+  name         String
+  icon         String?
+  description  String?
+  piece_config Json
+  usage_count  Int      @default(1)
+  last_used_at DateTime @default(now())
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  tenant companies @relation(fields: [company_id], references: [id])
+
+  @@index([company_id, usage_count(sort: Desc)])
+  @@index([company_id, name])
+}
+
+model quote_templates {
+  id              String   @id @default(uuid())
+  company_id      Int
+  name            String
+  description     String?
+  format_type     String   @default("COMPREHENSIVE") // COMPREHENSIVE | SUMMARY
+  is_default      Boolean  @default(false)
+  is_active       Boolean  @default(true)
+
+  // Section toggles — JSON object (QuoteTemplateSections interface)
+  sections_config Json     @default("{}")
+
+  // Header
+  company_name    String?
+  company_abn     String?
+  company_phone   String?
+  company_email   String?
+  company_address String?
+  logo_url        String?
+  show_logo       Boolean  @default(true)
+
+  // Display settings
+  show_piece_breakdown    Boolean @default(true)
+  show_edge_details       Boolean @default(true)
+  show_cutout_details     Boolean @default(true)
+  show_material_per_piece Boolean @default(false)
+  show_room_totals        Boolean @default(true)
+  show_itemised_breakdown Boolean @default(false)
+  show_slab_count         Boolean @default(false)
+  show_piece_descriptions Boolean @default(true)
+
+  // Pricing display
+  pricing_mode    String   @default("room_total")
+  show_gst        Boolean  @default(true)
+  gst_label       String   @default("GST (10%)")
+  currency_symbol String   @default("$")
+
+  // Custom text overrides (null = use company defaults)
+  custom_intro_text    String?  @db.Text
+  terms_and_conditions String?  @db.Text
+  footer_text          String?
+
+  // Styling overrides (null = use company defaults)
+  custom_primary_colour String?
+  custom_accent_colour  String?
+
+  // Other overrides
+  validity_days         Int       @default(30)
+
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  company       companies  @relation(fields: [company_id], references: [id])
+
+  @@index([company_id])
+}
+
+model piece_relationships {
+  id             Int          @id @default(autoincrement())
+
+  // The 'parent' piece (typically the main benchtop)
+  source_piece_id Int
+  sourcePiece     quote_pieces @relation("source_relationships", fields: [source_piece_id], references: [id], onDelete: Cascade)
+
+  // The 'child' piece (waterfall, splashback, etc.)
+  target_piece_id Int
+  targetPiece     quote_pieces @relation("target_relationships", fields: [target_piece_id], references: [id], onDelete: Cascade)
+
+  // Relationship type: WATERFALL, SPLASHBACK, RETURN_END, MITRE_JOIN, BUTT_JOIN, etc.
+  relation_type   String
+
+  // Typed enum version of relation_type (nullable during migration)
+  relationship_type RelationshipType?
+
+  // Which side of the source piece (top, bottom, left, right)
+  side            String?
+
+  // Optional notes about the relationship
+  notes           String?
+
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt @default(now())
+
+  @@unique([source_piece_id, target_piece_id])
+}
+
+model drawing_corrections {
+  id              Int      @id @default(autoincrement())
+  drawing_id      String?  // nullable — correction might be on a manually-created piece
+  analysis_id     Int?     // link to the AI analysis that produced the original value
+  quote_id        Int?     // the quote where the correction was made
+  piece_id        Int?     // the specific piece that was corrected
+  company_id      Int      // tenant isolation
+
+  correction_type String   // DIMENSION | SHAPE | CUTOUT_TYPE | CUTOUT_QUANTITY | EDGE_PROFILE | ROOM_ASSIGNMENT | MISSING_PIECE | EXTRA_PIECE | MATERIAL
+  field_name      String   // specific field: 'length_mm', 'width_mm', 'shape', 'cutouts[0].type', etc.
+
+  original_value  Json?    // what the AI extracted (null if piece was missing entirely)
+  corrected_value Json     // what the user changed it to
+
+  ai_confidence   String?  // what confidence the AI had: HIGH, MEDIUM, LOW (if available)
+
+  created_at      DateTime @default(now())
+  created_by      String?  // user ID who made the correction
+
+  // Relations
+  drawing         drawings?                @relation(fields: [drawing_id], references: [id])
+  analysis        quote_drawing_analyses?  @relation(fields: [analysis_id], references: [id])
+
+  @@index([company_id])
+  @@index([drawing_id])
+  @@index([correction_type])
+  @@index([created_at])
 }

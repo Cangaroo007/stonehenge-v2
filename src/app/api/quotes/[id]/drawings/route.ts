@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { createDrawing } from '@/lib/services/drawingService';
 import prisma from '@/lib/db';
 import { logger } from '@/lib/logger';
@@ -13,6 +13,11 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id, 10);
 
@@ -21,10 +26,9 @@ export async function GET(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    const currentUser = await getCurrentUser();
-    if (!currentUser) {
-      logger.error('[Get Drawings API] Unauthorized');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const drawings = await prisma.drawings.findMany({
@@ -63,6 +67,11 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id, 10);
 
@@ -71,11 +80,9 @@ export async function POST(
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
     }
 
-    const currentUser = await getCurrentUser();
-
-    if (!currentUser) {
-      logger.error('[Create Drawing API] Unauthorized - no current user');
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const body = await request.json();

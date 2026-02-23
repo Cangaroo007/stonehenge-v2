@@ -1,8 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { formatCurrency } from '@/lib/utils';
+import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
+import { generatePieceDescription } from '@/lib/utils/description-generator';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
+import InlinePieceEditor from './InlinePieceEditor';
+import type { InlinePieceData } from './InlinePieceEditor';
+import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
+import PieceVisualEditor from './PieceVisualEditor';
+import type { EdgeSide } from './PieceVisualEditor';
+import PieceEditorErrorBoundary from './PieceEditorErrorBoundary';
+import type { EdgeScope } from './EdgeProfilePopover';
+import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import RelationshipEditor from './RelationshipEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -24,11 +35,51 @@ interface MachineOperationDefault {
   };
 }
 
+interface InlineEditMaterial {
+  id: number;
+  name: string;
+  collection: string | null;
+  pricePerSqm: number;
+}
+
+interface InlineEditEdgeType {
+  id: string;
+  name: string;
+  description: string | null;
+  category: string;
+  baseRate: number;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface InlineEditThicknessOption {
+  id: string;
+  name: string;
+  value: number;
+  multiplier: number;
+  isDefault: boolean;
+  isActive: boolean;
+  sortOrder: number;
+}
+
+interface InlineEditData {
+  materials: InlineEditMaterial[];
+  edgeTypes: InlineEditEdgeType[];
+  cutoutTypes: CutoutType[];
+  thicknessOptions: InlineEditThicknessOption[];
+  roomNames: string[];
+  pieceSuggestions?: string[];
+  roomSuggestions?: string[];
+}
+
 interface PieceRowProps {
+  /** Sequential piece number for display */
+  pieceNumber?: number;
   /** Basic piece data */
   piece: {
     id: number;
     name: string;
+    description?: string | null;
     lengthMm: number;
     widthMm: number;
     thicknessMm: number;
@@ -37,6 +88,7 @@ interface PieceRowProps {
     edgeBottom: string | null;
     edgeLeft: string | null;
     edgeRight: string | null;
+    roomName?: string;
   };
   /** Per-piece cost breakdown from the calculation result */
   breakdown?: PiecePricingBreakdown;
@@ -48,6 +100,49 @@ interface PieceRowProps {
   mode: 'view' | 'edit';
   /** Callback when machine assignment changes (edit mode) */
   onMachineChange?: (pieceId: number, operationType: string, machineId: string) => void;
+  /** Full piece data for inline editing (optional, edit mode only) */
+  fullPiece?: InlinePieceData;
+  /** Reference data for inline editing (optional, edit mode only) */
+  editData?: InlineEditData;
+  /** Callback when piece is saved via inline editor */
+  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+  /** Whether a save operation is in progress */
+  savingPiece?: boolean;
+  /** Delete callback (edit mode) */
+  onDelete?: (pieceId: number) => void;
+  /** Duplicate callback (edit mode) */
+  onDuplicate?: (pieceId: number) => void;
+  /** Quote ID for bulk edge operations */
+  quoteId?: number;
+  /** Callback for bulk edge apply (scope: 'room' | 'quote') */
+  onBulkEdgeApply?: (
+    edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
+    scope: 'room' | 'quote',
+    pieceId: number
+  ) => void;
+  /** Callback to expand piece in new browser tab */
+  onExpand?: (pieceId: number) => void;
+  /** All relationships for the quote (edit mode) */
+  relationships?: PieceRelationshipData[];
+  /** All pieces for the relationship editor dropdown (edit mode) */
+  allPiecesForRelationships?: Array<{
+    id: string;
+    description: string;
+    piece_type: string | null;
+    room_name: string | null;
+  }>;
+  /** Quote ID string for relationship API calls */
+  quoteIdStr?: string;
+  /** Callback when relationships change */
+  onRelationshipChange?: () => void;
+  /** Callback for batch edge update with scope selector */
+  onBatchEdgeUpdate?: (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
+  ) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -99,15 +194,194 @@ function unitShort(unit: string): string {
   }
 }
 
-// ── Edge Badge Helpers ──────────────────────────────────────────────────────
+// ── Display Name Helper ─────────────────────────────────────────────────────
 
-function getEdgeBadges(piece: PieceRowProps['piece']): string[] {
-  const badges: string[] = [];
-  if (piece.edgeTop) badges.push('T');
-  if (piece.edgeBottom) badges.push('B');
-  if (piece.edgeLeft) badges.push('L');
-  if (piece.edgeRight) badges.push('R');
-  return badges;
+function getDisplayName(piece: PieceRowProps['piece']): string {
+  const name = piece.name || 'Untitled Piece';
+  if (name.length <= 60) return name;
+  return name.slice(0, 57) + '\u2026';
+}
+
+function hasLongDescription(piece: PieceRowProps['piece']): boolean {
+  const name = piece.name || '';
+  const desc = piece.description || '';
+  return name.length > 60 || desc.length > 60;
+}
+
+function getFullDescription(piece: PieceRowProps['piece']): string | null {
+  // If the name is the long AI text, return it as description
+  if (piece.name && piece.name.length > 60) return piece.name;
+  // If there's a separate long description, return it
+  if (piece.description && piece.description.length > 60) return piece.description;
+  // If short description differs from name, show it
+  if (piece.description && piece.description !== piece.name) return piece.description;
+  return null;
+}
+
+// ── Edge Summary Helper ─────────────────────────────────────────────────────
+
+function getEdgeSummaryText(
+  piece: PieceRowProps['piece'],
+  breakdown?: PiecePricingBreakdown,
+  edgeTypes?: Array<{ id: string; name: string }>,
+): string {
+  const sides = [
+    { key: 'edgeTop' as const, label: 'T', side: 'top' as const },
+    { key: 'edgeBottom' as const, label: 'B', side: 'bottom' as const },
+    { key: 'edgeLeft' as const, label: 'L', side: 'left' as const },
+    { key: 'edgeRight' as const, label: 'R', side: 'right' as const },
+  ];
+
+  // Check if piece has any edges from direct props
+  const hasDirectEdges = piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight;
+  // Check if breakdown has edges
+  const hasBreakdownEdges = breakdown?.fabrication?.edges && breakdown.fabrication.edges.length > 0;
+
+  if (!hasDirectEdges && !hasBreakdownEdges) return '';
+
+  const parts: string[] = [];
+
+  for (const s of sides) {
+    const edgeId = piece[s.key] as string | null;
+
+    // Try from direct edge IDs first
+    if (edgeId) {
+      let profileName = '';
+      if (edgeTypes && edgeTypes.length > 0) {
+        const et = edgeTypes.find(e => e.id === edgeId);
+        if (et) profileName = et.name;
+      }
+      if (!profileName && breakdown?.fabrication?.edges) {
+        const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+        if (edge) profileName = edge.edgeTypeName;
+      }
+      parts.push(profileName ? `${s.label} (${profileName})` : s.label);
+      continue;
+    }
+
+    // Fallback: try from breakdown
+    if (breakdown?.fabrication?.edges) {
+      const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+      if (edge) {
+        parts.push(`${s.label} (${edge.edgeTypeName})`);
+      }
+    }
+  }
+
+  return parts.join(', ');
+}
+
+// ── Structured Edge Summary (for colour dots in collapsed header) ────────────
+
+interface EdgeSummaryEntry {
+  label: string;
+  profileName: string;
+  code: string;
+  colour: string;
+}
+
+function getEdgeSummaryEntries(
+  piece: PieceRowProps['piece'],
+  breakdown?: PiecePricingBreakdown,
+  edgeTypes?: Array<{ id: string; name: string }>,
+): EdgeSummaryEntry[] {
+  const sides = [
+    { key: 'edgeTop' as const, label: 'T', side: 'top' as const },
+    { key: 'edgeBottom' as const, label: 'B', side: 'bottom' as const },
+    { key: 'edgeLeft' as const, label: 'L', side: 'left' as const },
+    { key: 'edgeRight' as const, label: 'R', side: 'right' as const },
+  ];
+
+  const hasDirectEdges = piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight;
+  const hasBreakdownEdges = breakdown?.fabrication?.edges && breakdown.fabrication.edges.length > 0;
+
+  if (!hasDirectEdges && !hasBreakdownEdges) return [];
+
+  const entries: EdgeSummaryEntry[] = [];
+
+  for (const s of sides) {
+    const edgeId = piece[s.key] as string | null;
+
+    if (edgeId) {
+      let profileName = '';
+      if (edgeTypes && edgeTypes.length > 0) {
+        const et = edgeTypes.find(e => e.id === edgeId);
+        if (et) profileName = et.name;
+      }
+      if (!profileName && breakdown?.fabrication?.edges) {
+        const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+        if (edge) profileName = edge.edgeTypeName;
+      }
+      entries.push({
+        label: s.label,
+        profileName,
+        code: edgeCode(profileName || null),
+        colour: edgeColour(profileName || null),
+      });
+      continue;
+    }
+
+    if (breakdown?.fabrication?.edges) {
+      const edge = breakdown.fabrication.edges.find(e => e.side === s.side);
+      if (edge) {
+        entries.push({
+          label: s.label,
+          profileName: edge.edgeTypeName,
+          code: edgeCode(edge.edgeTypeName),
+          colour: edgeColour(edge.edgeTypeName),
+        });
+      }
+    }
+  }
+
+  return entries;
+}
+
+// ── Cutout Summary Helper ───────────────────────────────────────────────────
+
+function resolveCutoutTypeName(
+  cutout: Record<string, unknown>,
+  cutoutTypes?: CutoutType[],
+): string {
+  // Try UUID-based lookup first (builder-created cutouts with cutoutTypeId)
+  const typeId = (cutout.cutoutTypeId || cutout.typeId) as string | undefined;
+  if (typeId && cutoutTypes) {
+    const ct = cutoutTypes.find(t => t.id === typeId);
+    if (ct) return ct.name;
+  }
+  // Fallback to string-based name (wizard/template-created cutouts with type or name)
+  const typeName = (cutout.type || cutout.name) as string | undefined;
+  if (typeName && cutoutTypes) {
+    const ct = cutoutTypes.find(t => t.name === typeName);
+    if (ct) return ct.name;
+  }
+  // Last resort: use whatever string we have
+  return typeName || typeId || 'Unknown';
+}
+
+function getCutoutSummaryText(
+  fullPiece?: InlinePieceData,
+  breakdown?: PiecePricingBreakdown,
+  cutoutTypes?: CutoutType[],
+): string {
+  // Try from fullPiece first
+  if (fullPiece && Array.isArray(fullPiece.cutouts) && fullPiece.cutouts.length > 0) {
+    // Prisma JSON double cast — actual JSON shape may differ from PieceCutout interface (Rule 9)
+    const rawCutouts = fullPiece.cutouts as unknown as Record<string, unknown>[];
+    return rawCutouts.map((c) => {
+      const name = resolveCutoutTypeName(c, cutoutTypes);
+      const qty = (c.quantity as number) ?? 1;
+      return `${qty}\u00D7 ${name}`;
+    }).join(', ');
+  }
+  // Try from breakdown
+  if (breakdown?.fabrication?.cutouts && breakdown.fabrication.cutouts.length > 0) {
+    return breakdown.fabrication.cutouts
+      .filter(c => c.quantity > 0)
+      .map(c => `${c.quantity}\u00D7 ${c.cutoutTypeName}`)
+      .join(', ');
+  }
+  return '';
 }
 
 // ── Cost Line Component (Level 1 + Level 2) ────────────────────────────────
@@ -173,7 +447,7 @@ function CostLine({
         <div className="ml-5 mt-1 mb-1 p-2 bg-gray-50 rounded text-xs">
           {mode === 'view' || !onMachineChange ? (
             <span className="text-gray-500">
-              Machine: {defaultMachine?.name ?? 'Default'} | Kerf: {defaultMachine?.kerfWidthMm ?? '—'}mm
+              Machine: {defaultMachine?.name ?? 'Default'} | Kerf: {defaultMachine?.kerfWidthMm ?? '\u2014'}mm
             </span>
           ) : (
             <div className="flex items-center gap-2">
@@ -185,7 +459,7 @@ function CostLine({
               >
                 {machines.map(m => (
                   <option key={m.id} value={m.id}>
-                    {m.name} (Kerf: {m.kerfWidthMm}mm){m.isDefault ? ' — Default' : ''}
+                    {m.name} (Kerf: {m.kerfWidthMm}mm){m.isDefault ? ' \u2014 Default' : ''}
                   </option>
                 ))}
               </select>
@@ -197,77 +471,502 @@ function CostLine({
   );
 }
 
+// ── Piece Visual Editor Section ─────────────────────────────────────────────
+
+function PieceVisualEditorSection({
+  piece,
+  fullPiece,
+  editData,
+  breakdown,
+  mode,
+  onSavePiece,
+  onBulkEdgeApply,
+  onBatchEdgeUpdate,
+}: {
+  piece: PieceRowProps['piece'];
+  fullPiece?: InlinePieceData;
+  editData?: InlineEditData;
+  breakdown?: PiecePricingBreakdown;
+  mode: 'view' | 'edit';
+  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+  onBulkEdgeApply?: (
+    edges: { top: string | null; bottom: string | null; left: string | null; right: string | null },
+    scope: 'room' | 'quote',
+    pieceId: number
+  ) => void;
+  onBatchEdgeUpdate?: (
+    profileId: string | null,
+    scope: EdgeScope,
+    sourcePieceId: number,
+    sourceSide: string,
+    sourceRoomId: number
+  ) => void;
+}) {
+  const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
+
+  // In view mode, piece edge IDs may be null because serverData doesn't include them.
+  // Extract edge IDs from the breakdown (which stores edgeTypeId per side).
+  const resolvedEdges = useMemo(() => {
+    if (piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight) {
+      return { edgeTop: piece.edgeTop, edgeBottom: piece.edgeBottom, edgeLeft: piece.edgeLeft, edgeRight: piece.edgeRight };
+    }
+    if (!breakdown?.fabrication?.edges) {
+      return { edgeTop: null, edgeBottom: null, edgeLeft: null, edgeRight: null };
+    }
+    const result: Record<string, string | null> = { edgeTop: null, edgeBottom: null, edgeLeft: null, edgeRight: null };
+    for (const e of breakdown.fabrication.edges) {
+      const key = `edge${e.side.charAt(0).toUpperCase()}${e.side.slice(1)}`;
+      if (key in result) result[key] = e.edgeTypeId;
+    }
+    return result as { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
+  }, [piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, breakdown]);
+
+  // In view mode, editData.edgeTypes is unavailable so resolveEdgeName returns undefined.
+  // Build a synthetic edge types list from breakdown data for name resolution.
+  const resolvedEdgeTypes = useMemo(() => {
+    if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
+      return editData.edgeTypes;
+    }
+    if (!breakdown?.fabrication?.edges) return [];
+    const seen = new Set<string>();
+    return breakdown.fabrication.edges
+      .filter(e => { if (seen.has(e.edgeTypeId)) return false; seen.add(e.edgeTypeId); return true; })
+      .map(e => ({ id: e.edgeTypeId, name: e.edgeTypeName }));
+  }, [editData?.edgeTypes, breakdown]);
+
+  // Map cutouts to display format — handles all JSON shapes:
+  // Builder: { id, cutoutTypeId, quantity }, Wizard: { name, quantity }, Template: { type, quantity }
+  const cutoutDisplays = useMemo(() => {
+    if (!fullPiece || !Array.isArray(fullPiece.cutouts)) return [];
+    const cutoutTypes = editData?.cutoutTypes ?? [];
+    // Prisma JSON double cast — actual JSON shape may differ from PieceCutout interface (Rule 9)
+    const rawCutouts = fullPiece.cutouts as unknown as Record<string, unknown>[];
+    return rawCutouts
+      .filter((c) => !!c && typeof c === 'object')
+      .map((c, idx) => {
+        const typeName = resolveCutoutTypeName(c, cutoutTypes);
+        const typeId = (c.cutoutTypeId || c.typeId || '') as string;
+        return {
+          id: (c.id as string) || `cutout_${idx}`,
+          typeId,
+          typeName,
+          quantity: (c.quantity as number) ?? 1,
+        };
+      });
+  }, [fullPiece, editData?.cutoutTypes]);
+
+  // Also build cutout display from breakdown for view mode when fullPiece is not available
+  const breakdownCutouts = useMemo(() => {
+    if (fullPiece) return []; // prefer fullPiece data
+    if (!breakdown?.fabrication?.cutouts) return [];
+    return breakdown.fabrication.cutouts.map((c, idx) => ({
+      id: `bd_${c.cutoutTypeId}_${idx}`,
+      typeId: c.cutoutTypeId,
+      typeName: c.cutoutTypeName,
+      quantity: c.quantity,
+    }));
+  }, [fullPiece, breakdown]);
+
+  const displayCutouts = fullPiece ? cutoutDisplays : breakdownCutouts;
+
+  // Determine if piece is mitred
+  const isMitred = breakdown?.fabrication?.lamination?.method === 'Mitred'
+    || breakdown?.fabrication?.lamination?.method === 'MITRED';
+
+  // Join position for oversize
+  const joinAtMm = useMemo(() => {
+    if (!breakdown?.oversize?.isOversize) return undefined;
+    // Default join at midpoint if specific position not available
+    return Math.round(piece.lengthMm / 2);
+  }, [breakdown, piece.lengthMm]);
+
+  // Edge change handler — saves via existing onSavePiece flow
+  const handleEdgeChange = useCallback(
+    (side: EdgeSide, profileId: string | null) => {
+      if (!fullPiece || !onSavePiece) return;
+      const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
+        'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: edgeKey === 'edgeTop' ? profileId : fullPiece.edgeTop,
+          edgeBottom: edgeKey === 'edgeBottom' ? profileId : fullPiece.edgeBottom,
+          edgeLeft: edgeKey === 'edgeLeft' ? profileId : fullPiece.edgeLeft,
+          edgeRight: edgeKey === 'edgeRight' ? profileId : fullPiece.edgeRight,
+          cutouts: fullPiece.cutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Cutout add handler
+  const handleCutoutAdd = useCallback(
+    (cutoutTypeId: string) => {
+      if (!fullPiece || !onSavePiece) return;
+      const newCutout: PieceCutout = {
+        id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+        cutoutTypeId,
+        quantity: 1,
+      };
+      const updatedCutouts = [...(fullPiece.cutouts || []), newCutout];
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: updatedCutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Cutout remove handler — supports both builder (id-based) and legacy (index-based) cutouts
+  const handleCutoutRemove = useCallback(
+    (cutoutId: string) => {
+      if (!fullPiece || !onSavePiece) return;
+      // Prisma JSON double cast (Rule 9)
+      const raw = (fullPiece.cutouts || []) as unknown as Record<string, unknown>[];
+      // Try by id first; if no match found, try removing by synthetic index id (cutout_N)
+      let updatedCutouts = raw.filter(c => (c.id as string) !== cutoutId);
+      if (updatedCutouts.length === raw.length && cutoutId.startsWith('cutout_')) {
+        const idx = parseInt(cutoutId.replace('cutout_', ''), 10);
+        if (!isNaN(idx) && idx >= 0 && idx < raw.length) {
+          updatedCutouts = raw.filter((_, i) => i !== idx);
+        }
+      }
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: updatedCutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Multi-edge change handler — saves all changed edges at once
+  const handleEdgesChange = useCallback(
+    (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => {
+      if (!fullPiece || !onSavePiece) return;
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: edges.top !== undefined ? edges.top : fullPiece.edgeTop,
+          edgeBottom: edges.bottom !== undefined ? edges.bottom : fullPiece.edgeBottom,
+          edgeLeft: edges.left !== undefined ? edges.left : fullPiece.edgeLeft,
+          edgeRight: edges.right !== undefined ? edges.right : fullPiece.edgeRight,
+          cutouts: fullPiece.cutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  // Bulk apply handler — delegates to parent
+  const handleBulkApply = useCallback(
+    (edges: { top: string | null; bottom: string | null; left: string | null; right: string | null }, scope: 'room' | 'quote') => {
+      if (onBulkEdgeApply) {
+        onBulkEdgeApply(edges, scope, piece.id);
+      }
+    },
+    [onBulkEdgeApply, piece.id]
+  );
+
+  // Scope-aware edge apply — delegates to parent batch handler
+  const handleApplyWithScope = useCallback(
+    (profileId: string | null, scope: EdgeScope, clickedSide: string) => {
+      if (!onBatchEdgeUpdate) return;
+      const roomId = fullPiece?.quote_rooms?.id ?? 0;
+      onBatchEdgeUpdate(profileId, scope, piece.id, clickedSide, roomId);
+    },
+    [onBatchEdgeUpdate, piece.id, fullPiece]
+  );
+
+  return (
+    <div className="px-4 py-3 border-t border-gray-100">
+      <PieceVisualEditor
+        lengthMm={piece.lengthMm}
+        widthMm={piece.widthMm}
+        edgeTop={resolvedEdges.edgeTop}
+        edgeBottom={resolvedEdges.edgeBottom}
+        edgeLeft={resolvedEdges.edgeLeft}
+        edgeRight={resolvedEdges.edgeRight}
+        edgeTypes={resolvedEdgeTypes}
+        cutouts={displayCutouts}
+        joinAtMm={joinAtMm}
+        isEditMode={isEditMode}
+        isMitred={isMitred}
+        onEdgeChange={isEditMode ? handleEdgeChange : undefined}
+        onEdgesChange={isEditMode ? handleEdgesChange : undefined}
+        onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
+        onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
+        cutoutTypes={editData?.cutoutTypes ?? []}
+        onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
+        roomName={piece.roomName}
+        roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
+        onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
+      />
+    </div>
+  );
+}
+
 // ── Main PieceRow Component ─────────────────────────────────────────────────
 
 export default function PieceRow({
+  pieceNumber,
   piece,
   breakdown,
   machines = [],
   machineOperationDefaults = [],
   mode,
   onMachineChange,
+  fullPiece,
+  editData,
+  onSavePiece,
+  savingPiece = false,
+  onDelete,
+  onDuplicate,
+  onBulkEdgeApply,
+  onBatchEdgeUpdate,
+  onExpand,
+  relationships,
+  allPiecesForRelationships,
+  quoteIdStr,
+  onRelationshipChange,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
-  const edgeBadges = getEdgeBadges(piece);
+  const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
+
+  // Collapsed state display values
+  const displayName = getDisplayName(piece);
+  const edgeEntries = getEdgeSummaryEntries(piece, breakdown, editData?.edgeTypes);
+  const cutoutSummary = getCutoutSummaryText(fullPiece, breakdown, editData?.cutoutTypes);
+  const fullDescription = getFullDescription(piece);
+
+  // Auto-generated description for collapsed summary display
+  const autoDescription = useMemo(() => {
+    const cutoutsMapped = fullPiece?.cutouts?.map((c) => {
+      const cRecord = c as unknown as Record<string, unknown>;
+      const resolvedName = resolveCutoutTypeName(cRecord, editData?.cutoutTypes);
+      return {
+        type: resolvedName,
+        quantity: c.quantity ?? 1,
+      };
+    });
+    return generatePieceDescription({
+      name: piece.name || undefined,
+      length_mm: piece.lengthMm,
+      width_mm: piece.widthMm,
+      thickness: piece.thicknessMm,
+      material_name: piece.materialName || undefined,
+      edge_top: piece.edgeTop,
+      edge_bottom: piece.edgeBottom,
+      edge_left: piece.edgeLeft,
+      edge_right: piece.edgeRight,
+      cutouts: cutoutsMapped,
+    });
+  }, [piece, fullPiece?.cutouts, editData?.cutoutTypes]);
 
   return (
     <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
-      {/* ── Collapsed Header ── */}
-      <button
+      {/* ── Collapsed Header (multi-line) ── */}
+      <div
         onClick={() => setL1Expanded(!l1Expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50/50 transition-colors"
+        className="w-full text-left px-4 py-3 text-sm hover:bg-gray-50/50 transition-colors cursor-pointer"
       >
-        <ChevronIcon expanded={l1Expanded} className="flex-shrink-0" />
+        <div className="flex items-start gap-3">
+          <ChevronIcon expanded={l1Expanded} className="flex-shrink-0 mt-1 text-gray-400" />
+          {pieceNumber != null && (
+            <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white font-bold text-lg flex-shrink-0">
+              {pieceNumber}
+            </span>
+          )}
+          <div className="flex-1 min-w-0">
+            {/* Line 1: Name + Cost */}
+            <div className="flex items-center justify-between gap-3">
+              <span className="font-medium text-gray-900 truncate">
+                {displayName}
+              </span>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                {isOversize && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
+                    OVERSIZE
+                  </span>
+                )}
+                <span className="font-semibold text-gray-900 tabular-nums">
+                  {formatCurrency(pieceTotal)}
+                </span>
+              </div>
+            </div>
+            {/* Line 2: Dims · Thickness · Room */}
+            <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5 flex-wrap">
+              <span>{piece.lengthMm} &times; {piece.widthMm} mm</span>
+              <span className="text-gray-300">&middot;</span>
+              <span>{piece.thicknessMm}mm</span>
+              {piece.roomName && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span>{piece.roomName}</span>
+                </>
+              )}
+            </div>
+            {/* Line 3: Edges (colour dots) · Cutouts (only if any) */}
+            {(edgeEntries.length > 0 || cutoutSummary) && (
+              <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5 flex-wrap">
+                {edgeEntries.length > 0 && (
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    <span>Edges:</span>
+                    {edgeEntries.map(entry => (
+                      <span key={entry.label} className="inline-flex items-center gap-0.5">
+                        <span
+                          className="inline-block w-2 h-2 rounded-full"
+                          style={{ backgroundColor: entry.colour }}
+                        />
+                        <span className="text-xs">{entry.label}:{entry.code}</span>
+                      </span>
+                    ))}
+                  </span>
+                )}
+                {edgeEntries.length > 0 && cutoutSummary && <span className="text-gray-300">&middot;</span>}
+                {cutoutSummary && <span>Cutouts: {cutoutSummary}</span>}
+              </div>
+            )}
+            {/* Line 4: Auto-generated description summary */}
+            {autoDescription && autoDescription.length > 5 && (
+              <div className="text-xs text-gray-400 mt-0.5 truncate italic">
+                {autoDescription}
+              </div>
+            )}
+          </div>
+          {/* Action buttons */}
+          {(onExpand || (mode === 'edit' && (onDelete || onDuplicate))) && (
+            <div className="flex items-center gap-0.5 flex-shrink-0 ml-1" onClick={(e) => e.stopPropagation()}>
+              {onExpand && (
+                <button
+                  onClick={() => onExpand(piece.id)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                  title="Open piece in new tab"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </button>
+              )}
+              {onDuplicate && (
+                <button
+                  onClick={() => onDuplicate(piece.id)}
+                  className="p-1 text-gray-400 hover:text-gray-600"
+                  title="Duplicate piece"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                  </svg>
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(piece.id)}
+                  className="p-1 text-red-400 hover:text-red-600"
+                  title="Delete piece"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
-        {/* Name */}
-        <span className="font-medium text-gray-900 truncate min-w-0">{piece.name}</span>
+      {/* ── Expanded: Description (manual or auto-generated) ── */}
+      {l1Expanded && (fullDescription || autoDescription) && (
+        <div className="px-4 py-3 border-t border-gray-100">
+          <p className="text-xs font-medium text-gray-500 uppercase tracking-wider mb-1">Description</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap">{fullDescription || autoDescription}</p>
+        </div>
+      )}
 
-        {/* Dimensions */}
-        <span className="text-xs text-gray-500 flex-shrink-0">
-          {piece.lengthMm} x {piece.widthMm} mm
-        </span>
+      {/* ── Inline Editor (dims / thickness / material / room — edit mode only) ── */}
+      {l1Expanded && canInlineEdit && (
+        <div className="px-4 pb-3 pt-3 border-t border-gray-100">
+          <InlinePieceEditor
+            piece={fullPiece}
+            materials={editData.materials}
+            edgeTypes={editData.edgeTypes}
+            cutoutTypes={editData.cutoutTypes}
+            thicknessOptions={editData.thicknessOptions}
+            roomNames={editData.roomNames}
+            onSave={onSavePiece}
+            saving={savingPiece}
+            pieceSuggestions={editData.pieceSuggestions}
+            roomSuggestions={editData.roomSuggestions}
+          />
+        </div>
+      )}
 
-        {/* Thickness */}
-        <span className="text-xs text-gray-500 flex-shrink-0">
-          {piece.thicknessMm}mm
-          {piece.thicknessMm > 20 && (() => {
-            const layers = Math.floor((piece.thicknessMm - 20) / 20);
-            const method = breakdown?.fabrication?.lamination?.method;
-            if (piece.thicknessMm === 40) {
-              return <span> — {method || 'Laminated'}</span>;
-            }
-            return <span> — {method || 'Laminated'} ({layers} layer{layers !== 1 ? 's' : ''})</span>;
-          })()}
-        </span>
+      {/* ── Piece Visual Editor (SVG diagram) ── */}
+      {l1Expanded && (
+        <PieceEditorErrorBoundary pieceName={piece.name}>
+          <PieceVisualEditorSection
+            piece={piece}
+            fullPiece={fullPiece}
+            editData={editData}
+            breakdown={breakdown}
+            mode={mode}
+            onSavePiece={onSavePiece}
+            onBulkEdgeApply={onBulkEdgeApply}
+            onBatchEdgeUpdate={onBatchEdgeUpdate}
+          />
+        </PieceEditorErrorBoundary>
+      )}
 
-        {/* Material */}
-        {piece.materialName && (
-          <span className="hidden sm:inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-700 flex-shrink-0 truncate max-w-[120px]">
-            {piece.materialName}
-          </span>
-        )}
-
-        {/* Edge badges */}
-        {edgeBadges.length > 0 && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-blue-100 text-blue-700 flex-shrink-0">
-            {edgeBadges.join(', ')}
-          </span>
-        )}
-
-        {/* Oversize badge */}
-        {isOversize && (
-          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 flex-shrink-0">
-            OVERSIZE
-          </span>
-        )}
-
-        {/* Total price — pushed right */}
-        <span className="ml-auto font-medium text-gray-900 tabular-nums flex-shrink-0">
-          {formatCurrency(pieceTotal)}
-        </span>
-      </button>
+      {/* ── Relationships (edit mode only) ── */}
+      {l1Expanded && mode === 'edit' && quoteIdStr && relationships && allPiecesForRelationships && onRelationshipChange && (
+        <div className="px-4 pb-3 pt-3 border-t border-gray-100">
+          <RelationshipEditor
+            quoteId={quoteIdStr}
+            selectedPieceId={String(piece.id)}
+            allPieces={allPiecesForRelationships}
+            existingRelationships={relationships}
+            onRelationshipChange={onRelationshipChange}
+          />
+        </div>
+      )}
 
       {/* ── Level 1: Cost Breakdown ── */}
       {l1Expanded && breakdown && (
@@ -412,10 +1111,11 @@ export default function PieceRow({
       {l1Expanded && !breakdown && (
         <div className="px-4 pb-4 pt-1 border-t border-gray-100">
           <p className="text-xs text-gray-400 italic">
-            Awaiting calculation\u2026
+            Awaiting calculation{'\u2026'}
           </p>
         </div>
       )}
+
     </div>
   );
 }

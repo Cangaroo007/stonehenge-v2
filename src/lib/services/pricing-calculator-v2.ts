@@ -15,6 +15,7 @@
 
 import prisma from '@/lib/db';
 import { calculateCutPlan } from './multi-slab-calculator';
+import type { DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 import {
   calculateDistance,
   getDeliveryZone,
@@ -55,6 +56,13 @@ const COMPANY_ADDRESS =
  */
 export interface EnhancedCalculationResult extends CalculationResult {
   fabricationCategory?: string;
+  baseSubtotal?: number;
+  customCharges?: Array<{ id: number; description: string; amount: number }>;
+  customChargesTotal?: number;
+  discountType?: string | null;
+  discountValue?: number;
+  discountAppliesTo?: string;
+  discountAmount?: number;
   breakdown: CalculationResult['breakdown'] & {
     services?: {
       items: ServiceBreakdown[];
@@ -158,24 +166,31 @@ export function calculateMaterialCost(
       price_per_sqm: { toNumber: () => number };
       price_per_slab?: { toNumber: () => number } | null;
       price_per_square_metre?: { toNumber: () => number } | null;
+      margin_override_percent?: { toNumber: () => number } | null;
+      supplier?: {
+        id: string;
+        default_margin_percent: { toNumber: () => number } | null;
+      } | null;
     } | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
   slabCount?: number,
   wasteFactorPercent?: number,
-  slabCountFromOptimiser?: boolean
+  slabCountFromOptimiser?: boolean,
+  materialMarginAdjustPercent: number = 0
 ): MaterialBreakdown {
   let totalAreaM2 = 0;
-  let subtotal = 0;
+  let overriddenCost = 0;
+  let calculatedCost = 0;
 
   for (const piece of pieces) {
     const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
     totalAreaM2 += areaSqm;
 
-    // Check for piece-level override
+    // Check for piece-level override — margin does NOT apply to overrides
     if (piece.overrideMaterialCost) {
-      subtotal += piece.overrideMaterialCost.toNumber();
+      overriddenCost += piece.overrideMaterialCost.toNumber();
       continue;
     }
 
@@ -186,24 +201,24 @@ export function calculateMaterialCost(
         // Distribute slab cost proportionally across pieces by area
         const totalPieceArea = (piece.length_mm * piece.width_mm) / 1_000_000;
         // This will be summed across all pieces, then replaced below
-        subtotal += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
+        calculatedCost += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
       } else {
         // Fallback to per-m² if no slab price set
         const baseRate = piece.materials?.price_per_square_metre?.toNumber()
           ?? piece.materials?.price_per_sqm.toNumber()
           ?? 0;
-        subtotal += areaSqm * baseRate;
+        calculatedCost += areaSqm * baseRate;
       }
     } else {
       // Per square metre pricing
       const baseRate = piece.materials?.price_per_square_metre?.toNumber()
         ?? piece.materials?.price_per_sqm.toNumber()
         ?? 0;
-      subtotal += areaSqm * baseRate;
+      calculatedCost += areaSqm * baseRate;
     }
   }
 
-  // For PER_SLAB, recalculate subtotal as slabCount × slabPrice if available
+  // For PER_SLAB, recalculate as slabCount × slabPrice if available
   if (pricingBasis === 'PER_SLAB' && slabCount !== undefined && slabCount > 0) {
     // Find the slab price from the first piece with a material
     const materialWithSlabPrice = pieces.find(p => p.materials?.price_per_slab?.toNumber());
@@ -212,10 +227,27 @@ export function calculateMaterialCost(
       // Only override if no piece-level overrides were applied
       const hasOverrides = pieces.some(p => p.overrideMaterialCost);
       if (!hasOverrides) {
-        subtotal = slabCount * slabPrice;
+        calculatedCost = slabCount * slabPrice;
       }
     }
   }
+
+  // Resolve margin from material hierarchy:
+  // material.margin_override_percent → supplier.default_margin_percent → 0
+  const firstMat = pieces.find(p => p.materials)?.materials;
+  const baseMarginPercent =
+    firstMat?.margin_override_percent?.toNumber()
+    ?? firstMat?.supplier?.default_margin_percent?.toNumber()
+    ?? 0;
+  const effectiveMarginPercent = baseMarginPercent + materialMarginAdjustPercent;
+  const marginMultiplier = 1 + effectiveMarginPercent / 100;
+
+  // Store cost before margin
+  const costBeforeMargin = calculatedCost;
+
+  // Apply margin to calculated cost (not overrides)
+  const marginalizedCost = roundToTwo(calculatedCost * marginMultiplier);
+  let subtotal = overriddenCost + marginalizedCost;
 
   const effectiveRate = totalAreaM2 > 0 ? roundToTwo(subtotal / totalAreaM2) : 0;
 
@@ -237,6 +269,10 @@ export function calculateMaterialCost(
     appliedWastePercent = clampedWaste;
   }
 
+  // Margin breakdown data
+  const costSubtotal = roundToTwo(overriddenCost + costBeforeMargin);
+  const marginAmount = roundToTwo(marginalizedCost - costBeforeMargin);
+
   // Extract material metadata from the first piece with a material
   const firstMaterial = pieces.find(p => p.materials)?.materials;
   const materialName = (firstMaterial as unknown as { name?: string } | null)?.name
@@ -247,7 +283,7 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm);
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent);
 
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
@@ -264,6 +300,13 @@ export function calculateMaterialCost(
       : undefined,
     wasteFactorPercent: appliedWastePercent,
     adjustedAreaM2,
+    margin: effectiveMarginPercent !== 0 ? {
+      baseMarginPercent,
+      adjustmentPercent: materialMarginAdjustPercent,
+      effectiveMarginPercent,
+      costSubtotal,
+      marginAmount,
+    } : undefined,
     materialName,
     slabLengthMm: slabLengthMm ?? undefined,
     slabWidthMm: slabWidthMm ?? undefined,
@@ -284,6 +327,7 @@ function buildMaterialGroupings(
   slabCountFromOptimiser: boolean | undefined,
   defaultSlabLengthMm: number | null | undefined,
   defaultSlabWidthMm: number | null | undefined,
+  materialMarginAdjustPercent: number = 0,
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -294,6 +338,7 @@ function buildMaterialGroupings(
     slabPrice: number;
     ratePerSqm: number;
     totalAreaM2: number;
+    baseMarginPercent: number;
   }>();
 
   for (const piece of pieces) {
@@ -307,6 +352,12 @@ function buildMaterialGroupings(
     const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
     const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
 
+    // Resolve per-material margin: override → supplier default → 0
+    const matBaseMargin =
+      mat.margin_override_percent?.toNumber()
+      ?? mat.supplier?.default_margin_percent?.toNumber()
+      ?? 0;
+
     const existing = groups.get(matId);
     if (existing) {
       existing.totalAreaM2 += areaSqm;
@@ -319,6 +370,7 @@ function buildMaterialGroupings(
         slabPrice,
         ratePerSqm,
         totalAreaM2: areaSqm,
+        baseMarginPercent: matBaseMargin,
       });
     }
   }
@@ -353,6 +405,14 @@ function buildMaterialGroupings(
       totalCost = roundToTwo(areaM2 * group.ratePerSqm * wasteMultiplier);
     }
 
+    // Apply per-material margin
+    const effectiveMarginPercent = group.baseMarginPercent + materialMarginAdjustPercent;
+    const costBeforeMargin = totalCost;
+    if (effectiveMarginPercent !== 0) {
+      totalCost = roundToTwo(totalCost * (1 + effectiveMarginPercent / 100));
+    }
+    const marginAmount = roundToTwo(totalCost - costBeforeMargin);
+
     result.push({
       materialId: group.materialId,
       materialName: group.materialName,
@@ -367,6 +427,13 @@ function buildMaterialGroupings(
       adjustedAreaM2: groupAdjustedArea,
       ratePerSqm: group.ratePerSqm > 0 ? group.ratePerSqm : undefined,
       totalCost,
+      margin: effectiveMarginPercent !== 0 ? {
+        baseMarginPercent: group.baseMarginPercent,
+        adjustmentPercent: materialMarginAdjustPercent,
+        effectiveMarginPercent,
+        costSubtotal: costBeforeMargin,
+        marginAmount,
+      } : undefined,
     });
   }
 
@@ -423,7 +490,13 @@ export async function calculateQuotePrice(
         include: {
           quote_pieces: {
             include: {
-              materials: true,
+              materials: {
+                include: {
+                  supplier: {
+                    select: { id: true, default_margin_percent: true },
+                  },
+                },
+              },
               piece_features: {
                 include: {
                   pricing_rules: true,
@@ -440,9 +513,9 @@ export async function calculateQuotePrice(
     throw new Error('Quote not found');
   }
 
-  // Load pricing context (org-level settings)
-  // Use company ID "1" as default org for now (single-tenant)
-  const pricingContext = await loadPricingContext('1');
+  // Load pricing context using the quote's company
+  const organisationId = `company-${quote.company_id}`;
+  const pricingContext = await loadPricingContext(organisationId);
 
   // Get pricing data
   const [edgeTypes, cutoutTypes, serviceRates, cutoutCategoryRates, edgeCategoryRates] = await Promise.all([
@@ -500,13 +573,14 @@ export async function calculateQuotePrice(
     }
   }
 
-  // Calculate material costs with pricing basis and waste factor
+  // Calculate material costs with pricing basis, waste factor, and margin
   const materialBreakdown = calculateMaterialCost(
     allPieces,
     pricingContext.materialPricingBasis,
     slabCount,
     pricingContext.wasteFactorPercent,
-    slabCountFromOptimiser
+    slabCountFromOptimiser,
+    options?.materialMarginAdjustPercent ?? 0
   );
 
   // Calculate edge costs with thickness variants
@@ -544,19 +618,46 @@ export async function calculateQuotePrice(
     const pieceFabCategory: string =
       (piece.materials as unknown as { fabrication_category?: string } | null)
         ?.fabrication_category ?? 'ENGINEERED';
-    pieceBreakdowns.push(
-      calculatePiecePricing(
-        piece,
-        serviceRates,
-        edgeTypeMap,
-        cutoutTypeMap,
-        fabricationDiscountPct,
-        pricingContext,
-        pieceFabCategory,
-        cutoutCategoryRates,
-        edgeCategoryRates
-      )
-    );
+    try {
+      pieceBreakdowns.push(
+        calculatePiecePricing(
+          piece,
+          serviceRates,
+          edgeTypeMap,
+          cutoutTypeMap,
+          fabricationDiscountPct,
+          pricingContext,
+          pieceFabCategory,
+          cutoutCategoryRates,
+          edgeCategoryRates
+        )
+      );
+    } catch (pieceError) {
+      // Gracefully handle pieces that fail pricing (e.g. no material assigned,
+      // missing service rate for their fabrication category). Return a zeroed-out
+      // breakdown so the rest of the quote still calculates.
+      console.warn(
+        `Pricing failed for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${pieceError instanceof Error ? pieceError.message : pieceError}. Returning $0 breakdown.`
+      );
+      pieceBreakdowns.push({
+        pieceId: piece.id,
+        pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+        fabricationCategory: pieceFabCategory,
+        dimensions: {
+          lengthMm: piece.length_mm,
+          widthMm: piece.width_mm,
+          thicknessMm: piece.thickness_mm,
+        },
+        fabrication: {
+          cutting: { quantity: 0, unit: pricingContext.cuttingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+          polishing: { quantity: 0, unit: pricingContext.polishingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+          edges: [],
+          cutouts: [],
+          subtotal: 0,
+        },
+        pieceTotal: 0,
+      });
+    }
   }
 
   // Calculate oversize/join costs per piece using DB-driven rates + grain matching surcharge
@@ -577,61 +678,69 @@ export async function calculateQuotePrice(
 
     if (!cutPlan.fitsOnSingleSlab) {
       // Look up JOIN rate from DB for this fabrication category
-      const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-      const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
-      const joinCost = roundToTwo(joinLengthLm * joinRate);
+      // Wrap in try-catch: JOIN rate may not exist for all fabrication categories
+      try {
+        const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+        const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
+        const joinCost = roundToTwo(joinLengthLm * joinRate);
 
-      // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
-      const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
-      const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
-      const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
+        // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
+        const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+        const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
+        const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
 
-      totalJoinCost += joinCost;
-      totalGrainMatchingSurcharge += grainSurcharge;
+        totalJoinCost += joinCost;
+        totalGrainMatchingSurcharge += grainSurcharge;
 
-      // Add oversize data to the piece breakdown
-      if (pieceBreakdowns[i]) {
-        pieceBreakdowns[i].oversize = {
-          isOversize: true,
-          joinCount: cutPlan.joins.length,
-          joinLengthLm,
-          joinRate,
-          joinCost,
-          grainMatchingSurchargeRate: grainMatchingSurchargeRate,
-          fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
-          grainMatchingSurcharge: grainSurcharge,
-          strategy: cutPlan.strategy,
-          warnings: cutPlan.warnings,
-        };
-        pieceBreakdowns[i].pieceTotal = roundToTwo(
-          pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
-        );
-      }
+        // Add oversize data to the piece breakdown
+        if (pieceBreakdowns[i]) {
+          pieceBreakdowns[i].oversize = {
+            isOversize: true,
+            joinCount: cutPlan.joins.length,
+            joinLengthLm,
+            joinRate,
+            joinCost,
+            grainMatchingSurchargeRate: grainMatchingSurchargeRate,
+            fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
+            grainMatchingSurcharge: grainSurcharge,
+            strategy: cutPlan.strategy,
+            warnings: cutPlan.warnings,
+          };
+          pieceBreakdowns[i].pieceTotal = roundToTwo(
+            pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
+          );
+        }
 
-      // Add to service-level items for aggregate display
-      serviceData.items.push({
-        serviceType: 'JOIN',
-        name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
-        quantity: joinLengthLm,
-        unit: 'LINEAR_METRE',
-        rate: joinRate,
-        subtotal: joinCost,
-        fabricationCategory: pieceFabCategory,
-      });
-      serviceData.subtotal += joinCost;
-
-      // Add grain matching surcharge as a separate line item
-      if (grainSurcharge > 0) {
+        // Add to service-level items for aggregate display
         serviceData.items.push({
           serviceType: 'JOIN',
-          name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
-          quantity: 1,
-          unit: 'FIXED',
-          rate: grainSurcharge,
-          subtotal: grainSurcharge,
+          name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
+          quantity: joinLengthLm,
+          unit: 'LINEAR_METRE',
+          rate: joinRate,
+          subtotal: joinCost,
           fabricationCategory: pieceFabCategory,
         });
-        serviceData.subtotal += grainSurcharge;
+        serviceData.subtotal += joinCost;
+
+        // Add grain matching surcharge as a separate line item
+        if (grainSurcharge > 0) {
+          serviceData.items.push({
+            serviceType: 'JOIN',
+            name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
+            quantity: 1,
+            unit: 'FIXED',
+            rate: grainSurcharge,
+            subtotal: grainSurcharge,
+            fabricationCategory: pieceFabCategory,
+          });
+          serviceData.subtotal += grainSurcharge;
+        }
+      } catch (joinError) {
+        // JOIN rate not configured — skip oversize costing for this piece
+        console.warn(
+          `Join pricing skipped for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${joinError instanceof Error ? joinError.message : joinError}`
+        );
       }
     }
   }
@@ -692,10 +801,59 @@ export async function calculateQuotePrice(
     cutoutData.subtotal +
     serviceData.subtotal;
 
-  const subtotal =
+  const baseSubtotal =
     piecesSubtotal +
     deliveryBreakdown.finalCost +
     templatingBreakdown.finalCost;
+
+  // Load custom charges for this quote
+  const customCharges = await prisma.quote_custom_charges.findMany({
+    where: { quote_id: quoteIdNum },
+    orderBy: { sort_order: 'asc' },
+  });
+  const customChargesTotal = customCharges.reduce(
+    (sum, charge) => sum + Number(charge.amount), 0
+  );
+
+  // Load quote discount settings
+  const discountRecord = await prisma.quotes.findUnique({
+    where: { id: quoteIdNum },
+    select: { discount_type: true, discount_value: true, discount_applies_to: true },
+  });
+
+  const discountType = discountRecord?.discount_type as DiscountType | null;
+  const discountValue = discountRecord?.discount_value ? Number(discountRecord.discount_value) : 0;
+  const discountAppliesTo = (discountRecord?.discount_applies_to as DiscountAppliesTo) || 'ALL';
+
+  // Apply the formula based on discount_applies_to
+  let discountAmount: number;
+  let discountedSubtotal: number;
+
+  if (discountAppliesTo === 'ALL') {
+    // Discount covers everything including custom charges
+    const preDiscountTotal = baseSubtotal + customChargesTotal;
+    discountAmount = discountType === 'PERCENTAGE'
+      ? preDiscountTotal * (discountValue / 100)
+      : discountType === 'ABSOLUTE'
+      ? discountValue
+      : 0;
+    discountedSubtotal = preDiscountTotal - discountAmount;
+  } else {
+    // FABRICATION_ONLY: Discount on base subtotal only, custom charges added after
+    discountAmount = discountType === 'PERCENTAGE'
+      ? baseSubtotal * (discountValue / 100)
+      : discountType === 'ABSOLUTE'
+      ? discountValue
+      : 0;
+    discountedSubtotal = (baseSubtotal - discountAmount) + customChargesTotal;
+  }
+
+  // Ensure discount doesn't make total negative
+  discountAmount = roundToTwo(discountAmount);
+  discountedSubtotal = Math.max(0, roundToTwo(discountedSubtotal));
+
+  // For backwards compatibility, keep `subtotal` variable name pointing to the effective subtotal
+  const subtotal = discountedSubtotal;
 
   // Get applicable pricing rules
   const priceBookId = options?.priceBookId || quote.price_book_id;
@@ -724,6 +882,11 @@ export async function calculateQuotePrice(
     ? Number(quoteAny.overrideTotal)
     : finalSubtotal;
 
+  // Apply GST
+  const gstRate = pricingContext.gstRate;
+  const gstAmount = roundToTwo(finalTotal * gstRate);
+  const totalIncGst = roundToTwo(finalTotal + gstAmount);
+
   // Fetch price book info
   let priceBookInfo: { id: string; name: string } | null = null;
   if (priceBookId) {
@@ -740,8 +903,23 @@ export async function calculateQuotePrice(
     quoteId,
     fabricationCategory: primaryFabricationCategory,
     subtotal: roundToTwo(subtotal),
-    totalDiscount: 0, // Calculated from rules
+    baseSubtotal: roundToTwo(baseSubtotal),
+    totalDiscount: roundToTwo(discountAmount),
     total: roundToTwo(finalTotal),
+    gstRate,
+    gstAmount,
+    totalIncGst,
+    // Custom charges and discount details
+    customCharges: customCharges.map(c => ({
+      id: c.id,
+      description: c.description,
+      amount: Number(c.amount),
+    })),
+    customChargesTotal: roundToTwo(customChargesTotal),
+    discountType,
+    discountValue,
+    discountAppliesTo,
+    discountAmount: roundToTwo(discountAmount),
     breakdown: {
       materials: materialBreakdown,
       edges: {
@@ -804,10 +982,10 @@ function calculateEdgeCostV2(
 
   for (const piece of pieces) {
     const edges = [
-      { id: piece.edge_top, length: piece.width_mm },
-      { id: piece.edge_bottom, length: piece.width_mm },
-      { id: piece.edge_left, length: piece.length_mm },
-      { id: piece.edge_right, length: piece.length_mm },
+      { id: piece.edge_top, length: piece.length_mm },
+      { id: piece.edge_bottom, length: piece.length_mm },
+      { id: piece.edge_left, length: piece.width_mm },
+      { id: piece.edge_right, length: piece.width_mm },
     ];
 
     for (const edge of edges) {
@@ -991,20 +1169,21 @@ function getServiceRate(
   thickness: number,
   fabricationCategory?: string
 ): { rate: number; rateRecord: ServiceRateRecord } {
-  const rateRecord = rates.find(r => {
-    if (r.serviceType !== serviceType) return false;
-    if (fabricationCategory) {
-      // When a category is specified, require exact match
-      return r.fabricationCategory === fabricationCategory;
-    }
-    // When no category specified, prefer rates without a category set
-    return !r.fabricationCategory;
-  }) ?? (
-    // Fallback: if no uncategorised rate exists, pick the first matching serviceType
-    !fabricationCategory
-      ? rates.find(r => r.serviceType === serviceType)
-      : undefined
-  );
+  // 1. Try exact match: serviceType + fabricationCategory
+  let rateRecord = fabricationCategory
+    ? rates.find(r => r.serviceType === serviceType && r.fabricationCategory === fabricationCategory)
+    : rates.find(r => r.serviceType === serviceType && !r.fabricationCategory);
+
+  // 2. Fallback: uncategorised rate for this service type
+  if (!rateRecord) {
+    rateRecord = rates.find(r => r.serviceType === serviceType && !r.fabricationCategory);
+  }
+
+  // 3. Fallback: any rate for this service type (first match)
+  if (!rateRecord) {
+    rateRecord = rates.find(r => r.serviceType === serviceType);
+  }
+
   if (!rateRecord) {
     throw new Error(
       `No ${serviceType} rate found` +
@@ -1082,8 +1261,13 @@ function calculateServiceCosts(
   }
 
   // Polishing: use tenant's configured polishing_unit
+  // Try exact category match, then uncategorised, then any POLISHING rate
   const polishingRateRecord = serviceRates.find(
     sr => sr.serviceType === 'POLISHING' && sr.fabricationCategory === primaryCategory
+  ) ?? serviceRates.find(
+    sr => sr.serviceType === 'POLISHING' && !sr.fabricationCategory
+  ) ?? serviceRates.find(
+    sr => sr.serviceType === 'POLISHING'
   );
   if (!polishingRateRecord) {
     throw new Error(
@@ -1097,10 +1281,10 @@ function calculateServiceCosts(
 
     for (const piece of pieces) {
       const edgeLengths = [
-        piece.edge_top ? piece.width_mm : 0,
-        piece.edge_bottom ? piece.width_mm : 0,
-        piece.edge_left ? piece.length_mm : 0,
-        piece.edge_right ? piece.length_mm : 0,
+        piece.edge_top ? piece.length_mm : 0,
+        piece.edge_bottom ? piece.length_mm : 0,
+        piece.edge_left ? piece.width_mm : 0,
+        piece.edge_right ? piece.width_mm : 0,
       ];
       const pieceEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
       if (pieceEdgeLm <= 0) continue;
@@ -1172,10 +1356,10 @@ function calculateServiceCosts(
     const { rate: polishRate20mm } = getServiceRate(serviceRates, 'POLISHING', 20, pieceCategory);
 
     const edgeLengths = [
-      piece.edge_top ? piece.width_mm : 0,
-      piece.edge_bottom ? piece.width_mm : 0,
-      piece.edge_left ? piece.length_mm : 0,
-      piece.edge_right ? piece.length_mm : 0,
+      piece.edge_top ? piece.length_mm : 0,
+      piece.edge_bottom ? piece.length_mm : 0,
+      piece.edge_left ? piece.width_mm : 0,
+      piece.edge_right ? piece.width_mm : 0,
     ];
     const pieceFinishedEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
     if (pieceFinishedEdgeLm <= 0) continue;
@@ -1381,12 +1565,12 @@ function calculatePiecePricing(
   const cuttingDiscount = roundToTwo(cuttingBase * (fabricationDiscountPct / 100));
   const cuttingTotal = roundToTwo(cuttingBase - cuttingDiscount);
 
-  // Edge sides mapping: top/bottom use width_mm, left/right use length_mm
+  // Edge sides mapping: top/bottom use length_mm (horizontal), left/right use width_mm (vertical)
   const edgeSides: Array<{ side: 'top' | 'bottom' | 'left' | 'right'; lengthMm: number; edgeTypeId: string | null }> = [
-    { side: 'top', lengthMm: piece.width_mm, edgeTypeId: piece.edge_top },
-    { side: 'bottom', lengthMm: piece.width_mm, edgeTypeId: piece.edge_bottom },
-    { side: 'left', lengthMm: piece.length_mm, edgeTypeId: piece.edge_left },
-    { side: 'right', lengthMm: piece.length_mm, edgeTypeId: piece.edge_right },
+    { side: 'top', lengthMm: piece.length_mm, edgeTypeId: piece.edge_top },
+    { side: 'bottom', lengthMm: piece.length_mm, edgeTypeId: piece.edge_bottom },
+    { side: 'left', lengthMm: piece.width_mm, edgeTypeId: piece.edge_left },
+    { side: 'right', lengthMm: piece.width_mm, edgeTypeId: piece.edge_right },
   ];
 
   // Polishing: use tenant's configured polishing_unit

@@ -25,11 +25,14 @@ async function seedPricingSettings() {
   };
 
   const settings = await prisma.pricing_settings.upsert({
-    where: { organisation_id: '1' },
-    update: settingsData,
+    where: { id: 'ps-org-1' },
+    update: {
+      organisation_id: 'company-1',
+      ...settingsData,
+    },
     create: {
       id: 'ps-org-1',
-      organisation_id: '1',
+      organisation_id: 'company-1',
       ...settingsData,
     },
   });
@@ -67,14 +70,11 @@ async function seedPricingSettings() {
       const rateId = `sr-${rate.serviceType.toLowerCase()}-${category.toLowerCase()}`;
 
       await prisma.service_rates.upsert({
-        where: {
-          pricing_settings_id_serviceType_fabricationCategory: {
-            pricing_settings_id: settings.id,
-            serviceType: rate.serviceType,
-            fabricationCategory: category,
-          },
-        },
+        where: { id: rateId },
         update: {
+          pricing_settings_id: settings.id,
+          serviceType: rate.serviceType,
+          fabricationCategory: category,
           name: rate.name,
           description: rate.description,
           rate20mm: r20,
@@ -116,13 +116,10 @@ async function seedPricingSettings() {
 
   for (const cutout of cutoutRates) {
     await prisma.cutout_rates.upsert({
-      where: {
-        pricing_settings_id_cutout_type: {
-          pricing_settings_id: settings.id,
-          cutout_type: cutout.cutout_type,
-        },
-      },
+      where: { id: cutout.id },
       update: {
+        pricing_settings_id: settings.id,
+        cutout_type: cutout.cutout_type,
         name: cutout.name,
         rate: cutout.rate,
         isActive: true,
@@ -170,8 +167,9 @@ async function seedMachineProfiles() {
 
   for (const machine of machines) {
     await prisma.machine_profiles.upsert({
-      where: { name: machine.name },
+      where: { id: machine.id },
       update: {
+        name: machine.name,
         kerf_width_mm: machine.kerf_width_mm,
         max_slab_length_mm: machine.max_slab_length_mm,
         max_slab_width_mm: machine.max_slab_width_mm,
@@ -526,23 +524,25 @@ async function seedMachineOperationDefaults() {
   ];
 
   for (const def of DEFAULTS) {
-    // Find or create machine profile
-    let machine = await prisma.machine_profiles.findFirst({
-      where: { name: def.machineName },
+    // Find or create machine profile (idempotent via upsert on id)
+    const machineId = `machine-${def.machineName.toLowerCase().replace(/[\s/]+/g, '-')}`;
+    const machine = await prisma.machine_profiles.upsert({
+      where: { id: machineId },
+      update: {
+        name: def.machineName,
+        kerf_width_mm: def.kerfMm,
+        is_active: true,
+        updated_at: new Date(),
+      },
+      create: {
+        id: machineId,
+        name: def.machineName,
+        kerf_width_mm: def.kerfMm,
+        is_active: true,
+        is_default: def.operationType === 'INITIAL_CUT',
+        updated_at: new Date(),
+      },
     });
-
-    if (!machine) {
-      machine = await prisma.machine_profiles.create({
-        data: {
-          id: `machine-${def.machineName.toLowerCase().replace(/[\s/]+/g, '-')}`,
-          name: def.machineName,
-          kerf_width_mm: def.kerfMm,
-          is_active: true,
-          is_default: def.operationType === 'INITIAL_CUT',
-          updated_at: new Date(),
-        },
-      });
-    }
 
     await prisma.machine_operation_defaults.upsert({
       where: { operation_type: def.operationType },

@@ -20,10 +20,14 @@ export interface Placement {
   height: number;
   rotated: boolean;
   label: string;
-  // NEW: Lamination tracking
+  // Lamination tracking
   isLaminationStrip?: boolean;
   parentPieceId?: string;
   stripPosition?: 'top' | 'bottom' | 'left' | 'right';
+  // Oversize piece segment tracking
+  isSegment?: boolean;
+  segmentIndex?: number;
+  totalSegments?: number;
   // Machine/cutting info
   machineName?: string;
   kerfWidthMm?: number;
@@ -62,8 +66,12 @@ export interface OptimizationResult {
   totalWasteArea: number;
   wastePercent: number;
   unplacedPieces: string[];
-  // NEW: Lamination summary
+  // Lamination summary
   laminationSummary?: LaminationSummary;
+  // Warnings from the optimizer (oversize splits, etc.)
+  warnings?: string[];
+  // Edge allowance applied (mm per side)
+  edgeAllowanceMm?: number;
 }
 
 // Edge type info for each edge (used to determine strip width)
@@ -92,6 +100,54 @@ export interface OptimizationInput {
   slabHeight: number;
   kerfWidth: number;
   allowRotation: boolean;
+  /** Slab edge allowance in mm — unusable material per side. Reduces usable area. */
+  edgeAllowanceMm?: number;
+  /** Kerf width (mm) for the MITRING machine — used for mitre strip width calculations.
+   *  Falls back to kerfWidth if not provided. */
+  mitreKerfWidth?: number;
+}
+
+// ── Multi-Material Optimisation Types ─────────────────────────────────────
+
+export interface MultiMaterialOptimisationResult {
+  materialGroups: MaterialGroupResult[];
+  totalSlabCount: number;
+  overallWastePercentage: number;
+  warnings?: string[];
+}
+
+export interface MaterialGroupResult {
+  materialId: string;
+  materialName: string;
+  slabDimensions: { length: number; width: number };
+  pieces: Array<{
+    pieceId: string;
+    label: string;
+    dimensions: { length: number; width: number };
+  }>;
+  slabCount: number;
+  wastePercentage: number;
+  slabLayouts: SlabResult[];
+  oversizePieces: OversizePieceInfo[];
+  /** Full OptimizationResult from the per-group FFD run */
+  optimizationResult: OptimizationResult;
+}
+
+export interface OversizePieceInfo {
+  pieceId: string;
+  label: string;
+  joinStrategy: 'LENGTHWISE' | 'WIDTHWISE' | 'MULTI_JOIN';
+  segments: Array<{ length: number; width: number }>;
+  suggestedJoinPosition_mm: number;
+}
+
+// ── Cutout display info for slab canvas overlay ────────────────────────────
+
+export interface SlabCutoutInfo {
+  typeName: string;
+  quantity: number;
+  width?: number;
+  height?: number;
 }
 
 // Re-export for convenience

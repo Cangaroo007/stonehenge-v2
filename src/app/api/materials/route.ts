@@ -1,10 +1,23 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const materials = await prisma.materials.findMany({
+      where: { company_id: companyId },
       orderBy: [{ collection: 'asc' }, { name: 'asc' }],
+      include: {
+        supplier: {
+          select: { id: true, name: true, default_margin_percent: true },
+        },
+      },
     });
     // Add camelCase aliases for client components
     const transformed = materials.map((m: any) => ({
@@ -25,11 +38,18 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const data = await request.json();
 
     const material = await prisma.materials.create({
       data: {
         name: data.name,
+        company_id: companyId,
         collection: data.collection || null,
         description: data.description || null,
         price_per_sqm: data.pricePerSqm,

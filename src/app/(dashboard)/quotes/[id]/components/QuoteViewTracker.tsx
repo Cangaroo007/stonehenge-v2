@@ -1,8 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { UserRole } from '@prisma/client';
-
 interface QuoteView {
   id: number;
   viewedAt: string;
@@ -12,30 +10,33 @@ interface QuoteView {
     id: number;
     email: string;
     name: string | null;
-    role: UserRole;
+    role: string;
   } | null;
 }
 
 interface QuoteViewTrackerProps {
   quoteId: number;
   showHistory?: boolean;
+  trackOnMount?: boolean;
 }
 
-export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteViewTrackerProps) {
+export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnMount = true }: QuoteViewTrackerProps) {
   const [views, setViews] = useState<QuoteView[]>([]);
   const [loading, setLoading] = useState(true);
   const [customerViews, setCustomerViews] = useState<QuoteView[]>([]);
   const [latestCustomerView, setLatestCustomerView] = useState<QuoteView | null>(null);
 
   useEffect(() => {
-    // Track this view
-    trackView();
+    // Track this view (can be disabled when tracking is handled at page level)
+    if (trackOnMount) {
+      trackView();
+    }
 
     // Load view history if requested
     if (showHistory) {
       loadViews();
     }
-  }, [quoteId, showHistory]);
+  }, [quoteId, showHistory, trackOnMount]);
 
   const trackView = async () => {
     try {
@@ -56,7 +57,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
         setViews(data);
 
         // Filter customer views
-        const custViews = data.filter((v: QuoteView) => v.user?.role === UserRole.CUSTOMER);
+        const custViews = data.filter((v: QuoteView) => v.user?.role === 'CUSTOMER');
         setCustomerViews(custViews);
         
         // Get latest customer view
@@ -101,7 +102,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
             </p>
             <p className="text-sm text-green-700 mt-1">
               {latestCustomerView.user?.name || latestCustomerView.user?.email} last viewed{' '}
-              {formatRelativeTime(new Date(latestCustomerView.viewedAt))}
+              {formatRelativeTime(safeParseDate(latestCustomerView.viewedAt))}
             </p>
           </div>
         </div>
@@ -135,7 +136,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
                 {views.map((view) => (
-                  <tr key={view.id} className={view.user?.role === UserRole.CUSTOMER ? 'bg-green-50/50' : ''}>
+                  <tr key={view.id} className={view.user?.role === 'CUSTOMER' ? 'bg-green-50/50' : ''}>
                     <td className="table-cell">
                       {view.user ? (
                         <div>
@@ -151,10 +152,10 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
                     <td className="table-cell">
                       {view.user ? (
                         <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                          view.user.role === UserRole.CUSTOMER ? 'bg-green-100 text-green-800' :
-                          view.user.role === UserRole.ADMIN ? 'bg-purple-100 text-purple-800' :
-                          view.user.role === UserRole.SALES_MANAGER ? 'bg-blue-100 text-blue-800' :
-                          view.user.role === UserRole.SALES_REP ? 'bg-indigo-100 text-indigo-800' :
+                          view.user.role === 'CUSTOMER' ? 'bg-green-100 text-green-800' :
+                          view.user.role === 'ADMIN' ? 'bg-purple-100 text-purple-800' :
+                          view.user.role === 'SALES_MANAGER' ? 'bg-blue-100 text-blue-800' :
+                          view.user.role === 'SALES_REP' ? 'bg-indigo-100 text-indigo-800' :
                           'bg-gray-100 text-gray-800'
                         }`}>
                           {view.user.role}
@@ -166,10 +167,10 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
                     <td className="table-cell">
                       <div>
                         <div className="text-sm text-gray-900">
-                          {formatRelativeTime(new Date(view.viewedAt))}
+                          {formatRelativeTime(safeParseDate(view.viewedAt))}
                         </div>
                         <div className="text-xs text-gray-500">
-                          {new Date(view.viewedAt).toLocaleString()}
+                          {formatDateAU(safeParseDate(view.viewedAt))}
                         </div>
                       </div>
                     </td>
@@ -195,8 +196,29 @@ export default function QuoteViewTracker({ quoteId, showHistory = true }: QuoteV
   );
 }
 
+// Safely parse a date value, returning null if invalid
+function safeParseDate(date: string | Date | null | undefined): Date | null {
+  if (!date) return null;
+  const d = new Date(date);
+  if (isNaN(d.getTime())) return null;
+  return d;
+}
+
+// Format date in Australian format (DD/MM/YYYY HH:MM)
+function formatDateAU(date: Date | null): string {
+  if (!date) return '—';
+  return date.toLocaleDateString('en-AU', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
 // Helper function to format relative time
-function formatRelativeTime(date: Date): string {
+function formatRelativeTime(date: Date | null): string {
+  if (!date) return '—';
   const now = new Date();
   const diffMs = now.getTime() - date.getTime();
   const diffSec = Math.floor(diffMs / 1000);
@@ -213,6 +235,6 @@ function formatRelativeTime(date: Date): string {
   } else if (diffDay < 7) {
     return `${diffDay} day${diffDay !== 1 ? 's' : ''} ago`;
   } else {
-    return date.toLocaleDateString();
+    return formatDateAU(date);
   }
 }

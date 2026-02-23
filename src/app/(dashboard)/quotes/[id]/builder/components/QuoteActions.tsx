@@ -2,17 +2,16 @@
 
 import { useState, useRef, useEffect } from 'react';
 import type { CalculationResult } from '@/lib/types/pricing';
-import { OptimizeModal } from './OptimizeModal';
 
 interface QuoteActionsProps {
   quoteId: string;
   quoteStatus: string;
   calculation: CalculationResult | null;
   onSave: () => Promise<void>;
-  onStatusChange?: (newStatus: string) => Promise<void>;
-  onOptimizationSaved?: () => void;
+  onStatusChange?: (newStatus: string, options?: { declinedReason?: string }) => Promise<void>;
+  onDuplicateQuote?: () => Promise<void>;
+  onPreviewPdf?: () => void;
   saving?: boolean;
-  kerfWidth?: number;
 }
 
 export default function QuoteActions({
@@ -21,14 +20,13 @@ export default function QuoteActions({
   calculation,
   onSave,
   onStatusChange,
-  onOptimizationSaved,
+  onDuplicateQuote,
+  onPreviewPdf,
   saving = false,
-  kerfWidth = 8,
 }: QuoteActionsProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isPreviewLoading, setIsPreviewLoading] = useState(false);
   const [isSending, setIsSending] = useState(false);
-  const [showOptimizer, setShowOptimizer] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   // Close menu when clicking outside
@@ -42,11 +40,14 @@ export default function QuoteActions({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Handle PDF preview
+  // Handle PDF preview — use readiness checker if available, else direct open
   const handlePreviewPdf = async () => {
+    if (onPreviewPdf) {
+      onPreviewPdf();
+      return;
+    }
     setIsPreviewLoading(true);
     try {
-      // Open PDF in new tab
       window.open(`/api/quotes/${quoteId}/pdf`, '_blank');
     } catch (error) {
       console.error('Error opening PDF:', error);
@@ -68,21 +69,26 @@ export default function QuoteActions({
 
   // Handle duplicate quote
   const handleDuplicateQuote = async () => {
-    try {
-      const response = await fetch(`/api/quotes/${quoteId}/duplicate`, {
-        method: 'POST',
-      });
+    if (onDuplicateQuote) {
+      await onDuplicateQuote();
+    } else {
+      try {
+        const response = await fetch(`/api/quotes/${quoteId}/duplicate`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to duplicate quote');
+        if (!response.ok) {
+          throw new Error('Failed to duplicate quote');
+        }
+
+        const newQuote = await response.json();
+        window.location.href = newQuote.redirectUrl || `/quotes/${newQuote.id}?mode=edit`;
+      } catch (error) {
+        console.error('Error duplicating quote:', error);
+        alert('Failed to duplicate quote. Please try again.');
       }
-
-      const newQuote = await response.json();
-      // Navigate to the new quote
-      window.location.href = `/quotes/${newQuote.id}/builder`;
-    } catch (error) {
-      console.error('Error duplicating quote:', error);
-      alert('Failed to duplicate quote. Please try again.');
     }
     setIsMenuOpen(false);
   };
@@ -175,18 +181,6 @@ export default function QuoteActions({
             Preview PDF
           </>
         )}
-      </button>
-
-      {/* Optimize Slabs Button */}
-      <button
-        onClick={() => setShowOptimizer(true)}
-        className="btn-secondary flex items-center gap-2"
-      >
-        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-        </svg>
-        Optimise Slabs
       </button>
 
       {/* Send to Customer Button */}
@@ -288,19 +282,6 @@ export default function QuoteActions({
             )}
           </p>
         </div>
-      )}
-
-      {/* Slab Optimiser Modal */}
-      {showOptimizer && (
-        <OptimizeModal
-          quoteId={quoteId}
-          onClose={() => setShowOptimizer(false)}
-          onSaved={() => {
-            setShowOptimizer(false);
-            onOptimizationSaved?.(); // Trigger refresh of OptimizationDisplay
-          }}
-          defaultKerfWidth={kerfWidth}
-        />
       )}
     </div>
   );

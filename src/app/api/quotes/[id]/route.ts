@@ -59,6 +59,7 @@ interface CalculationData {
 
 interface QuoteUpdateData {
   customerId?: number | null;
+  contactId?: number | string | null;
   projectName?: string | null;
   projectAddress?: string | null;
   status?: string;
@@ -82,6 +83,10 @@ interface QuoteUpdateData {
   templatingDistanceKm?: number | null;
   templatingCost?: number | null;
   overrideTemplatingCost?: number | null;
+  // Quote-level discount
+  discount_type?: string | null;
+  discount_value?: number | null;
+  discount_applies_to?: string | null;
 }
 
 export async function GET(
@@ -89,6 +94,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
     const quote = await prisma.quotes.findUnique({
       where: { id: parseInt(id) },
@@ -97,6 +108,19 @@ export async function GET(
           include: {
             client_types: true,
             client_tiers: true,
+          },
+        },
+        contact: {
+          select: {
+            id: true,
+            first_name: true,
+            last_name: true,
+            email: true,
+            phone: true,
+            mobile: true,
+            role: true,
+            role_title: true,
+            is_primary: true,
           },
         },
         price_books: true,
@@ -109,16 +133,21 @@ export async function GET(
               include: {
                 piece_features: true,
                 materials: true,
+                sourceRelationships: true,
+                targetRelationships: true,
               },
             },
           },
         },
         quote_files: true,
         quote_drawing_analyses: true,
+        custom_charges: {
+          orderBy: { sort_order: 'asc' },
+        },
       },
     });
 
-    if (!quote) {
+    if (!quote || quote.company_id !== companyId) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
@@ -134,18 +163,25 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+    const userId = auth.user.id;
+
     const { id } = await params;
     const quoteId = parseInt(id);
     const data: QuoteUpdateData = await request.json();
 
-    // Get user ID for version tracking
-    let userId = 1; // fallback
-    try {
-      const authResult = await requireAuth();
-      if (!('error' in authResult)) {
-        userId = authResult.user.id;
-      }
-    } catch { /* use fallback */ }
+    // Verify quote belongs to the user's company
+    const existingQuote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
+      select: { company_id: true },
+    });
+    if (!existingQuote || existingQuote.company_id !== companyId) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
 
     // Take snapshot before any changes for version diff
     let previousSnapshot;
@@ -220,6 +256,7 @@ export async function PUT(
       const updateFields: Record<string, unknown> = {};
       if (data.status !== undefined) updateFields.status = data.status;
       if (data.customerId !== undefined) updateFields.customer_id = data.customerId;
+      if (data.contactId !== undefined) updateFields.contact_id = data.contactId ? parseInt(String(data.contactId)) : null;
       if (data.projectName !== undefined) updateFields.project_name = data.projectName;
       if (data.projectAddress !== undefined) updateFields.project_address = data.projectAddress;
       if (data.notes !== undefined) updateFields.notes = data.notes;
@@ -232,6 +269,10 @@ export async function PUT(
       if (data.templatingDistanceKm !== undefined) updateFields.templatingDistanceKm = data.templatingDistanceKm;
       if (data.templatingCost !== undefined) updateFields.templatingCost = data.templatingCost;
       if (data.overrideTemplatingCost !== undefined) updateFields.overrideTemplatingCost = data.overrideTemplatingCost;
+      // Quote-level discount fields
+      if (data.discount_type !== undefined) updateFields.discount_type = data.discount_type;
+      if (data.discount_value !== undefined) updateFields.discount_value = data.discount_value;
+      if (data.discount_applies_to !== undefined) updateFields.discount_applies_to = data.discount_applies_to;
 
       if (Object.keys(updateFields).length === 0) {
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
@@ -297,6 +338,7 @@ export async function PUT(
         where: { id: quoteId },
         data: {
           customer_id: data.customerId,
+          ...(data.contactId !== undefined && { contact_id: data.contactId ? parseInt(String(data.contactId)) : null }),
           project_name: data.projectName,
           project_address: data.projectAddress,
           status: data.status,
@@ -398,10 +440,19 @@ function transformQuoteForClient(quote: any) {
     ...quote,
     // Add camelCase aliases for relations
     customer: quote.customers || null,
+    contact: quote.contact || null,
     rooms: (quote.quote_rooms || []).map((room: any) => ({
       ...room,
       sortOrder: room.sort_order,
       pieces: (room.quote_pieces || []).map((piece: any) => transformPieceForClient(piece)),
+    })),
+    // Custom charges and discount
+    customCharges: (quote.custom_charges || []).map((c: any) => ({
+      id: c.id,
+      quoteId: c.quote_id,
+      description: c.description,
+      amount: Number(c.amount),
+      sortOrder: c.sort_order,
     })),
   };
 }
@@ -411,9 +462,26 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const quoteId = parseInt(id);
+
+    // Verify quote belongs to the user's company before deleting
+    const existingQuote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
+      select: { company_id: true },
+    });
+    if (!existingQuote || existingQuote.company_id !== companyId) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
     await prisma.quotes.delete({
-      where: { id: parseInt(id) },
+      where: { id: quoteId },
     });
 
     return NextResponse.json({ success: true });

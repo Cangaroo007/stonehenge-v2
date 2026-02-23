@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { FabricationCategory } from '@prisma/client';
+import { requireAuth } from '@/lib/auth';
 
 // GET /api/pricing/cutout-category-rates
 // Returns all cutout category rates grouped by cutout type.
@@ -96,8 +97,14 @@ export async function PUT(request: NextRequest) {
       }
     }
 
-    // Get pricing settings (single-tenant)
-    const pricingSettings = await prisma.pricing_settings.findFirst();
+    // Get pricing settings (company-scoped)
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const pricingSettings = await prisma.pricing_settings.findUnique({
+      where: { organisation_id: `company-${auth.user.companyId}` },
+    });
     if (!pricingSettings) {
       return NextResponse.json(
         { error: 'No pricing settings found. Configure pricing settings first.' },

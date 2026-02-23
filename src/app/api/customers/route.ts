@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import bcrypt from 'bcryptjs';
 import { UserRole, CustomerUserRole } from '@prisma/client';
+import { requireAuth } from '@/lib/auth';
 
 /**
  * Generate a random temporary password
@@ -17,7 +18,14 @@ function generateTempPassword(): string {
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const customers = await prisma.customers.findMany({
+      where: { company_id: companyId },
       orderBy: { name: 'asc' },
       include: {
         client_types: true,
@@ -34,6 +42,12 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const data = await request.json();
 
     // Validate email if creating portal user
@@ -63,6 +77,7 @@ export async function POST(request: NextRequest) {
       const customer = await tx.customers.create({
         data: {
           name: data.name,
+          company_id: companyId,
           company: data.company || null,
           email: data.email || null,
           phone: data.phone || null,

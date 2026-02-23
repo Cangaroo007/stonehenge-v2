@@ -108,4 +108,51 @@
     max-height: none !important;
     overflow: visible !important;
   }
+
+  /* ================================
+     FULL JOB VIEW PRINT STYLES
+     ================================ */
+
+  /* Hide header bar (back button, print button) */
+  .no-print {
+    display: none !important;
+  }
+
+  /* Full-width diagrams for print */
+  .job-view-page svg {
+    max-width: 100% !important;
+    width: 100% !important;
+  }
+
+  /* Max-width container should fill page */
+  .max-w-6xl {
+    max-width: 100% !important;
+  }
+
+  /* Page breaks between rooms */
+  .room-section {
+    page-break-before: auto;
+  }
+
+  /* Avoid breaking group cards across pages */
+  .piece-group-card {
+    page-break-inside: avoid;
+    border: 1px solid #ccc !important;
+    box-shadow: none !important;
+  }
+
+  /* Clean background for group cards */
+  .piece-group-card .bg-zinc-50 {
+    background: #f9fafb !important;
+  }
+
+  /* Ensure costs are bold in print */
+  .cost-summary {
+    font-weight: bold !important;
+  }
+
+  /* Job summary should start on its own section */
+  .job-summary {
+    page-break-before: auto;
+  }
 }

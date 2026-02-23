@@ -372,12 +372,8 @@ export default function PieceList({
                   : 'hover:bg-gray-50'
               }`}
             >
-              <td className="px-4 py-3 whitespace-nowrap text-sm text-gray-500">
-                <span className={`inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium ${
-                  selectedPieceId === piece.id
-                    ? 'bg-primary-600 text-white'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
+              <td className="px-4 py-3 whitespace-nowrap">
+                <span className="inline-flex items-center justify-center w-10 h-10 rounded-lg bg-gray-900 text-white font-bold text-lg">
                   {index + 1}
                 </span>
               </td>

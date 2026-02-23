@@ -1,11 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyCustomerOwnership } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
     const customer = await prisma.customers.findUnique({
       where: { id: parseInt(id) },
@@ -22,7 +29,7 @@ export async function GET(
       },
     });
 
-    if (!customer) {
+    if (!customer || customer.company_id !== companyId) {
       return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
     }
 
@@ -38,11 +45,25 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const customerId = parseInt(id);
+
+    // Verify customer belongs to user's company
+    const ownerCheck = await verifyCustomerOwnership(customerId, companyId);
+    if (!ownerCheck) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
     const data = await request.json();
 
     const customer = await prisma.customers.update({
-      where: { id: parseInt(id) },
+      where: { id: customerId },
       data: {
         name: data.name,
         company: data.company || null,
@@ -73,9 +94,23 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+    const { companyId } = auth.user;
+
     const { id } = await params;
+    const customerId = parseInt(id);
+
+    // Verify customer belongs to user's company
+    const ownerCheck = await verifyCustomerOwnership(customerId, companyId);
+    if (!ownerCheck) {
+      return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+    }
+
     await prisma.customers.delete({
-      where: { id: parseInt(id) },
+      where: { id: customerId },
     });
 
     return NextResponse.json({ success: true });

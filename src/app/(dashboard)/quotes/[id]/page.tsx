@@ -11,6 +11,19 @@ async function getQuote(id: number) {
     where: { id },
     include: {
       customers: true,
+      contact: {
+        select: {
+          id: true,
+          first_name: true,
+          last_name: true,
+          email: true,
+          phone: true,
+          mobile: true,
+          role: true,
+          role_title: true,
+          is_primary: true,
+        },
+      },
       quote_rooms: {
         orderBy: { sort_order: 'asc' },
         include: {
@@ -19,6 +32,8 @@ async function getQuote(id: number) {
             include: {
               piece_features: true,
               materials: true,
+              sourceRelationships: true,
+              targetRelationships: true,
             },
           },
         },
@@ -78,9 +93,23 @@ export default async function QuoteDetailPage({
           company: quote.customers.company,
         }
       : null,
+    contact: quote.contact
+      ? {
+          id: quote.contact.id,
+          first_name: quote.contact.first_name,
+          last_name: quote.contact.last_name,
+          email: quote.contact.email,
+          phone: quote.contact.phone,
+          mobile: quote.contact.mobile,
+          role: quote.contact.role,
+          role_title: quote.contact.role_title,
+          is_primary: quote.contact.is_primary,
+        }
+      : null,
     quote_rooms: quote.quote_rooms.map((room) => ({
       id: room.id,
       name: room.name,
+      notes: room.notes,
       quote_pieces: room.quote_pieces.map((piece) => ({
         id: piece.id,
         description: piece.description,
@@ -89,16 +118,37 @@ export default async function QuoteDetailPage({
         width_mm: piece.width_mm,
         thickness_mm: piece.thickness_mm,
         area_sqm: Number(piece.area_sqm),
+        material_id: piece.material_id,
         material_name: piece.material_name,
         material_cost: Number(piece.material_cost),
         features_cost: Number(piece.features_cost),
         total_cost: Number(piece.total_cost),
+        edge_top: piece.edge_top,
+        edge_bottom: piece.edge_bottom,
+        edge_left: piece.edge_left,
+        edge_right: piece.edge_right,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,
           quantity: f.quantity,
         })),
         materials: piece.materials ? { name: piece.materials.name } : null,
+        sourceRelationships: ((piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relationship_type: string; relation_type: string; side: string | null }> }).sourceRelationships ?? []).map((rel) => ({
+          id: rel.id,
+          source_piece_id: rel.source_piece_id,
+          target_piece_id: rel.target_piece_id,
+          relationship_type: rel.relationship_type,
+          relation_type: rel.relation_type,
+          side: rel.side,
+        })),
+        targetRelationships: ((piece as { targetRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relationship_type: string; relation_type: string; side: string | null }> }).targetRelationships ?? []).map((rel) => ({
+          id: rel.id,
+          source_piece_id: rel.source_piece_id,
+          target_piece_id: rel.target_piece_id,
+          relationship_type: rel.relationship_type,
+          relation_type: rel.relation_type,
+          side: rel.side,
+        })),
       })),
     })),
     quote_drawing_analyses: quote.quote_drawing_analyses

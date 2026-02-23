@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
 // GET - List all pieces for a quote
 export async function GET(
@@ -7,11 +8,22 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     // Get all rooms with their pieces
@@ -23,6 +35,8 @@ export async function GET(
           orderBy: { sort_order: 'asc' },
           include: {
             materials: true,
+            sourceRelationships: true,
+            targetRelationships: true,
           },
         },
       },
@@ -65,11 +79,22 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const quoteId = parseInt(id);
 
     if (isNaN(quoteId)) {
       return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    // Verify quote belongs to user's company
+    const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
+    if (!quoteCheck) {
+      return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
     const data = await request.json();
@@ -143,7 +168,9 @@ export async function POST(
         ));
 
         if (edgeIds.length > 0) {
-          const pricingSettings = await prisma.pricing_settings.findFirst();
+          const pricingSettings = await prisma.pricing_settings.findUnique({
+            where: { organisation_id: `company-${auth.user.companyId}` },
+          });
           if (pricingSettings) {
             const compatibilityRules = await prisma.material_edge_compatibility.findMany({
               where: {

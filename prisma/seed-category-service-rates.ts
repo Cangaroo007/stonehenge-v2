@@ -33,13 +33,13 @@ const CATEGORY_LABELS: Record<FabricationCategory, string> = {
 };
 
 async function main() {
-  // Find pricing settings (org '1')
+  // Find pricing settings (company-1)
   const settings = await prisma.pricing_settings.findFirst({
-    where: { organisation_id: '1' },
+    where: { organisation_id: 'company-1' },
   });
 
   if (!settings) {
-    console.error('No pricing settings found for organisation "1". Run seed-pricing-settings.ts first.');
+    console.error('No pricing settings found for organisation "company-1". Run seed-pricing-settings.ts first.');
     process.exit(1);
   }
 

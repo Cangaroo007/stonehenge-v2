@@ -9,7 +9,7 @@ import Anthropic from '@anthropic-ai/sdk';
 import { getRegisterParserPrompt } from '@/lib/prompts/register-parser';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
 
 export interface ParsedUnit {
   unitNumber: string;

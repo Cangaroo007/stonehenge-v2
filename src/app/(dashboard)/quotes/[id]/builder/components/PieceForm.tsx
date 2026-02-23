@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useUnits } from '@/lib/contexts/UnitContext';
 import { getDimensionUnitLabel, formatAreaFromSqm } from '@/lib/utils/units';
-import EdgeSelector from './EdgeSelector';
+import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import CutoutSelector, { PieceCutout, CutoutType } from './CutoutSelector';
 
 interface MachineOption {
@@ -454,22 +454,43 @@ export default function PieceForm({
         </div>
       )}
 
-      {/* Edge Selector */}
+      {/* Edge Profiles — PieceVisualEditor SVG (Rule 44: no banned edge components) */}
       {lengthMm && widthMm && parseInt(lengthMm) > 0 && parseInt(widthMm) > 0 && (
-        <div
-          className="relative"
-          style={{ zIndex: 100, isolation: 'isolate' }}
-          onClick={(e) => e.stopPropagation()}
-          onMouseDown={(e) => e.stopPropagation()}
-        >
-          <EdgeSelector
-            lengthMm={parseInt(lengthMm)}
-            widthMm={parseInt(widthMm)}
-            edgeSelections={edgeSelections}
-            edgeTypes={edgeTypes}
-            onChange={setEdgeSelections}
-          />
-        </div>
+        <PieceVisualEditor
+          lengthMm={parseInt(lengthMm)}
+          widthMm={parseInt(widthMm)}
+          edgeTop={edgeSelections.edgeTop}
+          edgeBottom={edgeSelections.edgeBottom}
+          edgeLeft={edgeSelections.edgeLeft}
+          edgeRight={edgeSelections.edgeRight}
+          edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
+          cutouts={cutouts.map((c, idx) => {
+            const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
+            return {
+              id: c.id || `cutout_${idx}`,
+              typeId: c.cutoutTypeId,
+              typeName: ct?.name || 'Unknown',
+              quantity: c.quantity,
+            };
+          })}
+          isEditMode={true}
+          onEdgeChange={(side, profileId) => {
+            const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
+            setEdgeSelections(prev => ({ ...prev, [keyMap[side]]: profileId }));
+          }}
+          onCutoutAdd={(cutoutTypeId: string) => {
+            const newCutout: PieceCutout = {
+              id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              cutoutTypeId,
+              quantity: 1,
+            };
+            setCutouts(prev => [...prev, newCutout]);
+          }}
+          onCutoutRemove={(cutoutId: string) => {
+            setCutouts(prev => prev.filter(c => c.id !== cutoutId));
+          }}
+          cutoutTypes={cutoutTypes.filter(t => t.isActive).map(t => ({ id: t.id, name: t.name, baseRate: Number(t.baseRate) }))}
+        />
       )}
 
       {/* Mitre Lamination Strip Auto-Calculation */}

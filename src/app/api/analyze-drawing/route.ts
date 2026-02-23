@@ -3,9 +3,13 @@ import Anthropic from '@anthropic-ai/sdk';
 import sharp from 'sharp';
 import { logger } from '@/lib/logger';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+function getAnthropicClient(): Anthropic {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+  }
+  return new Anthropic({ apiKey });
+}
 
 // Anthropic's image size limit is 5MB, PDF limit is 32MB
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024; // 5MB in bytes
@@ -195,9 +199,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Call Claude API
+    const anthropic = getAnthropicClient();
     logger.info('[Analyze] Calling Claude API...');
     const response = await anthropic.messages.create({
-      model: 'claude-sonnet-4-5-20250929',
+      model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [

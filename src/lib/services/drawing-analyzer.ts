@@ -9,6 +9,10 @@ import {
   EdgeDetectionResult,
   ExtractedPiece,
 } from '@/lib/types/drawing-analysis';
+import type {
+  DrawingAnalysisResultV2,
+  ExtractedRoomV2,
+} from '@/lib/types/drawing-analysis';
 import { detectEdgesForAllPieces, getEdgesNeedingReview } from './edge-detector';
 import {
   CLASSIFICATION_SYSTEM_PROMPT,
@@ -26,11 +30,27 @@ import {
   CAD_EXTRACTION_SYSTEM_PROMPT,
   CAD_EXTRACTION_USER_PROMPT,
 } from '@/lib/prompts/extraction-cad';
+import {
+  JOB_SHEET_EXTRACTION_V2_SYSTEM_PROMPT,
+  JOB_SHEET_EXTRACTION_V2_USER_PROMPT,
+} from '@/lib/prompts/extraction-job-sheet-v2';
+import {
+  HAND_DRAWN_EXTRACTION_V2_SYSTEM_PROMPT,
+  HAND_DRAWN_EXTRACTION_V2_USER_PROMPT,
+} from '@/lib/prompts/extraction-hand-drawn-v2';
+import {
+  CAD_EXTRACTION_V2_SYSTEM_PROMPT,
+  CAD_EXTRACTION_V2_USER_PROMPT,
+} from '@/lib/prompts/extraction-cad-v2';
 import { extractElevationAreas } from './spatial-extractor';
 import { calculateElevationDeductions } from './cutout-deductor';
+import { mapV2ToV1 } from './extraction-mapper';
 
 const anthropic = new Anthropic();
-const MODEL = 'claude-sonnet-4-5-20250929';
+const MODEL = 'claude-sonnet-4-20250514';
+
+// Feature flag: set to false to revert to v1 extraction prompts
+const USE_V2_EXTRACTION = true;
 
 /**
  * Stage 1: Classify the document type
@@ -145,6 +165,138 @@ export async function extractPieces(
     console.error('Failed to parse extraction response:', text);
     return [];
   }
+}
+
+function getV2ExtractionPrompts(category: DocumentCategory): { system: string; user: string } {
+  switch (category) {
+    case 'JOB_SHEET':
+      return {
+        system: JOB_SHEET_EXTRACTION_V2_SYSTEM_PROMPT,
+        user: JOB_SHEET_EXTRACTION_V2_USER_PROMPT,
+      };
+    case 'HAND_DRAWN':
+      return {
+        system: HAND_DRAWN_EXTRACTION_V2_SYSTEM_PROMPT,
+        user: HAND_DRAWN_EXTRACTION_V2_USER_PROMPT,
+      };
+    case 'CAD_DRAWING':
+      return {
+        system: CAD_EXTRACTION_V2_SYSTEM_PROMPT,
+        user: CAD_EXTRACTION_V2_USER_PROMPT,
+      };
+    default:
+      return {
+        system: JOB_SHEET_EXTRACTION_V2_SYSTEM_PROMPT,
+        user: JOB_SHEET_EXTRACTION_V2_USER_PROMPT,
+      };
+  }
+}
+
+/**
+ * Stage 2 (V2): Extract pieces using uncertainty-first prompts.
+ * Returns a DrawingAnalysisResultV2 with per-field confidence.
+ */
+async function extractWithV2Prompt(
+  imageBase64: string,
+  mimeType: string,
+  category: DocumentCategory,
+  categoryConfidence: number
+): Promise<DrawingAnalysisResult> {
+  const prompts = getV2ExtractionPrompts(category);
+
+  const response = await anthropic.messages.create({
+    model: MODEL,
+    max_tokens: 8000,
+    system: prompts.system,
+    messages: [{
+      role: 'user',
+      content: [
+        {
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: mimeType as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif',
+            data: imageBase64,
+          },
+        },
+        { type: 'text', text: prompts.user },
+      ],
+    }],
+  });
+
+  const text = response.content[0].type === 'text' ? response.content[0].text : '';
+  const jsonStr = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+
+  try {
+    const rooms: ExtractedRoomV2[] = JSON.parse(jsonStr);
+
+    // Build the v2 result
+    const v2Result: DrawingAnalysisResultV2 = {
+      documentCategory: category,
+      categoryConfidence,
+      rooms,
+      overallConfidence: calculateV2OverallConfidence(rooms),
+      summaryNotes: [],
+      uncertainties: [],
+    };
+
+    // Collect uncertainties from pieces with LOW confidence fields
+    for (let roomIdx = 0; roomIdx < rooms.length; roomIdx++) {
+      const room = rooms[roomIdx];
+      for (let pieceIdx = 0; pieceIdx < room.pieces.length; pieceIdx++) {
+        const piece = room.pieces[pieceIdx];
+
+        if (piece.length_mm.confidence === 'LOW') {
+          v2Result.uncertainties.push({
+            pieceIndex: pieceIdx,
+            field: 'length_mm',
+            issue: piece.length_mm.note || 'Length could not be determined',
+            suggestion: piece.length_mm.value !== null ? `Appears to be ${piece.length_mm.value}mm` : undefined,
+          });
+        }
+        if (piece.width_mm.confidence === 'LOW') {
+          v2Result.uncertainties.push({
+            pieceIndex: pieceIdx,
+            field: 'width_mm',
+            issue: piece.width_mm.note || 'Width could not be determined',
+            suggestion: piece.width_mm.value !== null ? `Appears to be ${piece.width_mm.value}mm` : undefined,
+          });
+        }
+
+        // Collect meaningful extraction notes as summary notes
+        for (const note of piece.extractionNotes) {
+          v2Result.summaryNotes.push(`${piece.name.value}: ${note}`);
+        }
+      }
+    }
+
+    // Convert v2 to v1 for backwards compatibility
+    return mapV2ToV1(v2Result);
+  } catch (error) {
+    console.error('Failed to parse v2 extraction response, falling back to v1:', text);
+    // Fall back to v1 extraction if v2 parsing fails
+    return extractWithV1Prompt(imageBase64, mimeType, category, categoryConfidence);
+  }
+}
+
+function calculateV2OverallConfidence(rooms: ExtractedRoomV2[]): 'HIGH' | 'MEDIUM' | 'LOW' {
+  if (rooms.length === 0) return 'LOW';
+
+  const pieceConfidences: string[] = [];
+  for (const room of rooms) {
+    for (const piece of room.pieces) {
+      pieceConfidences.push(piece.overallConfidence);
+    }
+  }
+
+  if (pieceConfidences.length === 0) return 'LOW';
+
+  const lowCount = pieceConfidences.filter(c => c === 'LOW').length;
+  const highCount = pieceConfidences.filter(c => c === 'HIGH').length;
+
+  if (lowCount > pieceConfidences.length / 2) return 'LOW';
+  if (highCount > pieceConfidences.length / 2) return 'HIGH';
+  return 'MEDIUM';
 }
 
 function calculateOverallConfidence(pieces: ExtractedPiece[]): ConfidenceLevel {
@@ -295,11 +447,29 @@ export async function analyzeDrawing(
     };
   }
 
+  // Branch: use v2 uncertainty-first extraction or v1 legacy extraction
+  if (USE_V2_EXTRACTION) {
+    return extractWithV2Prompt(imageBase64, mimeType, classification.category, classification.confidence);
+  } else {
+    return extractWithV1Prompt(imageBase64, mimeType, classification.category, classification.confidence);
+  }
+}
+
+/**
+ * V1 extraction path — original pipeline with edge detection and clarification generation.
+ * Preserved for feature flag revert capability.
+ */
+async function extractWithV1Prompt(
+  imageBase64: string,
+  mimeType: string,
+  category: DocumentCategory,
+  categoryConfidence: number
+): Promise<DrawingAnalysisResult> {
   // Stage 2: Extract pieces based on category
-  const pieces = await extractPieces(imageBase64, mimeType, classification.category);
+  const pieces = await extractPieces(imageBase64, mimeType, category);
 
   // Stage 2.5: Run edge detection on extracted pieces
-  const edgeResults = detectEdgesForAllPieces(pieces, classification.category);
+  const edgeResults = detectEdgesForAllPieces(pieces, category);
 
   // Merge detected edges back into pieces (overwrite the raw extraction edges)
   for (const result of edgeResults) {
@@ -337,8 +507,8 @@ export async function analyzeDrawing(
   const overallConfidence = calculateOverallConfidence(pieces);
 
   return {
-    documentCategory: classification.category,
-    categoryConfidence: classification.confidence,
+    documentCategory: category,
+    categoryConfidence,
     pieces,
     clarificationQuestions,
     overallConfidence,
