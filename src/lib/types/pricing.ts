@@ -279,6 +279,10 @@ export interface PiecePricingBreakdown {
     discount: number;
     total: number;
     discountPercentage: number;
+    pricingBasis?: 'PER_SLAB' | 'PER_SQUARE_METRE';
+    slabCount?: number;
+    pricePerSlab?: number;
+    pricePerSqm?: number;
   };
 
   pieceTotal: number;

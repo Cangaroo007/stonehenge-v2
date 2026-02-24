@@ -930,6 +930,24 @@ export default function QuickViewPieceRow({
           {breakdown && (
             <div className="px-4 pb-4 pt-3 space-y-1.5">
               <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cost Breakdown</p>
+              {/* Material cost — first line item */}
+              {breakdown.materials && breakdown.materials.total > 0 && (
+                <>
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Material</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-400">
+                        {breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
+                          ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} \u00D7 ${formatCurrency(breakdown.materials.pricePerSlab)}`
+                          : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
+                        }
+                      </span>
+                      <span className="font-medium tabular-nums">{formatCurrency(breakdown.materials.total)}</span>
+                    </div>
+                  </div>
+                  <div className="border-t border-gray-100 my-0.5" />
+                </>
+              )}
               {breakdown.fabrication.cutting.total > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span>Cutting</span>
@@ -978,6 +996,25 @@ export default function QuickViewPieceRow({
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span>Installation</span>
                   <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.installation.total)}</span>
+                </div>
+              )}
+              {/* Oversize: Join */}
+              {breakdown.oversize?.isOversize && breakdown.oversize.joinCost > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>Join ({breakdown.oversize.joinCount} join{breakdown.oversize.joinCount !== 1 ? 's' : ''})</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400">
+                      {breakdown.oversize.joinLengthLm.toFixed(2)} Lm &times; {formatCurrency(breakdown.oversize.joinRate)}
+                    </span>
+                    <span className="font-medium tabular-nums">{formatCurrency(breakdown.oversize.joinCost)}</span>
+                  </div>
+                </div>
+              )}
+              {/* Oversize: Grain Matching Surcharge */}
+              {breakdown.oversize?.isOversize && breakdown.oversize.grainMatchingSurcharge > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>Grain Matching Surcharge ({(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%)</span>
+                  <span className="font-medium tabular-nums">{formatCurrency(breakdown.oversize.grainMatchingSurcharge)}</span>
                 </div>
               )}
               <div className="flex items-center justify-between text-xs font-semibold text-gray-900 pt-1 border-t border-gray-100">

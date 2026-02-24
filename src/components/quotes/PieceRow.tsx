@@ -971,6 +971,26 @@ export default function PieceRow({
       {/* ── Level 1: Cost Breakdown ── */}
       {l1Expanded && breakdown && (
         <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-1.5">
+          {/* Material cost — first line item */}
+          {breakdown.materials && breakdown.materials.total > 0 && (
+            <>
+              <CostLine
+                label="Material"
+                formula={
+                  breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
+                    ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} x ${formatCurrency(breakdown.materials.pricePerSlab)} = ${formatCurrency(breakdown.materials.total)}`
+                    : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 x ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2 = ${formatCurrency(breakdown.materials.total)}`
+                }
+                total={breakdown.materials.total}
+                machines={machines}
+                machineOperationDefaults={machineOperationDefaults}
+                mode={mode}
+                pieceId={piece.id}
+                onMachineChange={onMachineChange}
+              />
+              <div className="border-t border-gray-100 my-0.5" />
+            </>
+          )}
           {/* Cutting */}
           {breakdown.fabrication.cutting.total > 0 && (
           <CostLine
@@ -1099,9 +1119,9 @@ export default function PieceRow({
             </div>
           )}
 
-          {/* Fabrication total */}
+          {/* Piece total */}
           <div className="flex justify-between items-center pt-2 mt-1 border-t border-gray-200 text-xs font-bold text-gray-800">
-            <span>Fabrication Total</span>
+            <span>Piece Total</span>
             <span className="tabular-nums">{formatCurrency(breakdown.pieceTotal)}</span>
           </div>
         </div>

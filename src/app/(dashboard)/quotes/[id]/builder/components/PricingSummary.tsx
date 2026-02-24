@@ -659,6 +659,22 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
 
       {expanded && (
         <div className="mt-2 ml-5 space-y-1 text-xs">
+          {/* Material cost — first line item */}
+          {piece.materials && piece.materials.total > 0 && (
+            <>
+              <div className="flex justify-between text-gray-600">
+                <span>
+                  Material
+                  {piece.materials.pricingBasis === 'PER_SLAB' && piece.materials.slabCount != null && piece.materials.pricePerSlab != null
+                    ? ` (${piece.materials.slabCount} slab${piece.materials.slabCount !== 1 ? 's' : ''} × ${formatCurrency(piece.materials.pricePerSlab)})`
+                    : ` (${piece.materials.areaM2.toFixed(4)} m\u00B2 × ${formatCurrency(piece.materials.pricePerSqm ?? piece.materials.baseRate)}/m\u00B2)`
+                  }:
+                </span>
+                <span>{formatCurrency(piece.materials.total)}</span>
+              </div>
+              <div className="border-t border-gray-100 my-0.5" />
+            </>
+          )}
           {/* Cutting */}
           {piece.fabrication.cutting && piece.fabrication.cutting.baseAmount > 0 && (
             <div className="flex justify-between text-gray-600">
@@ -747,9 +763,9 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
             </div>
           )}
 
-          {/* Fabrication total */}
+          {/* Piece total */}
           <div className="flex justify-between font-bold text-gray-800 pt-1 border-t border-gray-200">
-            <span>Fabrication Total:</span>
+            <span>Piece Total:</span>
             <span>{formatCurrency(piece.pieceTotal)}</span>
           </div>
         </div>
