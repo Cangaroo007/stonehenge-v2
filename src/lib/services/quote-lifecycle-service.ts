@@ -374,6 +374,7 @@ export async function duplicateQuote(
             isOversize: piece.isOversize,
             joinCount: piece.joinCount,
             joinLengthMm: piece.joinLengthMm,
+            requiresGrainMatch: piece.requiresGrainMatch,
             waterfall_height_mm: piece.waterfall_height_mm,
           },
         });
