@@ -9,6 +9,7 @@
 import prisma from '@/lib/db';
 import { edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -249,7 +250,15 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
   });
 
   // 4. Parse calculation breakdown for per-piece pricing
-  const calcBreakdown = quote.calculation_breakdown as unknown as CalculationResult | null;
+  let calcBreakdown = quote.calculation_breakdown as unknown as CalculationResult | null;
+  // Fallback: if no stored breakdown, run calculate live so PDF always has correct data
+  if (!calcBreakdown?.breakdown?.pieces) {
+    try {
+      calcBreakdown = await calculateQuotePrice(quoteId);
+    } catch (e) {
+      console.error('[pdf-service] Failed to run fallback calculate:', e);
+    }
+  }
   const pieceBreakdownMap = new Map<number, PiecePricingBreakdown>();
   if (calcBreakdown?.breakdown?.pieces) {
     for (const pb of calcBreakdown.breakdown.pieces) {
