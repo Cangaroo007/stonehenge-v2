@@ -449,6 +449,15 @@ export async function POST(
       );
       await persistOversizeToQuotePieces(quoteId, allPieceRowsMulti, slabWidth, slabHeight);
 
+      // Persist total slab count to quote record
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: {
+          optimizer_slab_count: multiResult.totalSlabCount,
+          optimizer_run_at: new Date(),
+        },
+      });
+
       return NextResponse.json({
         optimization,
         result: {
@@ -554,6 +563,15 @@ export async function POST(
         }))
     );
     await persistOversizeToQuotePieces(quoteId, allPieceRows, slabWidth, slabHeight);
+
+    // Persist total slab count to quote record
+    await prisma.quotes.update({
+      where: { id: quoteId },
+      data: {
+        optimizer_slab_count: result.totalSlabs,
+        optimizer_run_at: new Date(),
+      },
+    });
 
     return NextResponse.json({
       optimization,

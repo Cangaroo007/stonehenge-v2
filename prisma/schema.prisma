@@ -664,6 +664,10 @@ model quotes {
   discount_value      Decimal?  @db.Decimal(10, 2)
   discount_applies_to String?   @default("ALL")
 
+  // Optimizer tracking
+  optimizer_slab_count Int?
+  optimizer_run_at     DateTime?
+
   // Relation
   custom_charges      quote_custom_charges[]
 
