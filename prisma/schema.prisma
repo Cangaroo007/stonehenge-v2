@@ -519,7 +519,7 @@ model quote_pieces {
   length_mm         Int
   width_mm          Int
   thickness_mm      Int
-  area_sqm          Decimal          @db.Decimal(10, 4)
+  area_sqm          Decimal          @default(0) @db.Decimal(10, 4)
   material_cost     Decimal          @default(0) @db.Decimal(10, 2)
   features_cost     Decimal          @default(0) @db.Decimal(10, 2)
   total_cost        Decimal          @default(0) @db.Decimal(10, 2)
