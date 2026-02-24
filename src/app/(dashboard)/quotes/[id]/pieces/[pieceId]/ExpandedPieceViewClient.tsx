@@ -678,6 +678,21 @@ export default function ExpandedPieceViewClient({
               Cost Breakdown
             </h3>
             <div className="space-y-2">
+              {/* Material cost — first line item */}
+              {breakdown.materials && breakdown.materials.total > 0 && (
+                <>
+                  <CostRow
+                    label="Material"
+                    formula={
+                      breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
+                        ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} \u00D7 ${formatCurrency(breakdown.materials.pricePerSlab)}`
+                        : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
+                    }
+                    total={breakdown.materials.total}
+                  />
+                  <div className="border-t border-gray-100 my-1" />
+                </>
+              )}
               {breakdown.fabrication.cutting.total > 0 && (
                 <CostRow
                   label="Cutting"
@@ -729,6 +744,14 @@ export default function ExpandedPieceViewClient({
                   label={`Join (${breakdown.oversize.joinCount} join${breakdown.oversize.joinCount !== 1 ? 's' : ''})`}
                   formula={`${breakdown.oversize.joinLengthLm.toFixed(2)} Lm \u00D7 ${formatCurrency(breakdown.oversize.joinRate)}`}
                   total={breakdown.oversize.joinCost}
+                />
+              )}
+              {/* Grain Matching Surcharge */}
+              {breakdown.oversize?.isOversize && breakdown.oversize.grainMatchingSurcharge > 0 && (
+                <CostRow
+                  label={`Grain Matching Surcharge (${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%)`}
+                  formula={`${formatCurrency(breakdown.oversize.fabricationSubtotalBeforeSurcharge)} \u00D7 ${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%`}
+                  total={breakdown.oversize.grainMatchingSurcharge}
                 />
               )}
 

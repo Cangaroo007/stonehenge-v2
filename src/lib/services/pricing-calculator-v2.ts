@@ -947,6 +947,45 @@ export async function calculateQuotePrice(
       pbd.pieceTotal = roundToTwo(pbd.pieceTotal + ep.join.cost + (ep.grainSurcharge?.cost ?? 0));
     }
 
+    // Add per-piece material cost
+    if (piece.materials) {
+      const mat = piece.materials as unknown as {
+        price_per_sqm: { toNumber: () => number };
+        price_per_slab?: { toNumber: () => number } | null;
+        slab_length_mm?: number | null;
+        slab_width_mm?: number | null;
+      };
+      const pieceAreaM2 = roundToTwo((piece.length_mm * piece.width_mm) / 1_000_000);
+      let materialCost = 0;
+      let slabCountForPiece: number | undefined;
+      let pricePerSlab: number | undefined;
+      let pricePerSqm: number | undefined;
+
+      if (pricingContext.materialPricingBasis === 'PER_SLAB' && mat.price_per_slab) {
+        pricePerSlab = mat.price_per_slab.toNumber();
+        slabCountForPiece = cutPlans[i].totalSlabsRequired;
+        materialCost = roundToTwo(slabCountForPiece * pricePerSlab);
+      } else {
+        pricePerSqm = mat.price_per_sqm.toNumber();
+        materialCost = roundToTwo(pieceAreaM2 * pricePerSqm);
+      }
+
+      pbd.materials = {
+        areaM2: pieceAreaM2,
+        baseRate: pricePerSqm ?? pricePerSlab ?? 0,
+        thicknessMultiplier: 1,
+        baseAmount: materialCost,
+        discount: 0,
+        total: materialCost,
+        discountPercentage: 0,
+        pricingBasis: pricingContext.materialPricingBasis === 'PER_SLAB' ? 'PER_SLAB' : 'PER_SQUARE_METRE',
+        slabCount: slabCountForPiece,
+        pricePerSlab,
+        pricePerSqm,
+      };
+      pbd.pieceTotal = roundToTwo(pbd.pieceTotal + materialCost);
+    }
+
     pieceBreakdowns.push(pbd);
   }
 
