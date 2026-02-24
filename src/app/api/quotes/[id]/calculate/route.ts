@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import prisma from '@/lib/db';
 import type { PricingOptions } from '@/lib/types/pricing';
 
 /**
@@ -96,6 +97,22 @@ export async function POST(
 
     // Calculate the quote price
     const result = await calculateQuotePrice(id, options);
+
+    // Persist results to DB so the PDF route can read them
+    try {
+      await prisma.quotes.update({
+        where: { id: quoteIdNum },
+        data: {
+          subtotal: result.subtotal,
+          tax_amount: result.gstAmount,
+          total: result.totalIncGst,
+          calculated_at: new Date(),
+        },
+      });
+    } catch (persistError) {
+      console.error('[calculate] Failed to persist pricing to DB:', persistError);
+      // Continue — still return result to frontend
+    }
 
     return NextResponse.json(result);
   } catch (error) {
