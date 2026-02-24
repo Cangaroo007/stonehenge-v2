@@ -425,7 +425,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
                   {piece.length_mm} x {piece.width_mm} x {piece.thickness_mm}mm
                   {' '}({typeof piece.area_sqm === 'number'
                     ? piece.area_sqm.toFixed(2)
-                    : parseFloat(piece.area_sqm.toString()).toFixed(2)} m2)
+                    : parseFloat(piece.area_sqm ? piece.area_sqm.toString() : '0').toFixed(2)} m2)
                 </Text>
                 {piece.material_name && (
                   <Text style={styles.pieceMaterial}>

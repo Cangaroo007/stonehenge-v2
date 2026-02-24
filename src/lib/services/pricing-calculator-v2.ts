@@ -1248,23 +1248,34 @@ function calculateServiceCosts(
   // Determine primary fabrication category for aggregate rate lookups
   const primaryCategory = pieces[0]?.materials?.fabrication_category ?? 'ENGINEERED';
 
-  // Cutting: use tenant's configured cutting_unit
-  const { rate: cuttingRateVal, rateRecord: cuttingRateRecord } =
-    getServiceRate(serviceRates, 'CUTTING', avgThickness, primaryCategory);
+  // CUTTING — Pricing Bible v1.3 §3
+  // Full perimeter × rate. All 4 sides, always. Per-piece to handle mixed thickness.
   {
-    const cuttingUnit = pricingContext.cuttingUnit;
-    const cuttingQty = cuttingUnit === 'LINEAR_METRE' ? totalPerimeterLm : totalAreaM2;
-    const cost = applyMinimumCharge(cuttingQty * cuttingRateVal, cuttingRateRecord);
+    let totalCuttingCost = 0;
+    let cuttingPerimeterLm = 0;
+    // Get the rate record once for the name and minimum charge
+    const { rateRecord: cuttingRateRecord } =
+      getServiceRate(serviceRates, 'CUTTING', pieces[0].thickness_mm, primaryCategory);
+
+    for (const piece of pieces) {
+      const piecePeriLm = 2 * (piece.length_mm + piece.width_mm) / 1000;
+      const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
+      const { rate: pieceRate } = getServiceRate(serviceRates, 'CUTTING', piece.thickness_mm, pieceCategory);
+      totalCuttingCost += piecePeriLm * pieceRate;
+      cuttingPerimeterLm += piecePeriLm;
+    }
+
+    totalCuttingCost = applyMinimumCharge(totalCuttingCost, cuttingRateRecord);
 
     items.push({
       serviceType: 'CUTTING',
       name: cuttingRateRecord.name,
-      quantity: roundToTwo(cuttingQty),
-      unit: cuttingUnit,
-      rate: cuttingRateVal,
-      subtotal: roundToTwo(cost),
+      quantity: roundToTwo(cuttingPerimeterLm),
+      unit: 'LINEAR_METRE',
+      rate: cuttingPerimeterLm > 0 ? roundToTwo(totalCuttingCost / cuttingPerimeterLm) : 0,
+      subtotal: roundToTwo(totalCuttingCost),
     });
-    subtotal += cost;
+    subtotal += totalCuttingCost;
   }
 
   // Polishing: use tenant's configured polishing_unit
