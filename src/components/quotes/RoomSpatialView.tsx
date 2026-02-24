@@ -26,6 +26,8 @@ interface QuotePiece {
   piece_type?: string | null;
   area_sqm: number;
   total_cost: number;
+  /** Enriched total from calculation_breakdown — preferred over total_cost */
+  pieceTotal?: number;
   edge_top: string | null;
   edge_bottom: string | null;
   edge_left: string | null;
@@ -991,7 +993,7 @@ export default function RoomSpatialView({
                     <span className="font-medium text-gray-700 truncate">{pieceName}</span>
                   </span>
                   <span className="text-gray-400 flex-shrink-0 ml-2">
-                    {formatCurrency(piece.total_cost)}
+                    {piece.pieceTotal != null ? formatCurrency(piece.pieceTotal) : '\u2014'}
                   </span>
                 </button>
               );
@@ -1015,7 +1017,7 @@ export default function RoomSpatialView({
                     <span className="text-xs font-semibold text-gray-800">{pieceName}</span>
                   </div>
                   <span className="text-xs font-medium text-blue-700">
-                    {formatCurrency(piece.total_cost)}
+                    {piece.pieceTotal != null ? formatCurrency(piece.pieceTotal) : '\u2014'}
                   </span>
                 </button>
 
