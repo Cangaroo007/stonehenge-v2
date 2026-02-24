@@ -107,6 +107,7 @@ export async function POST(
           tax_amount: result.gstAmount,
           total: result.totalIncGst,
           calculated_at: new Date(),
+          calculation_breakdown: result as unknown as any,
         },
       });
     } catch (persistError) {
