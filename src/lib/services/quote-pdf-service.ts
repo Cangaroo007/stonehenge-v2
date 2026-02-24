@@ -254,7 +254,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
   // Fallback: if no stored breakdown, run calculate live so PDF always has correct data
   if (!calcBreakdown?.breakdown?.pieces) {
     try {
-      calcBreakdown = await calculateQuotePrice(quoteId);
+      calcBreakdown = await calculateQuotePrice(quoteId.toString());
     } catch (e) {
       console.error('[pdf-service] Failed to run fallback calculate:', e);
     }
