@@ -2892,22 +2892,26 @@ export default function QuoteDetailClient({
                         {isSpatialOpen && (
                           <RoomSpatialView
                             roomName={room.name || 'Unassigned'}
-                            pieces={room.quote_pieces.map(p => ({
-                              id: p.id,
-                              description: p.description,
-                              name: p.name,
-                              length_mm: p.length_mm,
-                              width_mm: p.width_mm,
-                              thickness_mm: p.thickness_mm,
-                              piece_type: null as string | null,
-                              area_sqm: p.area_sqm,
-                              total_cost: p.total_cost,
-                              edge_top: p.edge_top,
-                              edge_bottom: p.edge_bottom,
-                              edge_left: p.edge_left,
-                              edge_right: p.edge_right,
-                              piece_features: p.piece_features,
-                            }))}
+                            pieces={room.quote_pieces.map(p => {
+                              const pb = viewBreakdownMap.get(p.id);
+                              return {
+                                id: p.id,
+                                description: p.description,
+                                name: p.name,
+                                length_mm: p.length_mm,
+                                width_mm: p.width_mm,
+                                thickness_mm: p.thickness_mm,
+                                piece_type: null as string | null,
+                                area_sqm: p.area_sqm,
+                                total_cost: p.total_cost,
+                                pieceTotal: pb?.pieceTotal,
+                                edge_top: p.edge_top,
+                                edge_bottom: p.edge_bottom,
+                                edge_left: p.edge_left,
+                                edge_right: p.edge_right,
+                                piece_features: p.piece_features,
+                              };
+                            })}
                             relationships={viewRelationships.filter(r =>
                               roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
                             )}
@@ -2917,7 +2921,10 @@ export default function QuoteDetailClient({
                               const el = document.getElementById(`piece-${pieceId}`);
                               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }}
-                            roomTotal={room.quote_pieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+                            roomTotal={room.quote_pieces.reduce((sum, p) => {
+                              const pb = viewBreakdownMap.get(p.id);
+                              return sum + (pb?.pieceTotal ?? p.total_cost ?? 0);
+                            }, 0)}
                             roomNotes={room.notes}
                           />
                         )}
@@ -3515,26 +3522,30 @@ export default function QuoteDetailClient({
                     const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
                     const isCollapsed = collapsedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
-                    const spatialRoomPieces = roomPieces.map(p => ({
-                      id: p.id,
-                      description: p.description,
-                      name: p.name,
-                      length_mm: p.lengthMm,
-                      width_mm: p.widthMm,
-                      thickness_mm: p.thicknessMm,
-                      piece_type: null as string | null,
-                      area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
-                      total_cost: p.totalCost,
-                      edge_top: p.edgeTop,
-                      edge_bottom: p.edgeBottom,
-                      edge_left: p.edgeLeft,
-                      edge_right: p.edgeRight,
-                      piece_features: p.cutouts?.map(c => ({
-                        id: 0,
-                        name: c.cutoutTypeId,
-                        quantity: c.quantity,
-                      })),
-                    }));
+                    const spatialRoomPieces = roomPieces.map(p => {
+                      const pb = breakdownMap.get(p.id);
+                      return {
+                        id: p.id,
+                        description: p.description,
+                        name: p.name,
+                        length_mm: p.lengthMm,
+                        width_mm: p.widthMm,
+                        thickness_mm: p.thicknessMm,
+                        piece_type: null as string | null,
+                        area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
+                        total_cost: p.totalCost,
+                        pieceTotal: pb?.pieceTotal,
+                        edge_top: p.edgeTop,
+                        edge_bottom: p.edgeBottom,
+                        edge_left: p.edgeLeft,
+                        edge_right: p.edgeRight,
+                        piece_features: p.cutouts?.map(c => ({
+                          id: 0,
+                          name: c.cutoutTypeId,
+                          quantity: c.quantity,
+                        })),
+                      };
+                    });
                     const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
                     return (
                       <div key={room.id} className="space-y-2">
@@ -3593,7 +3604,7 @@ export default function QuoteDetailClient({
                               const el = document.getElementById(`piece-${pieceId}`);
                               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }}
-                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.total_cost || 0), 0)}
+                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.pieceTotal ?? p.total_cost ?? 0), 0)}
                             quoteId={quoteIdStr}
                             onRelationshipChange={fetchRelationships}
                             roomId={room.id}
