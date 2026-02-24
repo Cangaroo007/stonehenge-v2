@@ -821,3 +821,121 @@ grep -rn "from '@prisma/client'" src/ --include='*.tsx' --include='*.ts' | grep 
 ---
 
 **This document is the SINGLE source of truth. All previous dev-rules files are superseded.**
+# Dev Rulebook Addition — Rule 51: Pre-Prompt Existence Check
+
+> **Add to:** `docs/stonehenge-dev-rulebook-v11.md`
+> **After:** Rule 50
+> **Version:** Rulebook becomes v12 after this addition
+> **Date:** February 24, 2026
+
+---
+
+## RULE 51: PRE-PROMPT EXISTENCE CHECK
+
+Before writing any implementation prompt, verify that what you plan to build
+does not already exist. This is mandatory, not optional.
+
+**The incident that created this rule:**
+Prompt B planned to create `useAutoOptimizer` hook from scratch (2-3 hours).
+A timing question led to a grep that revealed `useAutoSlabOptimiser.ts` already
+existed, was already wired into `QuoteDetailClient.tsx`, already had the correct
+500ms debounce, and already triggered recalculation on completion. The prompt
+was rewritten to a 45-minute targeted fix. Without this check, 2 hours of work
+would have created a duplicate hook and a silent conflict.
+
+---
+
+### The Three Greps (Run Before Every Prompt)
+
+**1. If the prompt creates a hook:**
+```bash
+ls src/hooks/
+grep -rn "useHookName" src/ --include="*.ts" --include="*.tsx"
+```
+
+**2. If the prompt creates a component:**
+```bash
+ls src/components/quotes/
+ls src/components/[relevant-folder]/
+```
+
+**3. If the prompt creates a service:**
+```bash
+ls src/lib/services/
+```
+
+**4. If the prompt creates an API route:**
+```bash
+ls src/app/api/quotes/\[id\]/
+```
+
+**5. If the prompt adds a schema field:**
+```bash
+grep -n "field_name" prisma/schema.prisma
+```
+
+---
+
+### The Decision Tree
+
+After running the relevant greps:
+
+| What the grep shows | What to do |
+|---------------------|-----------|
+| File does not exist | Proceed with prompt as written |
+| File exists, read it | Update prompt to EXTEND, not recreate |
+| File exists and is already wired | Reduce scope — only build the missing gap |
+| File exists with different field names | Update all field names in prompt to match actual |
+| Route folder exists | Check what methods already exist before adding |
+
+---
+
+### Check the Codebase Inventory First
+
+Before running greps, check `docs/stonehenge-codebase-inventory.md` — it may
+already document what you need to know. The inventory covers hooks, services,
+components, API routes, and mid-project schema fields.
+
+If the inventory doesn't cover it, run the greps, then add what you find to
+the inventory.
+
+---
+
+### This Rule Connects Rules 5, 6, and 43
+
+- **Rule 5** (Audit before every series) — discovery at series level
+- **Rule 43** (Audit results override planned prompts) — at series level
+- **Rule 51** (Pre-prompt existence check) — at individual prompt level
+
+Rule 51 fills the gap: Rules 5 and 43 catch things at series start.
+Rule 51 catches things at prompt-write time, including mid-series discoveries.
+
+---
+
+### Update the Golden Rules Quick Reference
+
+Add to the end of the Golden Rules list:
+
+```
+28. Check before building — existence check before every prompt (Rule 51)
+```
+
+---
+
+## COMPANION DOCUMENT: CODEBASE INVENTORY
+
+`docs/stonehenge-codebase-inventory.md` is the living map that makes Rule 51
+fast to execute. It contains:
+
+- All hooks and where they are wired
+- All services and their key functions
+- All quote components
+- All API routes under `/api/quotes/[id]/`
+- Schema fields added mid-project
+- Key wiring facts (non-obvious connections)
+
+**Maintain it:** At end of every session, run:
+```bash
+git diff main --name-only | grep -E "hooks/|services/|components/quotes/|api/quotes"
+```
+Add any new files or facts. Takes 5 minutes.
