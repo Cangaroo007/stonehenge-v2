@@ -330,7 +330,18 @@ export async function PATCH(
     if (matId) {
       const material = await prisma.materials.findUnique({ where: { id: matId } });
       if (material) {
-        materialCost = areaSqm * material.price_per_sqm.toNumber();
+        const pricingSettingsForCost = await prisma.pricing_settings.findUnique({
+          where: { organisation_id: `company-${authResult.user.companyId}` },
+        });
+        const basis = pricingSettingsForCost?.material_pricing_basis ?? 'PER_SQUARE_METRE';
+
+        if (basis === 'PER_SLAB' && material.slab_length_mm && material.slab_width_mm && material.price_per_slab) {
+          const slabAreaSqm = (material.slab_length_mm * material.slab_width_mm) / 1_000_000;
+          const slabsNeeded = Math.ceil(areaSqm / slabAreaSqm);
+          materialCost = slabsNeeded * material.price_per_slab.toNumber();
+        } else {
+          materialCost = areaSqm * material.price_per_sqm.toNumber();
+        }
       }
     }
 
@@ -598,7 +609,18 @@ export async function PUT(
         where: { id: matId },
       });
       if (material) {
-        materialCost = areaSqm * material.price_per_sqm.toNumber();
+        const pricingSettingsForCost = await prisma.pricing_settings.findUnique({
+          where: { organisation_id: `company-${auth.user.companyId}` },
+        });
+        const basis = pricingSettingsForCost?.material_pricing_basis ?? 'PER_SQUARE_METRE';
+
+        if (basis === 'PER_SLAB' && material.slab_length_mm && material.slab_width_mm && material.price_per_slab) {
+          const slabAreaSqm = (material.slab_length_mm * material.slab_width_mm) / 1_000_000;
+          const slabsNeeded = Math.ceil(areaSqm / slabAreaSqm);
+          materialCost = slabsNeeded * material.price_per_slab.toNumber();
+        } else {
+          materialCost = areaSqm * material.price_per_sqm.toNumber();
+        }
       }
     }
 
