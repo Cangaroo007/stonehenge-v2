@@ -10,6 +10,7 @@ import { formatAreaFromSqm } from '@/lib/utils/units';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import QuoteLayout from '@/components/quotes/QuoteLayout';
 import type { QuoteMode, QuoteTab } from '@/components/quotes/QuoteLayout';
+import { OptimizerStatusBar } from '@/components/quotes/OptimizerStatusBar';
 
 // Builder sub-components
 import PieceForm from './builder/components/PieceForm';
@@ -3281,6 +3282,13 @@ export default function QuoteDetailClient({
 
     return (
       <div className="space-y-6">
+
+        {/* Optimizer status bar — shows during optimisation or on error */}
+        <OptimizerStatusBar
+          isOptimising={isOptimising}
+          optimiserError={optimiserError}
+          onRetry={triggerOptimise}
+        />
 
         {/* ── MATERIAL — always visible in edit mode (12.J1: "first pick your stone") ── */}
         <div id="material-section" className="card p-4 space-y-2">
