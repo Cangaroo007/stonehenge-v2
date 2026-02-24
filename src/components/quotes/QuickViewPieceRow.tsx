@@ -978,14 +978,20 @@ export default function QuickViewPieceRow({
                   </span>
                 </div>
               )}
-              {breakdown.fabrication.cutouts && breakdown.fabrication.cutouts.length > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Cutouts</span>
-                  <span className="font-medium tabular-nums">
-                    {formatCurrency(breakdown.fabrication.cutouts.reduce((sum, c) => sum + c.total, 0))}
+              {breakdown.fabrication.cutouts && breakdown.fabrication.cutouts.filter(c => c.total > 0).map((cutout, idx) => (
+                <div key={`${cutout.cutoutTypeId}-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
+                  <span>
+                    Cutout: {cutout.cutoutTypeName}
+                    <span className="text-[11px] text-gray-400 ml-1">&times;{cutout.quantity}</span>
                   </span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400">
+                      {cutout.quantity} &times; {formatCurrency(cutout.rate)} ea
+                    </span>
+                    <span className="font-medium tabular-nums">{formatCurrency(cutout.total)}</span>
+                  </div>
                 </div>
-              )}
+              ))}
               {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span>Lamination ({breakdown.fabrication.lamination.method})</span>
