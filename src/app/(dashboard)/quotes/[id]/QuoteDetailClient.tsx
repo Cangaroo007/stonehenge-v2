@@ -2905,6 +2905,7 @@ export default function QuoteDetailClient({
                                 area_sqm: p.area_sqm,
                                 total_cost: p.total_cost,
                                 pieceTotal: pb?.pieceTotal,
+                                slabCost: pb?.materials?.total,
                                 edge_top: p.edge_top,
                                 edge_bottom: p.edge_bottom,
                                 edge_left: p.edge_left,
@@ -2923,7 +2924,7 @@ export default function QuoteDetailClient({
                             }}
                             roomTotal={room.quote_pieces.reduce((sum, p) => {
                               const pb = viewBreakdownMap.get(p.id);
-                              return sum + (pb?.pieceTotal ?? p.total_cost ?? 0);
+                              return sum + (pb?.materials?.total ?? 0);
                             }, 0)}
                             roomNotes={room.notes}
                           />
@@ -3535,6 +3536,7 @@ export default function QuoteDetailClient({
                         area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
                         total_cost: p.totalCost,
                         pieceTotal: pb?.pieceTotal,
+                        slabCost: pb?.materials?.total,
                         edge_top: p.edgeTop,
                         edge_bottom: p.edgeBottom,
                         edge_left: p.edgeLeft,
@@ -3604,7 +3606,7 @@ export default function QuoteDetailClient({
                               const el = document.getElementById(`piece-${pieceId}`);
                               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }}
-                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.pieceTotal ?? p.total_cost ?? 0), 0)}
+                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.slabCost ?? 0), 0)}
                             quoteId={quoteIdStr}
                             onRelationshipChange={fetchRelationships}
                             roomId={room.id}
