@@ -185,30 +185,6 @@ export function suggestRelationships(
           });
         }
       }
-
-      // ── LOW: BUTT_JOIN (fallback) ──────────────────────────────────
-      const neitherHasRelationship =
-        !piecesWithRelationships.has(a.id) && !piecesWithRelationships.has(b.id);
-      const alreadySuggestedPair = suggestions.some(
-        (s) =>
-          (s.parentPieceId === a.id && s.childPieceId === b.id) ||
-          (s.parentPieceId === b.id && s.childPieceId === a.id)
-      );
-
-      if (
-        neitherHasRelationship &&
-        !alreadySuggestedPair &&
-        withinTolerance(a.width_mm, b.width_mm, 100)
-      ) {
-        suggestions.push({
-          parentPieceId: a.id,
-          childPieceId: b.id,
-          suggestedType: 'BUTT_JOIN' as RelationshipType,
-          suggestedPosition: null,
-          confidence: 'LOW',
-          reason: 'Adjacent pieces may need joining',
-        });
-      }
     }
   }
 
