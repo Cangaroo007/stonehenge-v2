@@ -43,9 +43,6 @@ export const STRIP_CONFIGURATIONS = {
   },
 };
 
-// Join cost per lineal metre
-export const JOIN_RATE_PER_METRE = 85;
-
 /**
  * Get slab size based on material category
  */
