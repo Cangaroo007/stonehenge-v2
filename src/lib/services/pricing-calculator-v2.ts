@@ -1407,7 +1407,10 @@ function calculateServiceCosts(
   }
 
   // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
+  // Detect waterfall pieces by edge type ID containing 'waterfall' OR by
+  // waterfall_height_mm being set (covers pieces identified via piece_relationships).
   const waterfallPieces = pieces.filter(p => {
+    if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
     const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
     return edges.some(e => e && (e.includes('WATERFALL') || e.includes('waterfall')));
   });

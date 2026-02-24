@@ -21,6 +21,8 @@ async function seedPricingSettings() {
     mitred_multiplier: 1.50,
     waste_factor_percent: 15.0,
     grain_matching_surcharge_percent: 15.0,
+    cutout_thickness_multiplier: 1.50,
+    waterfall_pricing_method: 'FIXED_PER_END',
     updated_at: new Date(),
   };
 
