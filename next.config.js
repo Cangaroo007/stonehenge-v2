@@ -4,7 +4,7 @@ const nextConfig = {
     serverActions: {
       bodySizeLimit: '10mb',
     },
-    serverComponentsExternalPackages: ['sharp', 'pdf-to-img', '@napi-rs/canvas', 'pdfjs-dist'],
+    serverComponentsExternalPackages: ['sharp', 'pdf-to-img', '@napi-rs/canvas', 'pdfjs-dist', '@react-pdf/renderer'],
   },
   images: {
     remotePatterns: [
