@@ -4,6 +4,7 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
 import type { MultiMaterialPiece, MaterialInfo } from '@/lib/services/multi-material-optimizer';
+import { calculateCutPlan } from '@/lib/services/multi-slab-calculator';
 import { logger } from '@/lib/logger';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 
@@ -24,6 +25,91 @@ async function getOperationKerfs(): Promise<Record<string, number>> {
   } catch {
     return {};
   }
+}
+
+/**
+ * OVERSIZE PERSISTENCE — Phase 2.5
+ * Write optimizer oversize detection back to quote_pieces so the
+ * pricing calculator and manufacturing export can read isOversize,
+ * joinCount, joinLengthMm, requiresGrainMatch.
+ *
+ * Uses calculateCutPlan (same function the pricing calculator uses)
+ * to determine oversize status per piece with the actual slab dimensions.
+ */
+async function persistOversizeToQuotePieces(
+  quoteId: number,
+  allPieceRows: Array<{
+    id: number;
+    length_mm: number;
+    width_mm: number;
+    materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null;
+  }>,
+  fallbackSlabLengthMm: number,
+  fallbackSlabWidthMm: number
+): Promise<void> {
+  const oversizePieceIds: number[] = [];
+
+  for (const piece of allPieceRows) {
+    // Use per-piece material slab dimensions if available, otherwise the optimizer's resolved dims
+    const slabLengthMm = piece.materials?.slab_length_mm ?? fallbackSlabLengthMm;
+    const slabWidthMm = piece.materials?.slab_width_mm ?? fallbackSlabWidthMm;
+    const materialName = piece.materials?.name ?? 'caesarstone';
+
+    const cutPlan = calculateCutPlan(
+      { lengthMm: piece.length_mm, widthMm: piece.width_mm },
+      materialName,
+      20,
+      slabLengthMm,
+      slabWidthMm
+    );
+
+    if (!cutPlan.fitsOnSingleSlab) {
+      oversizePieceIds.push(piece.id);
+      await prisma.quote_pieces.update({
+        where: { id: piece.id },
+        data: {
+          isOversize: true,
+          joinCount: cutPlan.joins.length,
+          joinLengthMm: Math.round(cutPlan.joinLengthMm),
+          requiresGrainMatch: true,
+        },
+      });
+    }
+  }
+
+  // Reset oversize flags on any pieces NOT detected as oversize
+  // (handles case where user resizes a piece smaller after a prior optimize)
+  if (oversizePieceIds.length > 0) {
+    await prisma.quote_pieces.updateMany({
+      where: {
+        id: { notIn: oversizePieceIds },
+        quote_rooms: { quote_id: quoteId },
+      },
+      data: {
+        isOversize: false,
+        joinCount: 0,
+        joinLengthMm: null,
+        requiresGrainMatch: false,
+      },
+    });
+  } else {
+    // No oversize pieces at all — reset everything
+    await prisma.quote_pieces.updateMany({
+      where: {
+        quote_rooms: { quote_id: quoteId },
+      },
+      data: {
+        isOversize: false,
+        joinCount: 0,
+        joinLengthMm: null,
+        requiresGrainMatch: false,
+      },
+    });
+  }
+
+  logger.info(
+    `[Optimize API] Persisted oversize flags: ${oversizePieceIds.length} oversize piece(s) out of ${allPieceRows.length} total`
+  );
 }
 
 // GET - Retrieve saved optimization for quote
@@ -351,6 +437,18 @@ export async function POST(
 
       logger.info('[Optimize API] Saved multi-material optimization', optimization.id);
 
+      // OVERSIZE PERSISTENCE — Phase 2.5 (multi-material path)
+      const allPieceRowsMulti = quote.quote_rooms.flatMap(
+        (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+          room.quote_pieces.map(p => ({
+            id: p.id,
+            length_mm: p.length_mm,
+            width_mm: p.width_mm,
+            materials: p.materials,
+          }))
+      );
+      await persistOversizeToQuotePieces(quoteId, allPieceRowsMulti, slabWidth, slabHeight);
+
       return NextResponse.json({
         optimization,
         result: {
@@ -442,6 +540,20 @@ export async function POST(
     if (!verification) {
       logger.error('[Optimize API] CRITICAL: Save verification failed - data not found!');
     }
+
+    // OVERSIZE PERSISTENCE — Phase 2.5
+    // Write optimizer oversize detection back to quote_pieces.
+    // slabWidth in the optimizer = slab length (longer dimension), slabHeight = slab width (shorter).
+    const allPieceRows = quote.quote_rooms.flatMap(
+      (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+        room.quote_pieces.map(p => ({
+          id: p.id,
+          length_mm: p.length_mm,
+          width_mm: p.width_mm,
+          materials: p.materials,
+        }))
+    );
+    await persistOversizeToQuotePieces(quoteId, allPieceRows, slabWidth, slabHeight);
 
     return NextResponse.json({
       optimization,
