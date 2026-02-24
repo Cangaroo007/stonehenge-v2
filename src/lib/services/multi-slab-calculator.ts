@@ -2,7 +2,6 @@ import {
   type SlabSize,
   getSlabSize,
   getMaxUsableDimensions,
-  JOIN_RATE_PER_METRE,
 } from '@/lib/constants/slab-sizes';
 
 export type JoinStrategy = 'NONE' | 'LENGTHWISE' | 'WIDTHWISE' | 'MULTI_JOIN';
@@ -47,7 +46,8 @@ export function calculateCutPlan(
   materialCategory: string,
   edgeTrimMm: number = 20,
   slabLength_mm?: number | null,
-  slabWidth_mm?: number | null
+  slabWidth_mm?: number | null,
+  joinRatePerMetre: number = 0
 ): CutPlan {
   const slabSize: SlabSize = (slabLength_mm && slabWidth_mm)
     ? { lengthMm: slabLength_mm, widthMm: slabWidth_mm, name: 'material-db' }
@@ -83,21 +83,22 @@ export function calculateCutPlan(
 
   // Check if only length exceeds (most common)
   if (piece.lengthMm > usable.maxLength && piece.widthMm <= usable.maxWidth) {
-    return calculateLengthwiseJoin(piece, usable);
+    return calculateLengthwiseJoin(piece, usable, joinRatePerMetre);
   }
 
   // Check if only width exceeds
   if (piece.widthMm > usable.maxWidth && piece.lengthMm <= usable.maxLength) {
-    return calculateWidthwiseJoin(piece, usable);
+    return calculateWidthwiseJoin(piece, usable, joinRatePerMetre);
   }
 
   // Both dimensions exceed - complex multi-join
-  return calculateMultiJoin(piece, usable);
+  return calculateMultiJoin(piece, usable, joinRatePerMetre);
 }
 
 function calculateLengthwiseJoin(
   piece: PieceDimensions,
-  usable: { maxLength: number; maxWidth: number }
+  usable: { maxLength: number; maxWidth: number },
+  joinRatePerMetre: number
 ): CutPlan {
   const warnings: string[] = [];
 
@@ -134,7 +135,7 @@ function calculateLengthwiseJoin(
   }
 
   const totalJoinLength = joins.reduce((sum, j) => sum + j.lengthMm, 0);
-  const joinCost = (totalJoinLength / 1000) * JOIN_RATE_PER_METRE;
+  const joinCost = (totalJoinLength / 1000) * joinRatePerMetre;
 
   // Warning if join is near centre
   for (const join of joins) {
@@ -159,7 +160,8 @@ function calculateLengthwiseJoin(
 
 function calculateWidthwiseJoin(
   piece: PieceDimensions,
-  usable: { maxLength: number; maxWidth: number }
+  usable: { maxLength: number; maxWidth: number },
+  joinRatePerMetre: number
 ): CutPlan {
   const numSegments = Math.ceil(piece.widthMm / usable.maxWidth);
   const segmentWidth = Math.ceil(piece.widthMm / numSegments);
@@ -192,7 +194,7 @@ function calculateWidthwiseJoin(
   }
 
   const totalJoinLength = joins.reduce((sum, j) => sum + j.lengthMm, 0);
-  const joinCost = (totalJoinLength / 1000) * JOIN_RATE_PER_METRE;
+  const joinCost = (totalJoinLength / 1000) * joinRatePerMetre;
 
   return {
     fitsOnSingleSlab: false,
@@ -208,7 +210,8 @@ function calculateWidthwiseJoin(
 
 function calculateMultiJoin(
   piece: PieceDimensions,
-  usable: { maxLength: number; maxWidth: number }
+  usable: { maxLength: number; maxWidth: number },
+  joinRatePerMetre: number
 ): CutPlan {
   // Complex case: both dimensions exceed slab
   const lengthSegments = Math.ceil(piece.lengthMm / usable.maxLength);
@@ -255,7 +258,7 @@ function calculateMultiJoin(
   }
 
   const totalJoinLength = joins.reduce((sum, j) => sum + j.lengthMm, 0);
-  const joinCost = (totalJoinLength / 1000) * JOIN_RATE_PER_METRE;
+  const joinCost = (totalJoinLength / 1000) * joinRatePerMetre;
 
   return {
     fitsOnSingleSlab: false,

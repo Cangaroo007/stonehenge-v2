@@ -15,6 +15,16 @@
 
 import prisma from '@/lib/db';
 import { calculateCutPlan } from './multi-slab-calculator';
+import {
+  calculateQuote as calculateEngineQuote,
+  type PricingEngineInput,
+  type EngineSettings,
+  type EngineServiceRate,
+  type EngineEdgeCategoryRate,
+  type EngineCutoutRate,
+  type EnginePiece,
+  type EngineCutout,
+} from './pricing-rules-engine';
 import type { DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 import {
   calculateDistance,
@@ -441,27 +451,6 @@ function buildMaterialGroupings(
 }
 
 /**
- * Calculate service cost using configured units.
- * Supports LINEAR_METRE, SQUARE_METRE, FIXED, PER_SLAB, PER_KILOMETRE.
- */
-export function calculateServiceCostForUnit(
-  quantity: number,
-  rate20mm: number,
-  rate40mm: number,
-  thickness: number,
-  minimumCharge?: number
-): number {
-  const rate = thickness <= 20 ? rate20mm : rate40mm;
-  let cost = quantity * rate;
-
-  if (minimumCharge && minimumCharge > 0 && cost < minimumCharge) {
-    cost = minimumCharge;
-  }
-
-  return roundToTwo(cost);
-}
-
-/**
  * Main export: Calculate enhanced quote price
  */
 export async function calculateQuotePrice(
@@ -583,89 +572,54 @@ export async function calculateQuotePrice(
     options?.materialMarginAdjustPercent ?? 0
   );
 
-  // Calculate edge costs with thickness variants
-  const edgeData = calculateEdgeCostV2(allPieces, edgeTypes);
-
-  // Calculate cutout costs with category-aware rates and thickness multiplier
-  const cutoutData = calculateCutoutCostV2(
-    allPieces,
-    cutoutTypes as any,
-    cutoutCategoryRates,
-    pricingContext
-  );
-
-  // Calculate service costs (cutting, polishing, installation, waterfall)
-  const serviceData = calculateServiceCosts(allPieces, edgeData.totalLinearMeters, serviceRates, pricingContext);
-
-  // Calculate per-piece breakdowns
-  const edgeTypeMap = new Map<string, typeof edgeTypes[number]>();
-  for (const et of edgeTypes) {
-    edgeTypeMap.set(et.id, et);
-  }
-  const cutoutTypeMap = new Map<string, any>();
-  for (const ct of cutoutTypes) {
-    cutoutTypeMap.set(ct.id, ct);
-  }
-  const fabricationDiscountPct = extractFabricationDiscount(quote.customers?.client_tiers);
-
   // Determine primary fabrication category for the quote
   const primaryFabricationCategory: string =
     (allPieces[0]?.materials as unknown as { fabrication_category?: string } | null)
       ?.fabrication_category ?? 'ENGINEERED';
 
-  const pieceBreakdowns: PiecePricingBreakdown[] = [];
-  for (const piece of allPieces) {
-    const pieceFabCategory: string =
-      (piece.materials as unknown as { fabrication_category?: string } | null)
-        ?.fabrication_category ?? 'ENGINEERED';
-    try {
-      pieceBreakdowns.push(
-        calculatePiecePricing(
-          piece,
-          serviceRates,
-          edgeTypeMap,
-          cutoutTypeMap,
-          fabricationDiscountPct,
-          pricingContext,
-          pieceFabCategory,
-          cutoutCategoryRates,
-          edgeCategoryRates
-        )
-      );
-    } catch (pieceError) {
-      // Gracefully handle pieces that fail pricing (e.g. no material assigned,
-      // missing service rate for their fabrication category). Return a zeroed-out
-      // breakdown so the rest of the quote still calculates.
-      console.warn(
-        `Pricing failed for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${pieceError instanceof Error ? pieceError.message : pieceError}. Returning $0 breakdown.`
-      );
-      pieceBreakdowns.push({
-        pieceId: piece.id,
-        pieceName: piece.name || piece.description || `Piece ${piece.id}`,
-        fabricationCategory: pieceFabCategory,
-        dimensions: {
-          lengthMm: piece.length_mm,
-          widthMm: piece.width_mm,
-          thicknessMm: piece.thickness_mm,
-        },
-        fabrication: {
-          cutting: { quantity: 0, unit: pricingContext.cuttingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
-          polishing: { quantity: 0, unit: pricingContext.polishingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
-          edges: [],
-          cutouts: [],
-          subtotal: 0,
-        },
-        pieceTotal: 0,
-      });
-    }
+  // ─── Build engine input and calculate via pricing rules engine ──────────────
+
+  // Convert DB service rates to engine format
+  const engineServiceRates: EngineServiceRate[] = serviceRates.map(r => ({
+    serviceType: r.serviceType as string,
+    fabricationCategory: r.fabricationCategory as string,
+    rate20mm: r.rate20mm.toNumber(),
+    rate40mm: r.rate40mm.toNumber(),
+  }));
+
+  // Build edge type ID mapping (DB uses string IDs, engine uses numbers)
+  const edgeTypeIdMap = new Map<string, number>();
+  const edgeTypeReverseMap = new Map<number, typeof edgeTypes[number]>();
+  let nextEdgeNumericId = 1;
+  for (const et of edgeTypes) {
+    const numId = nextEdgeNumericId++;
+    edgeTypeIdMap.set(et.id, numId);
+    edgeTypeReverseMap.set(numId, et);
   }
 
-  // Calculate oversize/join costs per piece using DB-driven rates + grain matching surcharge
-  let totalJoinCost = 0;
-  let totalGrainMatchingSurcharge = 0;
+  // Convert edge category rates to engine format
+  const engineEdgeCategoryRates: EngineEdgeCategoryRate[] = edgeCategoryRates.map(r => ({
+    edgeTypeId: edgeTypeIdMap.get(r.edgeTypeId) ?? 0,
+    fabricationCategory: r.fabricationCategory as string,
+    rate20mm: typeof r.rate20mm === 'number' ? r.rate20mm : (r.rate20mm as { toNumber: () => number }).toNumber(),
+    rate40mm: typeof r.rate40mm === 'number' ? r.rate40mm : (r.rate40mm as { toNumber: () => number }).toNumber(),
+  }));
 
-  for (let i = 0; i < allPieces.length; i++) {
-    const piece = allPieces[i];
+  // Convert cutout category rates to engine format
+  const cutoutTypeNameMap = new Map<string, string>();
+  for (const ct of cutoutTypes) {
+    cutoutTypeNameMap.set(ct.id, ct.name);
+  }
+  const engineCutoutRates: EngineCutoutRate[] = cutoutCategoryRates.map(r => ({
+    cutoutType: cutoutTypeNameMap.get(r.cutoutTypeId) ?? r.cutoutTypeId,
+    fabricationCategory: r.fabricationCategory as string,
+    rate: typeof r.rate === 'number' ? r.rate : (r.rate as { toNumber: () => number }).toNumber(),
+  }));
+
+  // Build engine pieces with oversize detection via cut plan
+  const enginePieces: EnginePiece[] = [];
+  const cutPlans: ReturnType<typeof calculateCutPlan>[] = [];
+  for (const piece of allPieces) {
     const pieceFabCategory: string =
       (piece.materials as unknown as { fabrication_category?: string } | null)
         ?.fabrication_category ?? 'ENGINEERED';
@@ -675,81 +629,325 @@ export async function calculateQuotePrice(
       (piece.materials as unknown as { slab_length_mm?: number | null } | null)?.slab_length_mm ?? null;
     const pieceSlabWidthMm =
       (piece.materials as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? null;
+
+    // Get JOIN rate for cut plan cost estimation
+    let joinRateForCutPlan = 0;
+    try {
+      const { rate: jr } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+      joinRateForCutPlan = jr;
+    } catch { /* JOIN rate not configured — use 0 for estimation */ }
+
     const cutPlan = calculateCutPlan(
       { lengthMm: piece.length_mm, widthMm: piece.width_mm },
       materialName,
       20,
       pieceSlabLengthMm,
-      pieceSlabWidthMm
+      pieceSlabWidthMm,
+      joinRateForCutPlan
     );
+    cutPlans.push(cutPlan);
 
-    if (!cutPlan.fitsOnSingleSlab) {
-      // Look up JOIN rate from DB for this fabrication category
-      // Wrap in try-catch: JOIN rate may not exist for all fabrication categories
-      try {
-        const { rate: joinRate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-        const joinLengthLm = roundToTwo(cutPlan.joinLengthMm / 1000);
-        const joinCost = roundToTwo(joinLengthLm * joinRate);
+    const isOversize = !cutPlan.fitsOnSingleSlab;
+    const joinLengthLm = isOversize ? roundToTwo(cutPlan.joinLengthMm / 1000) : undefined;
 
-        // Grain matching surcharge on the piece's fabrication subtotal (tenant-configurable)
-        const grainMatchingSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
-        const pieceFabSubtotal = pieceBreakdowns[i]?.fabrication.subtotal ?? 0;
-        const grainSurcharge = roundToTwo(pieceFabSubtotal * grainMatchingSurchargeRate);
+    // Parse cutouts from JSON
+    const cutoutsArray = Array.isArray(piece.cutouts)
+      ? piece.cutouts
+      : (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
+    const engineCutouts: EngineCutout[] = cutoutsArray.map((c: any) => {
+      const ct = cutoutTypes.find((t: any) => t.id === c.typeId || t.name === c.type);
+      return { cutoutType: ct?.name ?? c.type ?? c.typeId ?? 'UNKNOWN', quantity: c.quantity || 1 };
+    });
 
-        totalJoinCost += joinCost;
-        totalGrainMatchingSurcharge += grainSurcharge;
+    enginePieces.push({
+      id: String(piece.id),
+      name: piece.name || piece.description || `Piece ${piece.id}`,
+      length_mm: piece.length_mm,
+      width_mm: piece.width_mm,
+      thickness_mm: piece.thickness_mm,
+      isOversize,
+      joinLength_Lm: joinLengthLm,
+      requiresGrainMatch: isOversize,
+      laminationMethod: piece.lamination_method === 'LAMINATED' ? 'LAMINATED'
+        : piece.lamination_method === 'MITRED' ? 'MITRED' : null,
+      edges: [
+        { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: piece.length_mm },
+        { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: piece.length_mm },
+        { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: piece.width_mm },
+        { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: piece.width_mm },
+      ],
+      cutouts: engineCutouts,
+    });
+  }
 
-        // Add oversize data to the piece breakdown
-        if (pieceBreakdowns[i]) {
-          pieceBreakdowns[i].oversize = {
-            isOversize: true,
-            joinCount: cutPlan.joins.length,
-            joinLengthLm,
-            joinRate,
-            joinCost,
-            grainMatchingSurchargeRate: grainMatchingSurchargeRate,
-            fabricationSubtotalBeforeSurcharge: pieceFabSubtotal,
-            grainMatchingSurcharge: grainSurcharge,
-            strategy: cutPlan.strategy,
-            warnings: cutPlan.warnings,
-          };
-          pieceBreakdowns[i].pieceTotal = roundToTwo(
-            pieceBreakdowns[i].pieceTotal + joinCost + grainSurcharge
-          );
-        }
+  // Assemble engine input and call the pricing rules engine
+  const engineInput: PricingEngineInput = {
+    settings: {
+      cuttingUnit: pricingContext.cuttingUnit as EngineSettings['cuttingUnit'],
+      polishingUnit: pricingContext.polishingUnit as EngineSettings['polishingUnit'],
+      installationUnit: pricingContext.installationUnit as EngineSettings['installationUnit'],
+      gstRate: pricingContext.gstRate,
+      materialPricingBasis: pricingContext.materialPricingBasis as EngineSettings['materialPricingBasis'],
+      deliveryCost: 0,
+      templatingCost: 0,
+      laminatedMultiplier: pricingContext.laminatedMultiplier,
+      mitredMultiplier: pricingContext.mitredMultiplier,
+    },
+    serviceRates: engineServiceRates,
+    edgeCategoryRates: engineEdgeCategoryRates,
+    cutoutRates: engineCutoutRates,
+    material: { fabricationCategory: primaryFabricationCategory, pricePerSlab: 0 },
+    slabCount: 0,
+    pieces: enginePieces,
+  };
 
-        // Add to service-level items for aggregate display
+  const engineResult = calculateEngineQuote(engineInput);
+
+  // ─── Map engine results to existing result shapes ──────────────────────────
+
+  // Build aggregate service breakdown from engine results
+  const serviceData: { items: ServiceBreakdown[]; subtotal: number } = { items: [], subtotal: 0 };
+
+  const totalCuttingCost = engineResult.pieces.reduce((s, p) => s + p.cutting.cost, 0);
+  const totalCuttingLm = engineResult.pieces.reduce((s, p) => s + p.cutting.lm, 0);
+  if (totalCuttingCost > 0 || engineResult.pieces.length > 0) {
+    serviceData.items.push({
+      serviceType: 'CUTTING', name: 'Cutting',
+      quantity: roundToTwo(totalCuttingLm), unit: 'LINEAR_METRE',
+      rate: totalCuttingLm > 0 ? roundToTwo(totalCuttingCost / totalCuttingLm) : 0,
+      subtotal: roundToTwo(totalCuttingCost),
+    });
+    serviceData.subtotal += totalCuttingCost;
+  }
+
+  const totalPolishingCost = engineResult.pieces.reduce((s, p) => s + p.polishing.cost, 0);
+  const totalPolishingLm = engineResult.pieces.reduce((s, p) => s + p.polishing.lm, 0);
+  if (totalPolishingLm > 0) {
+    serviceData.items.push({
+      serviceType: 'POLISHING', name: 'Polishing',
+      quantity: roundToTwo(totalPolishingLm), unit: pricingContext.polishingUnit,
+      rate: totalPolishingLm > 0 ? roundToTwo(totalPolishingCost / totalPolishingLm) : 0,
+      subtotal: roundToTwo(totalPolishingCost),
+    });
+    serviceData.subtotal += totalPolishingCost;
+  }
+
+  const totalInstallCost = engineResult.installationSubtotal;
+  const totalInstallArea = engineResult.pieces.reduce((s, p) => s + p.installation.area_sqm, 0);
+  if (totalInstallCost > 0) {
+    serviceData.items.push({
+      serviceType: 'INSTALLATION', name: 'Installation',
+      quantity: roundToTwo(totalInstallArea), unit: pricingContext.installationUnit,
+      rate: totalInstallArea > 0 ? roundToTwo(totalInstallCost / totalInstallArea) : 0,
+      subtotal: roundToTwo(totalInstallCost),
+    });
+    serviceData.subtotal += totalInstallCost;
+  }
+
+  const totalLaminationCost = engineResult.pieces.reduce((s, p) => s + (p.lamination?.cost ?? 0), 0);
+  const totalLaminationLm = engineResult.pieces.reduce((s, p) => s + (p.lamination?.lm ?? 0), 0);
+  if (totalLaminationCost > 0) {
+    serviceData.items.push({
+      serviceType: 'LAMINATION', name: 'Lamination (edge build-up)',
+      quantity: roundToTwo(totalLaminationLm), unit: 'LINEAR_METRE',
+      rate: totalLaminationLm > 0 ? roundToTwo(totalLaminationCost / totalLaminationLm) : 0,
+      subtotal: roundToTwo(totalLaminationCost),
+    });
+    serviceData.subtotal += totalLaminationCost;
+  }
+
+  // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
+  const waterfallPieces = allPieces.filter((p: any) => {
+    if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
+    const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
+    return edges.some((e: string | null) => e && (e.includes('WATERFALL') || e.includes('waterfall')));
+  });
+  if (waterfallPieces.length > 0) {
+    const avgThickness = allPieces.length > 0
+      ? allPieces.reduce((sum: number, p: any) => sum + p.thickness_mm, 0) / allPieces.length
+      : 20;
+    const waterfallRateRecord = serviceRates.find(r =>
+      r.serviceType === 'WATERFALL_END' && r.fabricationCategory === primaryFabricationCategory
+    ) ?? serviceRates.find(r => r.serviceType === 'WATERFALL_END');
+    if (waterfallRateRecord) {
+      const waterfallMethod = pricingContext.waterfallPricingMethod ?? 'FIXED_PER_END';
+      const waterfallRateVal = avgThickness > 20
+        ? waterfallRateRecord.rate40mm.toNumber()
+        : waterfallRateRecord.rate20mm.toNumber();
+      if (waterfallMethod === 'FIXED_PER_END') {
+        const waterfallCount = waterfallPieces.length;
+        const cost = applyMinimumCharge(waterfallCount * waterfallRateVal, waterfallRateRecord);
         serviceData.items.push({
-          serviceType: 'JOIN',
-          name: `Join - ${cutPlan.strategy} (${piece.name || 'Piece ' + piece.id})`,
-          quantity: joinLengthLm,
-          unit: 'LINEAR_METRE',
-          rate: joinRate,
-          subtotal: joinCost,
-          fabricationCategory: pieceFabCategory,
+          serviceType: 'WATERFALL_END', name: waterfallRateRecord.name,
+          quantity: waterfallCount, unit: 'EACH',
+          rate: waterfallRateVal, subtotal: roundToTwo(cost),
         });
-        serviceData.subtotal += joinCost;
-
-        // Add grain matching surcharge as a separate line item
-        if (grainSurcharge > 0) {
-          serviceData.items.push({
-            serviceType: 'JOIN',
-            name: `Grain Matching Surcharge (${piece.name || 'Piece ' + piece.id})`,
-            quantity: 1,
-            unit: 'FIXED',
-            rate: grainSurcharge,
-            subtotal: grainSurcharge,
-            fabricationCategory: pieceFabCategory,
-          });
-          serviceData.subtotal += grainSurcharge;
+        serviceData.subtotal += cost;
+      } else if (waterfallMethod === 'PER_LINEAR_METRE') {
+        let totalWaterfallCost = 0;
+        let totalHeightLm = 0;
+        for (const wf of waterfallPieces) {
+          const heightMm = (wf as any).waterfall_height_mm ?? 900;
+          const heightLm = heightMm / 1000;
+          totalWaterfallCost += heightLm * waterfallRateVal;
+          totalHeightLm += heightLm;
         }
-      } catch (joinError) {
-        // JOIN rate not configured — skip oversize costing for this piece
-        console.warn(
-          `Join pricing skipped for piece ${piece.id} ("${piece.name || 'unnamed'}"): ${joinError instanceof Error ? joinError.message : joinError}`
-        );
+        totalWaterfallCost = applyMinimumCharge(totalWaterfallCost, waterfallRateRecord);
+        serviceData.items.push({
+          serviceType: 'WATERFALL_END', name: waterfallRateRecord.name,
+          quantity: roundToTwo(totalHeightLm), unit: 'LINEAR_METRE',
+          rate: waterfallRateVal, subtotal: roundToTwo(totalWaterfallCost),
+        });
+        serviceData.subtotal += totalWaterfallCost;
       }
     }
+  }
+
+  // Map join and grain surcharge from engine to service items
+  for (let i = 0; i < engineResult.pieces.length; i++) {
+    const ep = engineResult.pieces[i];
+    const pieceFabCategory: string =
+      (allPieces[i].materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+    if (ep.join) {
+      serviceData.items.push({
+        serviceType: 'JOIN',
+        name: `Join - ${cutPlans[i].strategy} (${ep.name})`,
+        quantity: roundToTwo(ep.join.lm), unit: 'LINEAR_METRE',
+        rate: ep.join.rate, subtotal: roundToTwo(ep.join.cost),
+        fabricationCategory: pieceFabCategory,
+      });
+      serviceData.subtotal += ep.join.cost;
+    }
+    if (ep.grainSurcharge && ep.grainSurcharge.cost > 0) {
+      serviceData.items.push({
+        serviceType: 'JOIN',
+        name: `Grain Matching Surcharge (${ep.name})`,
+        quantity: 1, unit: 'FIXED',
+        rate: ep.grainSurcharge.cost, subtotal: roundToTwo(ep.grainSurcharge.cost),
+        fabricationCategory: pieceFabCategory,
+      });
+      serviceData.subtotal += ep.grainSurcharge.cost;
+    }
+  }
+
+  // Build aggregate edge breakdown from engine results
+  const edgeData = mapEdgeBreakdownFromEngine(engineResult, edgeTypeReverseMap);
+
+  // Build aggregate cutout breakdown from engine results
+  const cutoutData = mapCutoutBreakdownFromEngine(engineResult);
+
+  // Build per-piece breakdowns from engine results
+  const pieceBreakdowns: PiecePricingBreakdown[] = [];
+  for (let i = 0; i < allPieces.length; i++) {
+    const piece = allPieces[i];
+    const ep = engineResult.pieces[i];
+    if (!ep) {
+      pieceBreakdowns.push(zeroedPieceBreakdown(piece, pricingContext));
+      continue;
+    }
+    const pieceFabCategory: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+
+    const edgeBreakdowns: PiecePricingBreakdown['fabrication']['edges'] = ep.edgeProfiles.items.map(item => {
+      const dbEdgeType = edgeTypeReverseMap.get(item.edgeTypeId);
+      return {
+        side: 'top' as const,
+        edgeTypeId: dbEdgeType?.id ?? String(item.edgeTypeId),
+        edgeTypeName: dbEdgeType?.name ?? `Edge ${item.edgeTypeId}`,
+        lengthMm: roundToTwo(item.lm * 1000),
+        linearMeters: roundToTwo(item.lm),
+        rate: item.rate,
+        baseAmount: roundToTwo(item.cost),
+        discount: 0,
+        total: roundToTwo(item.cost),
+        discountPercentage: 0,
+      };
+    });
+
+    const cutoutBreakdowns: PiecePricingBreakdown['fabrication']['cutouts'] = ep.cutouts.items.map(item => ({
+      cutoutTypeId: item.type,
+      cutoutTypeName: item.type,
+      quantity: item.qty,
+      rate: item.rate,
+      baseAmount: roundToTwo(item.cost),
+      discount: 0,
+      total: roundToTwo(item.cost),
+    }));
+
+    let laminationBreakdown: PiecePricingBreakdown['fabrication']['lamination'];
+    if (ep.lamination) {
+      laminationBreakdown = {
+        method: piece.lamination_method,
+        finishedEdgeLm: roundToTwo(ep.lamination.lm),
+        baseRate: ep.lamination.rate,
+        multiplier: piece.lamination_method === 'MITRED' ? pricingContext.mitredMultiplier : pricingContext.laminatedMultiplier,
+        total: roundToTwo(ep.lamination.cost),
+      };
+    }
+
+    let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
+    if (ep.installation.cost > 0) {
+      installationBreakdown = {
+        quantity: roundToTwo(ep.installation.area_sqm),
+        unit: pricingContext.installationUnit,
+        rate: ep.installation.ratePerSqm,
+        baseAmount: roundToTwo(ep.installation.cost),
+        discount: 0,
+        total: roundToTwo(ep.installation.cost),
+      };
+    }
+
+    const fabricationSubtotal = roundToTwo(
+      ep.cutting.cost + ep.polishing.cost + ep.edgeProfiles.cost +
+      (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
+      (installationBreakdown?.total ?? 0)
+    );
+
+    const pbd: PiecePricingBreakdown = {
+      pieceId: piece.id,
+      pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+      fabricationCategory: pieceFabCategory,
+      dimensions: { lengthMm: piece.length_mm, widthMm: piece.width_mm, thicknessMm: piece.thickness_mm },
+      fabrication: {
+        cutting: {
+          quantity: roundToTwo(ep.cutting.lm), unit: pricingContext.cuttingUnit,
+          rate: ep.cutting.ratePerLm, baseAmount: roundToTwo(ep.cutting.cost),
+          discount: 0, total: roundToTwo(ep.cutting.cost), discountPercentage: 0,
+        },
+        polishing: {
+          quantity: roundToTwo(ep.polishing.lm), unit: pricingContext.polishingUnit,
+          rate: ep.polishing.ratePerLm, baseAmount: roundToTwo(ep.polishing.cost),
+          discount: 0, total: roundToTwo(ep.polishing.cost), discountPercentage: 0,
+        },
+        installation: installationBreakdown,
+        lamination: laminationBreakdown,
+        edges: edgeBreakdowns,
+        cutouts: cutoutBreakdowns,
+        subtotal: fabricationSubtotal,
+      },
+      pieceTotal: fabricationSubtotal,
+    };
+
+    // Add oversize data from engine results
+    if (ep.join) {
+      pbd.oversize = {
+        isOversize: true,
+        joinCount: cutPlans[i].joins.length,
+        joinLengthLm: roundToTwo(ep.join.lm),
+        joinRate: ep.join.rate,
+        joinCost: roundToTwo(ep.join.cost),
+        grainMatchingSurchargeRate: ep.grainSurcharge ? ep.grainSurcharge.rate : 0,
+        fabricationSubtotalBeforeSurcharge: fabricationSubtotal,
+        grainMatchingSurcharge: roundToTwo(ep.grainSurcharge?.cost ?? 0),
+        strategy: cutPlans[i].strategy,
+        warnings: cutPlans[i].warnings,
+      };
+      pbd.pieceTotal = roundToTwo(pbd.pieceTotal + ep.join.cost + (ep.grainSurcharge?.cost ?? 0));
+    }
+
+    pieceBreakdowns.push(pbd);
   }
 
   // Calculate delivery cost
@@ -960,212 +1158,6 @@ export async function calculateQuotePrice(
 }
 
 /**
- * Calculate edge costs with thickness variants
- * Uses rate20mm for pieces ≤ 20mm, rate40mm for thicker pieces
- * Applies minimum charges and minimum lengths
- */
-function calculateEdgeCostV2(
-  pieces: Array<{
-    length_mm: number;
-    width_mm: number;
-    thickness_mm: number;
-    edge_top: string | null;
-    edge_bottom: string | null;
-    edge_left: string | null;
-    edge_right: string | null;
-  }>,
-  edgeTypes: Array<{
-    id: string;
-    name: string;
-    baseRate: { toNumber: () => number };
-    rate20mm: { toNumber: () => number } | null;
-    rate40mm: { toNumber: () => number } | null;
-    minimumCharge: { toNumber: () => number } | null;
-    minimumLength: { toNumber: () => number } | null;
-    isCurved: boolean;
-  }>
-): { totalLinearMeters: number; byType: EdgeBreakdown[]; subtotal: number } {
-  const edgeTotals = new Map<string, { linearMeters: number; thickness: number; edgeType: typeof edgeTypes[number] }>();
-
-  for (const piece of pieces) {
-    const edges = [
-      { id: piece.edge_top, length: piece.length_mm },
-      { id: piece.edge_bottom, length: piece.length_mm },
-      { id: piece.edge_left, length: piece.width_mm },
-      { id: piece.edge_right, length: piece.width_mm },
-    ];
-
-    for (const edge of edges) {
-      if (!edge.id) continue;
-
-      const edgeType = edgeTypes.find(et => et.id === edge.id);
-      if (!edgeType) continue;
-
-      const linearMeters = edge.length / 1000;
-      const key = `${edgeType.id}_${piece.thickness_mm}`;
-
-      const existing = edgeTotals.get(key) || { linearMeters: 0, thickness: piece.thickness_mm, edgeType };
-      existing.linearMeters += linearMeters;
-      edgeTotals.set(key, existing);
-    }
-  }
-
-  const byType: EdgeBreakdown[] = [];
-  let totalLinearMeters = 0;
-  let subtotal = 0;
-
-  for (const [, data] of Array.from(edgeTotals.entries())) {
-    // Select appropriate rate based on thickness
-    let rate: number;
-    if (data.thickness <= 20 && data.edgeType.rate20mm) {
-      rate = data.edgeType.rate20mm.toNumber();
-    } else if (data.thickness > 20 && data.edgeType.rate40mm) {
-      rate = data.edgeType.rate40mm.toNumber();
-    } else {
-      rate = data.edgeType.baseRate.toNumber(); // Fallback
-    }
-
-    // Calculate cost
-    let itemSubtotal = data.linearMeters * rate;
-
-    // Apply minimum length (pad to minimum if below)
-    const minLength = data.edgeType.minimumLength?.toNumber() || 0;
-    if (minLength > 0 && data.linearMeters < minLength) {
-      itemSubtotal = minLength * rate;
-    }
-
-    // Apply minimum charge
-    const minCharge = data.edgeType.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && itemSubtotal < minCharge) {
-      itemSubtotal = minCharge;
-    }
-
-    byType.push({
-      edgeTypeId: data.edgeType.id,
-      edgeTypeName: `${data.edgeType.name} (${data.thickness}mm)`,
-      linearMeters: roundToTwo(data.linearMeters),
-      baseRate: rate,
-      appliedRate: rate,
-      subtotal: roundToTwo(itemSubtotal),
-    });
-
-    totalLinearMeters += data.linearMeters;
-    subtotal += itemSubtotal;
-  }
-
-  return { totalLinearMeters, byType, subtotal };
-}
-
-/**
- * Calculate cutout costs with category-aware rates, thickness multiplier, and minimum charges.
- * Category rate takes priority over base rate; falls back to base rate when no category rate exists.
- */
-function calculateCutoutCostV2(
-  pieces: Array<{
-    cutouts: unknown; // JSON array
-    thickness_mm: number;
-    materials: unknown;
-  }>,
-  cutoutTypes: Array<{
-    id: string;
-    name: string;
-    category: string;
-    baseRate: { toNumber: () => number };
-    minimumCharge: { toNumber: () => number } | null;
-  }>,
-  cutoutCategoryRates: Array<{
-    cutoutTypeId: string;
-    fabricationCategory: string;
-    rate: { toNumber: () => number } | number;
-  }>,
-  pricingContext: PricingContext
-): { items: CutoutBreakdown[]; subtotal: number } {
-  // Group cutouts by cutoutTypeId + fabricationCategory to handle different material categories
-  const cutoutTotals = new Map<string, {
-    quantity: number;
-    cutoutType: typeof cutoutTypes[number];
-    fabricationCategory: string;
-    maxThickness: number;
-  }>();
-
-  for (const piece of pieces) {
-    const cutouts = Array.isArray(piece.cutouts) ? piece.cutouts :
-                    (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
-
-    const fabCategory: string =
-      (piece.materials as unknown as { fabrication_category?: string } | null)
-        ?.fabrication_category ?? 'ENGINEERED';
-
-    for (const cutout of cutouts) {
-      const cutoutType = cutoutTypes.find(ct => ct.id === cutout.typeId || ct.name === cutout.type);
-      if (!cutoutType) continue;
-
-      const key = `${cutoutType.id}__${fabCategory}`;
-      const existing = cutoutTotals.get(key) || {
-        quantity: 0,
-        cutoutType,
-        fabricationCategory: fabCategory,
-        maxThickness: 0,
-      };
-      existing.quantity += cutout.quantity || 1;
-      existing.maxThickness = Math.max(existing.maxThickness, piece.thickness_mm);
-      cutoutTotals.set(key, existing);
-    }
-  }
-
-  const items: CutoutBreakdown[] = [];
-  let subtotal = 0;
-
-  for (const [, data] of Array.from(cutoutTotals.entries())) {
-    // Try category-specific rate first
-    const categoryCutoutRate = cutoutCategoryRates.find(
-      r => r.cutoutTypeId === data.cutoutType.id
-        && r.fabricationCategory === data.fabricationCategory
-    );
-
-    const basePrice = categoryCutoutRate
-      ? (typeof categoryCutoutRate.rate === 'number'
-          ? categoryCutoutRate.rate
-          : categoryCutoutRate.rate.toNumber())
-      : data.cutoutType.baseRate.toNumber(); // fallback to flat rate
-
-    if (!categoryCutoutRate && basePrice === 0) {
-      console.warn(
-        `No category rate or base rate found for cutout type "${data.cutoutType.name}" ` +
-        `(${data.cutoutType.id}) in category ${data.fabricationCategory}. Cost will be $0.`
-      );
-    }
-
-    // Apply thickness multiplier for pieces > 20mm (from 11.1a)
-    const thicknessMultiplier = data.maxThickness > 20
-      ? pricingContext.cutoutThicknessMultiplier
-      : 1.0;
-
-    const appliedPrice = roundToTwo(basePrice * thicknessMultiplier);
-    let itemSubtotal = data.quantity * appliedPrice;
-
-    // Apply minimum charge
-    const minCharge = data.cutoutType.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && itemSubtotal < minCharge) {
-      itemSubtotal = minCharge;
-    }
-
-    items.push({
-      cutoutTypeId: data.cutoutType.id,
-      cutoutTypeName: data.cutoutType.name,
-      quantity: data.quantity,
-      basePrice: roundToTwo(basePrice),
-      appliedPrice,
-      subtotal: roundToTwo(itemSubtotal),
-    });
-
-    subtotal += itemSubtotal;
-  }
-
-  return { items, subtotal };
-}
-
-/**
  * Look up a service rate by type (and optionally fabrication category)
  * and return the thickness-appropriate value.
  * Throws if the rate is not found — prevents silent $0 calculations.
@@ -1221,259 +1213,6 @@ function applyMinimumCharge(
 }
 
 /**
- * Calculate service costs (cutting, polishing, installation, waterfall)
- * Reads configured units from pricingContext to determine quantity basis.
- */
-function calculateServiceCosts(
-  pieces: Array<{ length_mm: number; width_mm: number; thickness_mm: number; edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; lamination_method: string; waterfall_height_mm?: number | null; materials?: { fabrication_category: string } | null }>,
-  totalEdgeLinearMeters: number,
-  serviceRates: ServiceRateRecord[],
-  pricingContext: PricingContext
-): { items: ServiceBreakdown[]; subtotal: number } {
-  const items: ServiceBreakdown[] = [];
-  let subtotal = 0;
-
-  // No pieces → no service costs
-  if (pieces.length === 0) {
-    return { items, subtotal: 0 };
-  }
-
-  // Pre-compute shared aggregates
-  const totalAreaM2 = pieces.reduce((sum, p) => sum + (p.length_mm * p.width_mm) / 1_000_000, 0);
-  const totalPerimeterLm = pieces.reduce((sum, p) => sum + 2 * (p.length_mm + p.width_mm) / 1000, 0);
-  const avgThickness = pieces.length > 0
-    ? pieces.reduce((sum, p) => sum + p.thickness_mm, 0) / pieces.length
-    : 20;
-
-  // Determine primary fabrication category for aggregate rate lookups
-  const primaryCategory = pieces[0]?.materials?.fabrication_category ?? 'ENGINEERED';
-
-  // CUTTING — Pricing Bible v1.3 §3
-  // Full perimeter × rate. All 4 sides, always. Per-piece to handle mixed thickness.
-  {
-    let totalCuttingCost = 0;
-    let cuttingPerimeterLm = 0;
-    // Get the rate record once for the name and minimum charge
-    const { rateRecord: cuttingRateRecord } =
-      getServiceRate(serviceRates, 'CUTTING', pieces[0].thickness_mm, primaryCategory);
-
-    for (const piece of pieces) {
-      const piecePeriLm = 2 * (piece.length_mm + piece.width_mm) / 1000;
-      const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
-      const { rate: pieceRate } = getServiceRate(serviceRates, 'CUTTING', piece.thickness_mm, pieceCategory);
-      totalCuttingCost += piecePeriLm * pieceRate;
-      cuttingPerimeterLm += piecePeriLm;
-    }
-
-    totalCuttingCost = applyMinimumCharge(totalCuttingCost, cuttingRateRecord);
-
-    items.push({
-      serviceType: 'CUTTING',
-      name: cuttingRateRecord.name,
-      quantity: roundToTwo(cuttingPerimeterLm),
-      unit: 'LINEAR_METRE',
-      rate: cuttingPerimeterLm > 0 ? roundToTwo(totalCuttingCost / cuttingPerimeterLm) : 0,
-      subtotal: roundToTwo(totalCuttingCost),
-    });
-    subtotal += totalCuttingCost;
-  }
-
-  // Polishing: use tenant's configured polishing_unit
-  // Try exact category match, then uncategorised, then any POLISHING rate
-  const polishingRateRecord = serviceRates.find(
-    sr => sr.serviceType === 'POLISHING' && sr.fabricationCategory === primaryCategory
-  ) ?? serviceRates.find(
-    sr => sr.serviceType === 'POLISHING' && !sr.fabricationCategory
-  ) ?? serviceRates.find(
-    sr => sr.serviceType === 'POLISHING'
-  );
-  if (!polishingRateRecord) {
-    throw new Error(
-      `No POLISHING rate found for fabrication category ${primaryCategory}. Configure in Pricing Admin → Service Rates.`
-    );
-  }
-  if (totalEdgeLinearMeters > 0) {
-    const polishingUnit = pricingContext.polishingUnit;
-    let polishingCost = 0;
-    let totalPolishingQty = 0;
-
-    for (const piece of pieces) {
-      const edgeLengths = [
-        piece.edge_top ? piece.length_mm : 0,
-        piece.edge_bottom ? piece.length_mm : 0,
-        piece.edge_left ? piece.width_mm : 0,
-        piece.edge_right ? piece.width_mm : 0,
-      ];
-      const pieceEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
-      if (pieceEdgeLm <= 0) continue;
-
-      const piecePolishingQty = polishingUnit === 'SQUARE_METRE'
-        ? pieceEdgeLm * (piece.thickness_mm / 1000)
-        : pieceEdgeLm;
-
-      const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
-      const { rate } = getServiceRate(serviceRates, 'POLISHING', piece.thickness_mm, pieceCategory);
-      polishingCost += piecePolishingQty * rate;
-      totalPolishingQty += piecePolishingQty;
-    }
-
-    polishingCost = applyMinimumCharge(polishingCost, polishingRateRecord);
-
-    const displayRate = totalPolishingQty > 0
-      ? roundToTwo(polishingCost / totalPolishingQty)
-      : polishingRateRecord.rate20mm.toNumber();
-
-    if (totalPolishingQty > 0) {
-      items.push({
-        serviceType: 'POLISHING',
-        name: polishingRateRecord.name,
-        quantity: roundToTwo(totalPolishingQty),
-        unit: polishingUnit,
-        rate: displayRate,
-        subtotal: roundToTwo(polishingCost),
-      });
-      subtotal += polishingCost;
-    }
-  }
-
-  // Installation: use tenant's configured installation_unit
-  const { rate: installRateVal, rateRecord: installRateRecord } =
-    getServiceRate(serviceRates, 'INSTALLATION', avgThickness, primaryCategory);
-  {
-    const installationUnit = pricingContext.installationUnit;
-    const installQty =
-      installationUnit === 'SQUARE_METRE' ? totalAreaM2 :
-      installationUnit === 'LINEAR_METRE' ? totalPerimeterLm :
-      1; // FIXED = flat fee
-
-    const cost = applyMinimumCharge(installQty * installRateVal, installRateRecord);
-
-    if (cost > 0) {
-      items.push({
-        serviceType: 'INSTALLATION',
-        name: installRateRecord.name,
-        quantity: roundToTwo(installQty),
-        unit: installationUnit,
-        rate: installRateVal,
-        subtotal: roundToTwo(cost),
-      });
-      subtotal += cost;
-    }
-  }
-
-  // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
-  let totalLaminationCost = 0;
-  let totalLaminationLm = 0;
-
-  for (const piece of pieces) {
-    if (piece.thickness_mm <= 20) continue;
-    if (piece.lamination_method === 'NONE') continue;
-
-    // Use per-piece category for the polishing base rate
-    const pieceCategory = piece.materials?.fabrication_category ?? primaryCategory;
-    const { rate: polishRate20mm } = getServiceRate(serviceRates, 'POLISHING', 20, pieceCategory);
-
-    const edgeLengths = [
-      piece.edge_top ? piece.length_mm : 0,
-      piece.edge_bottom ? piece.length_mm : 0,
-      piece.edge_left ? piece.width_mm : 0,
-      piece.edge_right ? piece.width_mm : 0,
-    ];
-    const pieceFinishedEdgeLm = edgeLengths.reduce((sum, len) => sum + len, 0) / 1000;
-    if (pieceFinishedEdgeLm <= 0) continue;
-
-    const multiplier = piece.lamination_method === 'MITRED'
-      ? pricingContext.mitredMultiplier
-      : pricingContext.laminatedMultiplier;
-
-    totalLaminationCost += pieceFinishedEdgeLm * (polishRate20mm * multiplier);
-    totalLaminationLm += pieceFinishedEdgeLm;
-  }
-
-  if (totalLaminationCost > 0) {
-    const displayRate = totalLaminationLm > 0
-      ? roundToTwo(totalLaminationCost / totalLaminationLm)
-      : 0;
-
-    items.push({
-      serviceType: 'LAMINATION',
-      name: 'Lamination (edge build-up)',
-      quantity: roundToTwo(totalLaminationLm),
-      unit: 'LINEAR_METRE',
-      rate: displayRate,
-      subtotal: roundToTwo(totalLaminationCost),
-    });
-    subtotal += totalLaminationCost;
-  }
-
-  // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
-  // Detect waterfall pieces by edge type ID containing 'waterfall' OR by
-  // waterfall_height_mm being set (covers pieces identified via piece_relationships).
-  const waterfallPieces = pieces.filter(p => {
-    if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
-    const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
-    return edges.some(e => e && (e.includes('WATERFALL') || e.includes('waterfall')));
-  });
-
-  if (waterfallPieces.length > 0) {
-    // Look up WATERFALL_END rate — skip silently if not configured (optional service)
-    const waterfallRateRecord = serviceRates.find(r => {
-      if (r.serviceType !== 'WATERFALL_END') return false;
-      return r.fabricationCategory === primaryCategory;
-    }) ?? serviceRates.find(r => r.serviceType === 'WATERFALL_END');
-
-    if (waterfallRateRecord) {
-      const waterfallMethod = pricingContext.waterfallPricingMethod ?? 'FIXED_PER_END';
-      const waterfallRateVal = avgThickness > 20
-        ? waterfallRateRecord.rate40mm.toNumber()
-        : waterfallRateRecord.rate20mm.toNumber();
-
-      if (waterfallMethod === 'FIXED_PER_END') {
-        // Existing behaviour: count × rate per end
-        const waterfallCount = waterfallPieces.length;
-        const cost = applyMinimumCharge(waterfallCount * waterfallRateVal, waterfallRateRecord);
-
-        items.push({
-          serviceType: 'WATERFALL_END',
-          name: waterfallRateRecord.name,
-          quantity: waterfallCount,
-          unit: 'EACH',
-          rate: waterfallRateVal,
-          subtotal: roundToTwo(cost),
-        });
-        subtotal += cost;
-      } else if (waterfallMethod === 'PER_LINEAR_METRE') {
-        // New: rate × height (in linear metres) per waterfall piece
-        let totalWaterfallCost = 0;
-        let totalHeightLm = 0;
-
-        for (const wf of waterfallPieces) {
-          const heightMm = wf.waterfall_height_mm ?? 900; // default 900mm if not specified
-          const heightLm = heightMm / 1000;
-          totalWaterfallCost += heightLm * waterfallRateVal;
-          totalHeightLm += heightLm;
-        }
-
-        totalWaterfallCost = applyMinimumCharge(totalWaterfallCost, waterfallRateRecord);
-
-        items.push({
-          serviceType: 'WATERFALL_END',
-          name: waterfallRateRecord.name,
-          quantity: roundToTwo(totalHeightLm),
-          unit: 'LINEAR_METRE',
-          rate: waterfallRateVal,
-          subtotal: roundToTwo(totalWaterfallCost),
-        });
-        subtotal += totalWaterfallCost;
-      }
-      // INCLUDED_IN_SLAB: no separate charge — waterfall cost is absorbed into slab price
-    }
-  }
-
-  return { items, subtotal };
-}
-
-/**
  * Get applicable rules (simplified version)
  */
 async function getApplicableRules(
@@ -1512,338 +1251,99 @@ async function getApplicableRules(
   }) as unknown as PricingRuleWithOverrides[];
 }
 
+// ─── Engine result mapping helpers ────────────────────────────────────────────
+
 /**
- * Calculate pricing breakdown for a single piece.
- * Uses tenant-configured units for cutting and polishing,
- * and applies client tier fabrication discounts.
+ * Map engine edge profile results to aggregate EdgeBreakdown[] for backwards compatibility.
  */
-function calculatePiecePricing(
-  piece: {
-    id: number;
-    name: string;
-    description: string | null;
-    length_mm: number;
-    width_mm: number;
-    thickness_mm: number;
-    edge_top: string | null;
-    edge_bottom: string | null;
-    edge_left: string | null;
-    edge_right: string | null;
-    cutouts: unknown;
-    lamination_method: string;
-  },
-  serviceRates: ServiceRateRecord[],
-  edgeTypes: Map<string, {
-    id: string;
-    name: string;
-    baseRate: { toNumber: () => number };
-    rate20mm: { toNumber: () => number } | null;
-    rate40mm: { toNumber: () => number } | null;
-    minimumCharge: { toNumber: () => number } | null;
-    minimumLength: { toNumber: () => number } | null;
-  }>,
-  cutoutTypes: Map<string, {
-    id: string;
-    name: string;
-    category: string;
-    baseRate: { toNumber: () => number };
-    minimumCharge: { toNumber: () => number } | null;
-  }>,
-  fabricationDiscountPct: number,
-  pricingContext: PricingContext,
-  fabricationCategory: string = 'ENGINEERED',
-  cutoutCategoryRates: Array<{
-    cutoutTypeId: string;
-    fabricationCategory: string;
-    rate: { toNumber: () => number } | number;
-  }> = [],
-  edgeCategoryRates: Array<{
-    edgeTypeId: string;
-    fabricationCategory: string;
-    rate20mm: { toNumber: () => number } | number;
-    rate40mm: { toNumber: () => number } | number;
-  }> = []
-): PiecePricingBreakdown {
-  const thickness = piece.thickness_mm;
-  const isThick = thickness > 20;
-
-  // Get service rates based on thickness + fabrication category — no fallback defaults, rates must exist
-  const { rate: cuttingRateVal } = getServiceRate(serviceRates, 'CUTTING', thickness, fabricationCategory);
-  const { rate: polishingRateVal } = getServiceRate(serviceRates, 'POLISHING', thickness, fabricationCategory);
-  const { rate: installRateVal, rateRecord: installRateRecord } =
-    getServiceRate(serviceRates, 'INSTALLATION', thickness, fabricationCategory);
-
-  // Piece dimensions
-  const perimeterMm = 2 * (piece.length_mm + piece.width_mm);
-  const perimeterLm = perimeterMm / 1000;
-  const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
-
-  // Cutting: use tenant's configured cutting_unit
-  const cuttingUnit = pricingContext.cuttingUnit;
-  const cuttingQty = cuttingUnit === 'LINEAR_METRE' ? perimeterLm : areaSqm;
-
-  const cuttingBase = roundToTwo(cuttingQty * cuttingRateVal);
-  const cuttingDiscount = roundToTwo(cuttingBase * (fabricationDiscountPct / 100));
-  const cuttingTotal = roundToTwo(cuttingBase - cuttingDiscount);
-
-  // Edge sides mapping: top/bottom use length_mm (horizontal), left/right use width_mm (vertical)
-  const edgeSides: Array<{ side: 'top' | 'bottom' | 'left' | 'right'; lengthMm: number; edgeTypeId: string | null }> = [
-    { side: 'top', lengthMm: piece.length_mm, edgeTypeId: piece.edge_top },
-    { side: 'bottom', lengthMm: piece.length_mm, edgeTypeId: piece.edge_bottom },
-    { side: 'left', lengthMm: piece.width_mm, edgeTypeId: piece.edge_left },
-    { side: 'right', lengthMm: piece.width_mm, edgeTypeId: piece.edge_right },
-  ];
-
-  // Polishing: use tenant's configured polishing_unit
-  const polishingUnit = pricingContext.polishingUnit;
-  let finishedEdgeLm = 0;
-  let finishedEdgeAreaSqm = 0;
-  for (const { edgeTypeId, lengthMm } of edgeSides) {
-    if (edgeTypeId) {
-      const edgeLm = lengthMm / 1000;
-      finishedEdgeLm += edgeLm;
-      finishedEdgeAreaSqm += edgeLm * (thickness / 1000);
+function mapEdgeBreakdownFromEngine(
+  engineResult: ReturnType<typeof calculateEngineQuote>,
+  edgeTypeReverseMap: Map<number, { id: string; name: string }>
+): { totalLinearMeters: number; byType: EdgeBreakdown[]; subtotal: number } {
+  const edgeTotals = new Map<number, { lm: number; cost: number }>();
+  for (const piece of engineResult.pieces) {
+    for (const item of piece.edgeProfiles.items) {
+      const existing = edgeTotals.get(item.edgeTypeId) || { lm: 0, cost: 0 };
+      existing.lm += item.lm;
+      existing.cost += item.cost;
+      edgeTotals.set(item.edgeTypeId, existing);
     }
   }
-  const polishingQty = polishingUnit === 'SQUARE_METRE' ? finishedEdgeAreaSqm : finishedEdgeLm;
-
-  const polishingBase = roundToTwo(polishingQty * polishingRateVal);
-  const polishingDiscount = roundToTwo(polishingBase * (fabricationDiscountPct / 100));
-  const polishingTotal = roundToTwo(polishingBase - polishingDiscount);
-
-  // Mitred constraint: mitred edges can only use Pencil Round profile
-  if (piece.lamination_method === 'MITRED') {
-    for (const { edgeTypeId } of edgeSides) {
-      if (!edgeTypeId) continue;
-      const edgeType = edgeTypes.get(edgeTypeId);
-      if (!edgeType) continue;
-      const nameLower = edgeType.name.toLowerCase();
-      if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
-        throw new Error(
-          `Piece "${piece.name || piece.description || piece.id}": ` +
-          `Mitred edges only support Pencil Round profile. ` +
-          `Found "${edgeType.name}". Change to Pencil Round or switch to Laminated edge.`
-        );
-      }
-    }
-  }
-
-  // Lamination: applies to pieces > 20mm with LAMINATED or MITRED method
-  let laminationBreakdown: PiecePricingBreakdown['fabrication']['lamination'];
-  if (thickness > 20 && piece.lamination_method !== 'NONE') {
-    const polishRate20mm = getServiceRate(serviceRates, 'POLISHING', 20, fabricationCategory).rate;
-    const multiplier = piece.lamination_method === 'MITRED'
-      ? pricingContext.mitredMultiplier
-      : pricingContext.laminatedMultiplier;
-
-    const laminationTotal = roundToTwo(finishedEdgeLm * polishRate20mm * multiplier);
-    if (laminationTotal > 0) {
-      laminationBreakdown = {
-        method: piece.lamination_method,
-        finishedEdgeLm: roundToTwo(finishedEdgeLm),
-        baseRate: polishRate20mm,
-        multiplier,
-        total: laminationTotal,
-      };
-    }
-  }
-
-  // Edge profile costs (additional cost per edge type)
-  const edgeBreakdowns: PiecePricingBreakdown['fabrication']['edges'] = [];
-  for (const { side, lengthMm, edgeTypeId } of edgeSides) {
-    if (!edgeTypeId) continue;
-    const edgeType = edgeTypes.get(edgeTypeId);
-    if (!edgeType) continue;
-
-    // Try category-specific rate first, fall back to flat rate from edge_types
-    const categoryEdgeRate = edgeCategoryRates.find(
-      r => r.edgeTypeId === edgeTypeId
-        && r.fabricationCategory === fabricationCategory
-    );
-
-    let rate: number;
-    if (categoryEdgeRate) {
-      const catRate20 = typeof categoryEdgeRate.rate20mm === 'number'
-        ? categoryEdgeRate.rate20mm
-        : categoryEdgeRate.rate20mm.toNumber();
-      const catRate40 = typeof categoryEdgeRate.rate40mm === 'number'
-        ? categoryEdgeRate.rate40mm
-        : categoryEdgeRate.rate40mm.toNumber();
-      rate = isThick ? catRate40 : catRate20;
-    } else if (!isThick && edgeType.rate20mm) {
-      rate = edgeType.rate20mm.toNumber();
-    } else if (isThick && edgeType.rate40mm) {
-      rate = edgeType.rate40mm.toNumber();
-    } else {
-      rate = edgeType.baseRate.toNumber();
-    }
-
-    const linearMeters = lengthMm / 1000;
-    let baseAmount = roundToTwo(linearMeters * rate);
-
-    // Apply minimum length
-    const minLength = edgeType.minimumLength?.toNumber() || 0;
-    if (minLength > 0 && linearMeters < minLength) {
-      baseAmount = roundToTwo(minLength * rate);
-    }
-
-    // Apply minimum charge
-    const minCharge = edgeType.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && baseAmount < minCharge) {
-      baseAmount = minCharge;
-    }
-
-    const discount = roundToTwo(baseAmount * (fabricationDiscountPct / 100));
-
-    edgeBreakdowns.push({
-      side,
-      edgeTypeId,
-      edgeTypeName: edgeType.name,
-      lengthMm,
-      linearMeters: roundToTwo(linearMeters),
-      rate,
-      baseAmount,
-      discount,
-      total: roundToTwo(baseAmount - discount),
-      discountPercentage: fabricationDiscountPct,
+  const byType: EdgeBreakdown[] = [];
+  let totalLinearMeters = 0;
+  let subtotal = 0;
+  for (const [edgeTypeId, data] of Array.from(edgeTotals.entries())) {
+    const dbEdgeType = edgeTypeReverseMap.get(edgeTypeId);
+    const displayRate = data.lm > 0 ? roundToTwo(data.cost / data.lm) : 0;
+    byType.push({
+      edgeTypeId: dbEdgeType?.id ?? String(edgeTypeId),
+      edgeTypeName: dbEdgeType?.name ?? `Edge ${edgeTypeId}`,
+      linearMeters: roundToTwo(data.lm),
+      baseRate: displayRate,
+      appliedRate: displayRate,
+      subtotal: roundToTwo(data.cost),
     });
+    totalLinearMeters += data.lm;
+    subtotal += data.cost;
   }
-
-  // Cutout costs — category-aware rates with thickness multiplier
-  const cutoutBreakdowns: PiecePricingBreakdown['fabrication']['cutouts'] = [];
-  const cutoutsArray = Array.isArray(piece.cutouts)
-    ? piece.cutouts
-    : (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
-
-  for (const cutout of cutoutsArray) {
-    const cutoutType = cutoutTypes.get(cutout.typeId) ?? findCutoutByName(cutoutTypes, cutout.type);
-    if (!cutoutType) continue;
-
-    // Try category-specific rate first, fall back to base rate
-    const categoryCutoutRate = cutoutCategoryRates.find(
-      r => r.cutoutTypeId === cutoutType.id
-        && r.fabricationCategory === fabricationCategory
-    );
-
-    const baseRate = categoryCutoutRate
-      ? (typeof categoryCutoutRate.rate === 'number'
-          ? categoryCutoutRate.rate
-          : categoryCutoutRate.rate.toNumber())
-      : cutoutType.baseRate.toNumber();
-
-    if (!categoryCutoutRate && baseRate === 0) {
-      console.warn(
-        `No category rate or base rate for cutout "${cutoutType.name}" in category ${fabricationCategory}. Cost will be $0.`
-      );
-    }
-
-    // Apply thickness multiplier for pieces > 20mm
-    const thicknessMultiplier = thickness > 20
-      ? pricingContext.cutoutThicknessMultiplier
-      : 1.0;
-
-    const rate = roundToTwo(baseRate * thicknessMultiplier);
-    const quantity = cutout.quantity || 1;
-    let baseAmount = roundToTwo(quantity * rate);
-
-    const minCharge = cutoutType.minimumCharge?.toNumber() || 0;
-    if (minCharge > 0 && baseAmount < minCharge) {
-      baseAmount = minCharge;
-    }
-
-    cutoutBreakdowns.push({
-      cutoutTypeId: cutoutType.id,
-      cutoutTypeName: cutoutType.name,
-      quantity,
-      rate,
-      baseAmount,
-      discount: 0,
-      total: baseAmount,
-    });
-  }
-
-  // Installation: use tenant's configured installation_unit
-  let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
-  {
-    const installationUnit = pricingContext.installationUnit;
-    const installQty =
-      installationUnit === 'SQUARE_METRE' ? areaSqm :
-      installationUnit === 'LINEAR_METRE' ? perimeterLm :
-      1; // FIXED = flat fee; distributed per-piece as rate × 1
-
-    const installBase = roundToTwo(
-      applyMinimumCharge(installQty * installRateVal, installRateRecord)
-    );
-    if (installBase > 0) {
-      installationBreakdown = {
-        quantity: roundToTwo(installQty),
-        unit: installationUnit,
-        rate: installRateVal,
-        baseAmount: installBase,
-        discount: 0,
-        total: installBase,
-      };
-    }
-  }
-
-  // Fabrication subtotal
-  const fabricationSubtotal = roundToTwo(
-    cuttingTotal +
-    polishingTotal +
-    (installationBreakdown?.total ?? 0) +
-    (laminationBreakdown?.total ?? 0) +
-    edgeBreakdowns.reduce((sum, e) => sum + e.total, 0) +
-    cutoutBreakdowns.reduce((sum, c) => sum + c.total, 0)
-  );
-
-  return {
-    pieceId: piece.id,
-    pieceName: piece.name || piece.description || `Piece ${piece.id}`,
-    fabricationCategory,
-    dimensions: {
-      lengthMm: piece.length_mm,
-      widthMm: piece.width_mm,
-      thicknessMm: thickness,
-    },
-    fabrication: {
-      cutting: {
-        quantity: roundToTwo(cuttingQty),
-        unit: cuttingUnit,
-        rate: cuttingRateVal,
-        baseAmount: cuttingBase,
-        discount: cuttingDiscount,
-        total: cuttingTotal,
-        discountPercentage: fabricationDiscountPct,
-      },
-      polishing: {
-        quantity: roundToTwo(polishingQty),
-        unit: polishingUnit,
-        rate: polishingRateVal,
-        baseAmount: polishingBase,
-        discount: polishingDiscount,
-        total: polishingTotal,
-        discountPercentage: fabricationDiscountPct,
-      },
-      installation: installationBreakdown,
-      lamination: laminationBreakdown,
-      edges: edgeBreakdowns,
-      cutouts: cutoutBreakdowns,
-      subtotal: fabricationSubtotal,
-    },
-    pieceTotal: fabricationSubtotal,
-  };
+  return { totalLinearMeters, byType, subtotal };
 }
 
 /**
- * Helper: find a cutout type by name in the map
+ * Map engine cutout results to aggregate CutoutBreakdown[] for backwards compatibility.
  */
-function findCutoutByName(
-  cutoutTypes: Map<string, { id: string; name: string; category: string; baseRate: { toNumber: () => number }; minimumCharge: { toNumber: () => number } | null }>,
-  name: string | undefined
-): { id: string; name: string; category: string; baseRate: { toNumber: () => number }; minimumCharge: { toNumber: () => number } | null } | undefined {
-  if (!name) return undefined;
-  const entries = Array.from(cutoutTypes.values());
-  return entries.find(ct => ct.name === name);
+function mapCutoutBreakdownFromEngine(
+  engineResult: ReturnType<typeof calculateEngineQuote>,
+): { items: CutoutBreakdown[]; subtotal: number } {
+  const cutoutTotals = new Map<string, { quantity: number; cost: number; unitCost: number }>();
+  for (const piece of engineResult.pieces) {
+    for (const item of piece.cutouts.items) {
+      const existing = cutoutTotals.get(item.type) || { quantity: 0, cost: 0, unitCost: item.rate };
+      existing.quantity += item.qty;
+      existing.cost += item.cost;
+      cutoutTotals.set(item.type, existing);
+    }
+  }
+  const items: CutoutBreakdown[] = [];
+  let subtotal = 0;
+  for (const [typeName, data] of Array.from(cutoutTotals.entries())) {
+    items.push({
+      cutoutTypeId: typeName,
+      cutoutTypeName: typeName,
+      quantity: data.quantity,
+      basePrice: data.unitCost,
+      appliedPrice: data.unitCost,
+      subtotal: roundToTwo(data.cost),
+    });
+    subtotal += data.cost;
+  }
+  return { items, subtotal };
+}
+
+/**
+ * Return a zeroed-out piece breakdown for pieces that fail engine pricing.
+ */
+function zeroedPieceBreakdown(
+  piece: { id: number; name: string; description?: string | null; length_mm: number; width_mm: number; thickness_mm: number; materials?: unknown },
+  pricingContext: PricingContext
+): PiecePricingBreakdown {
+  const pieceFabCategory: string =
+    (piece.materials as unknown as { fabrication_category?: string } | null)
+      ?.fabrication_category ?? 'ENGINEERED';
+  return {
+    pieceId: piece.id,
+    pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+    fabricationCategory: pieceFabCategory,
+    dimensions: { lengthMm: piece.length_mm, widthMm: piece.width_mm, thicknessMm: piece.thickness_mm },
+    fabrication: {
+      cutting: { quantity: 0, unit: pricingContext.cuttingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+      polishing: { quantity: 0, unit: pricingContext.polishingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
+      edges: [],
+      cutouts: [],
+      subtotal: 0,
+    },
+    pieceTotal: 0,
+  };
 }
 
 /**
