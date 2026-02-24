@@ -26,6 +26,12 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
+    // Fetch pricing settings to determine material cost basis
+    const pricingSettings = await prisma.pricing_settings.findUnique({
+      where: { organisation_id: `company-${auth.user.companyId}` },
+    });
+    const materialBasis = pricingSettings?.material_pricing_basis ?? 'PER_SQUARE_METRE';
+
     // Get all rooms with their pieces
     const rooms = await prisma.quote_rooms.findMany({
       where: { quote_id: quoteId },
@@ -42,28 +48,58 @@ export async function GET(
       },
     });
 
+    // Recalculate material cost at runtime based on pricing settings
+    const computeMaterialCost = (
+      areaSqm: number,
+      material: any,
+      basis: string
+    ): number => {
+      if (!material) return 0;
+      if (
+        basis === 'PER_SLAB' &&
+        material.slab_length_mm &&
+        material.slab_width_mm &&
+        material.price_per_slab
+      ) {
+        const slabAreaSqm = (material.slab_length_mm * material.slab_width_mm) / 1_000_000;
+        const slabsNeeded = Math.ceil(areaSqm / slabAreaSqm);
+        return slabsNeeded * Number(material.price_per_slab);
+      }
+      // Default: PER_SQUARE_METRE
+      const pricePerSqm = Number(material.price_per_sqm ?? material.price_per_square_metre ?? 0);
+      return areaSqm * pricePerSqm;
+    };
+
     // Flatten pieces with room info, adding camelCase aliases
     const pieces = rooms.flatMap(room =>
-      room.quote_pieces.map((piece: any) => ({
-        ...piece,
-        quote_rooms: { id: room.id, name: room.name },
-        // camelCase aliases for client components
-        lengthMm: piece.length_mm,
-        widthMm: piece.width_mm,
-        thicknessMm: piece.thickness_mm,
-        materialId: piece.material_id,
-        materialName: piece.material_name,
-        edgeTop: piece.edge_top,
-        edgeBottom: piece.edge_bottom,
-        edgeLeft: piece.edge_left,
-        edgeRight: piece.edge_right,
-        laminationMethod: piece.lamination_method,
-        sortOrder: piece.sort_order,
-        totalCost: Number(piece.total_cost || 0),
-        areaSqm: Number(piece.area_sqm || 0),
-        materialCost: Number(piece.material_cost || 0),
-        featuresCost: Number(piece.features_cost || 0),
-      }))
+      room.quote_pieces.map((piece: any) => {
+        const areaSqm = Number(piece.area_sqm || 0);
+        const materialCost = computeMaterialCost(areaSqm, piece.materials, materialBasis);
+        const featuresCost = Number(piece.features_cost || 0);
+        return {
+          ...piece,
+          quote_rooms: { id: room.id, name: room.name },
+          // camelCase aliases for client components
+          lengthMm: piece.length_mm,
+          widthMm: piece.width_mm,
+          thicknessMm: piece.thickness_mm,
+          materialId: piece.material_id,
+          materialName: piece.material_name,
+          edgeTop: piece.edge_top,
+          edgeBottom: piece.edge_bottom,
+          edgeLeft: piece.edge_left,
+          edgeRight: piece.edge_right,
+          laminationMethod: piece.lamination_method,
+          sortOrder: piece.sort_order,
+          // Runtime-calculated costs (overrides stored DB values)
+          material_cost: materialCost,
+          total_cost: materialCost + featuresCost,
+          totalCost: materialCost + featuresCost,
+          areaSqm,
+          materialCost,
+          featuresCost,
+        };
+      })
     );
 
     return NextResponse.json(pieces);
