@@ -540,6 +540,8 @@ model quote_pieces {
   joinLengthMm         Int?
   requiresGrainMatch   Boolean          @default(false)
   waterfall_height_mm  Int?
+  shape_type           String?          @default("RECTANGLE")
+  shape_config         Json?
   piece_features      piece_features[]
   materials           materials?           @relation(fields: [material_id], references: [id])
   quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
