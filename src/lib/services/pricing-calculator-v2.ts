@@ -839,6 +839,22 @@ export async function calculateQuotePrice(
 
   // Build per-piece breakdowns from engine results
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
+
+  // Proportional allocation of material and installation across pieces
+  const totalAreaSqm = allPieces.reduce(
+    (sum: number, p: { length_mm: number; width_mm: number }) =>
+      sum + (p.length_mm * p.width_mm) / 1_000_000, 0
+  );
+  const totalMaterialCost = materialBreakdown.subtotal;
+  const totalInstallationCost = engineResult.installationSubtotal;
+  let allocatedMaterial = 0;
+  let allocatedInstallation = 0;
+  // Find last piece with materials for rounding correction
+  let lastMaterialPieceIdx = -1;
+  for (let j = allPieces.length - 1; j >= 0; j--) {
+    if (allPieces[j].materials) { lastMaterialPieceIdx = j; break; }
+  }
+
   for (let i = 0; i < allPieces.length; i++) {
     const piece = allPieces[i];
     const ep = engineResult.pieces[i];
@@ -888,15 +904,28 @@ export async function calculateQuotePrice(
     }
 
     let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
-    if (ep.installation.cost > 0) {
-      installationBreakdown = {
-        quantity: roundToTwo(ep.installation.area_sqm),
-        unit: pricingContext.installationUnit,
-        rate: ep.installation.ratePerSqm,
-        baseAmount: roundToTwo(ep.installation.cost),
-        discount: 0,
-        total: roundToTwo(ep.installation.cost),
-      };
+    if (totalInstallationCost > 0) {
+      const pieceAreaForInstall = (piece.length_mm * piece.width_mm) / 1_000_000;
+      let installationShare: number;
+      if (i === allPieces.length - 1) {
+        // Last piece gets remainder to avoid rounding drift
+        installationShare = roundToTwo(totalInstallationCost - allocatedInstallation);
+      } else {
+        installationShare = totalAreaSqm > 0
+          ? roundToTwo((pieceAreaForInstall / totalAreaSqm) * totalInstallationCost)
+          : 0;
+        allocatedInstallation += installationShare;
+      }
+      if (installationShare > 0) {
+        installationBreakdown = {
+          quantity: roundToTwo(pieceAreaForInstall),
+          unit: pricingContext.installationUnit,
+          rate: ep.installation.ratePerSqm,
+          baseAmount: installationShare,
+          discount: 0,
+          total: installationShare,
+        };
+      }
     }
 
     const fabricationSubtotal = roundToTwo(
@@ -947,7 +976,8 @@ export async function calculateQuotePrice(
       pbd.pieceTotal = roundToTwo(pbd.pieceTotal + ep.join.cost + (ep.grainSurcharge?.cost ?? 0));
     }
 
-    // Add per-piece material cost
+    // Add per-piece proportional material cost
+    // Each piece gets its area share of the total material cost (from optimizer/aggregate)
     if (piece.materials) {
       const mat = piece.materials as unknown as {
         price_per_sqm: { toNumber: () => number };
@@ -956,34 +986,40 @@ export async function calculateQuotePrice(
         slab_width_mm?: number | null;
       };
       const pieceAreaM2 = roundToTwo((piece.length_mm * piece.width_mm) / 1_000_000);
-      let materialCost = 0;
-      let slabCountForPiece: number | undefined;
-      let pricePerSlab: number | undefined;
-      let pricePerSqm: number | undefined;
+      const pricePerSlab = mat.price_per_slab?.toNumber();
+      const pricePerSqm = mat.price_per_sqm.toNumber();
 
-      if (pricingContext.materialPricingBasis === 'PER_SLAB' && mat.price_per_slab) {
-        pricePerSlab = mat.price_per_slab.toNumber();
-        slabCountForPiece = cutPlans[i].totalSlabsRequired;
-        materialCost = roundToTwo(slabCountForPiece * pricePerSlab);
+      // Proportional area share of total material cost
+      let materialShare: number;
+      if (i === lastMaterialPieceIdx) {
+        // Last piece with material gets remainder to avoid rounding drift
+        materialShare = roundToTwo(totalMaterialCost - allocatedMaterial);
       } else {
-        pricePerSqm = mat.price_per_sqm.toNumber();
-        materialCost = roundToTwo(pieceAreaM2 * pricePerSqm);
+        materialShare = totalAreaSqm > 0
+          ? roundToTwo((pieceAreaM2 / totalAreaSqm) * totalMaterialCost)
+          : 0;
+        allocatedMaterial += materialShare;
       }
+
+      // Proportional slab count for display
+      const proportionalSlabCount = (pricingContext.materialPricingBasis === 'PER_SLAB' && materialBreakdown.slabCount)
+        ? roundToTwo((pieceAreaM2 / (totalAreaSqm || 1)) * materialBreakdown.slabCount)
+        : undefined;
 
       pbd.materials = {
         areaM2: pieceAreaM2,
         baseRate: pricePerSqm ?? pricePerSlab ?? 0,
         thicknessMultiplier: 1,
-        baseAmount: materialCost,
+        baseAmount: materialShare,
         discount: 0,
-        total: materialCost,
+        total: materialShare,
         discountPercentage: 0,
         pricingBasis: pricingContext.materialPricingBasis === 'PER_SLAB' ? 'PER_SLAB' : 'PER_SQUARE_METRE',
-        slabCount: slabCountForPiece,
+        slabCount: proportionalSlabCount,
         pricePerSlab,
         pricePerSqm,
       };
-      pbd.pieceTotal = roundToTwo(pbd.pieceTotal + materialCost);
+      pbd.pieceTotal = roundToTwo(pbd.pieceTotal + materialShare);
     }
 
     pieceBreakdowns.push(pbd);
@@ -1038,7 +1074,11 @@ export async function calculateQuotePrice(
       : (calculatedTemplatingCost ?? 0),
   };
 
-  // Calculate initial subtotal
+  // Calculate initial subtotal from aggregate values.
+  // Material and installation are NOT double-counted — these aggregates are computed
+  // independently of the per-piece proportional values (which are display-only in the
+  // piece breakdown). The informational Material and Installation summary lines in the
+  // UI are derived from these aggregates and do not add to the subtotal again.
   const piecesSubtotal =
     materialBreakdown.subtotal +
     edgeData.subtotal +
