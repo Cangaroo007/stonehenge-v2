@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
@@ -381,12 +382,26 @@ export async function PATCH(
       await prisma.quote_rooms.delete({ where: { id: currentPiece.room_id } });
     }
 
-    // Trigger recalculation
+    // Trigger recalculation and persist to keep calculation_breakdown current
+    // Uses same pattern as POST /api/quotes/[id]/calculate
     let calcResult = null;
     try {
       calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
-    } catch {
-      // Calculation may fail for quotes without pricing settings — non-fatal
+
+      // Persist recalculation results to DB
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: {
+          subtotal: calcResult.subtotal,
+          tax_amount: calcResult.gstAmount,
+          total: calcResult.totalIncGst,
+          calculated_at: new Date(),
+          calculation_breakdown: calcResult as unknown as Prisma.InputJsonValue,
+        },
+      });
+    } catch (recalcError) {
+      // Non-fatal — log but do not fail the PATCH response
+      console.error('Post-PATCH recalculation failed:', recalcError);
     }
 
     // Extract the updated piece cost from calculation
