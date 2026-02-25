@@ -16,6 +16,10 @@ interface QuoteLevelCostSectionsProps {
   deliveryEnabled?: boolean;
   /** Called when the delivery toggle changes (edit mode) */
   onDeliveryEnabledChange?: (enabled: boolean) => void;
+  /** Quote ID for recalculation */
+  quoteId?: string;
+  /** Called after recalculation to refresh data */
+  onRecalculate?: () => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -92,7 +96,29 @@ export default function QuoteLevelCostSections({
   onTemplatingToggle,
   deliveryEnabled,
   onDeliveryEnabledChange,
+  quoteId,
+  onRecalculate,
 }: QuoteLevelCostSectionsProps) {
+  const [isRecalculating, setIsRecalculating] = useState(false);
+
+  const handleRecalculateDelivery = async () => {
+    if (!quoteId || isRecalculating) return;
+    setIsRecalculating(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/calculate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      if (res.ok && onRecalculate) {
+        onRecalculate();
+      }
+    } catch (err) {
+      console.error('Failed to recalculate delivery:', err);
+    } finally {
+      setIsRecalculating(false);
+    }
+  };
   // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
   if (!calculation.breakdown) {
     return null;
@@ -154,41 +180,51 @@ export default function QuoteLevelCostSections({
           <span className={`ml-auto font-medium tabular-nums ${!effectiveDeliveryEnabled ? 'text-gray-400' : 'text-gray-900'}`}>
             {formatCurrency(deliveryCost)}
           </span>
+          {effectiveDeliveryEnabled && isEditMode && quoteId && (
+            <button
+              onClick={handleRecalculateDelivery}
+              className="text-sm text-blue-600 hover:underline ml-2"
+              disabled={isRecalculating}
+            >
+              {isRecalculating ? 'Calculating...' : 'Recalculate'}
+            </button>
+          )}
         </div>
-        {effectiveDeliveryEnabled && hasDeliveryData && delivery && (
+        {effectiveDeliveryEnabled && (
           <div className="px-4 pb-3 pt-1 border-t border-gray-100 space-y-2 text-xs text-gray-600">
-            {delivery.address && (
-              isEditMode && onDeliveryAddressChange ? (
-                <div>
-                  <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
-                  <input
-                    type="text"
-                    defaultValue={delivery.address}
-                    onBlur={(e) => onDeliveryAddressChange(e.target.value)}
-                    className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                  />
-                </div>
-              ) : (
-                <DetailRow label="Address" value={delivery.address} />
-              )
+            {isEditMode && onDeliveryAddressChange ? (
+              <div>
+                <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
+                <input
+                  type="text"
+                  defaultValue={delivery?.address || ''}
+                  onBlur={(e) => onDeliveryAddressChange(e.target.value)}
+                  placeholder="Enter delivery address..."
+                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+            ) : (
+              delivery?.address && <DetailRow label="Address" value={delivery.address} />
             )}
-            {delivery.zone && <DetailRow label="Zone" value={delivery.zone} />}
-            {delivery.distanceKm != null && (
+            {delivery?.zone && <DetailRow label="Zone" value={delivery.zone} />}
+            {delivery?.distanceKm != null && (
               <DetailRow label="Distance" value={`${Number(delivery.distanceKm).toFixed(1)} km`} />
             )}
-            {delivery.calculatedCost != null && (
+            {delivery?.calculatedCost != null && (
               <DetailRow label="Calculated Cost" value={formatCurrency(delivery.calculatedCost)} />
             )}
-            {delivery.overrideCost != null && (
+            {delivery?.overrideCost != null && (
               <DetailRow
                 label="Override Applied"
                 value={<span className="text-amber-600">{formatCurrency(delivery.overrideCost)}</span>}
               />
             )}
-            <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
-              <span>Final Delivery Cost</span>
-              <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
-            </div>
+            {hasDeliveryData && delivery && (
+              <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
+                <span>Final Delivery Cost</span>
+                <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
+              </div>
+            )}
           </div>
         )}
       </div>

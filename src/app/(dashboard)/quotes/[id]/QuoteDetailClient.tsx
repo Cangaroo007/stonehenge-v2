@@ -1727,13 +1727,17 @@ export default function QuoteDetailClient({
           }),
         });
       } else {
-        // Enable delivery: clear cost so calculator auto-calculates from address
+        // Enable delivery: set project_address as fallback delivery address
+        // so the calculator can auto-calculate. Clear cost so it recalculates.
+        const quoteAny = editQuote as Record<string, unknown> | null;
+        const fallbackAddress = quoteAny?.project_address || quoteAny?.deliveryAddress || null;
         await fetch(`/api/quotes/${quoteIdStr}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deliveryCost: null,
             deliveryDistanceKm: null,
+            ...(fallbackAddress ? { deliveryAddress: fallbackAddress } : {}),
           }),
         });
       }
@@ -1741,6 +1745,26 @@ export default function QuoteDetailClient({
     } catch (err) {
       console.error('Failed to update delivery toggle:', err);
       setDeliveryEnabled(!enabled); // Revert on failure
+    }
+  };
+
+  const handleDeliveryAddressChange = async (address: string) => {
+    if (!address.trim()) return;
+    markAsChanged();
+    try {
+      // Save new delivery address and clear cost so calculator auto-calculates
+      await fetch(`/api/quotes/${quoteIdStr}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          deliveryAddress: address,
+          deliveryCost: null,
+          deliveryDistanceKm: null,
+        }),
+      });
+      triggerRecalculate();
+    } catch (err) {
+      console.error('Failed to update delivery address:', err);
     }
   };
 
@@ -3759,6 +3783,9 @@ export default function QuoteDetailClient({
               mode="edit"
               deliveryEnabled={deliveryEnabled}
               onDeliveryEnabledChange={handleDeliveryEnabledChange}
+              onDeliveryAddressChange={handleDeliveryAddressChange}
+              quoteId={quoteIdStr}
+              onRecalculate={triggerRecalculate}
             />
             {/* Quote Adjustments — Custom Charges + Discount */}
             <QuoteAdjustments
@@ -3858,7 +3885,7 @@ export default function QuoteDetailClient({
         {/* Delivery & Templating Card */}
         <DeliveryTemplatingCard
           quoteId={quoteIdStr}
-          initialProjectAddress={editQuote.project_name}
+          initialProjectAddress={editQuote.project_address || editQuote.project_name}
           onUpdate={triggerRecalculate}
         />
 
