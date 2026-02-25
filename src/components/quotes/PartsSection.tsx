@@ -324,7 +324,7 @@ function derivePartsForPiece(
       if (cutout.quantity > 0) {
         parts.push({
           type: 'CUTOUT',
-          name: `— ${cutout.cutoutTypeName}`,
+          name: `— ${cutout.cutoutTypeName || 'Cutout'}`,
           lengthMm: 0,
           widthMm: 0,
           thicknessMm: 0,
