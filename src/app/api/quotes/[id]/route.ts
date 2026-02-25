@@ -431,6 +431,8 @@ function transformPieceForClient(piece: any) {
     edgeBottom: piece.edge_bottom,
     edgeLeft: piece.edge_left,
     edgeRight: piece.edge_right,
+    shapeType: piece.shape_type || 'RECTANGLE',
+    shapeConfig: piece.shape_config as Record<string, unknown> | null,
     sortOrder: piece.sort_order,
     // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
     // Kept for API response shape compatibility. Do not read these values for display.

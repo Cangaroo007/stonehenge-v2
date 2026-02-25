@@ -89,6 +89,8 @@ interface PieceRowProps {
     edgeLeft: string | null;
     edgeRight: string | null;
     roomName?: string;
+    shapeType?: string | null;
+    shapeConfig?: Record<string, unknown> | null;
   };
   /** Per-piece cost breakdown from the calculation result */
   breakdown?: PiecePricingBreakdown;
@@ -737,6 +739,8 @@ function PieceVisualEditorSection({
         roomName={piece.roomName}
         roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
         onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
+        shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
+        shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
       />
     </div>
   );

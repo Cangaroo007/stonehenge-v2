@@ -275,6 +275,26 @@ export default function InlinePieceEditor({
     return null;
   }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth]);
 
+  // Current shape config for SVG rendering (mirrors the save payload config)
+  const currentShapeConfig = useMemo(() => {
+    if (shapeType === 'L_SHAPE') {
+      return {
+        shape: 'L_SHAPE' as const,
+        leg1: { length_mm: parseInt(leg1Length) || 0, width_mm: parseInt(leg1Width) || 0 },
+        leg2: { length_mm: parseInt(leg2Length) || 0, width_mm: parseInt(leg2Width) || 0 },
+      };
+    }
+    if (shapeType === 'U_SHAPE') {
+      return {
+        shape: 'U_SHAPE' as const,
+        leftLeg: { length_mm: parseInt(leftLegLength) || 0, width_mm: parseInt(leftLegWidth) || 0 },
+        back: { length_mm: parseInt(backLength) || 0, width_mm: parseInt(backWidth) || 0 },
+        rightLeg: { length_mm: parseInt(rightLegLength) || 0, width_mm: parseInt(rightLegWidth) || 0 },
+      };
+    }
+    return null;
+  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth]);
+
   // ── Derived state ───────────────────────────────────────────────────────
   const allRoomOptions = Array.from(new Set([...STANDARD_ROOMS, ...roomNames]));
 
@@ -805,8 +825,12 @@ export default function InlinePieceEditor({
             isEditMode={true}
             onEdgeChange={(side, profileId) => {
               const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
-              setEdgeSelections(prev => ({ ...prev, [keyMap[side]]: profileId }));
+              if (side in keyMap) {
+                setEdgeSelections(prev => ({ ...prev, [keyMap[side as keyof typeof keyMap]]: profileId }));
+              }
             }}
+            shapeType={shapeType}
+            shapeConfig={currentShapeConfig}
           />
         </div>
       )}

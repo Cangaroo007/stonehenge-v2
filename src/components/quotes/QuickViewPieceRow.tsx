@@ -97,6 +97,8 @@ interface PieceData {
   edgeLeft: string | null;
   edgeRight: string | null;
   roomName?: string;
+  shapeType?: string | null;
+  shapeConfig?: Record<string, unknown> | null;
 }
 
 export interface QuickViewPieceRowProps {
@@ -909,6 +911,8 @@ export default function QuickViewPieceRow({
                 roomName={piece.roomName}
                 roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
                 onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
+                shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
+                shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
               />
             </div>
           </PieceEditorErrorBoundary>

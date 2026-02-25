@@ -105,6 +105,8 @@ interface QuotePiece {
   edgeBottom: string | null;
   edgeLeft: string | null;
   edgeRight: string | null;
+  shapeType: string | null;
+  shapeConfig: Record<string, unknown> | null;
   cutouts: PieceCutout[];
   sortOrder: number;
   totalCost: number;
@@ -272,6 +274,8 @@ export interface ServerQuoteData {
       edge_bottom: string | null;
       edge_left: string | null;
       edge_right: string | null;
+      shape_type: string | null;
+      shape_config: Record<string, unknown> | null;
       piece_features: Array<{
         id: number;
         name: string;
@@ -2816,6 +2820,8 @@ export default function QuoteDetailClient({
                       edgeLeft: piece.edge_left ?? null,
                       edgeRight: piece.edge_right ?? null,
                       roomName: piece.roomName,
+                      shapeType: piece.shape_type ?? 'RECTANGLE',
+                      shapeConfig: piece.shape_config ?? null,
                     }}
                     breakdown={pb}
                     mode="view"
@@ -3218,6 +3224,8 @@ export default function QuoteDetailClient({
               edgeLeft: p.edgeLeft,
               edgeRight: p.edgeRight,
               roomName: p.quote_rooms?.name,
+              shapeType: p.shapeType ?? 'RECTANGLE',
+              shapeConfig: p.shapeConfig ?? null,
             }}
             breakdown={pb}
             machines={machines}
