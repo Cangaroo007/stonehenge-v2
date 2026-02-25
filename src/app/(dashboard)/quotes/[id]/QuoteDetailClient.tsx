@@ -2985,7 +2985,30 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* ── 5. DRAWINGS — collapsed by default ── */}
+        {/* ── 5. PARTS LIST — physical cut parts per room ── */}
+        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
+          <PartsSection
+            quoteId={serverData.id}
+            rooms={serverData.quote_rooms}
+            calcBreakdown={viewCalculation?.breakdown ?? null}
+          />
+        )}
+
+        {/* ── 6. MATERIALS ── */}
+        {viewCalculation?.breakdown?.materials && (
+          <div id="material-section" className="card p-4 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <MaterialCostSection
+              materials={viewCalculation.breakdown.materials}
+              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
+              mode="view"
+            />
+          </div>
+        )}
+
+        {/* ── 7. DRAWINGS — collapsed by default ── */}
         <details className="card overflow-hidden group/details">
           <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
             <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3059,29 +3082,6 @@ export default function QuoteDetailClient({
             )}
           </div>
         </details>
-
-        {/* ── 6. MATERIALS ── */}
-        {viewCalculation?.breakdown?.materials && (
-          <div id="material-section" className="card p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-              Material
-            </h3>
-            <MaterialCostSection
-              materials={viewCalculation.breakdown.materials}
-              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
-              mode="view"
-            />
-          </div>
-        )}
-
-        {/* ── 7. PARTS LIST — physical cut parts per room ── */}
-        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
-          <PartsSection
-            quoteId={serverData.id}
-            rooms={serverData.quote_rooms}
-            calcBreakdown={viewCalculation?.breakdown ?? null}
-          />
-        )}
 
         {/* ── 8. Slab Optimiser — collapsed by default ── */}
         <details className="card overflow-hidden group/details">
@@ -3303,6 +3303,16 @@ export default function QuoteDetailClient({
     return (
       <div className="space-y-6">
 
+        {/* ── 1. CUSTOMER/PROJECT INFO ACCORDION (edit mode) ── */}
+        <CustomerInfoAccordion
+          customerName={editQuote.customer?.name ?? null}
+          companyName={editQuote.customer?.company ?? null}
+          projectName={editQuote.project_name}
+          contact={editQuote.contact}
+          projectAddress={editQuote.project_address}
+          notes={editQuote.notes}
+        />
+
         {/* ── 2. TOTAL BREAKDOWN ACCORDION (edit mode) ── */}
         <TotalBreakdownAccordion
           totalIncGst={calculation?.totalIncGst ?? editQuote.total ?? 0}
@@ -3319,59 +3329,6 @@ export default function QuoteDetailClient({
           onRetry={triggerOptimise}
         />
 
-        {/* ── MATERIAL — always visible in edit mode (12.J1: "first pick your stone") ── */}
-        <div id="material-section" className="card p-4 space-y-2">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-              Material
-            </h3>
-            <button
-              onClick={() => setShowBulkSwap(!showBulkSwap)}
-              className={`px-3 py-1 text-xs font-medium border rounded-md transition-colors ${
-                showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
-              }`}
-            >
-              Bulk Material
-            </button>
-          </div>
-          <BulkMaterialDialog
-            isOpen={showBulkSwap}
-            onClose={() => setShowBulkSwap(false)}
-            pieces={effectivePieces.map(p => ({
-              id: p.id,
-              name: p.name,
-              lengthMm: p.lengthMm,
-              widthMm: p.widthMm,
-              materialId: p.materialId,
-              materialName: p.materialName,
-              materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
-              roomName: p.quote_rooms?.name ?? null,
-            }))}
-            materials={materials}
-            onApply={handleBulkMaterialApply}
-            quoteTotal={calculation?.total ?? null}
-          />
-          {calculation?.breakdown?.materials ? (
-            <MaterialCostSection
-              materials={calculation.breakdown.materials}
-              pieceCount={effectivePieces.length}
-              mode="edit"
-              materialMarginAdjustPercent={
-                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
-              }
-              onMarginAdjustChange={(percent) => {
-                if (quoteOptions.activeOption) {
-                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
-                }
-              }}
-            />
-          ) : (
-            <p className="text-xs text-gray-400 italic px-1">
-              Assign materials to pieces to see cost breakdown
-            </p>
-          )}
-        </div>
-
         {/* Option Tabs — only shown when options exist */}
         {hasOptions && (
           <OptionTabsBar
@@ -3385,7 +3342,7 @@ export default function QuoteDetailClient({
           />
         )}
 
-        {/* Pieces Card — unified PieceRow cards (12.J1: rooms + detailed as default, no toggles) */}
+        {/* ── 4. Pieces Card — unified PieceRow cards (12.J1: rooms + detailed as default, no toggles) ── */}
         <div className="card">
           <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Pieces</h2>
@@ -3731,20 +3688,7 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* ── 5. DRAWINGS — collapsed by default ── */}
-        <details className="card overflow-hidden group/details">
-          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
-            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            Drawings
-          </summary>
-          <div className="p-4 border-t border-gray-200">
-            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
-          </div>
-        </details>
-
-        {/* ── 7. PARTS LIST — physical cut parts per room (edit mode) ── */}
+        {/* ── 5. PARTS LIST — physical cut parts per room (edit mode) ── */}
         {effectivePieces.length > 0 && (
           <PartsSection
             quoteId={quoteIdStr}
@@ -3774,6 +3718,72 @@ export default function QuoteDetailClient({
             }))}
           />
         )}
+
+        {/* ── 6. MATERIAL ── */}
+        <div id="material-section" className="card p-4 space-y-2">
+          <div className="flex items-center justify-between">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <button
+              onClick={() => setShowBulkSwap(!showBulkSwap)}
+              className={`px-3 py-1 text-xs font-medium border rounded-md transition-colors ${
+                showBulkSwap ? 'bg-orange-100 border-orange-300 text-orange-700' : 'border-gray-300 text-gray-600 hover:bg-gray-50'
+              }`}
+            >
+              Bulk Material
+            </button>
+          </div>
+          <BulkMaterialDialog
+            isOpen={showBulkSwap}
+            onClose={() => setShowBulkSwap(false)}
+            pieces={effectivePieces.map(p => ({
+              id: p.id,
+              name: p.name,
+              lengthMm: p.lengthMm,
+              widthMm: p.widthMm,
+              materialId: p.materialId,
+              materialName: p.materialName,
+              materialCost: Number(breakdownMap.get(p.id)?.materials?.total ?? 0),
+              roomName: p.quote_rooms?.name ?? null,
+            }))}
+            materials={materials}
+            onApply={handleBulkMaterialApply}
+            quoteTotal={calculation?.total ?? null}
+          />
+          {calculation?.breakdown?.materials ? (
+            <MaterialCostSection
+              materials={calculation.breakdown.materials}
+              pieceCount={effectivePieces.length}
+              mode="edit"
+              materialMarginAdjustPercent={
+                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
+              }
+              onMarginAdjustChange={(percent) => {
+                if (quoteOptions.activeOption) {
+                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
+                }
+              }}
+            />
+          ) : (
+            <p className="text-xs text-gray-400 italic px-1">
+              Assign materials to pieces to see cost breakdown
+            </p>
+          )}
+        </div>
+
+        {/* ── 7. DRAWINGS — collapsed by default ── */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Drawings
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+          </div>
+        </details>
 
         {/* ── 8. Slab Optimiser — collapsed by default ── */}
         <details className="card overflow-hidden group/details">
