@@ -26,6 +26,8 @@ import { OptimizationDisplay } from './builder/components/OptimizationDisplay';
 import MachineDetailsPanel from './builder/components/MachineDetailsPanel';
 import { CutoutType, PieceCutout } from './builder/components/CutoutSelector';
 import VersionHistoryTab from '@/components/quotes/VersionHistoryTab';
+import CustomerInfoAccordion from '@/components/quotes/CustomerInfoAccordion';
+import TotalBreakdownAccordion from '@/components/quotes/TotalBreakdownAccordion';
 import type { CalculationResult } from '@/lib/types/pricing';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
@@ -2655,55 +2657,8 @@ export default function QuoteDetailClient({
       );
     }
 
-    // View mode — display metadata as read-only text
-    return (
-      <div className="card p-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <p className="text-sm text-gray-500">Customer</p>
-            <p className="font-medium">{serverData.customers?.name || '-'}</p>
-            {serverData.customers?.company && (
-              <p className="text-sm text-gray-500">{serverData.customers.company}</p>
-            )}
-            {serverData.contact && (
-              <div className="mt-1">
-                <p className="text-sm text-gray-600">
-                  {serverData.contact.first_name} {serverData.contact.last_name}
-                  {serverData.contact.role_title
-                    ? ` — ${serverData.contact.role_title}`
-                    : serverData.contact.role !== 'OTHER'
-                      ? ` — ${serverData.contact.role.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()).toLowerCase().replace(/^\w/, (c: string) => c.toUpperCase())}`
-                      : ''}
-                </p>
-                {(serverData.contact.email || serverData.contact.phone || serverData.contact.mobile) && (
-                  <p className="text-xs text-gray-400">
-                    {[serverData.contact.email, serverData.contact.phone || serverData.contact.mobile].filter(Boolean).join('  |  ')}
-                  </p>
-                )}
-              </div>
-            )}
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Project Name</p>
-            <p className="font-medium">{serverData.project_name || '-'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Project Address</p>
-            <p className="font-medium">{serverData.project_address || '-'}</p>
-          </div>
-          <div>
-            <p className="text-sm text-gray-500">Created</p>
-            <p className="font-medium">{formatDate(serverData.created_at)}</p>
-          </div>
-        </div>
-        {serverData.notes && (
-          <div className="mt-3">
-            <p className="text-sm text-gray-500">Notes</p>
-            <p className="text-gray-600 text-sm whitespace-pre-wrap">{serverData.notes}</p>
-          </div>
-        )}
-      </div>
-    );
+    // View mode — metadata now shown via CustomerInfoAccordion inside content area
+    return null;
   };
 
   // ── View-mode action buttons ──────────────────────────────────────────────
@@ -2801,21 +2756,26 @@ export default function QuoteDetailClient({
     return (
       <div className="space-y-6">
 
-        {/* ── MATERIAL — above pieces (12.J1: "first pick your stone") ── */}
-        {viewCalculation?.breakdown?.materials && (
-          <div id="material-section" className="card p-4 space-y-2">
-            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
-              Material
-            </h3>
-            <MaterialCostSection
-              materials={viewCalculation.breakdown.materials}
-              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
-              mode="view"
-            />
-          </div>
-        )}
+        {/* ── 1. CUSTOMER/PROJECT INFO ACCORDION ── */}
+        <CustomerInfoAccordion
+          customerName={serverData.customers?.name ?? null}
+          companyName={serverData.customers?.company ?? null}
+          projectName={serverData.project_name}
+          contact={serverData.contact}
+          projectAddress={serverData.project_address}
+          notes={serverData.notes}
+        />
 
-        {/* ── PIECES BY ROOM — with per-room spatial view toggle ── */}
+        {/* ── 2. TOTAL BREAKDOWN ACCORDION ── */}
+        <TotalBreakdownAccordion
+          totalIncGst={serverData.total}
+          calculation={viewCalculation}
+          subtotal={serverData.subtotal}
+          gstAmount={serverData.tax_amount}
+          discount={viewCalculation?.totalDiscount ?? 0}
+        />
+
+        {/* ── 4. PIECES BY ROOM — with per-room spatial view toggle ── */}
         <div className="card">
           <div className="p-4 border-b border-gray-200">
             <h2 className="text-lg font-semibold">Pieces</h2>
@@ -3019,95 +2979,7 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* ── PARTS LIST — physical cut parts per room ── */}
-        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
-          <PartsSection
-            quoteId={serverData.id}
-            rooms={serverData.quote_rooms}
-            calcBreakdown={viewCalculation?.breakdown ?? null}
-          />
-        )}
-
-        {/* ── DELIVERY & INSTALL ── */}
-        {/* Quote-Level Cost Sections (view mode) */}
-        {viewCalculation && (
-          <div id="quote-level-charges" className="card p-4">
-            <QuoteLevelCostSections
-              calculation={viewCalculation}
-              mode="view"
-            />
-            {/* Quote Adjustments — Custom Charges + Discount (view mode) */}
-            <QuoteAdjustments
-              quoteId={serverData.id}
-              customCharges={serverData.customCharges || []}
-              discount={serverData.discount_type ? {
-                type: serverData.discount_type as DiscountType,
-                value: Number(serverData.discount_value),
-                appliesTo: (serverData.discount_applies_to as DiscountAppliesTo) || 'ALL',
-              } : null}
-              baseSubtotal={(viewCalculation as any)?.baseSubtotal ?? viewCalculation?.subtotal ?? Number(serverData.subtotal) ?? 0}
-              mode="view"
-              onChanged={() => {
-                // View mode: no-op, but required by interface
-              }}
-              embedded
-            />
-          </div>
-        )}
-
-        {/* ── PRICING SUMMARY — always visible ── */}
-        {/* Machine Operations */}
-        <MachineOperationsAccordion
-          quoteId={quoteIdStr}
-          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
-            room.quote_pieces.map(p => ({ id: p.id }))
-          )}
-          mode="view"
-        />
-
-        {/* Signature Section */}
-        <QuoteSignatureSection
-          quoteId={serverData.id}
-          quoteNumber={serverData.quote_number}
-          customerName={serverData.customers?.company || serverData.customers?.name || 'Customer'}
-          totalAmount={formatCurrency(serverData.total)}
-          status={serverData.status}
-          signature={serverData.quote_signatures ? {
-            id: serverData.quote_signatures.id,
-            signatureType: serverData.quote_signatures.signature_type,
-            signedAt: serverData.quote_signatures.signed_at,
-            signerName: serverData.quote_signatures.signer_name,
-            signerEmail: serverData.quote_signatures.signer_email,
-            ipAddress: serverData.quote_signatures.ip_address,
-            user: serverData.quote_signatures.user ? {
-              name: serverData.quote_signatures.user.name,
-              email: serverData.quote_signatures.user.email,
-            } : null,
-          } : null}
-        />
-
-        {/* ── COLLAPSIBLE SECONDARY SECTIONS (bottom — 12.J1 §2.5) ── */}
-
-        {/* Slab Optimiser — collapsed by default */}
-        <details className="card overflow-hidden group/details">
-          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
-            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            Slab Optimiser
-          </summary>
-          <div className="p-4 border-t border-gray-200">
-            <OptimizationDisplay
-              quoteId={quoteIdStr}
-              refreshKey={0}
-              isOptimising={false}
-              hasPieces={serverData.quote_rooms.some(r => r.quote_pieces.length > 0)}
-              hasMaterial={serverData.quote_rooms.some(r => r.quote_pieces.some(p => !!p.material_name))}
-            />
-          </div>
-        </details>
-
-        {/* Drawings — collapsed by default, at the BOTTOM (12.J1: "move drawings to the bottom") */}
+        {/* ── 5. DRAWINGS — collapsed by default ── */}
         <details className="card overflow-hidden group/details">
           <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
             <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3182,7 +3054,105 @@ export default function QuoteDetailClient({
           </div>
         </details>
 
-        {/* Version History — collapsed by default */}
+        {/* ── 6. MATERIALS ── */}
+        {viewCalculation?.breakdown?.materials && (
+          <div id="material-section" className="card p-4 space-y-2">
+            <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
+              Material
+            </h3>
+            <MaterialCostSection
+              materials={viewCalculation.breakdown.materials}
+              pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
+              mode="view"
+            />
+          </div>
+        )}
+
+        {/* ── 7. PARTS LIST — physical cut parts per room ── */}
+        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
+          <PartsSection
+            quoteId={serverData.id}
+            rooms={serverData.quote_rooms}
+            calcBreakdown={viewCalculation?.breakdown ?? null}
+          />
+        )}
+
+        {/* ── 8. Slab Optimiser — collapsed by default ── */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Slab Optimiser
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <OptimizationDisplay
+              quoteId={quoteIdStr}
+              refreshKey={0}
+              isOptimising={false}
+              hasPieces={serverData.quote_rooms.some(r => r.quote_pieces.length > 0)}
+              hasMaterial={serverData.quote_rooms.some(r => r.quote_pieces.some(p => !!p.material_name))}
+            />
+          </div>
+        </details>
+
+        {/* ── 9-12. INSTALLATION, DELIVERY, ADDITIONAL COSTS, QUOTE DISCOUNT ── */}
+        {viewCalculation && (
+          <div id="quote-level-charges" className="card p-4">
+            <QuoteLevelCostSections
+              calculation={viewCalculation}
+              mode="view"
+            />
+            {/* Quote Adjustments — Custom Charges + Discount (view mode) */}
+            <QuoteAdjustments
+              quoteId={serverData.id}
+              customCharges={serverData.customCharges || []}
+              discount={serverData.discount_type ? {
+                type: serverData.discount_type as DiscountType,
+                value: Number(serverData.discount_value),
+                appliesTo: (serverData.discount_applies_to as DiscountAppliesTo) || 'ALL',
+              } : null}
+              baseSubtotal={(viewCalculation as any)?.baseSubtotal ?? viewCalculation?.subtotal ?? Number(serverData.subtotal) ?? 0}
+              mode="view"
+              onChanged={() => {
+                // View mode: no-op, but required by interface
+              }}
+              embedded
+            />
+          </div>
+        )}
+
+        {/* Machine Operations */}
+        <MachineOperationsAccordion
+          quoteId={quoteIdStr}
+          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
+            room.quote_pieces.map(p => ({ id: p.id }))
+          )}
+          mode="view"
+        />
+
+        {/* Signature Section */}
+        <QuoteSignatureSection
+          quoteId={serverData.id}
+          quoteNumber={serverData.quote_number}
+          customerName={serverData.customers?.company || serverData.customers?.name || 'Customer'}
+          totalAmount={formatCurrency(serverData.total)}
+          status={serverData.status}
+          signature={serverData.quote_signatures ? {
+            id: serverData.quote_signatures.id,
+            signatureType: serverData.quote_signatures.signature_type,
+            signedAt: serverData.quote_signatures.signed_at,
+            signerName: serverData.quote_signatures.signer_name,
+            signerEmail: serverData.quote_signatures.signer_email,
+            ipAddress: serverData.quote_signatures.ip_address,
+            user: serverData.quote_signatures.user ? {
+              name: serverData.quote_signatures.user.name,
+              email: serverData.quote_signatures.user.email,
+            } : null,
+          } : null}
+        />
+
+        {/* ── 13. VERSION HISTORY — collapsed by default (MUST STAY — Rule: "we keep dropping this") ── */}
         <details className="card overflow-hidden group/details">
           <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
             <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3324,6 +3294,15 @@ export default function QuoteDetailClient({
 
     return (
       <div className="space-y-6">
+
+        {/* ── 2. TOTAL BREAKDOWN ACCORDION (edit mode) ── */}
+        <TotalBreakdownAccordion
+          totalIncGst={calculation?.totalIncGst ?? editQuote.total ?? 0}
+          calculation={calculation}
+          subtotal={calculation?.subtotal ?? editQuote.subtotal ?? 0}
+          gstAmount={calculation?.gstAmount ?? 0}
+          discount={calculation?.totalDiscount ?? 0}
+        />
 
         {/* Optimizer status bar — shows during optimisation or on error */}
         <OptimizerStatusBar
@@ -3744,7 +3723,20 @@ export default function QuoteDetailClient({
           </div>
         )}
 
-        {/* ── PARTS LIST — physical cut parts per room (edit mode) ── */}
+        {/* ── 5. DRAWINGS — collapsed by default ── */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Drawings
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
+          </div>
+        </details>
+
+        {/* ── 7. PARTS LIST — physical cut parts per room (edit mode) ── */}
         {effectivePieces.length > 0 && (
           <PartsSection
             quoteId={quoteIdStr}
@@ -3775,7 +3767,28 @@ export default function QuoteDetailClient({
           />
         )}
 
-        {/* ── DELIVERY & INSTALL ── */}
+        {/* ── 8. Slab Optimiser — collapsed by default ── */}
+        <details className="card overflow-hidden group/details">
+          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
+            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            Slab Optimiser
+          </summary>
+          <div className="p-4 border-t border-gray-200">
+            <OptimizationDisplay
+              quoteId={quoteIdStr}
+              refreshKey={optimisationRefreshKey}
+              isOptimising={isOptimising}
+              hasPieces={effectivePieces.length > 0}
+              hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
+              optimiserError={optimiserError}
+              onEdgeAllowanceApplied={triggerOptimise}
+            />
+          </div>
+        </details>
+
+        {/* ── 9-12. INSTALLATION, DELIVERY, ADDITIONAL COSTS, QUOTE DISCOUNT ── */}
         {calculation && (
           <div id="quote-level-charges" className="card p-4">
             <QuoteLevelCostSections
@@ -3819,43 +3832,7 @@ export default function QuoteDetailClient({
           <OptionComparisonSummary options={quoteOptions.options} />
         )}
 
-        {/* ── COLLAPSIBLE SECONDARY SECTIONS (bottom — 12.J1 §2.5) ── */}
-
-        {/* Slab Optimiser — collapsed by default */}
-        <details className="card overflow-hidden group/details">
-          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
-            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            Slab Optimiser
-          </summary>
-          <div className="p-4 border-t border-gray-200">
-            <OptimizationDisplay
-              quoteId={quoteIdStr}
-              refreshKey={optimisationRefreshKey}
-              isOptimising={isOptimising}
-              hasPieces={effectivePieces.length > 0}
-              hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
-              optimiserError={optimiserError}
-              onEdgeAllowanceApplied={triggerOptimise}
-            />
-          </div>
-        </details>
-
-        {/* Drawings — collapsed by default, at the BOTTOM (12.J1: "move drawings to the bottom") */}
-        <details className="card overflow-hidden group/details">
-          <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
-            <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
-            Drawings
-          </summary>
-          <div className="p-4 border-t border-gray-200">
-            <DrawingsAccordion quoteId={quoteIdStr} refreshKey={drawingsRefreshKey} />
-          </div>
-        </details>
-
-        {/* Version History — collapsed by default */}
+        {/* ── 13. VERSION HISTORY — collapsed by default (MUST STAY — Rule: "we keep dropping this") ── */}
         <details className="card overflow-hidden group/details">
           <summary className="p-4 cursor-pointer flex items-center gap-2 bg-gray-50 hover:bg-gray-100 transition-colors font-medium text-sm text-gray-700">
             <svg className="h-4 w-4 text-gray-500 transition-transform group-open/details:rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
