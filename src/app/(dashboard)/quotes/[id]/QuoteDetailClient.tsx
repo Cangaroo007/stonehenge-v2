@@ -373,6 +373,7 @@ export default function QuoteDetailClient({
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('rooms');
   const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
   const [collapsedRooms, setCollapsedRooms] = useState<Set<number>>(new Set());
+  const [customerSectionExpanded, setCustomerSectionExpanded] = useState(false);
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
@@ -2547,116 +2548,148 @@ export default function QuoteDetailClient({
 
   const renderMetadataSection = () => {
     if (mode === 'edit' && editQuote) {
+      const displayCustomer = editQuote.customer?.company || editQuote.customer?.name || '-';
+      const displayProject = editQuote.project_name || '-';
       return (
-        <div className="card p-4">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Customer — searchable dropdown */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
-              <div className="relative" ref={customerDropdownRef}>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={customerSearch}
-                    onChange={(e) => {
-                      setCustomerSearch(e.target.value);
-                      setShowCustomerDropdown(true);
-                    }}
-                    onFocus={() => setShowCustomerDropdown(true)}
-                    placeholder="Select customer"
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-                  />
-                  {editQuote.customer && (
-                    <button
-                      type="button"
-                      onClick={() => handleCustomerSelect(null)}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
-                      title="Clear customer"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-                {showCustomerDropdown && (
-                  <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
-                    {filteredCustomers.length > 0 ? (
-                      filteredCustomers.map(c => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => handleCustomerSelect(c)}
-                          className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b border-gray-50 ${
-                            editQuote.customer?.id === c.id ? 'bg-primary-50 text-primary-700' : ''
-                          }`}
-                        >
-                          <span className="font-medium">{c.name}</span>
-                          {c.company && <span className="text-gray-500 ml-1">({c.company})</span>}
-                        </button>
-                      ))
-                    ) : (
-                      <div className="px-3 py-2 text-sm text-gray-500">No customers found</div>
-                    )}
-                  </div>
-                )}
+        <div className="card overflow-hidden">
+          {/* Collapsed summary — always visible */}
+          <button
+            onClick={() => setCustomerSectionExpanded(!customerSectionExpanded)}
+            className="w-full flex items-center gap-3 px-4 py-3 text-sm hover:bg-gray-50 transition-colors"
+          >
+            <svg
+              className={`h-4 w-4 text-gray-500 transition-transform duration-200 ${customerSectionExpanded ? 'rotate-90' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+            <div className="flex items-center gap-6 text-left min-w-0 flex-1">
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-gray-500 font-medium shrink-0">Customer:</span>
+                <span className="font-semibold text-gray-900 truncate">{displayCustomer}</span>
+              </div>
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className="text-gray-500 font-medium shrink-0">Project:</span>
+                <span className="font-semibold text-gray-900 truncate">{displayProject}</span>
               </div>
             </div>
+          </button>
 
-            {/* Project Name */}
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
-              <input
-                type="text"
-                value={editQuote.project_name || ''}
-                onChange={(e) =>
-                  setEditQuote(prev => prev ? { ...prev, project_name: e.target.value } : null)
-                }
-                onBlur={() => handleMetadataSave({ projectName: editQuote.project_name })}
-                placeholder="Enter project name"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-          </div>
+          {/* Expanded — editable fields */}
+          {customerSectionExpanded && (
+            <div className="px-4 pb-4 pt-1 border-t border-gray-200">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                {/* Customer — searchable dropdown */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Customer</label>
+                  <div className="relative" ref={customerDropdownRef}>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={customerSearch}
+                        onChange={(e) => {
+                          setCustomerSearch(e.target.value);
+                          setShowCustomerDropdown(true);
+                        }}
+                        onFocus={() => setShowCustomerDropdown(true)}
+                        placeholder="Select customer"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                      {editQuote.customer && (
+                        <button
+                          type="button"
+                          onClick={() => handleCustomerSelect(null)}
+                          className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+                          title="Clear customer"
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </div>
+                    {showCustomerDropdown && (
+                      <div className="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-48 overflow-auto">
+                        {filteredCustomers.length > 0 ? (
+                          filteredCustomers.map(c => (
+                            <button
+                              key={c.id}
+                              type="button"
+                              onClick={() => handleCustomerSelect(c)}
+                              className={`w-full text-left px-3 py-2 text-sm hover:bg-gray-100 border-b border-gray-50 ${
+                                editQuote.customer?.id === c.id ? 'bg-primary-50 text-primary-700' : ''
+                              }`}
+                            >
+                              <span className="font-medium">{c.name}</span>
+                              {c.company && <span className="text-gray-500 ml-1">({c.company})</span>}
+                            </button>
+                          ))
+                        ) : (
+                          <div className="px-3 py-2 text-sm text-gray-500">No customers found</div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
 
-          {/* Contact Picker — only when customer is selected */}
-          {editQuote.customer && (
-            <div className="mt-4">
-              <ContactPicker
-                customerId={editQuote.customer.id}
-                selectedContactId={editQuote.contact_id}
-                onContactChange={handleContactChange}
-              />
+                {/* Project Name */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Project Name</label>
+                  <input
+                    type="text"
+                    value={editQuote.project_name || ''}
+                    onChange={(e) =>
+                      setEditQuote(prev => prev ? { ...prev, project_name: e.target.value } : null)
+                    }
+                    onBlur={() => handleMetadataSave({ projectName: editQuote.project_name })}
+                    placeholder="Enter project name"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  />
+                </div>
+              </div>
+
+              {/* Contact Picker — only when customer is selected */}
+              {editQuote.customer && (
+                <div className="mt-4">
+                  <ContactPicker
+                    customerId={editQuote.customer.id}
+                    selectedContactId={editQuote.contact_id}
+                    onContactChange={handleContactChange}
+                  />
+                </div>
+              )}
+
+              {/* Project Address — full width */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Project Address</label>
+                <input
+                  type="text"
+                  value={editQuote.project_address || ''}
+                  onChange={(e) =>
+                    setEditQuote(prev => prev ? { ...prev, project_address: e.target.value } : null)
+                  }
+                  onBlur={() => handleMetadataSave({ projectAddress: editQuote.project_address })}
+                  placeholder="Enter project address"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                />
+              </div>
+
+              {/* Notes */}
+              <div className="mt-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                <textarea
+                  value={editQuote.notes || ''}
+                  onChange={(e) =>
+                    setEditQuote(prev => prev ? { ...prev, notes: e.target.value } : null)
+                  }
+                  onBlur={() => handleMetadataSave({ notes: editQuote.notes })}
+                  placeholder="Enter notes (visible on quote)"
+                  rows={2}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
+                />
+              </div>
             </div>
           )}
-
-          {/* Project Address — full width */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Project Address</label>
-            <input
-              type="text"
-              value={editQuote.project_address || ''}
-              onChange={(e) =>
-                setEditQuote(prev => prev ? { ...prev, project_address: e.target.value } : null)
-              }
-              onBlur={() => handleMetadataSave({ projectAddress: editQuote.project_address })}
-              placeholder="Enter project address"
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            />
-          </div>
-
-          {/* Notes */}
-          <div className="mt-4">
-            <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-            <textarea
-              value={editQuote.notes || ''}
-              onChange={(e) =>
-                setEditQuote(prev => prev ? { ...prev, notes: e.target.value } : null)
-              }
-              onBlur={() => handleMetadataSave({ notes: editQuote.notes })}
-              placeholder="Enter notes (visible on quote)"
-              rows={2}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary-500 focus:border-primary-500 resize-none"
-            />
-          </div>
         </div>
       );
     }
@@ -2848,29 +2881,35 @@ export default function QuoteDetailClient({
                     const isCollapsed = collapsedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
                     const roomPieceIds = new Set(room.quote_pieces.map(p => String(p.id)));
+                    const viewRoomTotal = roomPieces.reduce((sum, p) => sum + (viewBreakdownMap.get(p.id)?.pieceTotal ?? 0), 0);
                     return (
                       <div key={room.id} className="space-y-2">
                         <div
                           className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => toggleRoomCollapse(room.id)}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <svg
-                              className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                              className={`h-4 w-4 text-gray-500 transition-transform shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
                               fill="none" viewBox="0 0 24 24" stroke="currentColor"
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <h3 className="text-sm font-semibold text-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-800 truncate">
                               {room.name}
                             </h3>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 shrink-0">
                               ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
                             </span>
+                            {viewRoomTotal > 0 && (
+                              <span className="text-sm font-semibold text-amber-600 tabular-nums ml-auto shrink-0">
+                                {formatCurrency(viewRoomTotal)}
+                              </span>
+                            )}
                           </div>
                           <button
                             onClick={(e) => { e.stopPropagation(); toggleSpatialView(room.id); }}
-                            className={`text-xs font-medium px-2 py-1 rounded transition-colors ${
+                            className={`text-xs font-medium px-2 py-1 rounded transition-colors shrink-0 ${
                               isSpatialOpen
                                 ? 'bg-blue-100 text-blue-700'
                                 : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
@@ -3303,15 +3342,7 @@ export default function QuoteDetailClient({
     return (
       <div className="space-y-6">
 
-        {/* ── 1. CUSTOMER/PROJECT INFO ACCORDION (edit mode) ── */}
-        <CustomerInfoAccordion
-          customerName={editQuote.customer?.name ?? null}
-          companyName={editQuote.customer?.company ?? null}
-          projectName={editQuote.project_name}
-          contact={editQuote.contact}
-          projectAddress={editQuote.project_address}
-          notes={editQuote.notes}
-        />
+        {/* ── Customer/Project now rendered via metadataContent accordion (Fix J) ── */}
 
         {/* ── 2. TOTAL BREAKDOWN ACCORDION (edit mode) ── */}
         <TotalBreakdownAccordion
@@ -3527,6 +3558,7 @@ export default function QuoteDetailClient({
                       };
                     });
                     const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
+                    const editRoomTotal = roomPieces.reduce((sum, p) => sum + (breakdownMap.get(p.id)?.pieceTotal ?? 0), 0);
                     return (
                       <div key={room.id} className="space-y-2">
                         {/* Room header — collapsible */}
@@ -3534,21 +3566,26 @@ export default function QuoteDetailClient({
                           className="flex items-center justify-between px-3 py-2 bg-gray-50 rounded-lg border border-gray-200 cursor-pointer hover:bg-gray-100 transition-colors"
                           onClick={() => toggleRoomCollapse(room.id)}
                         >
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-1 min-w-0">
                             <svg
-                              className={`h-4 w-4 text-gray-500 transition-transform ${isCollapsed ? '' : 'rotate-90'}`}
+                              className={`h-4 w-4 text-gray-500 transition-transform shrink-0 ${isCollapsed ? '' : 'rotate-90'}`}
                               fill="none" viewBox="0 0 24 24" stroke="currentColor"
                             >
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                             </svg>
-                            <h3 className="text-sm font-semibold text-gray-800">
+                            <h3 className="text-sm font-semibold text-gray-800 truncate">
                               {room.name}
                             </h3>
-                            <span className="text-xs text-gray-500">
+                            <span className="text-xs text-gray-500 shrink-0">
                               ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
                             </span>
+                            {editRoomTotal > 0 && (
+                              <span className="text-sm font-semibold text-amber-600 tabular-nums ml-auto shrink-0">
+                                {formatCurrency(editRoomTotal)}
+                              </span>
+                            )}
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 shrink-0">
                             {/* Spatial view toggle (12.J1 §2.7) */}
                             <button
                               onClick={(e) => { e.stopPropagation(); toggleSpatialView(room.id); }}
