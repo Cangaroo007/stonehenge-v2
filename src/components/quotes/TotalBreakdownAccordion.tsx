@@ -121,46 +121,36 @@ export default function TotalBreakdownAccordion({
 
             {fabExpanded && (
               <div className="px-3 pb-3 space-y-1 border-t border-gray-100">
-                {fabricationTotals.cutting > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600 pt-2">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9500;&#9472;</span>Cutting
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.cutting)}</span>
-                  </div>
-                )}
-                {fabricationTotals.polishing > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9500;&#9472;</span>Polishing
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.polishing)}</span>
-                  </div>
-                )}
-                {fabricationTotals.edgeProfiles > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9500;&#9472;</span>Edge Profiles
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.edgeProfiles)}</span>
-                  </div>
-                )}
-                {fabricationTotals.join > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9500;&#9472;</span>Join
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.join)}</span>
-                  </div>
-                )}
-                {fabricationTotals.grainMatching > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9500;&#9472;</span>Grain Matching
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.grainMatching)}</span>
-                  </div>
-                )}
+                <div className="flex items-center justify-between text-xs text-gray-600 pt-2">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-gray-300">&#9500;&#9472;</span>Cutting
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(fabricationTotals.cutting)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-gray-300">&#9500;&#9472;</span>Polishing
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(fabricationTotals.polishing)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-gray-300">&#9500;&#9472;</span>Edge Profiles
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(fabricationTotals.edgeProfiles)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-gray-300">&#9500;&#9472;</span>Join
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(fabricationTotals.join)}</span>
+                </div>
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span className="flex items-center gap-1.5">
+                    <span className="text-gray-300">&#9500;&#9472;</span>Grain Matching
+                  </span>
+                  <span className="tabular-nums">{formatCurrency(fabricationTotals.grainMatching)}</span>
+                </div>
                 {fabricationTotals.cutouts > 0 && (
                   <div className="flex items-center justify-between text-xs text-gray-600">
                     <span className="flex items-center gap-1.5">
