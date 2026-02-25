@@ -37,6 +37,7 @@ import PieceRow from '@/components/quotes/PieceRow';
 import QuickViewPieceRow from '@/components/quotes/QuickViewPieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
+import PartsSection from '@/components/quotes/PartsSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
@@ -2992,6 +2993,15 @@ export default function QuoteDetailClient({
           </div>
         )}
 
+        {/* ── PARTS LIST — physical cut parts per room ── */}
+        {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
+          <PartsSection
+            quoteId={serverData.id}
+            rooms={serverData.quote_rooms}
+            calcBreakdown={viewCalculation?.breakdown ?? null}
+          />
+        )}
+
         {/* ── DELIVERY & INSTALL ── */}
         {/* Quote-Level Cost Sections (view mode) */}
         {viewCalculation && (
@@ -3706,6 +3716,37 @@ export default function QuoteDetailClient({
               Open Full Job View in New Tab
             </a>
           </div>
+        )}
+
+        {/* ── PARTS LIST — physical cut parts per room (edit mode) ── */}
+        {effectivePieces.length > 0 && (
+          <PartsSection
+            quoteId={quoteIdStr}
+            rooms={(editQuote?.rooms ?? []).map(r => ({
+              id: r.id,
+              name: r.name,
+              quote_pieces: r.pieces.map(p => ({
+                id: p.id,
+                name: p.name,
+                length_mm: p.lengthMm,
+                width_mm: p.widthMm,
+                thickness_mm: p.thicknessMm,
+                edge_top: p.edgeTop,
+                edge_bottom: p.edgeBottom,
+                edge_left: p.edgeLeft,
+                edge_right: p.edgeRight,
+                sourceRelationships: [],
+                targetRelationships: [],
+              })),
+            }))}
+            calcBreakdown={calculation?.breakdown ?? null}
+            optimiserRefreshKey={optimisationRefreshKey}
+            externalRelationships={relationships.map(r => ({
+              parentPieceId: r.parentPieceId,
+              childPieceId: r.childPieceId,
+              relationshipType: r.relationshipType,
+            }))}
+          />
         )}
 
         {/* ── DELIVERY & INSTALL ── */}
