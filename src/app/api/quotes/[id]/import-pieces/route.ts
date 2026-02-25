@@ -158,7 +158,11 @@ export async function POST(
             area_sqm: areaSqm,
             material_id: null,
             material_name: pieceData.material || null,
+            // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             material_cost: 0,
+            // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             total_cost: 0,
             sort_order: sortOrder++,
             cutouts: [],

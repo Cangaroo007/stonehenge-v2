@@ -261,9 +261,11 @@ export interface ServerQuoteData {
       area_sqm: number;
       material_id: number | null;
       material_name: string | null;
-      material_cost: number;
+      /** @deprecated Unreliable — use calculation_breakdown for display */
+      material_cost: number | null;
       features_cost: number;
-      total_cost: number;
+      /** @deprecated Unreliable — use calculation_breakdown for display */
+      total_cost: number | null;
       edge_top: string | null;
       edge_bottom: string | null;
       edge_left: string | null;
@@ -2902,7 +2904,7 @@ export default function QuoteDetailClient({
                                 thickness_mm: p.thickness_mm,
                                 piece_type: null as string | null,
                                 area_sqm: p.area_sqm,
-                                total_cost: p.total_cost,
+                                total_cost: p.total_cost ?? 0,
                                 pieceTotal: pb?.pieceTotal,
                                 slabCost: pb?.materials?.total,
                                 edge_top: p.edge_top,
@@ -3542,7 +3544,7 @@ export default function QuoteDetailClient({
                         thickness_mm: p.thicknessMm,
                         piece_type: null as string | null,
                         area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
-                        total_cost: p.totalCost,
+                        total_cost: p.totalCost ?? 0,
                         pieceTotal: pb?.pieceTotal,
                         slabCost: pb?.materials?.total,
                         edge_top: p.edgeTop,

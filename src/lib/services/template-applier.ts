@@ -244,8 +244,12 @@ export async function applyTemplateToQuote(
             area_sqm: areaSqm,
             material_id: materialId || null,
             material_name: material?.name || null,
+            // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             material_cost: 0,
             features_cost: 0,
+            // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             total_cost: 0,
             sort_order: pieceIdx,
             cutouts: cutoutsJson as unknown as Prisma.InputJsonValue,

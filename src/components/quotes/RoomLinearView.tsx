@@ -21,6 +21,7 @@ interface QuotePiece {
   thickness_mm: number;
   piece_type?: string | null;
   area_sqm: number;
+  /** @deprecated Unreliable — use roomTotal prop from calculation_breakdown */
   total_cost: number;
   edge_top: string | null;
   edge_bottom: string | null;

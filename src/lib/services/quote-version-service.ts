@@ -169,6 +169,8 @@ export async function createQuoteSnapshot(quoteId: number): Promise<QuoteSnapsho
         areaSqm: Number(piece.area_sqm),
         materialId: piece.material_id,
         materialName: piece.material_name,
+        // DEPRECATED: material_cost/total_cost are unreliable — use quotes.calculation_breakdown
+        // Kept for version snapshot data preservation. Do not read these values for display.
         materialCost: Number(piece.material_cost),
         featuresCost: Number(piece.features_cost),
         totalCost: Number(piece.total_cost),
@@ -736,8 +738,12 @@ export async function rollbackToVersion(
                 area_sqm: piece.areaSqm,
                 material_id: piece.materialId,
                 material_name: piece.materialName,
+                // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+                // Kept to avoid null constraint violations. Do not read this value for display.
                 material_cost: piece.materialCost ?? 0,
                 features_cost: piece.featuresCost ?? 0,
+                // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+                // Kept to avoid null constraint violations. Do not read this value for display.
                 total_cost: piece.totalCost ?? 0,
                 sort_order: 0,
                 edge_top: piece.edgeTop,

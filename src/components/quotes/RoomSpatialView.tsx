@@ -25,6 +25,7 @@ interface QuotePiece {
   thickness_mm: number;
   piece_type?: string | null;
   area_sqm: number;
+  /** @deprecated Unreliable — use pieceTotal or slabCost from calculation_breakdown */
   total_cost: number;
   /** Enriched total from calculation_breakdown — preferred over total_cost */
   pieceTotal?: number;

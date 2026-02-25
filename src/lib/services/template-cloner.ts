@@ -276,7 +276,11 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
             area_sqm: areaSqm,
             material_id: materialId || null,
             material_name: material?.name || null,
+            // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             material_cost: materialCost,
+            // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             total_cost: materialCost,
             sort_order: pieceIdx,
             cutouts: cutoutsJson as unknown as Prisma.InputJsonValue,

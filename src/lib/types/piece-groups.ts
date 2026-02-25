@@ -85,8 +85,10 @@ export interface QuotePieceInput {
   width_mm: number;
   thickness_mm: number;
   area_sqm: number | { toNumber(): number };
+  /** @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing */
   material_cost: number | { toNumber(): number };
   features_cost: number | { toNumber(): number };
+  /** @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing */
   total_cost: number | { toNumber(): number };
   edge_top: string | null;
   edge_bottom: string | null;
