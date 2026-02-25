@@ -53,9 +53,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },
@@ -77,9 +77,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },
@@ -114,9 +114,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Basin', quantity: 1 },
@@ -138,9 +138,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Basin', quantity: 1 },
@@ -162,9 +162,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Drop-in Sink', quantity: 1 },
@@ -186,9 +186,9 @@ export const ROOM_PRESETS: RoomPreset[] = [
         thickness: 20,
         defaultEdges: {
           top: 'pencil_round',
-          bottom: 'raw',
-          left: 'raw',
-          right: 'raw',
+          bottom: 'arris',
+          left: 'arris',
+          right: 'arris',
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },

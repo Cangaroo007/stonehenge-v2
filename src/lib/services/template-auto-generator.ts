@@ -148,6 +148,7 @@ function parseThickness(raw: string | null | undefined): number {
 // ---------------------------------------------------------------------------
 
 const RAW_EDGE: TemplateEdge = { finish: 'RAW' };
+const ARRIS_EDGE: TemplateEdge = { finish: 'ARRIS' };
 
 function parseEdges(edgeStr: string | null | undefined): {
   top: TemplateEdge;
@@ -155,10 +156,10 @@ function parseEdges(edgeStr: string | null | undefined): {
   left: TemplateEdge;
   right: TemplateEdge;
 } {
-  const allRaw = { top: RAW_EDGE, bottom: RAW_EDGE, left: RAW_EDGE, right: RAW_EDGE };
+  const allArris = { top: ARRIS_EDGE, bottom: ARRIS_EDGE, left: ARRIS_EDGE, right: ARRIS_EDGE };
 
   if (!edgeStr || edgeStr.trim() === '' || edgeStr.trim() === '—' || edgeStr.trim() === '-') {
-    return allRaw;
+    return allArris;
   }
 
   const lower = edgeStr.toLowerCase();
@@ -166,7 +167,7 @@ function parseEdges(edgeStr: string | null | undefined): {
   let frontEdge: TemplateEdge;
 
   if (lower.includes('arris')) {
-    frontEdge = { finish: 'POLISHED', profileType: 'ARRIS_2MM' };
+    frontEdge = { finish: 'ARRIS', profileType: 'ARRIS_2MM' };
   } else if (lower.includes('mitred') || lower.includes('apron')) {
     frontEdge = { finish: 'MITRED', profileType: 'PENCIL_ROUND' };
   } else if (lower.includes('bullnose')) {
@@ -174,14 +175,14 @@ function parseEdges(edgeStr: string | null | undefined): {
   } else if (lower.includes('pencil')) {
     frontEdge = { finish: 'POLISHED', profileType: 'PENCIL_ROUND' };
   } else {
-    return allRaw;
+    return allArris;
   }
 
   return {
     top: frontEdge,   // "front" edge → top
-    bottom: RAW_EDGE,
-    left: RAW_EDGE,
-    right: RAW_EDGE,
+    bottom: ARRIS_EDGE,
+    left: ARRIS_EDGE,
+    right: ARRIS_EDGE,
   };
 }
 
