@@ -41,6 +41,15 @@ export default async function QuotePrintPage({
     notFound();
   }
 
+  // Build pieceId → pieceTotal map from calculation_breakdown (single source of truth)
+  const pieceTotalMap = new Map<number, number>();
+  const calcBreakdown = quote.calculation_breakdown as unknown as { breakdown?: { pieces?: Array<{ pieceId: number; pieceTotal: number }> } } | null;
+  if (calcBreakdown?.breakdown?.pieces) {
+    for (const pb of calcBreakdown.breakdown.pieces) {
+      pieceTotalMap.set(pb.pieceId, pb.pieceTotal ?? 0);
+    }
+  }
+
   // Serialise data
   const subtotal = Number(quote.subtotal);
   const taxRate = Number(quote.tax_rate);
@@ -154,7 +163,7 @@ export default async function QuotePrintPage({
         );
 
         const roomTotal = room.quote_pieces.reduce(
-          (sum, p) => sum + Number(p.total_cost),
+          (sum, p) => sum + (pieceTotalMap.get(p.id) ?? Number(p.total_cost)),
           0
         );
 
@@ -171,7 +180,7 @@ export default async function QuotePrintPage({
                 width_mm: p.width_mm,
                 thickness_mm: p.thickness_mm,
                 area_sqm: Number(p.area_sqm),
-                total_cost: Number(p.total_cost),
+                total_cost: pieceTotalMap.get(p.id) ?? Number(p.total_cost),
                 edge_top: p.edge_top,
                 edge_bottom: p.edge_bottom,
                 edge_left: p.edge_left,

@@ -360,8 +360,12 @@ export async function PUT(
                   material_id: piece.materialId,
                   material_name: piece.materialName,
                   area_sqm: piece.areaSqm,
+                  // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+                  // Kept to avoid null constraint violations. Do not read this value for display.
                   material_cost: piece.materialCost,
                   features_cost: piece.featuresCost,
+                  // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+                  // Kept to avoid null constraint violations. Do not read this value for display.
                   total_cost: piece.totalCost,
                   sort_order: piece.sortOrder,
                   edge_top: piece.edgeTop,
@@ -428,6 +432,8 @@ function transformPieceForClient(piece: any) {
     edgeLeft: piece.edge_left,
     edgeRight: piece.edge_right,
     sortOrder: piece.sort_order,
+    // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
+    // Kept for API response shape compatibility. Do not read these values for display.
     totalCost: Number(piece.total_cost || 0),
     areaSqm: Number(piece.area_sqm || 0),
     materialCost: Number(piece.material_cost || 0),

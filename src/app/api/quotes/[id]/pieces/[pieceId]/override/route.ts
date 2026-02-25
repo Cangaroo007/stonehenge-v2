@@ -81,6 +81,8 @@ export async function POST(
         overrideFeaturesCost: body.overrideFeaturesCost,
         overrideTotalCost: body.overrideTotalCost,
         reason: body.reason,
+        // DEPRECATED: material_cost/total_cost are unreliable — use quotes.calculation_breakdown
+        // Kept for override audit context. Do not read these values for display.
         originalMaterialCost: Number(piece.material_cost),
         originalFeaturesCost: Number(piece.features_cost),
         originalTotalCost: Number(piece.total_cost)
@@ -92,6 +94,8 @@ export async function POST(
       piece: {
         id: piece.id,
         name: piece.name,
+        // DEPRECATED: material_cost/total_cost are unreliable — use quotes.calculation_breakdown
+        // Kept for API response shape compatibility. Do not read these values for display.
         materialCost: Number(piece.material_cost),
         featuresCost: Number(piece.features_cost),
         totalCost: Number(piece.total_cost),

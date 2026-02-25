@@ -361,8 +361,12 @@ export async function duplicateQuote(
             width_mm: piece.width_mm,
             thickness_mm: piece.thickness_mm,
             area_sqm: piece.area_sqm,
+            // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             material_cost: piece.material_cost,
             features_cost: piece.features_cost,
+            // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+            // Kept to avoid null constraint violations. Do not read this value for display.
             total_cost: piece.total_cost,
             sort_order: piece.sort_order,
             cutouts: piece.cutouts ?? undefined,

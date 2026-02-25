@@ -169,6 +169,8 @@ export async function GET(
       edgeRight: p.edge_right,
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
+      // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
+      // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
       areaSqm: Number(p.area_sqm || 0),
       materialCost: Number(p.material_cost || 0),
@@ -359,7 +361,11 @@ export async function PATCH(
         area_sqm: areaSqm,
         material_id: matId,
         material_name: materialName !== undefined ? materialName : currentPiece.material_name,
+        // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         material_cost: materialCost,
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: materialCost + currentPiece.features_cost.toNumber(),
         edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
         edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
@@ -427,6 +433,8 @@ export async function PATCH(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
+      // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
       areaSqm: Number(pu.area_sqm || 0),
       materialCost: Number(pu.material_cost || 0),
@@ -652,7 +660,11 @@ export async function PUT(
         area_sqm: areaSqm,
         material_id: matId,
         material_name: materialName !== undefined ? materialName : currentPiece.material_name,
+        // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         material_cost: materialCost,
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: materialCost + currentPiece.features_cost.toNumber(),
         edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
         edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
@@ -693,6 +705,8 @@ export async function PUT(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
+      // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
       areaSqm: Number(pu.area_sqm || 0),
       materialCost: Number(pu.material_cost || 0),

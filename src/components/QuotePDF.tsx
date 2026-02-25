@@ -40,8 +40,10 @@ interface QuoteData {
       thickness_mm: number;
       area_sqm: { toString(): string } | number;
       material_name: string | null;
+      /** @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing */
       material_cost: { toString(): string } | number;
       features_cost: { toString(): string } | number;
+      /** @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing */
       total_cost: { toString(): string } | number;
       piece_features: Array<{
         id: number;

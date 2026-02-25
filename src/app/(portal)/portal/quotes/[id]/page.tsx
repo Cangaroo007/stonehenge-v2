@@ -64,6 +64,15 @@ export default async function CustomerQuoteDetailPage({
     notFound();
   }
 
+  // Build pieceId → pieceTotal map from calculation_breakdown (single source of truth)
+  const pieceTotalMap = new Map<number, number>();
+  const breakdown = quote.calculation_breakdown as unknown as { breakdown?: { pieces?: Array<{ pieceId: number; pieceTotal: number }> } } | null;
+  if (breakdown?.breakdown?.pieces) {
+    for (const pb of breakdown.breakdown.pieces) {
+      pieceTotalMap.set(pb.pieceId, pb.pieceTotal ?? 0);
+    }
+  }
+
   // Check permissions
   const canDownload = await hasPermissionAsync(user.id, Permission.DOWNLOAD_QUOTES);
   const canApprove = await hasPermissionAsync(user.id, Permission.APPROVE_QUOTES);
@@ -198,7 +207,7 @@ export default async function CustomerQuoteDetailPage({
                         )}
                       </td>
                       <td className="table-cell text-right font-medium">
-                        {formatCurrency(Number(piece.total_cost))}
+                        {formatCurrency(pieceTotalMap.get(piece.id) ?? Number(piece.total_cost))}
                       </td>
                     </tr>
                   ))}

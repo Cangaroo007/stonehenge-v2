@@ -168,8 +168,12 @@ export async function POST(request: NextRequest) {
           material_id: piece.materialId ?? null,
           material_name: piece.materialName ?? null,
           area_sqm: areaSqm,
+          // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+          // Kept to avoid null constraint violations. Do not read this value for display.
           material_cost: 0,
           features_cost: 0,
+          // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+          // Kept to avoid null constraint violations. Do not read this value for display.
           total_cost: 0,
           sort_order: pieceIndex,
           edge_top: edgeTop,

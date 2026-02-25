@@ -89,6 +89,8 @@ async function buildQuoteSnapshot(quoteId: number): Promise<QuoteSnapshot | null
         cutouts: Array.isArray(cutoutsRaw)
           ? cutoutsRaw.map(c => `${c.type} ×${c.quantity}`)
           : [],
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept for change snapshot data preservation. Do not read this value for display.
         lineTotal: Number(piece.total_cost),
       });
     }
@@ -175,6 +177,8 @@ async function buildDetailedSnapshot(quoteId: number): Promise<DetailedQuoteSnap
         cutouts: Array.isArray(piece.cutouts)
           ? (piece.cutouts as unknown as Array<{ type: string; quantity: number }>)
           : [],
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept for change snapshot data preservation. Do not read this value for display.
         totalCost: Number(piece.total_cost),
       })),
     })),

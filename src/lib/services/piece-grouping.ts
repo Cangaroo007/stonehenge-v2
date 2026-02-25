@@ -305,6 +305,7 @@ function toGroupedPiece(
       name: piece.material_name,
     },
     areaSqm: toNumber(piece.area_sqm),
+    // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown for accurate pricing
     cost: toNumber(piece.total_cost),
   };
 }

@@ -144,8 +144,12 @@ export async function POST(request: NextRequest) {
                 material_id: piece.materialId,
                 material_name: piece.materialName,
                 area_sqm: piece.areaSqm,
+                // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+                // Kept to avoid null constraint violations. Do not read this value for display.
                 material_cost: piece.materialCost,
                 features_cost: piece.featuresCost,
+                // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+                // Kept to avoid null constraint violations. Do not read this value for display.
                 total_cost: piece.totalCost,
                 sort_order: piece.sortOrder,
                 edge_top: piece.edgeTop,

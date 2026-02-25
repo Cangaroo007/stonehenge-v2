@@ -81,7 +81,11 @@ export async function PATCH(
             data: {
               material_id: material.id,
               material_name: material.name,
+              // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+              // Kept to avoid null constraint violations. Do not read this value for display.
               material_cost: materialCost,
+              // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+              // Kept to avoid null constraint violations. Do not read this value for display.
               total_cost: materialCost + featuresCost,
               ...(thicknessMm !== undefined && thicknessMm !== null ? { thickness_mm: thicknessMm } : {}),
             },
@@ -94,6 +98,8 @@ export async function PATCH(
         // Clear material
         updateData.material_id = null;
         updateData.material_name = null;
+        // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         updateData.material_cost = 0;
       }
     }

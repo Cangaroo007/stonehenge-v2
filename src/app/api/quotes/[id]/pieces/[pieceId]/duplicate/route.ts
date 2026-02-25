@@ -70,8 +70,12 @@ export async function POST(
         area_sqm: originalPiece.area_sqm,
         material_id: originalPiece.material_id,
         material_name: originalPiece.material_name,
+        // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         material_cost: originalPiece.material_cost,
         features_cost: originalPiece.features_cost,
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: originalPiece.total_cost,
         edge_top: originalPiece.edge_top,
         edge_bottom: originalPiece.edge_bottom,

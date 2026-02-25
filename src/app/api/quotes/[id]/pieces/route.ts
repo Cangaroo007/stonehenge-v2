@@ -86,6 +86,8 @@ export async function GET(
           // Pricing from calculation_breakdown (not runtime-calculated)
           pieceTotal: pricing?.pieceTotal ?? null,
           slabCost: pricing?.slabCost ?? null,
+          // DEPRECATED field names — kept for backward compatibility with existing consumers.
+          // These values are populated from calculation_breakdown, NOT the stale DB columns.
           material_cost: pricing?.slabCost ?? null,
           total_cost: pricing?.pieceTotal ?? null,
           totalCost: pricing?.pieceTotal ?? null,
@@ -297,7 +299,11 @@ export async function POST(
         area_sqm: areaSqm,
         material_id: materialId || null,
         material_name: materialName || null,
+        // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         material_cost: materialCost,
+        // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+        // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: materialCost,
         sort_order: (maxPiece?.sort_order ?? -1) + 1,
         cutouts: [],
@@ -329,6 +335,8 @@ export async function POST(
       edgeRight: pieceAny.edge_right,
       laminationMethod: pieceAny.lamination_method,
       sortOrder: pieceAny.sort_order,
+      // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
+      // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),
       areaSqm: Number(pieceAny.area_sqm || 0),
       materialCost: Number(pieceAny.material_cost || 0),
