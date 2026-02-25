@@ -266,10 +266,21 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     }
   }
 
+  // Build pieceTotal lookup from breakdown for room totals
+  const pieceTotalMap = new Map<number, number>();
+  if (calcBreakdown?.breakdown?.pieces) {
+    for (const p of calcBreakdown.breakdown.pieces) {
+      pieceTotalMap.set(p.pieceId, p.pieceTotal ?? 0);
+    }
+  }
+
   // 5. Assemble rooms with pieces
   const rooms: QuotePdfRoom[] = [];
 
   for (const room of quote.quote_rooms) {
+    // Skip rooms with no pieces
+    if (!room.quote_pieces || room.quote_pieces.length === 0) continue;
+
     const pdfPieces: QuotePdfPiece[] = [];
 
     for (const piece of room.quote_pieces) {
@@ -309,7 +320,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         oversize: pb?.oversize
           ? (pb.oversize.joinCost + pb.oversize.grainMatchingSurcharge)
           : 0,
-        pieceTotal: pb?.pieceTotal ?? toNumber(piece.total_cost),
+        pieceTotal: pb?.pieceTotal ?? 0,
       };
 
       pdfPieces.push({
@@ -330,7 +341,13 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
       });
     }
 
-    const roomTotal = pdfPieces.reduce((sum, p) => sum + p.pricing.pieceTotal, 0);
+    // Room total from calculation_breakdown only (no stale DB fallback)
+    const roomTotal = room.quote_pieces.reduce((sum: number, piece: { id: number }) => {
+      return sum + (pieceTotalMap.get(piece.id) ?? 0);
+    }, 0);
+
+    // Skip $0.00 rooms from PDF output
+    if (roomTotal === 0) continue;
 
     rooms.push({
       id: room.id,
