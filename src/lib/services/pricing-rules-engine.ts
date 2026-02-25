@@ -71,6 +71,10 @@ export interface EnginePiece {
   laminationMethod?: 'LAMINATED' | 'MITRED' | null
   edges: EngineEdge[]
   cutouts: EngineCutout[]
+  // Shape geometry overrides — used for L/U shaped pieces.
+  // When provided, these override the rectangular formula defaults.
+  cuttingPerimeterLm?: number  // overrides 2*(l+w)/1000
+  areaSqm?: number             // overrides (l*w)/1_000_000
 }
 
 export interface EngineMaterial {
@@ -129,7 +133,7 @@ export function ruleCutting(
   rates: EngineServiceRate[],
   category: string
 ): PiecePricingResult['cutting'] {
-  const perimeterLm = 2 * (piece.length_mm + piece.width_mm) / 1000
+  const perimeterLm = piece.cuttingPerimeterLm ?? 2 * (piece.length_mm + piece.width_mm) / 1000
   const rate = rates.find(r => r.serviceType === 'CUTTING' && r.fabricationCategory === category)
   if (!rate) throw new Error(
     `[PricingEngine] No CUTTING rate configured for category "${category}". ` +
@@ -274,7 +278,7 @@ export function ruleInstallation(
   rates: EngineServiceRate[],
   category: string
 ): PiecePricingResult['installation'] {
-  const area_sqm = (piece.length_mm * piece.width_mm) / 1_000_000
+  const area_sqm = piece.areaSqm ?? (piece.length_mm * piece.width_mm) / 1_000_000
   const rate = rates.find(r => r.serviceType === 'INSTALLATION' && r.fabricationCategory === category)
   if (!rate) throw new Error(
     `[PricingEngine] No INSTALLATION rate configured for category "${category}". ` +

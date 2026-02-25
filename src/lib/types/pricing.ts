@@ -271,6 +271,16 @@ export interface PiecePricingBreakdown {
     warnings: string[];
   };
 
+  cornerJoin?: {
+    shapeType: string;
+    cornerJoins: number;
+    joinLengthLm: number;
+    joinRate: number;
+    joinCost: number;
+    grainMatchingSurchargeRate: number;
+    grainMatchingSurcharge: number;
+  };
+
   materials?: {
     areaM2: number;
     baseRate: number;

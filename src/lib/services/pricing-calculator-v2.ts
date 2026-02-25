@@ -33,6 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
+import { getShapeGeometry, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -188,14 +189,16 @@ export function calculateMaterialCost(
   slabCount?: number,
   wasteFactorPercent?: number,
   slabCountFromOptimiser?: boolean,
-  materialMarginAdjustPercent: number = 0
+  materialMarginAdjustPercent: number = 0,
+  pieceAreaOverrides?: number[]
 ): MaterialBreakdown {
   let totalAreaM2 = 0;
   let overriddenCost = 0;
   let calculatedCost = 0;
 
-  for (const piece of pieces) {
-    const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
+  for (let idx = 0; idx < pieces.length; idx++) {
+    const piece = pieces[idx];
+    const areaSqm = pieceAreaOverrides?.[idx] ?? (piece.length_mm * piece.width_mm) / 1_000_000;
     totalAreaM2 += areaSqm;
 
     // Check for piece-level override — margin does NOT apply to overrides
@@ -209,7 +212,7 @@ export function calculateMaterialCost(
       const slabPrice = piece.materials?.price_per_slab?.toNumber() ?? 0;
       if (slabPrice > 0 && slabCount > 0) {
         // Distribute slab cost proportionally across pieces by area
-        const totalPieceArea = (piece.length_mm * piece.width_mm) / 1_000_000;
+        const totalPieceArea = areaSqm;
         // This will be summed across all pieces, then replaced below
         calculatedCost += totalPieceArea * (slabPrice / (totalAreaM2 || 1));
       } else {
@@ -293,7 +296,7 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent);
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides);
 
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
@@ -338,6 +341,7 @@ function buildMaterialGroupings(
   defaultSlabLengthMm: number | null | undefined,
   defaultSlabWidthMm: number | null | undefined,
   materialMarginAdjustPercent: number = 0,
+  pieceAreaOverrides?: number[],
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -351,7 +355,8 @@ function buildMaterialGroupings(
     baseMarginPercent: number;
   }>();
 
-  for (const piece of pieces) {
+  for (let idx = 0; idx < pieces.length; idx++) {
+    const piece = pieces[idx];
     const mat = piece.materials;
     if (!mat) continue;
     const matId = (mat as unknown as { id?: number }).id ?? 0;
@@ -360,7 +365,7 @@ function buildMaterialGroupings(
     const slabWMm = (mat as unknown as { slab_width_mm?: number | null }).slab_width_mm ?? undefined;
     const slabPrice = mat.price_per_slab?.toNumber() ?? 0;
     const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
-    const areaSqm = (piece.length_mm * piece.width_mm) / 1_000_000;
+    const areaSqm = pieceAreaOverrides?.[idx] ?? (piece.length_mm * piece.width_mm) / 1_000_000;
 
     // Resolve per-material margin: override → supplier default → 0
     const matBaseMargin =
@@ -534,6 +539,14 @@ export async function calculateQuotePrice(
   // Flatten all pieces
   const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
+  // Pre-compute shape geometry for each piece (L/U shapes use getShapeGeometry).
+  // RECTANGLE returns identical values to the old length×width formula.
+  const pieceGeometries = allPieces.map((piece: any) => {
+    const shapeType = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
+    const shapeConfig = piece.shape_config as unknown as ShapeConfig;
+    return getShapeGeometry(shapeType, shapeConfig, piece.length_mm, piece.width_mm);
+  });
+
   // Get slab count from latest optimization (for PER_SLAB pricing)
   let slabCount: number | undefined;
   let slabCountFromOptimiser = false;
@@ -552,8 +565,8 @@ export async function calculateQuotePrice(
         { slab_length_mm?: number | null; slab_width_mm?: number | null } | null;
       if (firstMat?.slab_length_mm && firstMat?.slab_width_mm) {
         const slabAreaM2 = (firstMat.slab_length_mm * firstMat.slab_width_mm) / 1_000_000;
-        const totalPieceArea = allPieces.reduce(
-          (sum: number, p: { length_mm: number; width_mm: number }) => sum + (p.length_mm * p.width_mm) / 1_000_000, 0
+        const totalPieceArea = pieceGeometries.reduce(
+          (sum: number, g: { totalAreaSqm: number }) => sum + g.totalAreaSqm, 0
         );
         if (slabAreaM2 > 0) {
           slabCount = Math.ceil(totalPieceArea / slabAreaM2);
@@ -563,13 +576,16 @@ export async function calculateQuotePrice(
   }
 
   // Calculate material costs with pricing basis, waste factor, and margin
+  // Pass shape-aware area overrides so L/U pieces use correct area
+  const pieceAreaValues = pieceGeometries.map((g: { totalAreaSqm: number }) => g.totalAreaSqm);
   const materialBreakdown = calculateMaterialCost(
     allPieces,
     pricingContext.materialPricingBasis,
     slabCount,
     pricingContext.wasteFactorPercent,
     slabCountFromOptimiser,
-    options?.materialMarginAdjustPercent ?? 0
+    options?.materialMarginAdjustPercent ?? 0,
+    pieceAreaValues
   );
 
   // Determine primary fabrication category for the quote
@@ -619,7 +635,9 @@ export async function calculateQuotePrice(
   // Build engine pieces with oversize detection via cut plan
   const enginePieces: EnginePiece[] = [];
   const cutPlans: ReturnType<typeof calculateCutPlan>[] = [];
-  for (const piece of allPieces) {
+  for (let pi = 0; pi < allPieces.length; pi++) {
+    const piece = allPieces[pi];
+    const geometry = pieceGeometries[pi];
     const pieceFabCategory: string =
       (piece.materials as unknown as { fabrication_category?: string } | null)
         ?.fabrication_category ?? 'ENGINEERED';
@@ -659,6 +677,9 @@ export async function calculateQuotePrice(
       return { cutoutType: ct?.name ?? c.type ?? c.typeId ?? 'Cutout', quantity: c.quantity || 1 };
     });
 
+    // For L/U shapes, pass shape geometry overrides to the engine
+    const isShapedPiece = geometry.cornerJoins > 0;
+
     enginePieces.push({
       id: String(piece.id),
       name: piece.name || piece.description || `Piece ${piece.id}`,
@@ -677,6 +698,9 @@ export async function calculateQuotePrice(
         { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: piece.width_mm },
       ],
       cutouts: engineCutouts,
+      // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
+      cuttingPerimeterLm: isShapedPiece ? geometry.cuttingPerimeterLm : undefined,
+      areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
     });
   }
 
@@ -831,6 +855,67 @@ export async function calculateQuotePrice(
     }
   }
 
+  // Corner join pricing for L/U shaped pieces
+  for (let i = 0; i < allPieces.length; i++) {
+    const piece = allPieces[i];
+    const geometry = pieceGeometries[i];
+    if (geometry.cornerJoins <= 0) continue;
+
+    const shapeType = ((piece as any).shape_type ?? 'RECTANGLE') as ShapeType;
+    const shapeConfig = (piece as any).shape_config as unknown as ShapeConfig;
+    if (!shapeConfig) continue;
+
+    const pieceFabCategory: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+
+    // Look up JOIN rate (same rate used for oversize joins)
+    let joinRate = 0;
+    try {
+      const { rate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+      joinRate = rate;
+    } catch { continue; } // No JOIN rate configured — skip corner join pricing
+
+    // Calculate total corner join length in metres
+    let totalJoinLengthLm = 0;
+    if (shapeType === 'L_SHAPE' && shapeConfig.shape === 'L_SHAPE') {
+      totalJoinLengthLm = Math.min(
+        shapeConfig.leg1.width_mm,
+        shapeConfig.leg2.width_mm
+      ) / 1000;
+    }
+    if (shapeType === 'U_SHAPE' && shapeConfig.shape === 'U_SHAPE') {
+      totalJoinLengthLm = (shapeConfig.back.width_mm * 2) / 1000;
+    }
+
+    if (totalJoinLengthLm > 0) {
+      const joinCost = totalJoinLengthLm * joinRate;
+      const grainSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+      const grainSurcharge = joinCost * grainSurchargeRate;
+      const pieceName = piece.name || piece.description || `Piece ${piece.id}`;
+
+      serviceData.items.push({
+        serviceType: 'JOIN',
+        name: `Corner Join - ${shapeType === 'L_SHAPE' ? 'L-Shape' : 'U-Shape'} (${pieceName})`,
+        quantity: roundToTwo(totalJoinLengthLm), unit: 'LINEAR_METRE',
+        rate: joinRate, subtotal: roundToTwo(joinCost),
+        fabricationCategory: pieceFabCategory,
+      });
+      serviceData.subtotal += joinCost;
+
+      if (grainSurcharge > 0) {
+        serviceData.items.push({
+          serviceType: 'JOIN',
+          name: `Grain Matching Surcharge - Corner Join (${pieceName})`,
+          quantity: 1, unit: 'FIXED',
+          rate: roundToTwo(grainSurcharge), subtotal: roundToTwo(grainSurcharge),
+          fabricationCategory: pieceFabCategory,
+        });
+        serviceData.subtotal += grainSurcharge;
+      }
+    }
+  }
+
   // Build aggregate edge breakdown from engine results
   const edgeData = mapEdgeBreakdownFromEngine(engineResult, edgeTypeReverseMap);
 
@@ -841,9 +926,9 @@ export async function calculateQuotePrice(
   const pieceBreakdowns: PiecePricingBreakdown[] = [];
 
   // Proportional allocation of material and installation across pieces
-  const totalAreaSqm = allPieces.reduce(
-    (sum: number, p: { length_mm: number; width_mm: number }) =>
-      sum + (p.length_mm * p.width_mm) / 1_000_000, 0
+  // Use shape geometry for area (L/U shapes have different area than length×width)
+  const totalAreaSqm = pieceGeometries.reduce(
+    (sum: number, g: { totalAreaSqm: number }) => sum + g.totalAreaSqm, 0
   );
   const totalMaterialCost = materialBreakdown.subtotal;
   const totalInstallationCost = engineResult.installationSubtotal;
@@ -905,7 +990,7 @@ export async function calculateQuotePrice(
 
     let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
     if (totalInstallationCost > 0) {
-      const pieceAreaForInstall = (piece.length_mm * piece.width_mm) / 1_000_000;
+      const pieceAreaForInstall = pieceGeometries[i].totalAreaSqm;
       let installationShare: number;
       if (i === allPieces.length - 1) {
         // Last piece gets remainder to avoid rounding drift
@@ -976,6 +1061,46 @@ export async function calculateQuotePrice(
       pbd.pieceTotal = roundToTwo(pbd.pieceTotal + ep.join.cost + (ep.grainSurcharge?.cost ?? 0));
     }
 
+    // Add corner join data for L/U shaped pieces
+    const pieceGeometry = pieceGeometries[i];
+    if (pieceGeometry.cornerJoins > 0) {
+      const shapeType = ((piece as any).shape_type ?? 'RECTANGLE') as ShapeType;
+      const shapeConfig = (piece as any).shape_config as unknown as ShapeConfig;
+
+      if (shapeConfig) {
+        let cornerJoinLengthLm = 0;
+        if (shapeType === 'L_SHAPE' && shapeConfig.shape === 'L_SHAPE') {
+          cornerJoinLengthLm = Math.min(shapeConfig.leg1.width_mm, shapeConfig.leg2.width_mm) / 1000;
+        }
+        if (shapeType === 'U_SHAPE' && shapeConfig.shape === 'U_SHAPE') {
+          cornerJoinLengthLm = (shapeConfig.back.width_mm * 2) / 1000;
+        }
+
+        if (cornerJoinLengthLm > 0) {
+          let cornerJoinRate = 0;
+          try {
+            const { rate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
+            cornerJoinRate = rate;
+          } catch { /* No JOIN rate — skip */ }
+
+          const cornerJoinCost = cornerJoinLengthLm * cornerJoinRate;
+          const grainSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+          const cornerGrainSurcharge = cornerJoinCost * grainSurchargeRate;
+
+          pbd.cornerJoin = {
+            shapeType,
+            cornerJoins: pieceGeometry.cornerJoins,
+            joinLengthLm: roundToTwo(cornerJoinLengthLm),
+            joinRate: cornerJoinRate,
+            joinCost: roundToTwo(cornerJoinCost),
+            grainMatchingSurchargeRate: grainSurchargeRate,
+            grainMatchingSurcharge: roundToTwo(cornerGrainSurcharge),
+          };
+          pbd.pieceTotal = roundToTwo(pbd.pieceTotal + cornerJoinCost + cornerGrainSurcharge);
+        }
+      }
+    }
+
     // Add per-piece proportional material cost
     // Each piece gets its area share of the total material cost (from optimizer/aggregate)
     if (piece.materials) {
@@ -985,7 +1110,7 @@ export async function calculateQuotePrice(
         slab_length_mm?: number | null;
         slab_width_mm?: number | null;
       };
-      const pieceAreaM2 = roundToTwo((piece.length_mm * piece.width_mm) / 1_000_000);
+      const pieceAreaM2 = roundToTwo(pieceGeometries[i].totalAreaSqm);
       const pricePerSlab = mat.price_per_slab?.toNumber();
       const pricePerSqm = mat.price_per_sqm.toNumber();
 
