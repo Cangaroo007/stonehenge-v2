@@ -25,6 +25,7 @@ import type { InlinePieceData } from './InlinePieceEditor';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import type { LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -148,6 +149,40 @@ const MINI_PAD = 16;
 const EDGE_HIT = 14;
 
 type MiniEdgeSide = 'top' | 'right' | 'bottom' | 'left';
+
+// ── Mini SVG shape path (reuses L/U shape geometry from PieceVisualEditor K4) ─
+function getMiniShapePath(
+  shapeType: string | null | undefined,
+  shapeConfig: Record<string, unknown> | null | undefined,
+  x: number, y: number, w: number, h: number,
+): string | null {
+  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+    const cfg = shapeConfig as unknown as LShapeConfig;
+    const boundW = cfg.leg1.length_mm;
+    const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
+    const sL1L = (cfg.leg1.length_mm / boundW) * w;
+    const sL1W = (cfg.leg1.width_mm / boundH) * h;
+    const sL2W = (cfg.leg2.width_mm / boundW) * w;
+    const sL2L = (cfg.leg2.length_mm / boundH) * h;
+    // L-shape: P0→P1→P2→P3→P4→P5 (same point order as PieceVisualEditor)
+    return `M ${x},${y} L ${x + sL1L},${y} L ${x + sL1L},${y + sL1W} L ${x + sL2W},${y + sL1W} L ${x + sL2W},${y + sL1W + sL2L} L ${x},${y + sL1W + sL2L} Z`;
+  }
+  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+    const cfg = shapeConfig as unknown as UShapeConfig;
+    const boundW = cfg.back.length_mm;
+    const boundH = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
+    const sLW = (cfg.leftLeg.width_mm / boundW) * w;
+    const sLL = (cfg.leftLeg.length_mm / boundH) * h;
+    const sBW = (cfg.back.width_mm / boundH) * h;
+    const sRW = (cfg.rightLeg.width_mm / boundW) * w;
+    const sRL = (cfg.rightLeg.length_mm / boundH) * h;
+    const sInnerLeftY = sLL - sBW;
+    const sInnerRightY = sRL - sBW;
+    // U-shape: P0→P1→P2→P3→P4→P5→P6→P7 (same point order as PieceVisualEditor)
+    return `M ${x},${y} L ${x + sLW},${y} L ${x + sLW},${y + sInnerLeftY} L ${x + w - sRW},${y + sInnerRightY} L ${x + w - sRW},${y} L ${x + w},${y} L ${x + w},${y + sRL} L ${x},${y + sLL} Z`;
+  }
+  return null;
+}
 
 // ── Cutout name resolution (matches PieceRow pattern) ───────────────────────
 
@@ -706,12 +741,13 @@ export default function QuickViewPieceRow({
                 `}</style>
               </defs>
 
-              {/* Piece rectangle */}
-              <rect
-                x={miniLayout.x} y={miniLayout.y}
-                width={miniLayout.w} height={miniLayout.h}
-                fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1}
-              />
+              {/* Piece shape — L/U polygon or rectangle */}
+              {(() => {
+                const shapePath = getMiniShapePath(piece.shapeType, piece.shapeConfig, miniLayout.x, miniLayout.y, miniLayout.w, miniLayout.h);
+                return shapePath
+                  ? <path d={shapePath} fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1} />
+                  : <rect x={miniLayout.x} y={miniLayout.y} width={miniLayout.w} height={miniLayout.h} fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1} />;
+              })()}
 
               {/* Edges */}
               {sides.map(side => {
