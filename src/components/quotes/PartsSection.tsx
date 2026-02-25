@@ -142,7 +142,7 @@ function derivePartsForPiece(
   const laminationSummary = optimizerResult?.laminationSummary;
 
   const pieceName = piece.name || 'Unnamed piece';
-  const thicknessMm = piece.thickness_mm;
+  const thicknessMm = breakdown?.dimensions?.thicknessMm ?? piece.thickness_mm;
 
   // Calculate non-main-piece costs for deduction from pieceTotal
   let laminationCost = 0;
@@ -155,6 +155,14 @@ function derivePartsForPiece(
   if (isOversize && breakdown?.oversize) {
     const strategy = breakdown.oversize.strategy || 'LENGTHWISE';
     const joinCount = breakdown.oversize.joinCount || 1;
+    const numberOfSegments = joinCount + 1;
+
+    // Derive proportional fabrication cost per segment
+    // Exclude material and installation (shown at piece level, not per-half)
+    const materialCost = breakdown.materials?.total ?? 0;
+    const installationCost = breakdown.fabrication?.installation?.total ?? 0;
+    const fabricationCost = breakdown.pieceTotal - materialCost - installationCost;
+    const segmentCost = fabricationCost / numberOfSegments;
 
     if (strategy === 'LENGTHWISE' || strategy === 'MULTI_JOIN') {
       const halfLength = Math.ceil(piece.length_mm / (joinCount + 1));
@@ -169,7 +177,7 @@ function derivePartsForPiece(
           widthMm: piece.width_mm,
           thicknessMm,
           slab: findSlabForSegment(piece.id, seg, placements),
-          cost: null,
+          cost: segmentCost,
           note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
         });
       }
@@ -187,7 +195,7 @@ function derivePartsForPiece(
           widthMm: segWidth,
           thicknessMm,
           slab: findSlabForSegment(piece.id, seg, placements),
-          cost: null,
+          cost: segmentCost,
           note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
         });
       }
@@ -220,10 +228,17 @@ function derivePartsForPiece(
     if (stripsByParent && stripsByParent.strips.length > 0) {
       // Use real optimizer strip data
       for (const strip of stripsByParent.strips) {
-        const sideLabel = strip.position.charAt(0).toUpperCase() + strip.position.slice(1);
+        const position = strip.position;
+        const hasValidPosition = position && position !== 'unknown';
+        const sideLabel = hasValidPosition
+          ? position.charAt(0).toUpperCase() + position.slice(1)
+          : null;
+        const stripName = sideLabel
+          ? `${sideLabel} lamination strip`
+          : `${pieceName} — Lamination Strip`;
         parts.push({
           type: 'LAMINATION_STRIP',
-          name: `${sideLabel} lamination strip`,
+          name: stripName,
           lengthMm: strip.lengthMm,
           widthMm: strip.widthMm,
           thicknessMm: 20,
