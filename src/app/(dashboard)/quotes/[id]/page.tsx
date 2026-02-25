@@ -127,6 +127,8 @@ export default async function QuoteDetailPage({
         edge_bottom: piece.edge_bottom,
         edge_left: piece.edge_left,
         edge_right: piece.edge_right,
+        shape_type: piece.shape_type ?? 'RECTANGLE',
+        shape_config: piece.shape_config as Record<string, unknown> | null,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

@@ -4,6 +4,7 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
+import type { ShapeType, ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -21,7 +22,44 @@ interface CutoutDisplay {
 }
 
 export type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
+/** Extended edge identifiers for L-shape (6 edges) and U-shape (8 edges) */
+export type ShapeEdgeSide =
+  | EdgeSide
+  | 'right-top' | 'right-bottom' | 'inner-horizontal'  // L-shape
+  | 'top-left' | 'top-right' | 'outer-left' | 'outer-right' | 'inner-left' | 'inner-right' | 'back';  // U-shape
 type EdgeEditMode = 'select' | 'quickEdge';
+
+/** Maps shape edge sides to the 4 standard edge columns for profile lookup */
+const L_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeSide | null> = {
+  'top': 'top',
+  'right-top': 'right',
+  'inner-horizontal': null,
+  'right-bottom': null,
+  'bottom': 'bottom',
+  'left': 'left',
+};
+
+const U_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeSide | null> = {
+  'top-left': 'top',
+  'outer-left': 'left',
+  'bottom': 'bottom',
+  'outer-right': 'right',
+  'top-right': null,
+  'inner-right': null,
+  'back': null,
+  'inner-left': null,
+};
+
+/** Edge segment definition for shape rendering */
+interface ShapeEdgeDef {
+  side: ShapeEdgeSide;
+  x1: number; y1: number;
+  x2: number; y2: number;
+  labelX: number; labelY: number;
+  lengthMm: number;
+  label: string;
+  standardEdge: EdgeSide | null;
+}
 
 interface EdgeTemplate {
   id: string;
@@ -93,6 +131,12 @@ export interface PieceVisualEditorProps {
 
   /** Quote ID for per-quote recents strip persistence */
   quoteId?: string | number;
+
+  /** Shape type for L/U shape rendering (defaults to RECTANGLE) */
+  shapeType?: ShapeType;
+
+  /** Shape configuration with leg dimensions (required for L/U shapes) */
+  shapeConfig?: ShapeConfig;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -148,6 +192,8 @@ export default function PieceVisualEditor({
   roomId,
   onApplyWithScope,
   quoteId,
+  shapeType = 'RECTANGLE',
+  shapeConfig,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -581,6 +627,200 @@ export default function PieceVisualEditor({
     };
   }, [layout, lengthMm, widthMm]);
 
+  // ── Effective shape type (fallback to RECTANGLE if config missing) ───
+  const effectiveShapeType: ShapeType = useMemo(() => {
+    if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
+    if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
+    return 'RECTANGLE';
+  }, [shapeType, shapeConfig]);
+
+  // ── L/U shape layout & edge definitions ─────────────────────────────
+  const shapeLayout = useMemo(() => {
+    if (effectiveShapeType === 'RECTANGLE') return null;
+
+    const { x, y } = layout;
+
+    if (effectiveShapeType === 'L_SHAPE') {
+      const cfg = shapeConfig as unknown as LShapeConfig;
+      const l1l = cfg.leg1.length_mm;  // leg1 length (horizontal top)
+      const l1w = cfg.leg1.width_mm;   // leg1 width (vertical top part)
+      const l2w = cfg.leg2.width_mm;   // leg2 width (horizontal bottom, narrower)
+      const l2l = cfg.leg2.length_mm;  // leg2 length (vertical bottom part)
+
+      // Bounding box in mm
+      const boundW = l1l;
+      const boundH = l1w + l2l;
+
+      // Scale to fit available inner area
+      const maxInnerWidth = 500;
+      const maxInnerHeight = MAX_HEIGHT - SVG_PADDING * 2;
+      const scaleX = maxInnerWidth / boundW;
+      const scaleY = maxInnerHeight / boundH;
+      const scale = Math.min(scaleX, scaleY);
+
+      const sw = Math.max(boundW * scale, 100);
+      const sh = Math.max(boundH * scale, 40);
+
+      // Scaled dimensions
+      const sL1L = (l1l / boundW) * sw;
+      const sL1W = (l1w / boundH) * sh;
+      const sL2W = (l2w / boundW) * sw;
+      const sL2L = (l2l / boundH) * sh;
+
+      // SVG path points (top-left origin)
+      // P0(0,0) → P1(l1l,0) → P2(l1l,l1w) → P3(l2w,l1w) → P4(l2w,l1w+l2l) → P5(0,l1w+l2l)
+      const p0 = { x: x, y: y };
+      const p1 = { x: x + sL1L, y: y };
+      const p2 = { x: x + sL1L, y: y + sL1W };
+      const p3 = { x: x + sL2W, y: y + sL1W };
+      const p4 = { x: x + sL2W, y: y + sL1W + sL2L };
+      const p5 = { x: x, y: y + sL1W + sL2L };
+
+      const path = `M ${p0.x},${p0.y} L ${p1.x},${p1.y} L ${p2.x},${p2.y} L ${p3.x},${p3.y} L ${p4.x},${p4.y} L ${p5.x},${p5.y} Z`;
+
+      const svgW = sw + SVG_PADDING * 2;
+      const svgH = sh + SVG_PADDING * 2;
+
+      // Edge label offset from edge midpoint
+      const lo = 24;
+
+      const edges: ShapeEdgeDef[] = [
+        {
+          side: 'top', x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y,
+          labelX: (p0.x + p1.x) / 2, labelY: p0.y - lo,
+          lengthMm: l1l, label: 'TOP', standardEdge: 'top',
+        },
+        {
+          side: 'right-top', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+          labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
+          lengthMm: l1w, label: 'R-TOP', standardEdge: 'right',
+        },
+        {
+          side: 'inner-horizontal', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
+          labelX: (p2.x + p3.x) / 2, labelY: p2.y - lo,
+          lengthMm: l1l - l2w, label: 'INNER', standardEdge: null,
+        },
+        {
+          side: 'right-bottom', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
+          labelX: p3.x + lo, labelY: (p3.y + p4.y) / 2,
+          lengthMm: l2l, label: 'R-BTM', standardEdge: null,
+        },
+        {
+          side: 'bottom', x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y,
+          labelX: (p4.x + p5.x) / 2, labelY: p4.y + lo + 4,
+          lengthMm: l2w, label: 'BTM', standardEdge: 'bottom',
+        },
+        {
+          side: 'left', x1: p5.x, y1: p5.y, x2: p0.x, y2: p0.y,
+          labelX: p5.x - lo, labelY: (p5.y + p0.y) / 2,
+          lengthMm: l1w + l2l, label: 'LEFT', standardEdge: 'left',
+        },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    if (effectiveShapeType === 'U_SHAPE') {
+      const cfg = shapeConfig as unknown as UShapeConfig;
+      const lw = cfg.leftLeg.width_mm;
+      const ll = cfg.leftLeg.length_mm;   // full outer left height
+      const bl = cfg.back.length_mm;      // full horizontal width
+      const bw = cfg.back.width_mm;       // back section depth from bottom
+      const rw = cfg.rightLeg.width_mm;
+      const rl = cfg.rightLeg.length_mm;  // full outer right height
+
+      // Bounding box in mm
+      const boundW = bl;
+      const boundH = Math.max(ll, rl);
+
+      // Scale to fit available inner area
+      const maxInnerWidth = 500;
+      const maxInnerHeight = MAX_HEIGHT - SVG_PADDING * 2;
+      const scaleX = maxInnerWidth / boundW;
+      const scaleY = maxInnerHeight / boundH;
+      const scale = Math.min(scaleX, scaleY);
+
+      const sw = Math.max(boundW * scale, 100);
+      const sh = Math.max(boundH * scale, 40);
+
+      // Scaled dimensions
+      const sLW = (lw / boundW) * sw;
+      const sLL = (ll / boundH) * sh;
+      const sBW = (bw / boundH) * sh;
+      const sRW = (rw / boundW) * sw;
+      const sRL = (rl / boundH) * sh;
+
+      // U-shape opens at top, closed at bottom
+      // Points clockwise from outer top-left:
+      // P0(0,0) → P1(lw,0) → P2(lw,ll-bw) → P3(bl-rw,rl-bw) → P4(bl-rw,0) → P5(bl,0) → P6(bl,rl) → P7(0,ll)
+      const sInnerLeftY = sLL - sBW;  // inner-left bottom (where back starts)
+      const sInnerRightY = sRL - sBW; // inner-right bottom
+
+      const p0 = { x: x, y: y };
+      const p1 = { x: x + sLW, y: y };
+      const p2 = { x: x + sLW, y: y + sInnerLeftY };
+      const p3 = { x: x + sw - sRW, y: y + sInnerRightY };
+      const p4 = { x: x + sw - sRW, y: y };
+      const p5 = { x: x + sw, y: y };
+      const p6 = { x: x + sw, y: y + sRL };
+      const p7 = { x: x, y: y + sLL };
+
+      const path = `M ${p0.x},${p0.y} L ${p1.x},${p1.y} L ${p2.x},${p2.y} L ${p3.x},${p3.y} L ${p4.x},${p4.y} L ${p5.x},${p5.y} L ${p6.x},${p6.y} L ${p7.x},${p7.y} Z`;
+
+      const svgW = sw + SVG_PADDING * 2;
+      const svgH = sh + SVG_PADDING * 2;
+
+      const lo = 24;
+
+      const edges: ShapeEdgeDef[] = [
+        {
+          side: 'top-left', x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y,
+          labelX: (p0.x + p1.x) / 2, labelY: p0.y - lo,
+          lengthMm: lw, label: 'T-LEFT', standardEdge: 'top',
+        },
+        {
+          side: 'inner-left', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+          labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
+          lengthMm: ll - bw, label: 'IN-L', standardEdge: null,
+        },
+        {
+          side: 'back', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
+          labelX: (p2.x + p3.x) / 2, labelY: Math.max(p2.y, p3.y) + lo,
+          lengthMm: bl - lw - rw, label: 'BACK', standardEdge: null,
+        },
+        {
+          side: 'inner-right', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
+          labelX: p3.x - lo, labelY: (p3.y + p4.y) / 2,
+          lengthMm: rl - bw, label: 'IN-R', standardEdge: null,
+        },
+        {
+          side: 'top-right', x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y,
+          labelX: (p4.x + p5.x) / 2, labelY: p4.y - lo,
+          lengthMm: rw, label: 'T-RIGHT', standardEdge: null,
+        },
+        {
+          side: 'outer-right', x1: p5.x, y1: p5.y, x2: p6.x, y2: p6.y,
+          labelX: p5.x + lo, labelY: (p5.y + p6.y) / 2,
+          lengthMm: rl, label: 'RIGHT', standardEdge: 'right',
+        },
+        {
+          side: 'bottom', x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y,
+          labelX: (p6.x + p7.x) / 2, labelY: Math.max(p6.y, p7.y) + lo + 4,
+          lengthMm: bl, label: 'BTM', standardEdge: 'bottom',
+        },
+        {
+          side: 'outer-left', x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y,
+          labelX: p7.x - lo, labelY: (p7.y + p0.y) / 2,
+          lengthMm: ll, label: 'LEFT', standardEdge: 'left',
+        },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    return null;
+  }, [effectiveShapeType, shapeConfig, layout]);
+
   // ── Cutout positions ──────────────────────────────────────────────────
 
   const cutoutPositions = useMemo(() => {
@@ -836,7 +1076,7 @@ export default function PieceVisualEditor({
 
       {/* ── SVG Diagram ────────────────────────────────────────────────── */}
       <svg
-        viewBox={`0 0 ${layout.svgW} ${layout.svgH}`}
+        viewBox={`0 0 ${shapeLayout?.svgW ?? layout.svgW} ${shapeLayout?.svgH ?? layout.svgH}`}
         className="w-full max-w-lg"
         style={{ maxHeight: MAX_HEIGHT }}
         preserveAspectRatio="xMidYMid meet"
@@ -858,153 +1098,256 @@ export default function PieceVisualEditor({
           `}</style>
         </defs>
 
-        {/* Piece rectangle */}
-        <rect
-          x={layout.x}
-          y={layout.y}
-          width={layout.innerW}
-          height={layout.innerH}
-          fill="#f5f5f5"
-          stroke="#e5e7eb"
-          strokeWidth={1}
-        />
-
-        {/* Join line (oversize) */}
-        {joinLineX != null && (
+        {/* ── L/U shape outline ──────────────────────────────────── */}
+        {shapeLayout && (
           <>
-            <line
-              x1={joinLineX}
-              y1={layout.y - 4}
-              x2={joinLineX}
-              y2={layout.y + layout.innerH + 4}
-              stroke="#f59e0b"
-              strokeWidth={1.5}
-              strokeDasharray="4 3"
+            <path
+              d={shapeLayout.path}
+              fill="#f5f5f5"
+              stroke="#e5e7eb"
+              strokeWidth={1}
             />
-            <text
-              x={joinLineX}
-              y={layout.y - 40}
-              textAnchor="middle"
-              className="text-[8px] fill-amber-600"
-            >
-              Join at {joinAtMm}mm
-            </text>
+
+            {/* Shape edges */}
+            {shapeLayout.edges.map((edge) => {
+              const stdEdge = edge.standardEdge;
+              const profileId = stdEdge ? edgeIds[stdEdge] : null;
+              const name = profileId ? resolveEdgeName(profileId) : undefined;
+              const isFinished = !!profileId;
+              const colour = edgeColour(name);
+              const code = edgeCode(name);
+              const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
+              const isHovered = hoveredEdge === (stdEdge ?? edge.side);
+              const isSelected = stdEdge ? selectedEdges.has(stdEdge) : false;
+              const isFlashing = stdEdge ? flashEdge === stdEdge : false;
+
+              return (
+                <g key={edge.side}>
+                  {/* Selected edge highlight */}
+                  {isSelected && (
+                    <line
+                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                      stroke="#3b82f6" strokeWidth={6}
+                      className="edge-selected"
+                    />
+                  )}
+
+                  {/* Hover glow (edit mode only) */}
+                  {isHovered && isEditMode && (
+                    <line
+                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                      stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+                      className="pointer-events-none transition-opacity duration-100"
+                    />
+                  )}
+
+                  {/* Visible edge line */}
+                  <line
+                    x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                    stroke={isFlashing ? '#22c55e' : colour}
+                    strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
+                    strokeDasharray={isFinished ? undefined : '4 3'}
+                    opacity={1}
+                    className={isFlashing ? 'edge-flash' : undefined}
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                  </line>
+
+                  {/* Hit area for clicking (edit mode, mapped edges only) */}
+                  {isEditMode && stdEdge && (onEdgeChange || onEdgesChange) && (
+                    <line
+                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                      stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => handleEdgeClick(stdEdge, e)}
+                      onMouseEnter={() => setHoveredEdge(stdEdge)}
+                      onMouseLeave={() => setHoveredEdge(null)}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                    </line>
+                  )}
+
+                  {/* Edge label with profile indicator and side abbreviation */}
+                  <g>
+                    {/* Coloured dot indicator */}
+                    <circle
+                      cx={edge.labelX + (isHorizontal ? -8 : 0)}
+                      cy={edge.labelY + (isHorizontal ? 0 : -8)}
+                      r={3}
+                      fill={colour}
+                    />
+                    <text
+                      x={edge.labelX + (isHorizontal ? 4 : 0)}
+                      y={edge.labelY + (isHorizontal ? 0 : 4)}
+                      textAnchor={isHorizontal ? 'middle' : (edge.labelX < (shapeLayout.svgW / 2) ? 'end' : 'start')}
+                      dominantBaseline="middle"
+                      className={`select-none ${isFinished ? 'text-[9px] font-semibold' : 'text-[8px]'}`}
+                      fill={colour}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                      {isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
           </>
         )}
 
-        {/* Edges */}
-        {(Object.keys(edgeDefs) as EdgeSide[]).map((side) => {
-          const def = edgeDefs[side];
-          const name = edgeNames[side];
-          const isFinished = !!edgeIds[side];
-          const colour = edgeColour(name);
-          const code = edgeCode(name);
-          const isHorizontal = side === 'top' || side === 'bottom';
-          const isHovered = hoveredEdge === side;
-          const isSelected = selectedEdges.has(side);
-          const isFlashing = flashEdge === side;
+        {/* ── Rectangle outline (default) ──────────────────────── */}
+        {!shapeLayout && (
+          <rect
+            x={layout.x}
+            y={layout.y}
+            width={layout.innerW}
+            height={layout.innerH}
+            fill="#f5f5f5"
+            stroke="#e5e7eb"
+            strokeWidth={1}
+          />
+        )}
 
-          return (
-            <g key={side}>
-              {/* Selected edge highlight (blue border underneath) */}
-              {isSelected && (
+        {/* ── Rectangle-only: join line, edges, dimension labels ─── */}
+        {!shapeLayout && (
+          <>
+            {/* Join line (oversize) */}
+            {joinLineX != null && (
+              <>
                 <line
-                  x1={def.x1}
-                  y1={def.y1}
-                  x2={def.x2}
-                  y2={def.y2}
-                  stroke="#3b82f6"
-                  strokeWidth={6}
-                  className="edge-selected"
+                  x1={joinLineX}
+                  y1={layout.y - 4}
+                  x2={joinLineX}
+                  y2={layout.y + layout.innerH + 4}
+                  stroke="#f59e0b"
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
                 />
-              )}
-
-              {/* Hover highlight glow (edit mode only) */}
-              {isHovered && isEditMode && (
-                <line
-                  x1={def.x1}
-                  y1={def.y1}
-                  x2={def.x2}
-                  y2={def.y2}
-                  stroke="#3b82f6"
-                  strokeWidth={10}
-                  opacity={0.15}
-                  className="pointer-events-none transition-opacity duration-100"
-                />
-              )}
-
-              {/* Visible edge line */}
-              <line
-                x1={def.x1}
-                y1={def.y1}
-                x2={def.x2}
-                y2={def.y2}
-                stroke={isFlashing ? '#22c55e' : colour}
-                strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
-                strokeDasharray={isFinished ? undefined : '4 3'}
-                opacity={1}
-                className={isFlashing ? 'edge-flash' : undefined}
-              >
-                <title>{name || 'Raw / Unfinished'}</title>
-              </line>
-
-              {/* Hit area for clicking (edit mode only) */}
-              {isEditMode && (onEdgeChange || onEdgesChange) && (
-                <line
-                  x1={def.x1}
-                  y1={def.y1}
-                  x2={def.x2}
-                  y2={def.y2}
-                  stroke="transparent"
-                  strokeWidth={EDGE_HIT_WIDTH}
-                  style={{ cursor: 'pointer' }}
-                  onClick={(e) => handleEdgeClick(side, e)}
-                  onMouseEnter={() => setHoveredEdge(side)}
-                  onMouseLeave={() => setHoveredEdge(null)}
+                <text
+                  x={joinLineX}
+                  y={layout.y - 40}
+                  textAnchor="middle"
+                  className="text-[8px] fill-amber-600"
                 >
-                  <title>{name || 'Raw / Unfinished'}</title>
-                </line>
-              )}
+                  Join at {joinAtMm}mm
+                </text>
+              </>
+            )}
 
-              {/* Edge profile label */}
-              <text
-                x={def.labelX}
-                y={def.labelY}
-                textAnchor={isHorizontal ? 'middle' : side === 'left' ? 'end' : 'start'}
-                dominantBaseline={isHorizontal ? (side === 'top' ? 'auto' : 'hanging') : 'middle'}
-                className={`select-none ${
-                  isFinished ? 'text-[10px] font-semibold' : 'text-[9px]'
-                }`}
-                fill={colour}
-              >
-                <title>{name || 'Raw / Unfinished'}</title>
-                {isFinished
-                  ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
-                  : 'RAW'}
-              </text>
-            </g>
-          );
-        })}
+            {/* Edges */}
+            {(Object.keys(edgeDefs) as EdgeSide[]).map((side) => {
+              const def = edgeDefs[side];
+              const name = edgeNames[side];
+              const isFinished = !!edgeIds[side];
+              const colour = edgeColour(name);
+              const code = edgeCode(name);
+              const isHorizontal = side === 'top' || side === 'bottom';
+              const isHovered = hoveredEdge === side;
+              const isSelected = selectedEdges.has(side);
+              const isFlashing = flashEdge === side;
 
-        {/* Dimension labels */}
-        <text
-          x={layout.x + layout.innerW / 2}
-          y={layout.y - 10}
-          textAnchor="middle"
-          className="text-[10px] fill-gray-500 font-medium"
-        >
-          {lengthMm}mm
-        </text>
-        <text
-          x={layout.x - 10}
-          y={layout.y + layout.innerH / 2}
-          textAnchor="middle"
-          dominantBaseline="middle"
-          className="text-[10px] fill-gray-500 font-medium"
-          transform={`rotate(-90, ${layout.x - 10}, ${layout.y + layout.innerH / 2})`}
-        >
-          {widthMm}mm
-        </text>
+              return (
+                <g key={side}>
+                  {/* Selected edge highlight (blue border underneath) */}
+                  {isSelected && (
+                    <line
+                      x1={def.x1}
+                      y1={def.y1}
+                      x2={def.x2}
+                      y2={def.y2}
+                      stroke="#3b82f6"
+                      strokeWidth={6}
+                      className="edge-selected"
+                    />
+                  )}
+
+                  {/* Hover highlight glow (edit mode only) */}
+                  {isHovered && isEditMode && (
+                    <line
+                      x1={def.x1}
+                      y1={def.y1}
+                      x2={def.x2}
+                      y2={def.y2}
+                      stroke="#3b82f6"
+                      strokeWidth={10}
+                      opacity={0.15}
+                      className="pointer-events-none transition-opacity duration-100"
+                    />
+                  )}
+
+                  {/* Visible edge line */}
+                  <line
+                    x1={def.x1}
+                    y1={def.y1}
+                    x2={def.x2}
+                    y2={def.y2}
+                    stroke={isFlashing ? '#22c55e' : colour}
+                    strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
+                    strokeDasharray={isFinished ? undefined : '4 3'}
+                    opacity={1}
+                    className={isFlashing ? 'edge-flash' : undefined}
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                  </line>
+
+                  {/* Hit area for clicking (edit mode only) */}
+                  {isEditMode && (onEdgeChange || onEdgesChange) && (
+                    <line
+                      x1={def.x1}
+                      y1={def.y1}
+                      x2={def.x2}
+                      y2={def.y2}
+                      stroke="transparent"
+                      strokeWidth={EDGE_HIT_WIDTH}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => handleEdgeClick(side, e)}
+                      onMouseEnter={() => setHoveredEdge(side)}
+                      onMouseLeave={() => setHoveredEdge(null)}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                    </line>
+                  )}
+
+                  {/* Edge profile label */}
+                  <text
+                    x={def.labelX}
+                    y={def.labelY}
+                    textAnchor={isHorizontal ? 'middle' : side === 'left' ? 'end' : 'start'}
+                    dominantBaseline={isHorizontal ? (side === 'top' ? 'auto' : 'hanging') : 'middle'}
+                    className={`select-none ${
+                      isFinished ? 'text-[10px] font-semibold' : 'text-[9px]'
+                    }`}
+                    fill={colour}
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                    {isFinished
+                      ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
+                      : 'RAW'}
+                  </text>
+                </g>
+              );
+            })}
+
+            {/* Dimension labels */}
+            <text
+              x={layout.x + layout.innerW / 2}
+              y={layout.y - 10}
+              textAnchor="middle"
+              className="text-[10px] fill-gray-500 font-medium"
+            >
+              {lengthMm}mm
+            </text>
+            <text
+              x={layout.x - 10}
+              y={layout.y + layout.innerH / 2}
+              textAnchor="middle"
+              dominantBaseline="middle"
+              className="text-[10px] fill-gray-500 font-medium"
+              transform={`rotate(-90, ${layout.x - 10}, ${layout.y + layout.innerH / 2})`}
+            >
+              {widthMm}mm
+            </text>
+          </>
+        )}
 
         {/* Cutouts */}
         {cutoutPositions.map((c) => (
