@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
+import type { ShapeType, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import { getShapeGeometry } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -90,6 +92,49 @@ const STANDARD_ROOMS = [
   'Other',
 ];
 
+// ── Shape selector SVG icons ─────────────────────────────────────────────────
+
+function RectangleIcon({ selected }: { selected: boolean }) {
+  return (
+    <svg viewBox="0 0 48 32" className="w-12 h-8" aria-hidden="true">
+      <rect x="6" y="6" width="36" height="20" rx="1"
+        fill={selected ? '#1d4ed8' : '#d1d5db'} fillOpacity={selected ? 0.15 : 0.3}
+        stroke={selected ? '#1d4ed8' : '#9ca3af'} strokeWidth="1.5" />
+    </svg>
+  );
+}
+
+function LShapeIcon({ selected }: { selected: boolean }) {
+  const fill = selected ? '#1d4ed8' : '#9ca3af';
+  const bg = selected ? 'rgba(29,78,216,0.15)' : 'rgba(209,213,219,0.3)';
+  return (
+    <svg viewBox="0 0 48 32" className="w-12 h-8" aria-hidden="true">
+      <path d="M8 4 h10 v16 h22 v8 H8 Z" fill={bg} stroke={fill} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+function UShapeIcon({ selected }: { selected: boolean }) {
+  const fill = selected ? '#1d4ed8' : '#9ca3af';
+  const bg = selected ? 'rgba(29,78,216,0.15)' : 'rgba(209,213,219,0.3)';
+  return (
+    <svg viewBox="0 0 48 32" className="w-12 h-8" aria-hidden="true">
+      <path d="M4 4 h10 v16 h20 v-16 h10 v28 H4 Z" fill={bg} stroke={fill} strokeWidth="1.5" strokeLinejoin="round" />
+    </svg>
+  );
+}
+
+// ── Name generation helpers ──────────────────────────────────────────────────
+
+function generateShapeName(shapeType: ShapeType, room: string): string {
+  const roomLabel = room || 'Kitchen';
+  switch (shapeType) {
+    case 'L_SHAPE': return `L-Shaped ${roomLabel} Benchtop`;
+    case 'U_SHAPE': return `U-Shaped ${roomLabel} Benchtop`;
+    default: return '';
+  }
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function InlinePieceEditor({
@@ -134,6 +179,25 @@ export default function InlinePieceEditor({
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
 
+  // ── Shape state (K2: L/U shape wizard) ─────────────────────────────────
+  const [shapeType, setShapeType] = useState<ShapeType>('RECTANGLE');
+  // L-Shape leg dimensions
+  const [leg1Length, setLeg1Length] = useState('3200');
+  const [leg1Width, setLeg1Width] = useState('600');
+  const [leg2Length, setLeg2Length] = useState('1800');
+  const [leg2Width, setLeg2Width] = useState('600');
+  // U-Shape leg dimensions
+  const [leftLegLength, setLeftLegLength] = useState('2400');
+  const [leftLegWidth, setLeftLegWidth] = useState('600');
+  const [backLength, setBackLength] = useState('3200');
+  const [backWidth, setBackWidth] = useState('600');
+  const [rightLegLength, setRightLegLength] = useState('2400');
+  const [rightLegWidth, setRightLegWidth] = useState('600');
+  // Same width checkbox
+  const [sameWidth, setSameWidth] = useState(true);
+  // Track whether user has manually edited the piece name
+  const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+
   // ── Reset form when piece changes ───────────────────────────────────────
   useEffect(() => {
     setPieceName(piece.name || '');
@@ -160,7 +224,56 @@ export default function InlinePieceEditor({
     });
     setCutouts(Array.isArray(piece.cutouts) ? piece.cutouts : []);
     setErrors({});
+    // Reset shape state for new pieces
+    setShapeType('RECTANGLE');
+    setSameWidth(true);
+    setNameManuallyEdited(false);
   }, [piece]);
+
+  // ── Same-width sync: when checked, copy lead width to other legs ───────
+  useEffect(() => {
+    if (!sameWidth) return;
+    if (shapeType === 'L_SHAPE') {
+      setLeg2Width(leg1Width);
+    } else if (shapeType === 'U_SHAPE') {
+      setBackWidth(leftLegWidth);
+      setRightLegWidth(leftLegWidth);
+    }
+  }, [sameWidth, shapeType, leg1Width, leftLegWidth]);
+
+  // ── Auto-generate name when shape/room changes (only for new pieces) ──
+  useEffect(() => {
+    if (!isNew || nameManuallyEdited) return;
+    if (shapeType !== 'RECTANGLE') {
+      const suggested = generateShapeName(shapeType, roomName);
+      setPieceName(suggested);
+    } else {
+      // Reset name if switching back to Rectangle
+      setPieceName('');
+    }
+  }, [shapeType, roomName, isNew, nameManuallyEdited]);
+
+  // ── Live area calculation for L/U shapes ──────────────────────────────
+  const shapeGeometry = useMemo(() => {
+    if (shapeType === 'L_SHAPE') {
+      const config: LShapeConfig = {
+        shape: 'L_SHAPE',
+        leg1: { length_mm: parseInt(leg1Length) || 0, width_mm: parseInt(leg1Width) || 0 },
+        leg2: { length_mm: parseInt(leg2Length) || 0, width_mm: parseInt(leg2Width) || 0 },
+      };
+      return getShapeGeometry('L_SHAPE', config, 0, 0);
+    }
+    if (shapeType === 'U_SHAPE') {
+      const config: UShapeConfig = {
+        shape: 'U_SHAPE',
+        leftLeg: { length_mm: parseInt(leftLegLength) || 0, width_mm: parseInt(leftLegWidth) || 0 },
+        back: { length_mm: parseInt(backLength) || 0, width_mm: parseInt(backWidth) || 0 },
+        rightLeg: { length_mm: parseInt(rightLegLength) || 0, width_mm: parseInt(rightLegWidth) || 0 },
+      };
+      return getShapeGeometry('U_SHAPE', config, 0, 0);
+    }
+    return null;
+  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth]);
 
   // ── Derived state ───────────────────────────────────────────────────────
   const allRoomOptions = Array.from(new Set([...STANDARD_ROOMS, ...roomNames]));
@@ -205,14 +318,33 @@ export default function InlinePieceEditor({
       newErrors.pieceName = 'Name is required';
     }
 
-    const length = parseInt(lengthMm);
-    if (!lengthMm || isNaN(length) || length <= 0) {
-      newErrors.lengthMm = 'Length must be greater than 0';
-    }
-
-    const width = parseInt(widthMm);
-    if (!widthMm || isNaN(width) || width <= 0) {
-      newErrors.widthMm = 'Width must be greater than 0';
+    // Validate dimensions based on shape type
+    if (shapeType === 'RECTANGLE') {
+      const length = parseInt(lengthMm);
+      if (!lengthMm || isNaN(length) || length <= 0) {
+        newErrors.lengthMm = 'Length must be greater than 0';
+      }
+      const width = parseInt(widthMm);
+      if (!widthMm || isNaN(width) || width <= 0) {
+        newErrors.widthMm = 'Width must be greater than 0';
+      }
+    } else if (shapeType === 'L_SHAPE') {
+      const l1l = parseInt(leg1Length); const l1w = parseInt(leg1Width);
+      const l2l = parseInt(leg2Length); const l2w = parseInt(leg2Width);
+      if (!l1l || l1l <= 0) newErrors.leg1Length = 'Required';
+      if (!l1w || l1w <= 0) newErrors.leg1Width = 'Required';
+      if (!l2l || l2l <= 0) newErrors.leg2Length = 'Required';
+      if (!l2w || l2w <= 0) newErrors.leg2Width = 'Required';
+    } else if (shapeType === 'U_SHAPE') {
+      const ll = parseInt(leftLegLength); const lw = parseInt(leftLegWidth);
+      const bl = parseInt(backLength); const bw = parseInt(backWidth);
+      const rl = parseInt(rightLegLength); const rw = parseInt(rightLegWidth);
+      if (!ll || ll <= 0) newErrors.leftLegLength = 'Required';
+      if (!lw || lw <= 0) newErrors.leftLegWidth = 'Required';
+      if (!bl || bl <= 0) newErrors.backLength = 'Required';
+      if (!bw || bw <= 0) newErrors.backWidth = 'Required';
+      if (!rl || rl <= 0) newErrors.rightLegLength = 'Required';
+      if (!rw || rw <= 0) newErrors.rightLegWidth = 'Required';
     }
 
     if (thicknessMode === 'custom') {
@@ -240,8 +372,6 @@ export default function InlinePieceEditor({
     // QuickViewPieceRow — pass through the piece prop values to avoid overriding.
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
-      lengthMm: parseInt(lengthMm),
-      widthMm: parseInt(widthMm),
       thicknessMm,
       laminationMethod,
       materialId,
@@ -252,6 +382,39 @@ export default function InlinePieceEditor({
       edgeRight: isNew ? edgeSelections.edgeRight : piece.edgeRight,
       cutouts,
     };
+
+    // Shape-specific dimension handling
+    if (shapeType === 'RECTANGLE') {
+      payload.lengthMm = parseInt(lengthMm);
+      payload.widthMm = parseInt(widthMm);
+      payload.shapeType = 'RECTANGLE';
+      payload.shapeConfig = null;
+    } else if (shapeType === 'L_SHAPE') {
+      const config: LShapeConfig = {
+        shape: 'L_SHAPE',
+        leg1: { length_mm: parseInt(leg1Length), width_mm: parseInt(leg1Width) },
+        leg2: { length_mm: parseInt(leg2Length), width_mm: parseInt(leg2Width) },
+      };
+      const geo = getShapeGeometry('L_SHAPE', config, 0, 0);
+      payload.shapeType = 'L_SHAPE';
+      payload.shapeConfig = config;
+      // Bounding box in existing fields for backward compat
+      payload.lengthMm = geo.boundingLength_mm;
+      payload.widthMm = geo.boundingWidth_mm;
+    } else if (shapeType === 'U_SHAPE') {
+      const config: UShapeConfig = {
+        shape: 'U_SHAPE',
+        leftLeg: { length_mm: parseInt(leftLegLength), width_mm: parseInt(leftLegWidth) },
+        back: { length_mm: parseInt(backLength), width_mm: parseInt(backWidth) },
+        rightLeg: { length_mm: parseInt(rightLegLength), width_mm: parseInt(rightLegWidth) },
+      };
+      const geo = getShapeGeometry('U_SHAPE', config, 0, 0);
+      payload.shapeType = 'U_SHAPE';
+      payload.shapeConfig = config;
+      // Bounding box in existing fields for backward compat
+      payload.lengthMm = geo.boundingLength_mm;
+      payload.widthMm = geo.boundingWidth_mm;
+    }
 
     // Include name for new pieces
     if (isNew) {
@@ -270,8 +433,58 @@ export default function InlinePieceEditor({
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
 
+  // Dimension input helper — reused across shapes
+  const dimInput = (
+    label: string, value: string, setter: (v: string) => void, errorKey: string
+  ) => (
+    <div className="flex-1 min-w-0">
+      <label className="block text-[10px] text-gray-500 mb-0.5">{label}</label>
+      <input
+        type="number"
+        value={value}
+        onChange={(e) => setter(e.target.value)}
+        min="1"
+        className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+          errors[errorKey] ? 'border-red-500' : 'border-gray-300'
+        }`}
+        onClick={(e) => e.stopPropagation()}
+      />
+      {errors[errorKey] && <p className="mt-0.5 text-xs text-red-500">{errors[errorKey]}</p>}
+    </div>
+  );
+
   return (
     <div className="space-y-4">
+      {/* Shape selector (new piece only) — K2: L/U shape wizard */}
+      {isNew && (
+        <div>
+          <label className="block text-xs font-medium text-gray-600 mb-1.5">
+            Shape
+          </label>
+          <div className="flex gap-2">
+            {([
+              { type: 'RECTANGLE' as ShapeType, label: 'Rectangle', Icon: RectangleIcon },
+              { type: 'L_SHAPE' as ShapeType, label: 'L-Shape', Icon: LShapeIcon },
+              { type: 'U_SHAPE' as ShapeType, label: 'U-Shape', Icon: UShapeIcon },
+            ]).map(({ type, label, Icon }) => (
+              <button
+                key={type}
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShapeType(type); }}
+                className={`flex flex-col items-center gap-1 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                  shapeType === type
+                    ? 'border-primary-600 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+                }`}
+              >
+                <Icon selected={shapeType === type} />
+                <span className="text-xs font-medium">{label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Name field (new piece only) */}
       {isNew && (
         <div>
@@ -280,7 +493,7 @@ export default function InlinePieceEditor({
           </label>
           <AutocompleteInput
             value={pieceName}
-            onChange={(name) => setPieceName(name)}
+            onChange={(name) => { setPieceName(name); setNameManuallyEdited(true); }}
             suggestions={pieceSuggestions}
             placeholder="e.g. Main Kitchen Benchtop"
             className={`w-full max-w-sm px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
@@ -292,126 +505,287 @@ export default function InlinePieceEditor({
         </div>
       )}
 
-      {/* Row 1: Dimensions + Thickness + Material */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Dimensions */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Dimensions (mm)
-          </label>
-          <div className="flex items-center gap-1">
-            <input
-              type="number"
-              value={lengthMm}
-              onChange={(e) => setLengthMm(e.target.value)}
-              min="1"
-              className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                errors.lengthMm ? 'border-red-500' : 'border-gray-300'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="text-gray-400 text-sm flex-shrink-0">&times;</span>
-            <input
-              type="number"
-              value={widthMm}
-              onChange={(e) => setWidthMm(e.target.value)}
-              min="1"
-              className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                errors.widthMm ? 'border-red-500' : 'border-gray-300'
-              }`}
-              onClick={(e) => e.stopPropagation()}
-            />
-            <span className="text-gray-400 text-xs flex-shrink-0">mm</span>
-          </div>
-          {errors.lengthMm && <p className="mt-0.5 text-xs text-red-500">{errors.lengthMm}</p>}
-          {errors.widthMm && <p className="mt-0.5 text-xs text-red-500">{errors.widthMm}</p>}
-        </div>
-
-        {/* Thickness */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Thickness
-          </label>
-          <div className="flex items-center gap-2 flex-wrap">
-            <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }}
-                className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                  thicknessMode === '20mm'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                20mm
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }}
-                className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
-                  thicknessMode === '40mm'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                40mm
-              </button>
-              <button
-                type="button"
-                onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }}
-                className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
-                  thicknessMode === 'custom'
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-white text-gray-700 hover:bg-gray-50'
-                }`}
-              >
-                Custom
-              </button>
-            </div>
-            {thicknessMode === 'custom' && (
+      {/* ── RECTANGLE dimensions (existing flow — unchanged) ─────────── */}
+      {shapeType === 'RECTANGLE' && (
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Dimensions (mm)
+            </label>
+            <div className="flex items-center gap-1">
               <input
                 type="number"
-                value={customThickness}
-                onChange={(e) => handleCustomThicknessChange(e.target.value)}
-                placeholder="e.g. 60"
-                min={20}
-                step={1}
-                className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                  errors.thicknessMm ? 'border-red-500' : 'border-gray-300'
+                value={lengthMm}
+                onChange={(e) => setLengthMm(e.target.value)}
+                min="1"
+                className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                  errors.lengthMm ? 'border-red-500' : 'border-gray-300'
                 }`}
                 onClick={(e) => e.stopPropagation()}
               />
+              <span className="text-gray-400 text-sm flex-shrink-0">&times;</span>
+              <input
+                type="number"
+                value={widthMm}
+                onChange={(e) => setWidthMm(e.target.value)}
+                min="1"
+                className={`w-full px-2 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                  errors.widthMm ? 'border-red-500' : 'border-gray-300'
+                }`}
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-gray-400 text-xs flex-shrink-0">mm</span>
+            </div>
+            {errors.lengthMm && <p className="mt-0.5 text-xs text-red-500">{errors.lengthMm}</p>}
+            {errors.widthMm && <p className="mt-0.5 text-xs text-red-500">{errors.widthMm}</p>}
+          </div>
+
+          {/* Thickness */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Thickness
+            </label>
+            <div className="flex items-center gap-2 flex-wrap">
+              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }}
+                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
+                    thicknessMode === '20mm'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  20mm
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }}
+                  className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
+                    thicknessMode === '40mm'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  40mm
+                </button>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }}
+                  className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
+                    thicknessMode === 'custom'
+                      ? 'bg-gray-900 text-white'
+                      : 'bg-white text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  Custom
+                </button>
+              </div>
+              {thicknessMode === 'custom' && (
+                <input
+                  type="number"
+                  value={customThickness}
+                  onChange={(e) => handleCustomThicknessChange(e.target.value)}
+                  placeholder="e.g. 60"
+                  min={20}
+                  step={1}
+                  className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    errors.thicknessMm ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                  onClick={(e) => e.stopPropagation()}
+                />
+              )}
+            </div>
+            {thicknessMm > 20 && (
+              <p className="mt-1 text-xs text-purple-600">
+                Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
+              </p>
+            )}
+            {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+          </div>
+
+          {/* Material */}
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Material
+            </label>
+            <select
+              value={materialId || ''}
+              onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+            >
+              <option value="">Select material (optional)</option>
+              {materials.map((material) => (
+                <option key={material.id} value={material.id}>
+                  {material.name}
+                  {material.collection ? ` - ${material.collection}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+      )}
+
+      {/* ── L-SHAPE dimensions (K2) ──────────────────────────────────── */}
+      {shapeType === 'L_SHAPE' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-3 space-y-3">
+            <p className="text-xs font-semibold text-blue-800">L-Shape Dimensions</p>
+            {/* Leg 1 (long run) */}
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Leg 1 (long run)</p>
+              <div className="flex items-center gap-2">
+                {dimInput('Length (mm)', leg1Length, setLeg1Length, 'leg1Length')}
+                <span className="text-gray-400 text-sm mt-4">&times;</span>
+                {dimInput('Width (mm)', leg1Width, (v) => { setLeg1Width(v); if (sameWidth) setLeg2Width(v); }, 'leg1Width')}
+              </div>
+            </div>
+            {/* Leg 2 (return) */}
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Leg 2 (return)</p>
+              <div className="flex items-center gap-2">
+                {dimInput('Length (mm)', leg2Length, setLeg2Length, 'leg2Length')}
+                <span className="text-gray-400 text-sm mt-4">&times;</span>
+                {dimInput('Width (mm)', leg2Width, sameWidth ? () => {} : setLeg2Width, 'leg2Width')}
+              </div>
+            </div>
+            {/* Same width checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={sameWidth}
+                onChange={(e) => { setSameWidth(e.target.checked); }}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-xs text-gray-600">Same width on both legs</span>
+            </label>
+            {/* Calculated area + corner joins */}
+            {shapeGeometry && shapeGeometry.totalAreaSqm > 0 && (
+              <div className="flex items-center gap-4 pt-1 border-t border-blue-100">
+                <span className="text-xs text-gray-600">
+                  Calculated area: <strong>{shapeGeometry.totalAreaSqm.toFixed(2)} m&sup2;</strong>
+                </span>
+                <span className="text-xs text-gray-600">
+                  Corner joins: <strong>{shapeGeometry.cornerJoins}</strong>
+                </span>
+              </div>
             )}
           </div>
-          {thicknessMm > 20 && (
-            <p className="mt-1 text-xs text-purple-600">
-              Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
-            </p>
-          )}
-          {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+          {/* Thickness + Material row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Thickness</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }} className={`px-2.5 py-1 text-xs font-medium transition-colors ${thicknessMode === '20mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>20mm</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === '40mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>40mm</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === 'custom' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>Custom</button>
+                </div>
+                {thicknessMode === 'custom' && (
+                  <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
+                )}
+              </div>
+              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
+              <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <option value="">Select material (optional)</option>
+                {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
+              </select>
+            </div>
+          </div>
         </div>
+      )}
 
-        {/* Material */}
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1">
-            Material
-          </label>
-          <select
-            value={materialId || ''}
-            onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)}
-            onClick={(e) => e.stopPropagation()}
-            className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-          >
-            <option value="">Select material (optional)</option>
-            {materials.map((material) => (
-              <option key={material.id} value={material.id}>
-                {material.name}
-                {material.collection ? ` - ${material.collection}` : ''}
-              </option>
-            ))}
-          </select>
+      {/* ── U-SHAPE dimensions (K2) ──────────────────────────────────── */}
+      {shapeType === 'U_SHAPE' && (
+        <div className="space-y-3">
+          <div className="rounded-lg border border-purple-100 bg-purple-50/30 p-3 space-y-3">
+            <p className="text-xs font-semibold text-purple-800">U-Shape Dimensions</p>
+            {/* Left Leg */}
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Left Leg</p>
+              <div className="flex items-center gap-2">
+                {dimInput('Length (mm)', leftLegLength, setLeftLegLength, 'leftLegLength')}
+                <span className="text-gray-400 text-sm mt-4">&times;</span>
+                {dimInput('Width (mm)', leftLegWidth, (v) => {
+                  setLeftLegWidth(v);
+                  if (sameWidth) { setBackWidth(v); setRightLegWidth(v); }
+                }, 'leftLegWidth')}
+              </div>
+            </div>
+            {/* Back */}
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Back</p>
+              <div className="flex items-center gap-2">
+                {dimInput('Length (mm)', backLength, setBackLength, 'backLength')}
+                <span className="text-gray-400 text-sm mt-4">&times;</span>
+                {dimInput('Width (mm)', backWidth, sameWidth ? () => {} : setBackWidth, 'backWidth')}
+              </div>
+            </div>
+            {/* Right Leg */}
+            <div>
+              <p className="text-xs font-medium text-gray-600 mb-1">Right Leg</p>
+              <div className="flex items-center gap-2">
+                {dimInput('Length (mm)', rightLegLength, setRightLegLength, 'rightLegLength')}
+                <span className="text-gray-400 text-sm mt-4">&times;</span>
+                {dimInput('Width (mm)', rightLegWidth, sameWidth ? () => {} : setRightLegWidth, 'rightLegWidth')}
+              </div>
+            </div>
+            {/* Same width checkbox */}
+            <label className="flex items-center gap-2 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="checkbox"
+                checked={sameWidth}
+                onChange={(e) => { setSameWidth(e.target.checked); }}
+                className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-xs text-gray-600">Same width on all legs</span>
+            </label>
+            {/* Calculated area + corner joins */}
+            {shapeGeometry && shapeGeometry.totalAreaSqm > 0 && (
+              <div className="flex items-center gap-4 pt-1 border-t border-purple-100">
+                <span className="text-xs text-gray-600">
+                  Calculated area: <strong>{shapeGeometry.totalAreaSqm.toFixed(2)} m&sup2;</strong>
+                </span>
+                <span className="text-xs text-gray-600">
+                  Corner joins: <strong>{shapeGeometry.cornerJoins}</strong>
+                </span>
+              </div>
+            )}
+          </div>
+          {/* Thickness + Material row */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Thickness</label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }} className={`px-2.5 py-1 text-xs font-medium transition-colors ${thicknessMode === '20mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>20mm</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === '40mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>40mm</button>
+                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === 'custom' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>Custom</button>
+                </div>
+                {thicknessMode === 'custom' && (
+                  <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
+                )}
+              </div>
+              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
+              <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                <option value="">Select material (optional)</option>
+                {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
+              </select>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Edge profiles — PieceVisualEditor SVG for ALL pieces (Rule 44: no banned edge components) */}
       {isNew && parsedLength > 0 && parsedWidth > 0 && (
