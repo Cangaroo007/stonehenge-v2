@@ -26,11 +26,27 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Fetch pricing settings to determine material cost basis
-    const pricingSettings = await prisma.pricing_settings.findUnique({
-      where: { organisation_id: `company-${auth.user.companyId}` },
+    // Fetch the quote's calculation_breakdown for piece pricing lookup
+    const quote = await prisma.quotes.findUnique({
+      where: { id: quoteId },
+      select: { calculation_breakdown: true },
     });
-    const materialBasis = pricingSettings?.material_pricing_basis ?? 'PER_SQUARE_METRE';
+
+    // Build pieceId → pricing lookup from breakdown
+    const piecePricingMap = new Map<string, { pieceTotal: number; slabCost: number }>();
+    if (quote?.calculation_breakdown) {
+      const breakdown = quote.calculation_breakdown as unknown as { pieces: Array<{
+        pieceId: number;
+        pieceTotal: number;
+        materials?: { total: number };
+      }> };
+      for (const p of breakdown.pieces ?? []) {
+        piecePricingMap.set(String(p.pieceId), {
+          pieceTotal: p.pieceTotal ?? 0,
+          slabCost: p.materials?.total ?? 0,
+        });
+      }
+    }
 
     // Get all rooms with their pieces
     const rooms = await prisma.quote_rooms.findMany({
@@ -48,34 +64,10 @@ export async function GET(
       },
     });
 
-    // Recalculate material cost at runtime based on pricing settings
-    const computeMaterialCost = (
-      areaSqm: number,
-      material: any,
-      basis: string
-    ): number => {
-      if (!material) return 0;
-      if (
-        basis === 'PER_SLAB' &&
-        material.slab_length_mm &&
-        material.slab_width_mm &&
-        material.price_per_slab
-      ) {
-        const slabAreaSqm = (material.slab_length_mm * material.slab_width_mm) / 1_000_000;
-        const slabsNeeded = Math.ceil(areaSqm / slabAreaSqm);
-        return slabsNeeded * Number(material.price_per_slab);
-      }
-      // Default: PER_SQUARE_METRE
-      const pricePerSqm = Number(material.price_per_sqm ?? material.price_per_square_metre ?? 0);
-      return areaSqm * pricePerSqm;
-    };
-
     // Flatten pieces with room info, adding camelCase aliases
     const pieces = rooms.flatMap(room =>
       room.quote_pieces.map((piece: any) => {
-        const areaSqm = Number(piece.area_sqm || 0);
-        const materialCost = computeMaterialCost(areaSqm, piece.materials, materialBasis);
-        const featuresCost = Number(piece.features_cost || 0);
+        const pricing = piecePricingMap.get(String(piece.id));
         return {
           ...piece,
           quote_rooms: { id: room.id, name: room.name },
@@ -91,13 +83,15 @@ export async function GET(
           edgeRight: piece.edge_right,
           laminationMethod: piece.lamination_method,
           sortOrder: piece.sort_order,
-          // Runtime-calculated costs (overrides stored DB values)
-          material_cost: materialCost,
-          total_cost: materialCost + featuresCost,
-          totalCost: materialCost + featuresCost,
-          areaSqm,
-          materialCost,
-          featuresCost,
+          // Pricing from calculation_breakdown (not runtime-calculated)
+          pieceTotal: pricing?.pieceTotal ?? null,
+          slabCost: pricing?.slabCost ?? null,
+          material_cost: pricing?.slabCost ?? null,
+          total_cost: pricing?.pieceTotal ?? null,
+          totalCost: pricing?.pieceTotal ?? null,
+          areaSqm: Number(piece.area_sqm || 0),
+          materialCost: pricing?.slabCost ?? null,
+          featuresCost: Number(piece.features_cost || 0),
         };
       })
     );
