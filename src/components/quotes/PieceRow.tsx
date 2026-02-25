@@ -969,28 +969,9 @@ export default function PieceRow({
       )}
 
       {/* ── Level 1: Cost Breakdown ── */}
+      {/* Order: Fabrication items first, then material share, then installation */}
       {l1Expanded && breakdown && (
         <div className="px-4 pb-4 pt-1 border-t border-gray-100 space-y-1.5">
-          {/* Material cost — first line item */}
-          {breakdown.materials && breakdown.materials.total > 0 && (
-            <>
-              <CostLine
-                label="Material"
-                formula={
-                  breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
-                    ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} x ${formatCurrency(breakdown.materials.pricePerSlab)} = ${formatCurrency(breakdown.materials.total)}`
-                    : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 x ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2 = ${formatCurrency(breakdown.materials.total)}`
-                }
-                total={breakdown.materials.total}
-                machines={machines}
-                machineOperationDefaults={machineOperationDefaults}
-                mode={mode}
-                pieceId={piece.id}
-                onMachineChange={onMachineChange}
-              />
-              <div className="border-t border-gray-100 my-0.5" />
-            </>
-          )}
           {/* Cutting */}
           {breakdown.fabrication.cutting.total > 0 && (
           <CostLine
@@ -1037,13 +1018,26 @@ export default function PieceRow({
             />
           ))}
 
-          {/* Lamination */}
-          {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
+          {/* Join (oversize) */}
+          {isOversize && breakdown.oversize && breakdown.oversize.joinCost > 0 && (
             <CostLine
-              label={`Lamination (${breakdown.fabrication.lamination.method})`}
-              formula={`${breakdown.fabrication.lamination.finishedEdgeLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.lamination.baseRate)} x ${breakdown.fabrication.lamination.multiplier.toFixed(2)} = ${formatCurrency(breakdown.fabrication.lamination.total)}`}
-              total={breakdown.fabrication.lamination.total}
-              operationType="LAMINATION"
+              label={`Join (${breakdown.oversize.joinCount} join${breakdown.oversize.joinCount !== 1 ? 's' : ''})`}
+              formula={`${breakdown.oversize.joinLengthLm.toFixed(2)} Lm x ${formatCurrency(breakdown.oversize.joinRate)}/Lm = ${formatCurrency(breakdown.oversize.joinCost)}`}
+              total={breakdown.oversize.joinCost}
+              machines={machines}
+              machineOperationDefaults={machineOperationDefaults}
+              mode={mode}
+              pieceId={piece.id}
+              onMachineChange={onMachineChange}
+            />
+          )}
+
+          {/* Grain Matching Surcharge (oversize) */}
+          {isOversize && breakdown.oversize && breakdown.oversize.grainMatchingSurcharge > 0 && (
+            <CostLine
+              label={`Grain Matching Surcharge (${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%)`}
+              formula={`${formatCurrency(breakdown.oversize.fabricationSubtotalBeforeSurcharge)} x ${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%`}
+              total={breakdown.oversize.grainMatchingSurcharge}
               machines={machines}
               machineOperationDefaults={machineOperationDefaults}
               mode={mode}
@@ -1068,7 +1062,43 @@ export default function PieceRow({
             />
           ))}
 
-          {/* Installation */}
+          {/* Lamination */}
+          {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
+            <CostLine
+              label={`Lamination (${breakdown.fabrication.lamination.method})`}
+              formula={`${breakdown.fabrication.lamination.finishedEdgeLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.lamination.baseRate)} x ${breakdown.fabrication.lamination.multiplier.toFixed(2)} = ${formatCurrency(breakdown.fabrication.lamination.total)}`}
+              total={breakdown.fabrication.lamination.total}
+              operationType="LAMINATION"
+              machines={machines}
+              machineOperationDefaults={machineOperationDefaults}
+              mode={mode}
+              pieceId={piece.id}
+              onMachineChange={onMachineChange}
+            />
+          )}
+
+          {/* Material cost — after fabrication items */}
+          {breakdown.materials && breakdown.materials.total > 0 && (
+            <>
+              <div className="border-t border-gray-100 my-0.5" />
+              <CostLine
+                label="Material"
+                formula={
+                  breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
+                    ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} x ${formatCurrency(breakdown.materials.pricePerSlab)} = ${formatCurrency(breakdown.materials.total)}`
+                    : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 x ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2 = ${formatCurrency(breakdown.materials.total)}`
+                }
+                total={breakdown.materials.total}
+                machines={machines}
+                machineOperationDefaults={machineOperationDefaults}
+                mode={mode}
+                pieceId={piece.id}
+                onMachineChange={onMachineChange}
+              />
+            </>
+          )}
+
+          {/* Installation — last */}
           {breakdown.fabrication.installation && breakdown.fabrication.installation.total > 0 && (
             <CostLine
               label="Installation"
@@ -1082,40 +1112,14 @@ export default function PieceRow({
             />
           )}
 
-          {/* Oversize / Join Details */}
-          {isOversize && breakdown.oversize && (
-            <div className="pt-1.5 mt-1 border-t border-amber-200 space-y-1.5">
-              {breakdown.oversize.joinCost > 0 && (
-              <CostLine
-                label={`Join (${breakdown.oversize.joinCount} join${breakdown.oversize.joinCount !== 1 ? 's' : ''})`}
-                formula={`${breakdown.oversize.joinLengthLm.toFixed(2)} Lm x ${formatCurrency(breakdown.oversize.joinRate)}/Lm = ${formatCurrency(breakdown.oversize.joinCost)}`}
-                total={breakdown.oversize.joinCost}
-                machines={machines}
-                machineOperationDefaults={machineOperationDefaults}
-                mode={mode}
-                pieceId={piece.id}
-                onMachineChange={onMachineChange}
-              />
-              )}
-              {breakdown.oversize.grainMatchingSurcharge > 0 && (
-              <CostLine
-                label={`Grain Matching Surcharge (${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%)`}
-                formula={`${formatCurrency(breakdown.oversize.fabricationSubtotalBeforeSurcharge)} x ${(breakdown.oversize.grainMatchingSurchargeRate * 100).toFixed(0)}%`}
-                total={breakdown.oversize.grainMatchingSurcharge}
-                machines={machines}
-                machineOperationDefaults={machineOperationDefaults}
-                mode={mode}
-                pieceId={piece.id}
-                onMachineChange={onMachineChange}
-              />
-              )}
-              {breakdown.oversize.warnings.length > 0 && (
-                <div className="text-amber-600 text-[10px] italic ml-5">
-                  {breakdown.oversize.warnings.map((w, idx) => (
-                    <p key={idx}>{w}</p>
-                  ))}
-                </div>
-              )}
+          {/* Oversize warnings */}
+          {isOversize && breakdown.oversize && breakdown.oversize.warnings.length > 0 && (
+            <div className="pt-1.5 mt-1 border-t border-amber-200">
+              <div className="text-amber-600 text-[10px] italic ml-5">
+                {breakdown.oversize.warnings.map((w, idx) => (
+                  <p key={idx}>{w}</p>
+                ))}
+              </div>
             </div>
           )}
 
