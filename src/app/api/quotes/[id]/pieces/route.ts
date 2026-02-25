@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
+import { getShapeGeometry } from '@/lib/types/shapes';
+import type { Prisma } from '@prisma/client';
 
 // GET - List all pieces for a quote
 export async function GET(
@@ -83,6 +86,9 @@ export async function GET(
           edgeRight: piece.edge_right,
           laminationMethod: piece.lamination_method,
           sortOrder: piece.sort_order,
+          // K2: Shape camelCase aliases
+          shapeType: piece.shape_type || 'RECTANGLE',
+          shapeConfig: piece.shape_config || null,
           // Pricing from calculation_breakdown (not runtime-calculated)
           pieceTotal: pricing?.pieceTotal ?? null,
           slabCost: pricing?.slabCost ?? null,
@@ -144,6 +150,8 @@ export async function POST(
       edgeLeft,
       edgeRight,
       laminationMethod = 'NONE',
+      shapeType = 'RECTANGLE',
+      shapeConfig = null,
     } = data;
 
     // Validate required fields
@@ -262,8 +270,14 @@ export async function POST(
       orderBy: { sort_order: 'desc' },
     });
 
-    // Calculate area
-    const areaSqm = (lengthMm * widthMm) / 1_000_000;
+    // Calculate area — use shape geometry for L/U shapes (K2)
+    const shapeGeo = getShapeGeometry(
+      (shapeType || 'RECTANGLE') as ShapeType,
+      shapeConfig as unknown as ShapeConfig,
+      lengthMm,
+      widthMm
+    );
+    const areaSqm = shapeGeo.totalAreaSqm;
 
     // Calculate material cost if material is provided
     let materialCost = 0;
@@ -312,6 +326,9 @@ export async function POST(
         edge_left: edgeLeft || null,
         edge_right: edgeRight || null,
         lamination_method: laminationMethod,
+        // K2: Shape support — save shape_type and shape_config
+        shape_type: shapeType || 'RECTANGLE',
+        shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
       },
       include: {
         materials: true,
@@ -335,6 +352,9 @@ export async function POST(
       edgeRight: pieceAny.edge_right,
       laminationMethod: pieceAny.lamination_method,
       sortOrder: pieceAny.sort_order,
+      // K2: Shape camelCase aliases
+      shapeType: pieceAny.shape_type || 'RECTANGLE',
+      shapeConfig: pieceAny.shape_config || null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),
