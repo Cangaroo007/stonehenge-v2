@@ -32,44 +32,44 @@ const PIECE_DEFAULTS: PieceDefaultEntry[] = [
   {
     matchTerm: 'vanity',
     width_mm: 500,
-    edges: { top: 'raw', bottom: 'raw', left: 'raw', right: 'raw' },
+    edges: { top: 'arris', bottom: 'arris', left: 'arris', right: 'arris' },
     suggestedCutouts: ['basin', 'tap_hole'],
     pieceType: 'vanity',
   },
   {
     matchTerm: 'splashback',
     width_mm: 100,
-    edges: { top: 'polished', bottom: 'raw', left: 'raw', right: 'raw' },
+    edges: { top: 'polished', bottom: 'arris', left: 'arris', right: 'arris' },
     suggestedCutouts: ['gpo'],
     pieceType: 'splashback',
   },
   {
     matchTerm: 'window_sill',
     width_mm: 200,
-    edges: { top: 'raw', bottom: 'raw', left: 'raw', right: 'raw' },
+    edges: { top: 'arris', bottom: 'arris', left: 'arris', right: 'arris' },
     suggestedCutouts: [],
     pieceType: 'window_sill',
   },
   {
     matchTerm: 'shelf',
     width_mm: 300,
-    edges: { top: 'raw', bottom: 'raw', left: 'raw', right: 'raw' },
+    edges: { top: 'arris', bottom: 'arris', left: 'arris', right: 'arris' },
     suggestedCutouts: [],
     pieceType: 'shelf',
   },
   {
     matchTerm: 'benchtop',
     width_mm: 600,
-    edges: { top: 'raw', bottom: 'raw', left: 'raw', right: 'raw' },
+    edges: { top: 'arris', bottom: 'arris', left: 'arris', right: 'arris' },
     suggestedCutouts: ['undermount_sink', 'tap_hole'],
     pieceType: 'benchtop',
   },
 ];
 
-// Vanity front edge = pencil_round, others = raw
+// Vanity front edge = pencil_round, others = arris
 // Island = pencil_round all 4
-// Splashback = polished top, raw others
-// Window sill / shelf / benchtop = pencil_round front (bottom), raw others
+// Splashback = polished top, arris others
+// Window sill / shelf / benchtop = pencil_round front (bottom), arris others
 function applyFrontEdge(entry: PieceDefaultEntry): PieceDefaults {
   const { matchTerm, width_mm, suggestedCutouts, pieceType } = entry;
 
@@ -85,7 +85,7 @@ function applyFrontEdge(entry: PieceDefaultEntry): PieceDefaults {
   if (matchTerm === 'splashback') {
     return {
       width_mm,
-      edges: { top: 'polished', bottom: 'raw', left: 'raw', right: 'raw' },
+      edges: { top: 'polished', bottom: 'arris', left: 'arris', right: 'arris' },
       suggestedCutouts,
       pieceType,
     };
@@ -95,7 +95,7 @@ function applyFrontEdge(entry: PieceDefaultEntry): PieceDefaults {
   // "front" = bottom edge in the standard orientation
   return {
     width_mm,
-    edges: { top: 'raw', bottom: 'pencil_round', left: 'raw', right: 'raw' },
+    edges: { top: 'arris', bottom: 'pencil_round', left: 'arris', right: 'arris' },
     suggestedCutouts,
     pieceType,
   };
@@ -103,7 +103,7 @@ function applyFrontEdge(entry: PieceDefaultEntry): PieceDefaults {
 
 const UNRECOGNISED_DEFAULTS: PieceDefaults = {
   width_mm: 600,
-  edges: { top: 'raw', bottom: 'raw', left: 'raw', right: 'raw' },
+  edges: { top: 'arris', bottom: 'arris', left: 'arris', right: 'arris' },
   suggestedCutouts: [],
   pieceType: null,
 };

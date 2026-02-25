@@ -53,7 +53,7 @@ export type MaterialRole =
   | 'CUSTOM';
 
 export interface TemplateEdge {
-  finish: 'RAW' | 'POLISHED' | 'LAMINATED' | 'MITRED';
+  finish: 'RAW' | 'ARRIS' | 'POLISHED' | 'LAMINATED' | 'MITRED';
   profileType?: string;   // 'PENCIL_ROUND', 'BULLNOSE', 'ARRIS_2MM', etc.
 }
 

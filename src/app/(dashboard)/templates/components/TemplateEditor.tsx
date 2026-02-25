@@ -26,7 +26,7 @@ const MATERIAL_ROLES: { value: MaterialRole; label: string }[] = [
 
 const ROOM_TYPES = ['KITCHEN', 'BATHROOM', 'ENSUITE', 'LAUNDRY', 'OTHER'];
 
-const EDGE_FINISHES: TemplateEdge['finish'][] = ['RAW', 'POLISHED', 'LAMINATED', 'MITRED'];
+const EDGE_FINISHES: TemplateEdge['finish'][] = ['ARRIS', 'RAW', 'POLISHED', 'LAMINATED', 'MITRED'];
 
 const CUTOUT_TYPES = [
   'UNDERMOUNT_SINK',
@@ -39,7 +39,7 @@ const CUTOUT_TYPES = [
 ];
 
 function createEmptyEdge(): TemplateEdge {
-  return { finish: 'RAW' };
+  return { finish: 'ARRIS' };
 }
 
 function createEmptyPiece(): TemplatePiece {

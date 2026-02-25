@@ -240,12 +240,12 @@ export function convertSimplifiedToTemplate(
 
       const pieceName = piece.name || `Piece ${piecesConverted + 1}`;
 
-      // Map edges from simplified format
+      // Map edges from simplified format — default to ARRIS (Northcoast default)
       const edgeMap: Record<string, TemplateEdge> = {
-        top: { finish: 'RAW' },
-        bottom: { finish: 'RAW' },
-        left: { finish: 'RAW' },
-        right: { finish: 'RAW' },
+        top: { finish: 'ARRIS' },
+        bottom: { finish: 'ARRIS' },
+        left: { finish: 'ARRIS' },
+        right: { finish: 'ARRIS' },
       };
 
       if (piece.edges && Array.isArray(piece.edges)) {
@@ -370,18 +370,22 @@ function convertDetectedEdges(
   warnings: string[]
 ): TemplatePiece['edges'] {
   const edges: TemplatePiece['edges'] = {
-    top: { finish: 'RAW' },
-    bottom: { finish: 'RAW' },
-    left: { finish: 'RAW' },
-    right: { finish: 'RAW' },
+    top: { finish: 'ARRIS' },
+    bottom: { finish: 'ARRIS' },
+    left: { finish: 'ARRIS' },
+    right: { finish: 'ARRIS' },
   };
 
   for (const edge of detectedEdges) {
     const side = normalizeSide(edge.side);
     if (!side) continue;
 
-    if (edge.finish === 'RAW' || edge.finish === 'UNKNOWN') {
+    if (edge.finish === 'RAW') {
       edges[side] = { finish: 'RAW' };
+    } else if (edge.finish === 'ARRIS') {
+      edges[side] = { finish: 'ARRIS' };
+    } else if (edge.finish === 'UNKNOWN') {
+      edges[side] = { finish: 'ARRIS' };
     } else {
       edges[side] = mapDetectedEdgeToTemplate(edge);
     }
@@ -406,18 +410,22 @@ function convertExtractedEdges(
   warnings: string[]
 ): TemplatePiece['edges'] {
   const edges: TemplatePiece['edges'] = {
-    top: { finish: 'RAW' },
-    bottom: { finish: 'RAW' },
-    left: { finish: 'RAW' },
-    right: { finish: 'RAW' },
+    top: { finish: 'ARRIS' },
+    bottom: { finish: 'ARRIS' },
+    left: { finish: 'ARRIS' },
+    right: { finish: 'ARRIS' },
   };
 
   for (const edge of extractedEdges) {
     const side = normalizeSide(edge.side);
     if (!side) continue;
 
-    if (edge.finish === 'RAW' || edge.finish === 'UNKNOWN') {
+    if (edge.finish === 'RAW') {
       edges[side] = { finish: 'RAW' };
+    } else if (edge.finish === 'ARRIS') {
+      edges[side] = { finish: 'ARRIS' };
+    } else if (edge.finish === 'UNKNOWN') {
+      edges[side] = { finish: 'ARRIS' };
     } else {
       edges[side] = mapEdgeFinishToTemplate(edge.finish);
     }
@@ -467,10 +475,13 @@ function mapEdgeFinishCategory(finish: EdgeFinish): TemplateEdge['finish'] {
     case 'PENCIL_ROUND':
     case 'BEVELLED':
       return 'POLISHED';
+    case 'ARRIS':
+      return 'ARRIS';
     case 'RAW':
+      return 'RAW';
     case 'UNKNOWN':
     default:
-      return 'RAW';
+      return 'ARRIS';
   }
 }
 
@@ -497,7 +508,10 @@ function mapProfileFromFinish(finish: EdgeFinish): string | undefined {
  * Map an edge finish string (from simplified data) to a TemplateEdge.
  */
 function mapEdgeFinishString(finish?: string, profileType?: string): TemplateEdge {
-  if (!finish || finish === 'RAW' || finish === 'UNKNOWN') {
+  if (!finish || finish === 'UNKNOWN') {
+    return { finish: 'ARRIS' };
+  }
+  if (finish === 'RAW') {
     return { finish: 'RAW' };
   }
 

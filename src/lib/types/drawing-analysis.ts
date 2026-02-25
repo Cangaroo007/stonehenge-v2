@@ -28,6 +28,7 @@ export type EdgeFinish =
   | 'BULLNOSE'
   | 'PENCIL_ROUND'
   | 'BEVELLED'
+  | 'ARRIS'
   | 'RAW'
   | 'UNKNOWN';
 
@@ -141,7 +142,7 @@ export interface ElevationAnalysis {
 
 // ──── Edge Detection Types (8.2) ────
 
-export type EdgeProfileType = 'PENCIL_ROUND' | 'BULLNOSE' | 'OGEE' | 'BEVELED' | 'NONE';
+export type EdgeProfileType = 'PENCIL_ROUND' | 'BULLNOSE' | 'OGEE' | 'BEVELED' | 'ARRIS' | 'NONE';
 
 export interface DetectedEdge {
   side: 'TOP' | 'BOTTOM' | 'LEFT' | 'RIGHT' | 'FRONT' | 'BACK';

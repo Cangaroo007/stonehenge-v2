@@ -210,10 +210,10 @@ export function extractPieceConfigs(
     width_mm: p.width_mm,
     thickness_mm: p.thickness_mm,
     edges: {
-      top: p.edge_top || 'raw',
-      bottom: p.edge_bottom || 'raw',
-      left: p.edge_left || 'raw',
-      right: p.edge_right || 'raw',
+      top: p.edge_top || 'arris',
+      bottom: p.edge_bottom || 'arris',
+      left: p.edge_left || 'arris',
+      right: p.edge_right || 'arris',
     },
     cutouts: Array.isArray(p.cutouts)
       ? (p.cutouts as Array<{ name?: string; type?: string; quantity?: number }>).map((c) => ({

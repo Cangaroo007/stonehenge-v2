@@ -75,8 +75,8 @@ const NORTHCOAST_NOTATION_MAP: EdgeNotationMap = {
     description: 'Unfinished edge — against wall or concealed',
   },
   '': {
-    finish: 'RAW',
-    description: 'No notation — assumed raw/against wall',
+    finish: 'ARRIS',
+    description: 'No notation — assumed arris (Northcoast default)',
   },
 };
 
@@ -123,11 +123,11 @@ export function detectEdgesFromPiece(
       if (!definedSides.has(side)) {
         edges.push({
           side,
-          finish: 'RAW',
-          profileType: 'NONE',
+          finish: 'ARRIS',
+          profileType: 'ARRIS',
           confidence: 'LOW',
           needsReview: true,
-          reviewReason: `No edge data provided for ${side} side — assumed RAW`,
+          reviewReason: `No edge data provided for ${side} side — assumed Arris`,
         });
       }
     }
@@ -222,6 +222,8 @@ function inferProfileFromFinish(finish: EdgeFinish): EdgeProfileType {
       return 'PENCIL_ROUND';
     case 'BEVELLED':
       return 'BEVELED';
+    case 'ARRIS':
+      return 'ARRIS';
     case 'RAW':
     case 'UNKNOWN':
       return 'NONE';
@@ -252,14 +254,14 @@ function applyDocumentTypeDefaults(
 
   switch (documentCategory) {
     case 'JOB_SHEET':
-      // Job sheets are structured — if no marking, it's likely RAW
+      // Job sheets are structured — if no marking, default to Arris
       if (edge.finish === 'UNKNOWN') {
         return {
           ...base,
-          finish: 'RAW',
-          profileType: 'NONE',
+          finish: 'ARRIS',
+          profileType: 'ARRIS',
           confidence: 'MEDIUM',
-          reviewReason: 'No edge marking on job sheet — assumed RAW',
+          reviewReason: 'No edge marking on job sheet — assumed Arris',
         };
       }
       return base;
@@ -269,8 +271,8 @@ function applyDocumentTypeDefaults(
       if (edge.finish === 'UNKNOWN') {
         return {
           ...base,
-          finish: 'RAW',
-          profileType: 'NONE',
+          finish: 'ARRIS',
+          profileType: 'ARRIS',
           confidence: 'LOW',
           needsReview: true,
           reviewReason: 'No edge marking on hand-drawn sketch — needs confirmation',
@@ -283,21 +285,21 @@ function applyDocumentTypeDefaults(
       if (edge.finish === 'UNKNOWN') {
         return {
           ...base,
-          finish: 'RAW',
-          profileType: 'NONE',
+          finish: 'ARRIS',
+          profileType: 'ARRIS',
           confidence: 'MEDIUM',
-          reviewReason: 'No edge notation in CAD drawing — assumed RAW',
+          reviewReason: 'No edge notation in CAD drawing — assumed Arris',
         };
       }
       return base;
 
     case 'ELEVATION':
-      // Elevation drawings: exposed/visible edges polished, concealed edges raw
+      // Elevation drawings: exposed/visible edges polished, concealed edges arris
       if (edge.finish === 'UNKNOWN') {
         return {
           ...base,
-          finish: 'RAW',
-          profileType: 'NONE',
+          finish: 'ARRIS',
+          profileType: 'ARRIS',
           confidence: 'LOW',
           needsReview: true,
           reviewReason: 'Edge finish unclear on elevation — needs confirmation',

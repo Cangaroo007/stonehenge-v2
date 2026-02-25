@@ -90,6 +90,9 @@ export interface PieceVisualEditorProps {
 
   /** Callback for scope-aware edge profile application (clickedSide = edge that was clicked) */
   onApplyWithScope?: (profileId: string | null, scope: EdgeScope, clickedSide: string) => void;
+
+  /** Quote ID for per-quote recents strip persistence */
+  quoteId?: string | number;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -144,6 +147,7 @@ export default function PieceVisualEditor({
   roomName,
   roomId,
   onApplyWithScope,
+  quoteId,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -182,6 +186,52 @@ export default function PieceVisualEditor({
 
   // ── Shortcuts tooltip ─────────────────────────────────────────────────
   const [showShortcuts, setShowShortcuts] = useState(false);
+
+  // ── Recents strip state (per-quote, persisted to localStorage) ─────
+  const recentsKey = quoteId ? `quote-edge-recents-${quoteId}` : null;
+  const [recentProfiles, setRecentProfiles] = useState<string[]>(() => {
+    if (typeof window === 'undefined') return [];
+    if (!recentsKey) return [];
+    try {
+      const stored = localStorage.getItem(recentsKey);
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  // Initialise recents with defaults if empty and edgeTypes are loaded
+  useEffect(() => {
+    if (recentProfiles.length > 0 || edgeTypes.length === 0) return;
+    // Default recents: Arris, Pencil Round, Raw (find by name match)
+    const defaultNames = ['arris', 'pencil round', 'raw'];
+    const defaults: string[] = [];
+    for (const searchName of defaultNames) {
+      const match = edgeTypes.find(
+        (et) => et.name.toLowerCase().includes(searchName)
+      );
+      if (match) defaults.push(match.id);
+    }
+    if (defaults.length > 0) {
+      setRecentProfiles(defaults);
+      if (recentsKey) {
+        try { localStorage.setItem(recentsKey, JSON.stringify(defaults)); } catch { /* noop */ }
+      }
+    }
+  }, [recentProfiles.length, edgeTypes, recentsKey]);
+
+  const updateRecents = useCallback(
+    (profileId: string) => {
+      setRecentProfiles((prev) => {
+        const updated = [profileId, ...prev.filter((p) => p !== profileId)].slice(0, 5);
+        if (recentsKey) {
+          try { localStorage.setItem(recentsKey, JSON.stringify(updated)); } catch { /* noop */ }
+        }
+        return updated;
+      });
+    },
+    [recentsKey]
+  );
 
   // ── Fetch templates on first open ─────────────────────────────────────
   useEffect(() => {
@@ -310,6 +360,8 @@ export default function PieceVisualEditor({
         // Quick Edge mode: instantly apply selected profile
         if (quickEdgeProfile !== null) {
           if (onEdgeChange) onEdgeChange(side, quickEdgeProfile);
+          // Update recents strip
+          updateRecents(quickEdgeProfile);
           // Flash animation
           setFlashEdge(side);
           setTimeout(() => setFlashEdge(null), 200);
@@ -357,16 +409,17 @@ export default function PieceVisualEditor({
         return next;
       });
     },
-    [isEditMode, onEdgeChange, onEdgesChange, editMode, quickEdgeProfile, selectedEdges.size]
+    [isEditMode, onEdgeChange, onEdgesChange, editMode, quickEdgeProfile, selectedEdges.size, updateRecents]
   );
 
   const handleProfileSelect = useCallback(
     (profileId: string | null) => {
       if (!popover || !onEdgeChange) return;
       onEdgeChange(popover.side, profileId);
+      if (profileId) updateRecents(profileId);
       setPopover(null);
     },
-    [popover, onEdgeChange]
+    [popover, onEdgeChange, updateRecents]
   );
 
   // Wrapper for scope-aware apply — captures the clicked side from popover state
@@ -748,6 +801,36 @@ export default function PieceVisualEditor({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Recents Strip (Quick Edge mode, above SVG) ─────────────── */}
+      {isEditMode && editMode === 'quickEdge' && recentProfiles.length > 0 && (
+        <div className="flex items-center gap-1 mb-1 px-1">
+          <span className="text-[9px] text-gray-400 mr-0.5">Recent:</span>
+          {recentProfiles.map((profileId) => {
+            const et = edgeTypes.find((e) => e.id === profileId);
+            if (!et) return null;
+            const isActive = quickEdgeProfile === profileId;
+            // Abbreviate long names: "Pencil Round" → "P.Round"
+            const abbrev = et.name.length > 10
+              ? et.name.split(/\s+/).map((w) => w.length > 3 ? w[0] + '.' : w).join('')
+              : et.name;
+            return (
+              <button
+                key={profileId}
+                onClick={() => setQuickEdgeProfile(profileId)}
+                className={`px-2 py-0.5 text-[10px] font-medium rounded-full border transition-colors ${
+                  isActive
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
+                }`}
+                title={et.name}
+              >
+                {abbrev}
+              </button>
+            );
+          })}
         </div>
       )}
 
