@@ -47,8 +47,6 @@ import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
 import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
-// MaterialView available for future re-enablement (12.J1: toggle removed, not component)
-// import MaterialView from '@/components/quotes/MaterialView';
 import BulkMaterialDialog from '@/components/quotes/BulkMaterialDialog';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
