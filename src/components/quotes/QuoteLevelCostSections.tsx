@@ -100,6 +100,7 @@ export default function QuoteLevelCostSections({
   onRecalculate,
 }: QuoteLevelCostSectionsProps) {
   const [isRecalculating, setIsRecalculating] = useState(false);
+  const [deliveryExpanded, setDeliveryExpanded] = useState(false);
 
   const handleRecalculateDelivery = async () => {
     if (!quoteId || isRecalculating) return;
@@ -152,78 +153,87 @@ export default function QuoteLevelCostSections({
         Quote-Level Charges
       </h3>
 
-      {/* Delivery with toggle */}
+      {/* Delivery — collapsible accordion */}
       <div className={`rounded-lg border ${!effectiveDeliveryEnabled ? 'border-gray-100 bg-gray-50/50' : 'border-gray-200 bg-white'}`}>
-        <div className="flex items-center gap-3 px-4 py-3 text-sm">
-          {showDeliveryToggle ? (
-            <button
-              type="button"
-              role="switch"
-              aria-checked={effectiveDeliveryEnabled}
-              onClick={() => onDeliveryEnabledChange(!effectiveDeliveryEnabled)}
-              className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
-                effectiveDeliveryEnabled ? 'bg-primary-600' : 'bg-gray-200'
-              }`}
-            >
-              <span
-                className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                  effectiveDeliveryEnabled ? 'translate-x-4' : 'translate-x-0'
-                }`}
-              />
-            </button>
-          ) : (
-            <span className="w-3.5" />
-          )}
+        <button
+          onClick={() => setDeliveryExpanded(!deliveryExpanded)}
+          className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${hasDeliveryData || showDeliveryToggle ? 'hover:bg-gray-50/50 cursor-pointer' : 'cursor-default'}`}
+        >
+          <ChevronIcon expanded={deliveryExpanded} />
           <span className={`font-medium ${!effectiveDeliveryEnabled ? 'text-gray-400' : 'text-gray-900'}`}>
-            {showDeliveryToggle ? 'Include Delivery' : 'Delivery'}
+            Delivery
           </span>
           <span className={`ml-auto font-medium tabular-nums ${!effectiveDeliveryEnabled ? 'text-gray-400' : 'text-gray-900'}`}>
-            {formatCurrency(deliveryCost)}
+            {effectiveDeliveryEnabled ? formatCurrency(deliveryCost) : 'Not included'}
           </span>
-          {effectiveDeliveryEnabled && isEditMode && quoteId && (
-            <button
-              onClick={handleRecalculateDelivery}
-              className="text-sm text-blue-600 hover:underline ml-2"
-              disabled={isRecalculating}
-            >
-              {isRecalculating ? 'Calculating...' : 'Recalculate'}
-            </button>
-          )}
-        </div>
-        {effectiveDeliveryEnabled && (
+        </button>
+        {deliveryExpanded && (
           <div className="px-4 pb-3 pt-1 border-t border-gray-100 space-y-2 text-xs text-gray-600">
-            {isEditMode && onDeliveryAddressChange ? (
-              <div>
-                <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
-                <input
-                  type="text"
-                  defaultValue={delivery?.address || ''}
-                  onBlur={(e) => onDeliveryAddressChange(e.target.value)}
-                  placeholder="Enter delivery address..."
-                  className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                />
+            {showDeliveryToggle && (
+              <div className="flex items-center gap-2 py-1">
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={effectiveDeliveryEnabled}
+                  onClick={() => onDeliveryEnabledChange!(!effectiveDeliveryEnabled)}
+                  className={`relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 ${
+                    effectiveDeliveryEnabled ? 'bg-primary-600' : 'bg-gray-200'
+                  }`}
+                >
+                  <span
+                    className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                      effectiveDeliveryEnabled ? 'translate-x-4' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+                <span className="text-gray-600 text-xs font-medium">Include Delivery</span>
+                {effectiveDeliveryEnabled && isEditMode && quoteId && (
+                  <button
+                    onClick={handleRecalculateDelivery}
+                    className="text-xs text-blue-600 hover:underline ml-auto"
+                    disabled={isRecalculating}
+                  >
+                    {isRecalculating ? 'Calculating...' : 'Recalculate'}
+                  </button>
+                )}
               </div>
-            ) : (
-              delivery?.address && <DetailRow label="Address" value={delivery.address} />
             )}
-            {delivery?.zone && <DetailRow label="Zone" value={delivery.zone} />}
-            {delivery?.distanceKm != null && (
-              <DetailRow label="Distance" value={`${Number(delivery.distanceKm).toFixed(1)} km`} />
-            )}
-            {delivery?.calculatedCost != null && (
-              <DetailRow label="Calculated Cost" value={formatCurrency(delivery.calculatedCost)} />
-            )}
-            {delivery?.overrideCost != null && (
-              <DetailRow
-                label="Override Applied"
-                value={<span className="text-amber-600">{formatCurrency(delivery.overrideCost)}</span>}
-              />
-            )}
-            {hasDeliveryData && delivery && (
-              <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
-                <span>Final Delivery Cost</span>
-                <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
-              </div>
+            {effectiveDeliveryEnabled && (
+              <>
+                {isEditMode && onDeliveryAddressChange ? (
+                  <div>
+                    <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
+                    <input
+                      type="text"
+                      defaultValue={delivery?.address || ''}
+                      onBlur={(e) => onDeliveryAddressChange(e.target.value)}
+                      placeholder="Enter delivery address..."
+                      className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                    />
+                  </div>
+                ) : (
+                  delivery?.address && <DetailRow label="Address" value={delivery.address} />
+                )}
+                {delivery?.zone && <DetailRow label="Zone" value={delivery.zone} />}
+                {delivery?.distanceKm != null && (
+                  <DetailRow label="Distance" value={`${Number(delivery.distanceKm).toFixed(1)} km`} />
+                )}
+                {delivery?.calculatedCost != null && (
+                  <DetailRow label="Calculated Cost" value={formatCurrency(delivery.calculatedCost)} />
+                )}
+                {delivery?.overrideCost != null && (
+                  <DetailRow
+                    label="Override Applied"
+                    value={<span className="text-amber-600">{formatCurrency(delivery.overrideCost)}</span>}
+                  />
+                )}
+                {hasDeliveryData && delivery && (
+                  <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
+                    <span>Final Delivery Cost</span>
+                    <span className="tabular-nums">{formatCurrency(delivery.finalCost)}</span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         )}
