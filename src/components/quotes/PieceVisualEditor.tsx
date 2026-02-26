@@ -25,33 +25,9 @@ export type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
 /** Extended edge identifiers for L-shape (6 edges) and U-shape (8 edges) */
 export type ShapeEdgeSide =
   | EdgeSide
-  | 'right-top' | 'right-bottom' | 'inner-horizontal'  // L-shape
-  | 'top-left' | 'top-right' | 'outer-left' | 'outer-right' | 'inner-left' | 'inner-right' | 'back';  // U-shape
+  | 'r_top' | 'r_btm' | 'inner'  // L-shape
+  | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner';  // U-shape
 type EdgeEditMode = 'select' | 'quickEdge';
-
-/** Target for edge storage: standard DB column, shape_config JSON, or unmapped */
-export type EdgeStorageTarget = EdgeSide | 'shape_config' | null;
-
-/** Maps shape edge sides to storage targets for profile lookup */
-const L_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeStorageTarget> = {
-  'top': 'top',
-  'right-top': 'right',
-  'inner-horizontal': 'shape_config',
-  'right-bottom': 'shape_config',
-  'bottom': 'bottom',
-  'left': 'left',
-};
-
-const U_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeStorageTarget> = {
-  'top-left': 'top',
-  'outer-left': 'left',
-  'bottom': 'bottom',
-  'outer-right': 'right',
-  'top-right': 'shape_config',
-  'inner-right': 'shape_config',
-  'back': 'shape_config',
-  'inner-left': 'shape_config',
-};
 
 /** Edge segment definition for shape rendering */
 interface ShapeEdgeDef {
@@ -61,7 +37,6 @@ interface ShapeEdgeDef {
   labelX: number; labelY: number;
   lengthMm: number;
   label: string;
-  standardEdge: EdgeSide | null;
 }
 
 interface EdgeTemplate {
@@ -702,36 +677,37 @@ export default function PieceVisualEditor({
       // Edge label offset from edge midpoint
       const lo = 24;
 
+      const leg2Net = l2l - l1w;
       const edges: ShapeEdgeDef[] = [
         {
           side: 'top', x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y,
           labelX: (p0.x + p1.x) / 2, labelY: p0.y - lo,
-          lengthMm: l1l, label: 'TOP', standardEdge: 'top',
+          lengthMm: l1l, label: 'TOP',
         },
         {
-          side: 'right-top', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+          side: 'r_top', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
           labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
-          lengthMm: l1w, label: 'R-TOP', standardEdge: 'right',
+          lengthMm: l2w, label: 'R-TOP',
         },
         {
-          side: 'inner-horizontal', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
+          side: 'inner', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
           labelX: (p2.x + p3.x) / 2, labelY: p2.y - lo,
-          lengthMm: l1l - l2w, label: 'INNER', standardEdge: null,
+          lengthMm: l1l - l2w, label: 'INNER',
         },
         {
-          side: 'right-bottom', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
+          side: 'r_btm', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
           labelX: p3.x + lo, labelY: (p3.y + p4.y) / 2,
-          lengthMm: l2l, label: 'R-BTM', standardEdge: null,
+          lengthMm: leg2Net, label: 'R-BTM',
         },
         {
           side: 'bottom', x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y,
           labelX: (p4.x + p5.x) / 2, labelY: p4.y + lo + 4,
-          lengthMm: l2w, label: 'BTM', standardEdge: 'bottom',
+          lengthMm: leg2Net, label: 'BTM',
         },
         {
           side: 'left', x1: p5.x, y1: p5.y, x2: p0.x, y2: p0.y,
           labelX: p5.x - lo, labelY: (p5.y + p0.y) / 2,
-          lengthMm: l1w + l2l, label: 'LEFT', standardEdge: 'left',
+          lengthMm: l1w, label: 'LEFT',
         },
       ];
 
@@ -790,46 +766,47 @@ export default function PieceVisualEditor({
 
       const lo = 24;
 
+      const bottomSpan = lw + bl + rw;
       const edges: ShapeEdgeDef[] = [
         {
-          side: 'top-left', x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y,
+          side: 'top_left', x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y,
           labelX: (p0.x + p1.x) / 2, labelY: p0.y - lo,
-          lengthMm: lw, label: 'T-LEFT', standardEdge: 'top',
+          lengthMm: lw, label: 'T-LEFT',
         },
         {
-          side: 'inner-left', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
+          side: 'inner_left', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
           labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
-          lengthMm: ll - bw, label: 'IN-L', standardEdge: null,
+          lengthMm: ll - bw, label: 'IN-L',
         },
         {
-          side: 'back', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
+          side: 'back_inner', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
           labelX: (p2.x + p3.x) / 2, labelY: Math.max(p2.y, p3.y) + lo,
-          lengthMm: bl - lw - rw, label: 'BACK', standardEdge: null,
+          lengthMm: bl, label: 'BACK',
         },
         {
-          side: 'inner-right', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
+          side: 'inner_right', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
           labelX: p3.x - lo, labelY: (p3.y + p4.y) / 2,
-          lengthMm: rl - bw, label: 'IN-R', standardEdge: null,
+          lengthMm: rl - bw, label: 'IN-R',
         },
         {
-          side: 'top-right', x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y,
+          side: 'top_right', x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y,
           labelX: (p4.x + p5.x) / 2, labelY: p4.y - lo,
-          lengthMm: rw, label: 'T-RIGHT', standardEdge: null,
+          lengthMm: rw, label: 'T-RIGHT',
         },
         {
-          side: 'outer-right', x1: p5.x, y1: p5.y, x2: p6.x, y2: p6.y,
+          side: 'outer_right', x1: p5.x, y1: p5.y, x2: p6.x, y2: p6.y,
           labelX: p5.x + lo, labelY: (p5.y + p6.y) / 2,
-          lengthMm: rl, label: 'RIGHT', standardEdge: 'right',
+          lengthMm: rl, label: 'RIGHT',
         },
         {
           side: 'bottom', x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y,
           labelX: (p6.x + p7.x) / 2, labelY: Math.max(p6.y, p7.y) + lo + 4,
-          lengthMm: bl, label: 'BTM', standardEdge: 'bottom',
+          lengthMm: bottomSpan, label: 'BTM',
         },
         {
-          side: 'outer-left', x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y,
+          side: 'outer_left', x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y,
           labelX: p7.x - lo, labelY: (p7.y + p0.y) / 2,
-          lengthMm: ll, label: 'LEFT', standardEdge: 'left',
+          lengthMm: ll, label: 'LEFT',
         },
       ];
 
@@ -930,10 +907,16 @@ export default function PieceVisualEditor({
     addIfPresent(edgeBottom);
     addIfPresent(edgeLeft);
     addIfPresent(edgeRight);
+    // Include profiles from shape_config.edges for L/U shapes
+    if (shapeConfigEdges) {
+      for (const profileId of Object.values(shapeConfigEdges)) {
+        addIfPresent(profileId);
+      }
+    }
 
     items.push({ code: 'R', name: 'Raw', colour: '#d1d5db' });
     return items;
-  }, [edgeTop, edgeBottom, edgeLeft, edgeRight, resolveEdgeName]);
+  }, [edgeTop, edgeBottom, edgeLeft, edgeRight, shapeConfigEdges, resolveEdgeName]);
 
   // Check if piece has at least one non-raw edge (for save template button)
   const hasNonRawEdge = !!(edgeTop || edgeBottom || edgeLeft || edgeRight);
@@ -1150,43 +1133,19 @@ export default function PieceVisualEditor({
               strokeWidth={1}
             />
 
-            {/* Shape edges */}
+            {/* Shape edges — all finishable, all stored in shape_config.edges */}
             {shapeLayout.edges.map((edge) => {
-              const stdEdge = edge.standardEdge;
-              // Look up storage target from the mapping (supports 'shape_config' edges)
-              const edgeMapping = effectiveShapeType === 'L_SHAPE'
-                ? L_SHAPE_EDGE_TO_STANDARD
-                : effectiveShapeType === 'U_SHAPE'
-                ? U_SHAPE_EDGE_TO_STANDARD
-                : null;
-              const storageTarget: EdgeStorageTarget = edgeMapping
-                ? (edgeMapping[edge.side] ?? null)
-                : (stdEdge ?? null);
-              const profileId = stdEdge
-                ? edgeIds[stdEdge]
-                : storageTarget === 'shape_config'
-                ? (shapeConfigEdges?.[edge.side] ?? null)
-                : null;
+              // For shaped pieces: ALL edges read from shapeConfigEdges
+              const profileId = shapeConfigEdges?.[edge.side] ?? null;
               const name = profileId ? resolveEdgeName(profileId) : undefined;
               const isFinished = !!profileId;
               const colour = edgeColour(name);
               const code = edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
-              const isHovered = hoveredEdge === (stdEdge ?? edge.side);
-              const isSelected = stdEdge ? selectedEdges.has(stdEdge) : false;
-              const isFlashing = stdEdge ? flashEdge === stdEdge : false;
+              const isHovered = hoveredEdge === edge.side;
 
               return (
                 <g key={edge.side}>
-                  {/* Selected edge highlight */}
-                  {isSelected && (
-                    <line
-                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                      stroke="#3b82f6" strokeWidth={6}
-                      className="edge-selected"
-                    />
-                  )}
-
                   {/* Hover glow (edit mode only) */}
                   {isHovered && isEditMode && (
                     <line
@@ -1199,42 +1158,38 @@ export default function PieceVisualEditor({
                   {/* Visible edge line */}
                   <line
                     x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                    stroke={isFlashing ? '#22c55e' : colour}
-                    strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
+                    stroke={colour}
+                    strokeWidth={isFinished ? 3 : 1}
                     strokeDasharray={isFinished ? undefined : '4 3'}
                     opacity={1}
-                    className={isFlashing ? 'edge-flash' : undefined}
                   >
                     <title>{name || 'Raw / Unfinished'}</title>
                   </line>
 
-                  {/* Hit area for clicking (edit mode, mapped or shape_config edges) */}
-                  {isEditMode && (stdEdge || storageTarget === 'shape_config') && (onEdgeChange || onEdgesChange || onShapeEdgeChange) && (
+                  {/* Hit area for clicking — all shaped edges go through onShapeEdgeChange */}
+                  {isEditMode && onShapeEdgeChange && (
                     <line
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                       stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
                       style={{ cursor: 'pointer' }}
                       onClick={(e) => {
-                        if (stdEdge) {
-                          handleEdgeClick(stdEdge, e);
-                        } else if (storageTarget === 'shape_config' && onShapeEdgeChange) {
-                          e.stopPropagation();
-                          // Quick Edge mode: instantly apply selected profile
-                          if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
-                            onShapeEdgeChange(edge.side, quickEdgeProfile);
-                            return;
-                          }
-                          // Select mode: open popover
-                          const svgRect = (e.currentTarget as SVGElement)
-                            .closest('svg')
-                            ?.getBoundingClientRect();
-                          if (!svgRect) return;
-                          const relX = e.clientX - svgRect.left;
-                          const relY = e.clientY - svgRect.top;
-                          setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
+                        e.stopPropagation();
+                        // Quick Edge mode: instantly apply selected profile
+                        if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                          onShapeEdgeChange(edge.side, quickEdgeProfile);
+                          updateRecents(quickEdgeProfile);
+                          return;
                         }
+                        // Open popover for profile selection
+                        const svgRect = (e.currentTarget as SVGElement)
+                          .closest('svg')
+                          ?.getBoundingClientRect();
+                        if (!svgRect) return;
+                        const relX = e.clientX - svgRect.left;
+                        const relY = e.clientY - svgRect.top;
+                        setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
                       }}
-                      onMouseEnter={() => setHoveredEdge(stdEdge ?? edge.side)}
+                      onMouseEnter={() => setHoveredEdge(edge.side)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     >
                       <title>{name || 'Raw / Unfinished'}</title>

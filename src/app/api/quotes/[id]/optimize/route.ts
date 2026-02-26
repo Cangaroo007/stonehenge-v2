@@ -326,32 +326,44 @@ export async function POST(
       name: string;
       quote_pieces: QuotePieceRow[];
     }) =>
-      room.quote_pieces.map((piece) => ({
+      room.quote_pieces.map((piece) => {
+        const isShapedPiece = piece.shape_type === 'L_SHAPE' || piece.shape_type === 'U_SHAPE';
+
+        // For shaped pieces, pass shape_config.edges directly
+        // For rectangles, use the 4 DB columns as before
+        const shapeConfigEdges = isShapedPiece
+          ? ((piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {})
+          : {};
+
+        const finishedEdges = isShapedPiece
+          ? { top: false, bottom: false, left: false, right: false }
+          : {
+              top:    piece.edge_top !== null,
+              bottom: piece.edge_bottom !== null,
+              left:   piece.edge_left !== null,
+              right:  piece.edge_right !== null,
+            };
+
+        return {
         id: piece.id.toString(),
         width: piece.length_mm,
         height: piece.width_mm,
         label: `${room.name}: ${piece.name || 'Piece'}`,
         thickness: piece.thickness_mm || 20,
-        finishedEdges: {
-          top: piece.edge_top !== null,
-          bottom: piece.edge_bottom !== null,
-          left: piece.edge_left !== null,
-          right: piece.edge_right !== null,
-        },
+        finishedEdges,
         edgeTypeNames: {
           top: piece.edge_top ? edgeTypeMap.get(piece.edge_top) : undefined,
           bottom: piece.edge_bottom ? edgeTypeMap.get(piece.edge_bottom) : undefined,
           left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
           right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
         },
-        // Extra edges stored in shape_config.edges (INNER, R-BTM, etc.)
-        shapeConfigEdges: (piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {},
+        shapeConfigEdges,
         materialId: piece.material_id?.toString() ?? null,
         // Shape data for L/U decomposition in the optimizer
         shapeType: piece.shape_type ?? undefined,
         shapeConfig: piece.shape_config ?? undefined,
         grainMatched: piece.requiresGrainMatch === true,
-      }))
+      };})
     );
 
     if (pieces.length === 0) {

@@ -58,6 +58,7 @@ export interface InlinePieceData {
   edgeRight: string | null;
   cutouts: PieceCutout[];
   quote_rooms: { id: number; name: string };
+  shapeConfig?: Record<string, unknown> | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -394,18 +395,12 @@ export default function InlinePieceEditor({
     // Auto-set lamination method based on thickness
     const laminationMethod = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
 
-    // Edges: for existing pieces, edges are managed via PieceVisualEditor in
-    // QuickViewPieceRow — pass through the piece prop values to avoid overriding.
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
       thicknessMm,
       laminationMethod,
       materialId,
       materialName: selectedMaterial?.name || null,
-      edgeTop: isNew ? edgeSelections.edgeTop : piece.edgeTop,
-      edgeBottom: isNew ? edgeSelections.edgeBottom : piece.edgeBottom,
-      edgeLeft: isNew ? edgeSelections.edgeLeft : piece.edgeLeft,
-      edgeRight: isNew ? edgeSelections.edgeRight : piece.edgeRight,
       cutouts,
     };
 
@@ -415,6 +410,11 @@ export default function InlinePieceEditor({
       payload.widthMm = parseInt(widthMm);
       payload.shapeType = 'RECTANGLE';
       payload.shapeConfig = null;
+      // Only include rectangle edge fields for RECTANGLE pieces
+      payload.edgeTop = isNew ? edgeSelections.edgeTop : piece.edgeTop;
+      payload.edgeBottom = isNew ? edgeSelections.edgeBottom : piece.edgeBottom;
+      payload.edgeLeft = isNew ? edgeSelections.edgeLeft : piece.edgeLeft;
+      payload.edgeRight = isNew ? edgeSelections.edgeRight : piece.edgeRight;
     } else if (shapeType === 'L_SHAPE') {
       const config: LShapeConfig = {
         shape: 'L_SHAPE',
@@ -423,7 +423,9 @@ export default function InlinePieceEditor({
       };
       const geo = getShapeGeometry('L_SHAPE', config, 0, 0);
       payload.shapeType = 'L_SHAPE';
-      payload.shapeConfig = config;
+      // Preserve existing shape_config.edges when updating dimensions
+      const existingEdges = (piece.shapeConfig as unknown as Record<string, unknown>)?.edges;
+      payload.shapeConfig = existingEdges ? { ...config, edges: existingEdges } : config;
       // Bounding box in existing fields for backward compat
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
@@ -436,7 +438,9 @@ export default function InlinePieceEditor({
       };
       const geo = getShapeGeometry('U_SHAPE', config, 0, 0);
       payload.shapeType = 'U_SHAPE';
-      payload.shapeConfig = config;
+      // Preserve existing shape_config.edges when updating dimensions
+      const existingEdges = (piece.shapeConfig as unknown as Record<string, unknown>)?.edges;
+      payload.shapeConfig = existingEdges ? { ...config, edges: existingEdges } : config;
       // Bounding box in existing fields for backward compat
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
