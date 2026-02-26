@@ -91,6 +91,7 @@ interface PieceRowProps {
     roomName?: string;
     shapeType?: string | null;
     shapeConfig?: Record<string, unknown> | null;
+    requiresGrainMatch?: boolean;
   };
   /** Per-piece cost breakdown from the calculation result */
   breakdown?: PiecePricingBreakdown;
@@ -829,6 +830,11 @@ export default function PieceRow({
                 {isOversize && (
                   <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300">
                     OVERSIZE
+                  </span>
+                )}
+                {piece.requiresGrainMatch && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                    GRAIN MATCH
                   </span>
                 )}
                 <span className="font-semibold text-gray-900 tabular-nums">

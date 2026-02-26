@@ -69,12 +69,22 @@ export default async function QuoteDetailPage({
     notFound();
   }
 
+  // Fetch grain matching surcharge percent for the tenant (needed by InlinePieceEditor)
+  const pricingSettings = await prisma.pricing_settings.findUnique({
+    where: { organisation_id: `company-${quote.company_id}` },
+    select: { grain_matching_surcharge_percent: true },
+  });
+  const grainMatchingSurchargePercent = pricingSettings
+    ? Number(pricingSettings.grain_matching_surcharge_percent)
+    : 15;
+
   const initialMode: QuoteMode = modeParam === 'edit' ? 'edit' : 'view';
 
   // Serialise Prisma data (Dates, Decimals) to JSON-safe values for the client
   const serverData: ServerQuoteData = {
     id: quote.id,
     quote_number: quote.quote_number,
+    grainMatchingSurchargePercent,
     project_name: quote.project_name,
     project_address: quote.project_address,
     status: quote.status,
@@ -129,6 +139,7 @@ export default async function QuoteDetailPage({
         edge_right: piece.edge_right,
         shape_type: piece.shape_type ?? 'RECTANGLE',
         shape_config: piece.shape_config as Record<string, unknown> | null,
+        requiresGrainMatch: piece.requiresGrainMatch ?? false,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

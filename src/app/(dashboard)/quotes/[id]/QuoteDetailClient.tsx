@@ -107,6 +107,7 @@ interface QuotePiece {
   edgeRight: string | null;
   shapeType: string | null;
   shapeConfig: Record<string, unknown> | null;
+  requiresGrainMatch: boolean;
   cutouts: PieceCutout[];
   sortOrder: number;
   totalCost: number;
@@ -224,6 +225,7 @@ interface RawResults {
 export interface ServerQuoteData {
   id: number;
   quote_number: string;
+  grainMatchingSurchargePercent: number;
   project_name: string | null;
   project_address: string | null;
   status: string;
@@ -276,6 +278,7 @@ export interface ServerQuoteData {
       edge_right: string | null;
       shape_type: string | null;
       shape_config: Record<string, unknown> | null;
+      requiresGrainMatch: boolean;
       piece_features: Array<{
         id: number;
         name: string;
@@ -2855,6 +2858,7 @@ export default function QuoteDetailClient({
                       roomName: piece.roomName,
                       shapeType: piece.shape_type ?? 'RECTANGLE',
                       shapeConfig: piece.shape_config ?? null,
+                      requiresGrainMatch: piece.requiresGrainMatch ?? false,
                     }}
                     breakdown={pb}
                     mode="view"
@@ -3265,6 +3269,7 @@ export default function QuoteDetailClient({
               roomName: p.quote_rooms?.name,
               shapeType: p.shapeType ?? 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
+              requiresGrainMatch: p.requiresGrainMatch ?? false,
             }}
             breakdown={pb}
             machines={machines}
@@ -3509,6 +3514,7 @@ export default function QuoteDetailClient({
                 onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
                 pieceSuggestions={pieceSuggestions}
                 roomSuggestions={roomSuggestions}
+                grainMatchingSurchargePercent={serverData.grainMatchingSurchargePercent}
               />
             </div>
           )}

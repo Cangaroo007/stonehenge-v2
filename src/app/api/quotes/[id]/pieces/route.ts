@@ -89,6 +89,7 @@ export async function GET(
           // K2: Shape camelCase aliases
           shapeType: piece.shape_type || 'RECTANGLE',
           shapeConfig: piece.shape_config || null,
+          requiresGrainMatch: piece.requiresGrainMatch ?? false,
           // Pricing from calculation_breakdown (not runtime-calculated)
           pieceTotal: pricing?.pieceTotal ?? null,
           slabCost: pricing?.slabCost ?? null,
@@ -152,6 +153,7 @@ export async function POST(
       laminationMethod = 'NONE',
       shapeType = 'RECTANGLE',
       shapeConfig = null,
+      requiresGrainMatch,
     } = data;
 
     // Validate required fields
@@ -329,6 +331,7 @@ export async function POST(
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
         shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
+        requiresGrainMatch: requiresGrainMatch ?? false,
       },
       include: {
         materials: true,
@@ -355,6 +358,7 @@ export async function POST(
       // K2: Shape camelCase aliases
       shapeType: pieceAny.shape_type || 'RECTANGLE',
       shapeConfig: pieceAny.shape_config || null,
+      requiresGrainMatch: pieceAny.requiresGrainMatch ?? false,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),
