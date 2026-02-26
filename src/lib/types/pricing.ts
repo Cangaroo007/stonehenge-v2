@@ -299,6 +299,14 @@ export interface PiecePricingBreakdown {
     wasteFactorPercent?: number;
     /** Area after waste factor (for PER_SQUARE_METRE display) */
     adjustedAreaM2?: number;
+    /** Material name for display (e.g. "Alpha Zero") */
+    materialName?: string;
+    /** Total slab cost before proportional split (slabCount × pricePerSlab) */
+    totalSlabCost?: number;
+    /** Sum of areas for all pieces using the same material (denominator) */
+    totalMaterialAreaSqm?: number;
+    /** This piece's proportional share percentage of the material cost */
+    sharePercent?: number;
   };
 
   /** Grain match feasibility warning — set when grain_matched piece may not fit on a single slab */

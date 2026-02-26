@@ -1096,25 +1096,36 @@ export default function QuickViewPieceRow({
                 </div>
               )}
               {/* Material cost — after fabrication */}
-              {breakdown.materials && breakdown.materials.total > 0 && (
-                <>
-                  <div className="border-t border-gray-100 my-0.5" />
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span>Material</span>
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] text-gray-400">
-                        {breakdown.materials.pricingBasis === 'PER_SLAB'
-                          ? `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 (slab share)`
-                          : breakdown.materials.wasteFactorPercent != null && breakdown.materials.ratePerSqm != null
-                            ? `${(breakdown.materials.adjustedAreaM2 ?? breakdown.materials.areaM2).toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.ratePerSqm)}/m\u00B2 (incl. ${breakdown.materials.wasteFactorPercent}% waste)`
-                            : `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
-                        }
-                      </span>
-                      <span className="font-medium tabular-nums">{formatCurrency(breakdown.materials.total)}</span>
+              {breakdown.materials && breakdown.materials.total > 0 && (() => {
+                const m = breakdown.materials;
+                const isSoleUser = (m.sharePercent ?? 100) >= 99.9;
+                const isSlab = m.pricingBasis === 'PER_SLAB';
+                let formulaText: string;
+                if (isSlab && m.slabCount != null && m.pricePerSlab != null) {
+                  const slabLabel = `${m.slabCount} slab${m.slabCount > 1 ? 's' : ''} \u00D7 ${formatCurrency(m.pricePerSlab)}`;
+                  if (isSoleUser) {
+                    formulaText = slabLabel;
+                  } else {
+                    formulaText = `${slabLabel}  \u00B7  ${m.areaM2.toFixed(2)} m\u00B2 of ${(m.totalMaterialAreaSqm ?? m.areaM2).toFixed(2)} m\u00B2 (${(m.sharePercent ?? 100).toFixed(1)}%)`;
+                  }
+                } else if (m.wasteFactorPercent != null && m.ratePerSqm != null) {
+                  formulaText = `${(m.adjustedAreaM2 ?? m.areaM2).toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(m.ratePerSqm)}/m\u00B2 (incl. ${m.wasteFactorPercent}% waste)`;
+                } else {
+                  formulaText = `${m.areaM2.toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(m.pricePerSqm ?? m.baseRate)}/m\u00B2`;
+                }
+                return (
+                  <>
+                    <div className="border-t border-gray-100 my-0.5" />
+                    <div className="flex items-center justify-between text-xs text-gray-600">
+                      <span>Material{m.materialName ? ` \u2014 ${m.materialName}` : ''}</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[11px] text-gray-400">{formulaText}</span>
+                        <span className="font-medium tabular-nums">{formatCurrency(m.total)}</span>
+                      </div>
                     </div>
-                  </div>
-                </>
-              )}
+                  </>
+                );
+              })()}
               {/* Installation — last */}
               {breakdown.fabrication.installation && breakdown.fabrication.installation.total > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">

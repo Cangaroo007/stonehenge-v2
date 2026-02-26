@@ -1132,27 +1132,40 @@ export default function PieceRow({
           )}
 
           {/* Material cost — after fabrication items */}
-          {breakdown.materials && breakdown.materials.total > 0 && (
-            <>
-              <div className="border-t border-gray-100 my-0.5" />
-              <CostLine
-                label="Material"
-                formula={
-                  breakdown.materials.pricingBasis === 'PER_SLAB'
-                    ? `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 (slab share)`
-                    : breakdown.materials.wasteFactorPercent != null && breakdown.materials.ratePerSqm != null
-                      ? `${(breakdown.materials.adjustedAreaM2 ?? breakdown.materials.areaM2).toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.ratePerSqm)}/m\u00B2 (incl. ${breakdown.materials.wasteFactorPercent}% waste)`
-                      : `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
-                }
-                total={breakdown.materials.total}
-                machines={machines}
-                machineOperationDefaults={machineOperationDefaults}
-                mode={mode}
-                pieceId={piece.id}
-                onMachineChange={onMachineChange}
-              />
-            </>
-          )}
+          {breakdown.materials && breakdown.materials.total > 0 && (() => {
+            const m = breakdown.materials;
+            const isSoleUser = (m.sharePercent ?? 100) >= 99.9;
+            const isSlab = m.pricingBasis === 'PER_SLAB';
+            let formulaText: string;
+            if (isSlab && m.slabCount != null && m.pricePerSlab != null) {
+              const slabLabel = `${m.slabCount} slab${m.slabCount > 1 ? 's' : ''} x ${formatCurrency(m.pricePerSlab)}`;
+              if (isSoleUser) {
+                formulaText = slabLabel;
+              } else {
+                formulaText = `${slabLabel}  \u00B7  ${m.areaM2.toFixed(2)} m\u00B2 of ${(m.totalMaterialAreaSqm ?? m.areaM2).toFixed(2)} m\u00B2 (${(m.sharePercent ?? 100).toFixed(1)}%)`;
+              }
+            } else if (m.wasteFactorPercent != null && m.ratePerSqm != null) {
+              formulaText = `${(m.adjustedAreaM2 ?? m.areaM2).toFixed(2)} m\u00B2 x ${formatCurrency(m.ratePerSqm)}/m\u00B2 (incl. ${m.wasteFactorPercent}% waste)`;
+            } else {
+              formulaText = `${m.areaM2.toFixed(2)} m\u00B2 x ${formatCurrency(m.pricePerSqm ?? m.baseRate)}/m\u00B2`;
+            }
+            const matLabel = m.materialName ? `Material \u2014 ${m.materialName}` : 'Material';
+            return (
+              <>
+                <div className="border-t border-gray-100 my-0.5" />
+                <CostLine
+                  label={matLabel}
+                  formula={formulaText}
+                  total={m.total}
+                  machines={machines}
+                  machineOperationDefaults={machineOperationDefaults}
+                  mode={mode}
+                  pieceId={piece.id}
+                  onMachineChange={onMachineChange}
+                />
+              </>
+            );
+          })()}
 
           {/* Installation — last */}
           {breakdown.fabrication.installation && breakdown.fabrication.installation.total > 0 && (

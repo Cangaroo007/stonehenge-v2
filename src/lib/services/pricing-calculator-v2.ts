@@ -962,6 +962,20 @@ export async function calculateQuotePrice(
     if (allPieces[j].materials) { lastMaterialPieceIdx = j; break; }
   }
 
+  // Build materialId → group lookup for per-piece display fields
+  const materialGroupMap = new Map<number, { materialName: string; slabCount: number | undefined; slabRate: number | undefined; totalCost: number; totalAreaM2: number }>();
+  if (materialBreakdown.byMaterial) {
+    for (const g of materialBreakdown.byMaterial) {
+      materialGroupMap.set(g.materialId, {
+        materialName: g.materialName,
+        slabCount: g.slabCount,
+        slabRate: g.slabRate,
+        totalCost: g.totalCost,
+        totalAreaM2: g.totalAreaM2,
+      });
+    }
+  }
+
   for (let i = 0; i < allPieces.length; i++) {
     const piece = allPieces[i];
     const ep = engineResult.pieces[i];
@@ -1190,6 +1204,21 @@ export async function calculateQuotePrice(
         ? roundToTwo(pieceAreaM2 * (1 + pieceWastePercent / 100))
         : undefined;
 
+      // Look up per-material group data for display fields
+      const matId = (piece.materials as unknown as { id?: number }).id ?? 0;
+      const matGroup = materialGroupMap.get(matId);
+      const matName = matGroup?.materialName
+        ?? (piece.materials as unknown as { name?: string }).name
+        ?? materialBreakdown.materialName;
+      const pieceSlabCount = matGroup?.slabCount ?? materialBreakdown.slabCount;
+      const pieceTotalSlabCost = pieceSlabCount != null && pricePerSlab != null
+        ? roundToTwo(pieceSlabCount * pricePerSlab)
+        : undefined;
+      const pieceTotalMaterialAreaSqm = matGroup?.totalAreaM2 ?? materialBreakdown.totalAreaM2;
+      const pieceSharePercent = pieceTotalMaterialAreaSqm > 0
+        ? roundToTwo((pieceAreaM2 / pieceTotalMaterialAreaSqm) * 100)
+        : 100;
+
       pbd.materials = {
         areaM2: pieceAreaM2,
         baseRate: pricePerSqm ?? pricePerSlab ?? 0,
@@ -1199,13 +1228,16 @@ export async function calculateQuotePrice(
         total: materialShare,
         discountPercentage: 0,
         pricingBasis: pricingContext.materialPricingBasis === 'PER_SLAB' ? 'PER_SLAB' : 'PER_SQUARE_METRE',
-        // Never show fractional slab counts per piece — slab count is a quote-level integer
-        slabCount: undefined,
+        slabCount: pieceSlabCount,
         pricePerSlab,
         pricePerSqm,
         ratePerSqm: pieceRatePerSqm,
         wasteFactorPercent: pieceWastePercent,
         adjustedAreaM2: pieceAdjustedArea,
+        materialName: matName,
+        totalSlabCost: pieceTotalSlabCost,
+        totalMaterialAreaSqm: pieceTotalMaterialAreaSqm,
+        sharePercent: pieceSharePercent,
       };
       pbd.pieceTotal = roundToTwo(pbd.pieceTotal + materialShare);
     }
