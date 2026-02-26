@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -681,6 +681,28 @@ export async function calculateQuotePrice(
     // For L/U shapes, pass shape geometry overrides to the engine
     const isShapedPiece = geometry.cornerJoins > 0;
 
+    // Compute shape-aware edge lengths per position (L/U shapes use actual
+    // segment lengths instead of bounding-box dimensions)
+    const shapeType = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
+    const shapeConfig = piece.shape_config as unknown as ShapeConfig;
+    const edgeLengths = getShapeEdgeLengths(shapeType, shapeConfig, piece.length_mm, piece.width_mm);
+
+    const edges: EnginePiece['edges'] = [
+      { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm },
+      { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: edgeLengths.bottom_mm },
+      { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: edgeLengths.left_mm },
+      { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
+    ];
+
+    // For L/U shapes, compute finished edges from the shape-aware lengths so
+    // polishing and lamination use correct Lm values instead of bounding-box ones.
+    let finishedEdgesLm: number | undefined;
+    if (isShapedPiece) {
+      finishedEdgesLm = edges
+        .filter(e => e.isFinished)
+        .reduce((sum, e) => sum + e.length_mm / 1000, 0);
+    }
+
     enginePieces.push({
       id: String(piece.id),
       name: piece.name || piece.description || `Piece ${piece.id}`,
@@ -692,16 +714,12 @@ export async function calculateQuotePrice(
       requiresGrainMatch: isOversize,
       laminationMethod: piece.lamination_method === 'LAMINATED' ? 'LAMINATED'
         : piece.lamination_method === 'MITRED' ? 'MITRED' : null,
-      edges: [
-        { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: piece.length_mm },
-        { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: piece.length_mm },
-        { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: piece.width_mm },
-        { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: piece.width_mm },
-      ],
+      edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
       cuttingPerimeterLm: isShapedPiece ? geometry.cuttingPerimeterLm : undefined,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
+      finishedEdgesLm,
     });
   }
 

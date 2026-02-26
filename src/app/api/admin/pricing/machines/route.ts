@@ -1,9 +1,15 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/machines - Fetch all machine profiles
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const machines = await prisma.machine_profiles.findMany({
       orderBy: [
         { is_default: 'desc' },
@@ -32,6 +38,11 @@ export async function GET() {
 // POST /api/admin/pricing/machines - Create new machine profile
 export async function POST(request: Request) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const data = await request.json();
 
     // Validate required fields

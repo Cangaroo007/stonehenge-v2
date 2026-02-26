@@ -73,8 +73,9 @@ export interface EnginePiece {
   cutouts: EngineCutout[]
   // Shape geometry overrides — used for L/U shaped pieces.
   // When provided, these override the rectangular formula defaults.
-  cuttingPerimeterLm?: number  // overrides 2*(l+w)/1000
-  areaSqm?: number             // overrides (l*w)/1_000_000
+  cuttingPerimeterLm?: number   // overrides 2*(l+w)/1000
+  areaSqm?: number              // overrides (l*w)/1_000_000
+  finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
 }
 
 export interface EngineMaterial {
@@ -153,7 +154,8 @@ export function rulePolishing(
   rates: EngineServiceRate[],
   category: string
 ): PiecePricingResult['polishing'] {
-  const finishedLm = piece.edges
+  // Use shape-aware override when provided (L/U shapes), else sum from edges array
+  const finishedLm = piece.finishedEdgesLm ?? piece.edges
     .filter(e => e.isFinished)
     .reduce((s, e) => s + e.length_mm / 1000, 0)
   const rate = rates.find(r => r.serviceType === 'POLISHING' && r.fabricationCategory === category)
@@ -209,7 +211,8 @@ export function ruleLamination(
   if (piece.thickness_mm <= 20 || !piece.laminationMethod) return null
   const polishRate = rates.find(r => r.serviceType === 'POLISHING' && r.fabricationCategory === category)
   if (!polishRate) return null
-  const lm = piece.edges.filter(e => e.isFinished).reduce((s, e) => s + e.length_mm / 1000, 0)
+  // Use shape-aware override when provided (L/U shapes), else sum from edges array
+  const lm = piece.finishedEdgesLm ?? piece.edges.filter(e => e.isFinished).reduce((s, e) => s + e.length_mm / 1000, 0)
   const multiplier = piece.laminationMethod === 'MITRED'
     ? settings.mitredMultiplier
     : settings.laminatedMultiplier
