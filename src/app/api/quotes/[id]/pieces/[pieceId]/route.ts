@@ -244,6 +244,7 @@ export async function PATCH(
       cutouts,
       laminationMethod,
       requiresGrainMatch,
+      shapeConfig,
     } = data;
 
     // Get the current piece
@@ -376,6 +377,8 @@ export async function PATCH(
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
         requiresGrainMatch: requiresGrainMatch !== undefined ? requiresGrainMatch : currentPiece.requiresGrainMatch,
+        // shape_config: stores extra L/U shape data including extended edge profiles
+        ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,
@@ -497,6 +500,7 @@ export async function PUT(
       cutouts,
       laminationMethod,
       requiresGrainMatch: reqGrainMatch,
+      shapeConfig: putShapeConfig,
     } = data;
 
     // Get the current piece
@@ -683,6 +687,8 @@ export async function PUT(
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
         requiresGrainMatch: reqGrainMatch !== undefined ? reqGrainMatch : currentPiece.requiresGrainMatch,
+        // shape_config: stores extra L/U shape data including extended edge profiles
+        ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,

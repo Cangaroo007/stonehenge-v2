@@ -23,7 +23,7 @@ export interface Placement {
   // Lamination tracking
   isLaminationStrip?: boolean;
   parentPieceId?: string;
-  stripPosition?: 'top' | 'bottom' | 'left' | 'right';
+  stripPosition?: string;
   // Oversize piece segment tracking
   isSegment?: boolean;
   segmentIndex?: number;
@@ -104,6 +104,8 @@ export interface OptimizationInput {
     shapeType?: string;
     shapeConfig?: unknown;
     grainMatched?: boolean;
+    // Extra edges from shape_config.edges (INNER, R-BTM, etc.) — used for L/U lamination strips
+    shapeConfigEdges?: Record<string, string | null>;
   }>;
   slabWidth: number;
   slabHeight: number;
