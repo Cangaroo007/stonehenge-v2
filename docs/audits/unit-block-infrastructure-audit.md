@@ -530,4 +530,4 @@ All commands from the audit specification were executed. Key findings are summar
 - `src/app/api/unit-blocks/route.ts` (115 lines)
 - `src/lib/auth.ts` (header, to verify companyId availability)
 - `prisma/schema.prisma` (all unit block models)
-- `docs/stonehenge-dev-rulebook-v11.md` (all 50 rules)
+- `docs/stonehenge-dev-rulebook.md` (all 59 rules)
