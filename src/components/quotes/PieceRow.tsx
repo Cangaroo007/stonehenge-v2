@@ -1094,9 +1094,11 @@ export default function PieceRow({
               <CostLine
                 label="Material"
                 formula={
-                  breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
-                    ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} x ${formatCurrency(breakdown.materials.pricePerSlab)} = ${formatCurrency(breakdown.materials.total)}`
-                    : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 x ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2 = ${formatCurrency(breakdown.materials.total)}`
+                  breakdown.materials.pricingBasis === 'PER_SLAB'
+                    ? `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 (slab share)`
+                    : breakdown.materials.wasteFactorPercent != null && breakdown.materials.ratePerSqm != null
+                      ? `${(breakdown.materials.adjustedAreaM2 ?? breakdown.materials.areaM2).toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.ratePerSqm)}/m\u00B2 (incl. ${breakdown.materials.wasteFactorPercent}% waste)`
+                      : `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
                 }
                 total={breakdown.materials.total}
                 machines={machines}

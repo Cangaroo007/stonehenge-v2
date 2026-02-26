@@ -1132,9 +1132,17 @@ export async function calculateQuotePrice(
         allocatedMaterial += materialShare;
       }
 
-      // Proportional slab count for display
-      const proportionalSlabCount = (pricingContext.materialPricingBasis === 'PER_SLAB' && materialBreakdown.slabCount)
-        ? roundToTwo((pieceAreaM2 / (totalAreaSqm || 1)) * materialBreakdown.slabCount)
+      // Per-piece PER_SQUARE_METRE display data: ratePerSqm and waste factor
+      const isPieceSqm = pricingContext.materialPricingBasis === 'PER_SQUARE_METRE';
+      const pieceWastePercent = isPieceSqm ? (pricingContext.wasteFactorPercent ?? 0) : undefined;
+      const slabLenMm = mat.slab_length_mm ?? 3000;
+      const slabWdMm = mat.slab_width_mm ?? 1400;
+      const slabAreaSqm = (slabLenMm * slabWdMm) / 1_000_000;
+      const pieceRatePerSqm = isPieceSqm
+        ? (slabAreaSqm > 0 && pricePerSlab ? roundToTwo(pricePerSlab / slabAreaSqm) : pricePerSqm ?? 0)
+        : undefined;
+      const pieceAdjustedArea = isPieceSqm && pieceWastePercent
+        ? roundToTwo(pieceAreaM2 * (1 + pieceWastePercent / 100))
         : undefined;
 
       pbd.materials = {
@@ -1146,9 +1154,13 @@ export async function calculateQuotePrice(
         total: materialShare,
         discountPercentage: 0,
         pricingBasis: pricingContext.materialPricingBasis === 'PER_SLAB' ? 'PER_SLAB' : 'PER_SQUARE_METRE',
-        slabCount: proportionalSlabCount,
+        // Never show fractional slab counts per piece — slab count is a quote-level integer
+        slabCount: undefined,
         pricePerSlab,
         pricePerSqm,
+        ratePerSqm: pieceRatePerSqm,
+        wasteFactorPercent: pieceWastePercent,
+        adjustedAreaM2: pieceAdjustedArea,
       };
       pbd.pieceTotal = roundToTwo(pbd.pieceTotal + materialShare);
     }
