@@ -28,6 +28,11 @@ export interface Placement {
   isSegment?: boolean;
   segmentIndex?: number;
   totalSegments?: number;
+  // Shape decomposition tracking (L/U shapes split into component rects)
+  groupId?: string;       // parent pieceId — all rects with same groupId must share a slab
+  partIndex?: number;     // 0-based index within the group
+  partLabel?: string;     // e.g. "Leg A", "Leg B", "Back"
+  totalParts?: number;    // total rects in the group
   // Machine/cutting info
   machineName?: string;
   kerfWidthMm?: number;
@@ -95,6 +100,10 @@ export interface OptimizationInput {
     finishedEdges?: FinishedEdges;
     // Edge type names per edge (for determining strip widths)
     edgeTypeNames?: EdgeTypeInfo;
+    // Shape decomposition data (optional — L/U shapes decomposed into component rects)
+    shapeType?: string;
+    shapeConfig?: unknown;
+    grainMatched?: boolean;
   }>;
   slabWidth: number;
   slabHeight: number;

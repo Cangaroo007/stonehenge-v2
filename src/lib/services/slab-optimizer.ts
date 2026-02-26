@@ -7,6 +7,7 @@ import {
 } from '@/types/slab-optimization';
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
+import { decomposeShapeIntoRects, type OptimizerRect } from '@/lib/types/shapes';
 
 interface Rect {
   x: number;
@@ -39,6 +40,14 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   totalSegments?: number;
   /** Per-piece kerf override — mitre strips use the MITRING machine's kerf */
   pieceKerfWidth?: number;
+  /** Shape decomposition group — rects with same groupId must share a slab */
+  groupId?: string;
+  /** Part index within the decomposed group (0-based) */
+  partIndex?: number;
+  /** Human-readable part label, e.g. "Leg A" */
+  partLabel?: string;
+  /** Total parts in the decomposed group */
+  totalParts?: number;
 };
 
 /**
@@ -359,38 +368,103 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // Store original pieces for reference (before adding strips)
   const originalPieces: OptimizationPiece[] = Array.from(normalizedPieces);
 
+  // ── Step 1.5: Decompose L/U shapes into component rects ─────────────────
+  // L/U shapes are replaced by their component rectangles (legs/back).
+  // All rects from the same shape share a groupId so they land on the same slab.
+  const decomposedPieces: OptimizationPiece[] = [];
+  for (const piece of normalizedPieces) {
+    // Only decompose non-strip, non-segment pieces that have shape data
+    if (piece.isLaminationStrip || piece.isSegment || !piece.shapeType ||
+        piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
+      decomposedPieces.push(piece);
+      continue;
+    }
+
+    const rects = decomposeShapeIntoRects({
+      id: piece.id,
+      lengthMm: piece.width,   // optimizer width = piece length_mm
+      widthMm: piece.height,   // optimizer height = piece width_mm
+      shapeType: piece.shapeType,
+      shapeConfig: piece.shapeConfig,
+      grainMatched: piece.grainMatched,
+    });
+
+    if (rects.length <= 1) {
+      // Decomposition returned single rect — keep as-is
+      decomposedPieces.push(piece);
+      continue;
+    }
+
+    // Replace parent piece with component rects
+    for (const rect of rects) {
+      decomposedPieces.push({
+        ...piece,
+        id: `${piece.id}-part-${rect.partIndex}`,
+        width: rect.width,
+        height: rect.height,
+        label: `${piece.label} (Part ${rect.partIndex + 1}/${rects.length} — ${rect.label})`,
+        groupId: rect.groupId,
+        partIndex: rect.partIndex,
+        partLabel: rect.label,
+        totalParts: rects.length,
+        parentPieceId: piece.id,
+        // Clear finished edges — lamination for decomposed parts handled per-rect
+        finishedEdges: undefined,
+        edgeTypeNames: undefined,
+      });
+    }
+
+    logger.info(
+      `[Optimizer] Decomposed "${piece.label}" (${piece.shapeType}) into ${rects.length} component rects`
+    );
+  }
+
+  // Group slab assignment map: groupId → slabIndex
+  const groupSlabMap = new Map<string, number>();
+
   // ── Step 2: Generate lamination strips for all 40mm+ pieces ───────────────
   const allPieces: OptimizationPiece[] = [];
 
-  for (const piece of normalizedPieces) {
+  for (const piece of decomposedPieces) {
     // Add the main piece
     allPieces.push(piece);
 
     // Generate and add lamination strips if needed
-    // (segments have finishedEdges cleared, so no strips are generated for them)
+    // (segments and decomposed parts have finishedEdges cleared, so no strips are generated)
     // Pass mitreKerfWidth so mitre strips use the MITRING machine's kerf
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
     allPieces.push(...strips);
   }
 
   // Log for debugging (visible in server logs)
-  if (allPieces.length > normalizedPieces.length) {
-    logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} lamination strips = ${allPieces.length} total`);
+  if (allPieces.length > decomposedPieces.length) {
+    logger.info(`[Optimizer] Input: ${decomposedPieces.length} pieces + ${allPieces.length - decomposedPieces.length} lamination strips = ${allPieces.length} total`);
   }
 
   // Sort pieces by area (largest first) for better packing
   // IMPORTANT: Use Array.from() to avoid Railway build issues
-  // Keep main pieces and their strips somewhat together for better organization
+  // Grouped rects (from L/U decomposition) are kept together so they land on the same slab.
   const sortedPieces = Array.from(allPieces).sort((a, b) => {
-    // Primary sort: area descending
+    // Primary sort: grouped rects before non-grouped (so they get first pick of slabs)
+    const aGrouped = a.groupId ? 1 : 0;
+    const bGrouped = b.groupId ? 1 : 0;
+    if (aGrouped !== bGrouped) return bGrouped - aGrouped; // grouped first
+
+    // Within groups: sort by groupId then partIndex to keep rects together
+    if (a.groupId && b.groupId) {
+      if (a.groupId !== b.groupId) return a.groupId.localeCompare(b.groupId);
+      return (a.partIndex ?? 0) - (b.partIndex ?? 0);
+    }
+
+    // Secondary sort: area descending
     const areaA = a.width * a.height;
     const areaB = b.width * b.height;
     if (areaA !== areaB) return areaB - areaA;
-    
-    // Secondary sort: main pieces before their strips
+
+    // Tertiary sort: main pieces before their strips
     if (a.isLaminationStrip && !b.isLaminationStrip) return 1;
     if (!a.isLaminationStrip && b.isLaminationStrip) return -1;
-    
+
     return 0;
   });
 
@@ -420,27 +494,90 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
 
     let placed = false;
 
-    // Try to place in existing slabs
-    for (let slabIndex = 0; slabIndex < slabs.length && !placed; slabIndex++) {
-      const slab = slabs[slabIndex];
+    // ── Group constraint: if this piece belongs to a group (L/U decomposition),
+    // try the group's assigned slab first to co-locate all rects on the same slab.
+    if (piece.groupId) {
+      const assignedSlabIndex = groupSlabMap.get(piece.groupId);
 
-      // Try normal orientation
-      if (fitsNormal) {
-        const position = findPosition(slab, pieceWidth, pieceHeight);
-        if (position) {
-          placePiece(slab, piece, position, pieceWidth, pieceHeight, false, slabIndex, placements);
-          placed = true;
-          continue;
+      if (assignedSlabIndex !== undefined && assignedSlabIndex < slabs.length) {
+        // Group already has an assigned slab — try to place there first
+        const slab = slabs[assignedSlabIndex];
+        if (fitsNormal) {
+          const position = findPosition(slab, pieceWidth, pieceHeight);
+          if (position) {
+            placePiece(slab, piece, position, pieceWidth, pieceHeight, false, assignedSlabIndex, placements);
+            placed = true;
+          }
+        }
+        if (!placed && fitsRotated) {
+          const position = findPosition(slab, pieceHeight, pieceWidth);
+          if (position) {
+            placePiece(slab, piece, position, pieceHeight, pieceWidth, true, assignedSlabIndex, placements);
+            placed = true;
+          }
+        }
+        if (!placed) {
+          // Cannot fit on assigned slab — open a new slab for this group
+          const newSlab = createSlab(usableWidth, usableHeight);
+          const newSlabIndex = slabs.length;
+          if (fitsNormal) {
+            const position = findPosition(newSlab, pieceWidth, pieceHeight);
+            if (position) {
+              placePiece(newSlab, piece, position, pieceWidth, pieceHeight, false, newSlabIndex, placements);
+              slabs.push(newSlab);
+              groupSlabMap.set(piece.groupId, newSlabIndex);
+              placed = true;
+              warnings.push(
+                `Group "${piece.groupId}" rect "${piece.partLabel ?? piece.id}" could not fit on assigned slab — opened new slab`
+              );
+            }
+          }
+          if (!placed && fitsRotated) {
+            const position = findPosition(newSlab, pieceHeight, pieceWidth);
+            if (position) {
+              placePiece(newSlab, piece, position, pieceHeight, pieceWidth, true, newSlabIndex, placements);
+              slabs.push(newSlab);
+              groupSlabMap.set(piece.groupId, newSlabIndex);
+              placed = true;
+              warnings.push(
+                `Group "${piece.groupId}" rect "${piece.partLabel ?? piece.id}" could not fit on assigned slab — opened new slab`
+              );
+            }
+          }
         }
       }
+      // If no slab assigned yet, fall through to normal FFD placement and record assignment
+    }
 
-      // Try rotated orientation
-      if (!placed && fitsRotated) {
-        const position = findPosition(slab, pieceHeight, pieceWidth);
-        if (position) {
-          placePiece(slab, piece, position, pieceHeight, pieceWidth, true, slabIndex, placements);
-          placed = true;
-          continue;
+    // Try to place in existing slabs (normal FFD — also handles first rect of a group)
+    if (!placed) {
+      for (let slabIndex = 0; slabIndex < slabs.length && !placed; slabIndex++) {
+        const slab = slabs[slabIndex];
+
+        // Try normal orientation
+        if (fitsNormal) {
+          const position = findPosition(slab, pieceWidth, pieceHeight);
+          if (position) {
+            placePiece(slab, piece, position, pieceWidth, pieceHeight, false, slabIndex, placements);
+            if (piece.groupId && !groupSlabMap.has(piece.groupId)) {
+              groupSlabMap.set(piece.groupId, slabIndex);
+            }
+            placed = true;
+            continue;
+          }
+        }
+
+        // Try rotated orientation
+        if (!placed && fitsRotated) {
+          const position = findPosition(slab, pieceHeight, pieceWidth);
+          if (position) {
+            placePiece(slab, piece, position, pieceHeight, pieceWidth, true, slabIndex, placements);
+            if (piece.groupId && !groupSlabMap.has(piece.groupId)) {
+              groupSlabMap.set(piece.groupId, slabIndex);
+            }
+            placed = true;
+            continue;
+          }
         }
       }
     }
@@ -456,6 +593,9 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
         if (position) {
           placePiece(newSlab, piece, position, pieceWidth, pieceHeight, false, slabIndex, placements);
           slabs.push(newSlab);
+          if (piece.groupId && !groupSlabMap.has(piece.groupId)) {
+            groupSlabMap.set(piece.groupId, slabIndex);
+          }
           placed = true;
         }
       }
@@ -466,6 +606,9 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
         if (position) {
           placePiece(newSlab, piece, position, pieceHeight, pieceWidth, true, slabIndex, placements);
           slabs.push(newSlab);
+          if (piece.groupId && !groupSlabMap.has(piece.groupId)) {
+            groupSlabMap.set(piece.groupId, slabIndex);
+          }
           placed = true;
         }
       }
@@ -509,15 +652,16 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   }
 
   // Count non-strip, non-segment placed pieces to verify against input
+  // decomposedPieces may have more entries than originalPieces due to L/U decomposition
   const placedMainPieces = placements.filter(
     (p) => !p.isLaminationStrip
   ).length;
   const totalAccountedFor = placedMainPieces + unplacedPieces.length;
-  // normalizedPieces includes segments, so total should match
-  const expectedCount = originalPieces.filter((p) => !p.isLaminationStrip).length;
+  // After decomposition, expectedCount = decomposedPieces minus strips (includes component rects + segments)
+  const expectedCount = decomposedPieces.filter((p) => !p.isLaminationStrip).length;
   if (totalAccountedFor !== expectedCount) {
     logger.error(
-      `[Optimizer] PIECE COUNT MISMATCH: ${inputPieceCount} input → ${expectedCount} after preprocessing → ${totalAccountedFor} accounted for (placed: ${placedMainPieces}, unplaced: ${unplacedPieces.length}). ${expectedCount - totalAccountedFor} piece(s) lost!`
+      `[Optimizer] PIECE COUNT MISMATCH: ${inputPieceCount} input → ${expectedCount} after preprocessing/decomposition → ${totalAccountedFor} accounted for (placed: ${placedMainPieces}, unplaced: ${unplacedPieces.length}). ${expectedCount - totalAccountedFor} piece(s) lost!`
     );
     warnings.push(
       `Piece count mismatch: ${expectedCount - totalAccountedFor} piece(s) unaccounted for`
@@ -602,6 +746,11 @@ function placePiece(
     isSegment: piece.isSegment,
     segmentIndex: piece.segmentIndex,
     totalSegments: piece.totalSegments,
+    // Include shape decomposition group data
+    groupId: piece.groupId,
+    partIndex: piece.partIndex,
+    partLabel: piece.partLabel,
+    totalParts: piece.totalParts,
   };
 
   slab.placements.push(placement);

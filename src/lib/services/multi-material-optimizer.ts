@@ -31,6 +31,10 @@ export interface MultiMaterialPiece {
   };
   /** Material ID for grouping — null/undefined means unassigned */
   materialId?: string | null;
+  /** Shape data for L/U decomposition in the optimizer */
+  shapeType?: string;
+  shapeConfig?: unknown;
+  grainMatched?: boolean;
 }
 
 export interface MaterialInfo {
@@ -135,6 +139,9 @@ export function optimizeMultiMaterial(
         thickness: p.thickness,
         finishedEdges: p.finishedEdges,
         edgeTypeNames: p.edgeTypeNames,
+        shapeType: p.shapeType,
+        shapeConfig: p.shapeConfig,
+        grainMatched: p.grainMatched,
       })),
       slabWidth: slabLength,   // optimizer "width" = slab length (longer dimension)
       slabHeight: slabWidth,   // optimizer "height" = slab width (shorter dimension)

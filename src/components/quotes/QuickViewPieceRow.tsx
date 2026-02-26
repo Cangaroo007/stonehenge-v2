@@ -264,6 +264,7 @@ export default function QuickViewPieceRow({
   const [showCutoutPopover, setShowCutoutPopover] = useState(false);
   const [materialSearch, setMaterialSearch] = useState('');
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
+  const [showGrainWarning, setShowGrainWarning] = useState(false);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialRef = useRef<HTMLDivElement>(null);
   const cutoutRef = useRef<HTMLDivElement>(null);
@@ -692,9 +693,19 @@ export default function QuickViewPieceRow({
               </span>
             )}
             {piece.requiresGrainMatch && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
-              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
-                GRAIN MATCH
-              </span>
+              breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible ? (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowGrainWarning(prev => !prev); }}
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                  title={breakdown.grainMatchWarning.message}
+                >
+                  GRAIN MATCH ⚠️
+                </button>
+              ) : (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                  GRAIN MATCH
+                </span>
+              )
             )}
             {savingPiece && (
               <span className="text-[10px] text-blue-500 animate-pulse">Saving...</span>
@@ -910,6 +921,40 @@ export default function QuickViewPieceRow({
             </div>
           </div>
         </div>
+
+        {/* ── Grain match warning (inline alert — Rule 37: contextual, not modal) ── */}
+        {showGrainWarning && breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible && (
+          <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+            <p className="font-medium mb-1">Grain match may not be achievable</p>
+            <p className="mb-3">{breakdown.grainMatchWarning.message}</p>
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
+                className="px-2 py-1 text-xs rounded border border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
+              >
+                Keep grain match (add join cost)
+              </button>
+              {onSavePiece && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePiece(piece.id, { requiresGrainMatch: false }, '');
+                    setShowGrainWarning(false);
+                  }}
+                  className="px-2 py-1 text-xs rounded border border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
+                >
+                  Remove grain match
+                </button>
+              )}
+              <button
+                onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
+                className="text-xs text-amber-700 underline"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* ── Line 3: Expand trigger ── */}
         <button
