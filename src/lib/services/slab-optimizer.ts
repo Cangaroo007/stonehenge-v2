@@ -447,35 +447,17 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
 
   const inputPieceCount = pieces.length;
 
-  // ── Step 1: Pre-process oversize pieces ───────────────────────────────────
-  // Split any piece that exceeds slab dimensions into segments that fit.
-  // This MUST happen before FFD to prevent pieces being silently dropped.
-  // Use usable dimensions (after edge allowance) for fitting checks.
-  const { processed: normalizedPieces, warnings } = preprocessOversizePieces(
-    pieces as OptimizationPiece[],
-    usableWidth,
-    usableHeight,
-    kerfWidth,
-    allowRotation,
-  );
-
-  if (warnings.length > 0) {
-    logger.info(`[Optimizer] Oversize preprocessing: ${warnings.join('; ')}`);
-  }
-
-  // Store original pieces for reference (before adding strips)
-  const originalPieces: OptimizationPiece[] = Array.from(normalizedPieces);
-
-  // ── Step 1.5: Decompose L/U shapes into component rects ─────────────────
-  // L/U shapes are replaced by their component rectangles (legs/back).
-  // All rects from the same shape share a groupId so they land on the same slab.
-  // Lamination strips for L/U shapes are generated BEFORE decomposition using
-  // actual edge lengths from getShapeEdgeLengths() (not bounding box dimensions).
+  // ── Step 1: Decompose L/U shapes into component rects ───────────────────
+  // L/U shapes are decomposed FIRST, BEFORE oversize detection.
+  // Each leg is a valid rectangle that goes through the oversize check independently.
+  // Lamination strips for L/U shapes are generated here using actual outer edge lengths
+  // (not bounding box dimensions) via getShapeEdgeLengths().
+  // Rectangle pieces pass through unchanged.
   const decomposedPieces: OptimizationPiece[] = [];
   const shapeStrips: OptimizationPiece[] = []; // strips generated for L/U shapes pre-decomposition
-  for (const piece of normalizedPieces) {
-    // Only decompose non-strip, non-segment pieces that have shape data
-    if (piece.isLaminationStrip || piece.isSegment || !piece.shapeType ||
+  for (const piece of (pieces as OptimizationPiece[])) {
+    // Only decompose non-strip pieces that have shape data
+    if (piece.isLaminationStrip || !piece.shapeType ||
         piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
       decomposedPieces.push(piece);
       continue;
@@ -538,18 +520,38 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     );
   }
 
+  // ── Step 1.5: Pre-process oversize pieces ─────────────────────────────────
+  // Now runs on decomposed legs (not bounding boxes). Each leg is checked
+  // individually against slab dimensions. Split into segments only if needed.
+  // Use usable dimensions (after edge allowance) for fitting checks.
+  const { processed: normalizedPieces, warnings } = preprocessOversizePieces(
+    decomposedPieces,
+    usableWidth,
+    usableHeight,
+    kerfWidth,
+    allowRotation,
+  );
+
+  if (warnings.length > 0) {
+    logger.info(`[Optimizer] Oversize preprocessing: ${warnings.join('; ')}`);
+  }
+
+  // Store original pieces for reference (before adding strips).
+  // Uses raw input pieces so shape strip parents (L/U pieces) can be found by ID.
+  const originalPieces: OptimizationPiece[] = Array.from(pieces as OptimizationPiece[]);
+
   // Group slab assignment map: groupId → slabIndex
   const groupSlabMap = new Map<string, number>();
 
   // ── Step 2: Generate lamination strips for all 40mm+ pieces ───────────────
   const allPieces: OptimizationPiece[] = [];
 
-  for (const piece of decomposedPieces) {
+  for (const piece of normalizedPieces) {
     // Add the main piece
     allPieces.push(piece);
 
     // Generate and add lamination strips for rectangle pieces.
-    // L/U shape strips were already generated in Step 1.5 (before decomposition)
+    // L/U shape strips were already generated in Step 1 (before decomposition)
     // using actual edge lengths from getShapeEdgeLengths().
     // Decomposed parts have finishedEdges cleared, so generateLaminationStrips returns [].
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
@@ -560,8 +562,8 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   allPieces.push(...shapeStrips);
 
   // Log for debugging (visible in server logs)
-  if (allPieces.length > decomposedPieces.length) {
-    logger.info(`[Optimizer] Input: ${decomposedPieces.length} pieces + ${allPieces.length - decomposedPieces.length} lamination strips = ${allPieces.length} total`);
+  if (allPieces.length > normalizedPieces.length) {
+    logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} lamination strips = ${allPieces.length} total`);
   }
 
   // Sort pieces by area (largest first) for better packing
@@ -775,13 +777,13 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   }
 
   // Count non-strip, non-segment placed pieces to verify against input
-  // decomposedPieces may have more entries than originalPieces due to L/U decomposition
+  // normalizedPieces may have more entries than originalPieces due to L/U decomposition + oversize splitting
   const placedMainPieces = placements.filter(
     (p) => !p.isLaminationStrip
   ).length;
   const totalAccountedFor = placedMainPieces + unplacedPieces.length;
-  // After decomposition, expectedCount = decomposedPieces minus strips (includes component rects + segments)
-  const expectedCount = decomposedPieces.filter((p) => !p.isLaminationStrip).length;
+  // After decomposition + oversize splitting, expectedCount = normalizedPieces minus strips
+  const expectedCount = normalizedPieces.filter((p) => !p.isLaminationStrip).length;
   if (totalAccountedFor !== expectedCount) {
     logger.error(
       `[Optimizer] PIECE COUNT MISMATCH: ${inputPieceCount} input → ${expectedCount} after preprocessing/decomposition → ${totalAccountedFor} accounted for (placed: ${placedMainPieces}, unplaced: ${unplacedPieces.length}). ${expectedCount - totalAccountedFor} piece(s) lost!`
