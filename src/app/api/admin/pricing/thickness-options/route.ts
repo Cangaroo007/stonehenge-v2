@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const thicknessOptions = await prisma.thickness_options.findMany({
       orderBy: [{ sortOrder: 'asc' }, { value: 'asc' }],
     });
@@ -15,6 +21,11 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const data = await request.json();
 
     const thicknessOption = await prisma.thickness_options.create({

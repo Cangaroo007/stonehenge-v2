@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 const VALID_OPERATION_TYPES = [
   'INITIAL_CUT',
@@ -17,6 +18,11 @@ type OperationTypeValue = (typeof VALID_OPERATION_TYPES)[number];
  */
 export async function GET() {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const defaults = await prisma.machine_operation_defaults.findMany({
       include: {
         machine: true,
@@ -60,6 +66,11 @@ export async function GET() {
  */
 export async function PUT(request: Request) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const data = await request.json();
 
     // Validate operationType

@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { interpretPriceList } from '@/lib/services/ai-price-interpreter';
+import { requireAuth } from '@/lib/auth';
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { fileContent, fileName } = await request.json();
 
     if (!fileContent) {

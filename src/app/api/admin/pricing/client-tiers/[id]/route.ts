@@ -2,12 +2,18 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import type { TierPriceMapping } from '@/lib/types/price-interpreter';
+import { requireAuth } from '@/lib/auth';
 
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const clientTier = await prisma.client_tiers.findUnique({
       where: { id },
@@ -37,6 +43,11 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
     const data = await request.json();
 
@@ -79,6 +90,11 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { id } = await params;
 
     // Soft delete by setting isActive to false

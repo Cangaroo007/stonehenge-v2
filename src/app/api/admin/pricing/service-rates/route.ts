@@ -1,10 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
+import { requireAuth } from '@/lib/auth';
 
 // GET /api/admin/pricing/service-rates - List all service rates
 // Optional query param: ?fabricationCategory=ENGINEERED (filter by category)
 export async function GET(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const { searchParams } = new URL(request.url);
     const fabricationCategory = searchParams.get('fabricationCategory');
 
@@ -33,6 +39,11 @@ export async function GET(request: NextRequest) {
 // POST /api/admin/pricing/service-rates - Create new service rate
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireAuth();
+    if ('error' in auth) {
+      return NextResponse.json({ error: auth.error }, { status: auth.status });
+    }
+
     const body = await request.json();
 
     // Validate required fields
