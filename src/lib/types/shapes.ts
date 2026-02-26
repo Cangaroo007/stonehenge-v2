@@ -85,6 +85,58 @@ export function calculateUShapeGeometry(config: UShapeConfig): ShapeGeometry {
   };
 }
 
+/**
+ * Returns the actual edge length (in mm) for each of the 4 DB edge positions
+ * mapped to the real shape segments. Inner step/concave edges are NOT mapped
+ * (they are always RAW — not polished or laminated).
+ *
+ * L-shape (leg1 horizontal, leg2 drops vertically from right end):
+ *   TOP    = leg1.length_mm                     (outer top)
+ *   RIGHT  = leg2.width_mm                      (right side of leg2)
+ *   BOTTOM = leg2.length_mm + (leg1.length_mm - leg2.width_mm)  (both bottom runs)
+ *   LEFT   = leg1.width_mm                      (left side)
+ *
+ * U-shape (back across top, two legs drop down):
+ *   TOP    = back.length_mm                     (back/top edge)
+ *   RIGHT  = rightLeg.width_mm                  (right outer side)
+ *   BOTTOM = leftLeg.length_mm + rightLeg.length_mm
+ *            + (back.length_mm - leftLeg.width_mm - rightLeg.width_mm)
+ *   LEFT   = leftLeg.width_mm                   (left outer side)
+ */
+export function getShapeEdgeLengths(
+  shapeType: ShapeType,
+  shapeConfig: ShapeConfig,
+  length_mm: number,
+  width_mm: number
+): { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number } {
+  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+    const { leg1, leg2 } = shapeConfig;
+    return {
+      top_mm: leg1.length_mm,
+      right_mm: leg2.width_mm,
+      bottom_mm: leg2.length_mm + (leg1.length_mm - leg2.width_mm),
+      left_mm: leg1.width_mm,
+    };
+  }
+  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+    const { leftLeg, back, rightLeg } = shapeConfig;
+    return {
+      top_mm: back.length_mm,
+      right_mm: rightLeg.width_mm,
+      bottom_mm: leftLeg.length_mm + rightLeg.length_mm +
+        (back.length_mm - leftLeg.width_mm - rightLeg.width_mm),
+      left_mm: leftLeg.width_mm,
+    };
+  }
+  // RECTANGLE — same as the default formula
+  return {
+    top_mm: length_mm,
+    bottom_mm: length_mm,
+    left_mm: width_mm,
+    right_mm: width_mm,
+  };
+}
+
 export function getShapeGeometry(
   shapeType: ShapeType,
   shapeConfig: ShapeConfig,
