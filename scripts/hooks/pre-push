@@ -1,52 +1,63 @@
 #!/bin/sh
 # Stone Henge — Pre-push hook
-# Enforces AUDIT_TRACKER.md is updated on fix/* and feat/* branches
+# Enforces docs/AUDIT_TRACKER.md AND docs/SYSTEM_STATE.md are updated
+# on fix/* and feat/* branches.
+# See Rules 51-52 in docs/stonehenge-dev-rulebook.md
+
+# Skip entirely in Railway CI (no .git directory in build container)
+if [ ! -d ".git" ]; then
+  exit 0
+fi
 
 BRANCH=$(git symbolic-ref HEAD 2>/dev/null | sed 's|refs/heads/||')
 
-# Only enforce on fix/ and feat/ branches
 if echo "$BRANCH" | grep -qE '^(fix|feat)/'; then
-  # Get commits being pushed (new commits not yet on remote)
-  REMOTE="origin"
+
   REMOTE_BRANCH=$(git rev-parse --abbrev-ref --symbolic-full-name @{u} 2>/dev/null)
 
   if [ -z "$REMOTE_BRANCH" ]; then
-    # No upstream set yet — check all commits on this branch vs main
-    COMMITS=$(git log main..HEAD --oneline 2>/dev/null)
-  else
-    COMMITS=$(git log "$REMOTE_BRANCH"..HEAD --oneline 2>/dev/null)
-  fi
-
-  if [ -z "$COMMITS" ]; then
-    # Nothing new to push
-    exit 0
-  fi
-
-  # Check if AUDIT_TRACKER.md was touched in the commits being pushed
-  if [ -z "$REMOTE_BRANCH" ]; then
     TRACKER_CHANGED=$(git diff main..HEAD --name-only 2>/dev/null | grep -c "AUDIT_TRACKER.md")
+    STATE_CHANGED=$(git diff main..HEAD --name-only 2>/dev/null | grep -c "SYSTEM_STATE.md")
   else
     TRACKER_CHANGED=$(git diff "$REMOTE_BRANCH"..HEAD --name-only 2>/dev/null | grep -c "AUDIT_TRACKER.md")
+    STATE_CHANGED=$(git diff "$REMOTE_BRANCH"..HEAD --name-only 2>/dev/null | grep -c "SYSTEM_STATE.md")
   fi
 
+  BLOCKED=0
+
   if [ "$TRACKER_CHANGED" -eq 0 ]; then
+    BLOCKED=1
     echo ""
     echo "╔══════════════════════════════════════════════════════════════╗"
     echo "║  PUSH BLOCKED — AUDIT_TRACKER.md not updated                ║"
-    echo "╠══════════════════════════════════════════════════════════════╣"
-    echo "║  Branch: $BRANCH"
-    echo "║                                                              ║"
-    echo "║  Every fix/* and feat/* branch MUST update                  ║"
-    echo "║  docs/AUDIT_TRACKER.md before pushing.                      ║"
-    echo "║                                                              ║"
-    echo "║  Add a resolved entry (✅) or new finding (🔴) then:        ║"
+    echo "║  Add resolved entry (✅) or new finding (🔴) then:          ║"
     echo "║    git add docs/AUDIT_TRACKER.md                            ║"
     echo "║    git commit --amend --no-edit                             ║"
-    echo "║    git push                                                  ║"
     echo "╚══════════════════════════════════════════════════════════════╝"
+  fi
+
+  if [ "$STATE_CHANGED" -eq 0 ]; then
+    BLOCKED=1
+    echo ""
+    echo "╔══════════════════════════════════════════════════════════════╗"
+    echo "║  PUSH BLOCKED — SYSTEM_STATE.md not updated                 ║"
+    echo "║  Update changed schema, routes, functions, or               ║"
+    echo "║  verified behaviour entries, then:                          ║"
+    echo "║    git add docs/SYSTEM_STATE.md                             ║"
+    echo "║    git commit --amend --no-edit                             ║"
+    echo "╚══════════════════════════════════════════════════════════════╝"
+  fi
+
+  if [ "$BLOCKED" -eq 1 ]; then
     echo ""
     exit 1
   fi
 fi
+
+# Print open audit items after every successful push
+echo ""
+echo "📋 AUDIT TRACKER — Open Issues:"
+grep "🔴" docs/AUDIT_TRACKER.md || echo "   ✅ None — all clear"
+echo ""
 
 exit 0
