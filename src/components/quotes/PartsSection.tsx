@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { Placement, LaminationSummary } from '@/types/slab-optimization';
 import { formatCurrency } from '@/lib/utils';
+import { decomposeShapeIntoRects } from '@/lib/types/shapes';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -19,6 +20,8 @@ interface QuotePiece {
   length_mm: number;
   width_mm: number;
   thickness_mm: number;
+  shape_type?: string | null;
+  shape_config?: unknown;
   edge_top: string | null;
   edge_bottom: string | null;
   edge_left: string | null;
@@ -150,9 +153,39 @@ function derivePartsForPiece(
     laminationCost = breakdown.fabrication.lamination.total ?? 0;
   }
 
+  // For L/U shapes, show decomposed legs instead of bounding-box oversize splits
+  const pieceShapeType = piece.shape_type ?? 'RECTANGLE';
+  const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
+  if (isLOrUShape) {
+    const rects = decomposeShapeIntoRects({
+      id: String(piece.id),
+      lengthMm: piece.length_mm,
+      widthMm: piece.width_mm,
+      shapeType: piece.shape_type,
+      shapeConfig: piece.shape_config,
+    });
+    const materialCost = breakdown?.materials?.total ?? 0;
+    const installationCost = breakdown?.fabrication?.installation?.total ?? 0;
+    const fabricationCost = (breakdown?.pieceTotal ?? 0) - materialCost - installationCost;
+    const legCost = rects.length > 0 ? fabricationCost / rects.length : 0;
+    for (let li = 0; li < rects.length; li++) {
+      const rect = rects[li];
+      parts.push({
+        type: 'MAIN',
+        name: rect.label ?? `Leg ${li + 1}`,
+        lengthMm: rect.width,
+        widthMm: rect.height,
+        thicknessMm,
+        slab: findSlabForSegment(piece.id, li, placements),
+        cost: legCost,
+      });
+    }
+    // Skip the normal oversize/main logic below for L/U shapes
+  }
+
   // 1. Oversize halves (if piece has a join in breakdown)
   const isOversize = breakdown?.oversize?.isOversize ?? false;
-  if (isOversize && breakdown?.oversize) {
+  if (!isLOrUShape && isOversize && breakdown?.oversize) {
     const strategy = breakdown.oversize.strategy || 'LENGTHWISE';
     const joinCount = breakdown.oversize.joinCount || 1;
     const numberOfSegments = joinCount + 1;
@@ -205,7 +238,7 @@ function derivePartsForPiece(
     if (parts.length > 0 && breakdown.oversize.joinCost > 0) {
       parts[0].note = `${parts[0].note} — join cost ${formatCurrency(breakdown.oversize.joinCost)}`;
     }
-  } else {
+  } else if (!isLOrUShape) {
     // Main piece (not oversize — shown as single piece)
     parts.push({
       type: 'MAIN',

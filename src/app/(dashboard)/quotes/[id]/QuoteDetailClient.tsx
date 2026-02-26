@@ -3744,6 +3744,8 @@ export default function QuoteDetailClient({
                 length_mm: p.lengthMm,
                 width_mm: p.widthMm,
                 thickness_mm: p.thicknessMm,
+                shape_type: p.shapeType,
+                shape_config: p.shapeConfig,
                 edge_top: p.edgeTop,
                 edge_bottom: p.edgeBottom,
                 edge_left: p.edgeLeft,

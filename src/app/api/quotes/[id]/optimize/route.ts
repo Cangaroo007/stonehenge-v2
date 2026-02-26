@@ -5,6 +5,7 @@ import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
 import type { MultiMaterialPiece, MaterialInfo } from '@/lib/services/multi-material-optimizer';
 import { calculateCutPlan } from '@/lib/services/multi-slab-calculator';
+import { decomposeShapeIntoRects } from '@/lib/types/shapes';
 import { logger } from '@/lib/logger';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 
@@ -42,6 +43,8 @@ async function persistOversizeToQuotePieces(
     id: number;
     length_mm: number;
     width_mm: number;
+    shape_type?: string | null;
+    shape_config?: unknown;
     materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null;
   }>,
   fallbackSlabLengthMm: number,
@@ -55,13 +58,47 @@ async function persistOversizeToQuotePieces(
     const slabWidthMm = piece.materials?.slab_width_mm ?? fallbackSlabWidthMm;
     const materialName = piece.materials?.name ?? 'caesarstone';
 
-    const cutPlan = calculateCutPlan(
-      { lengthMm: piece.length_mm, widthMm: piece.width_mm },
-      materialName,
-      20,
-      slabLengthMm,
-      slabWidthMm
-    );
+    // For L/U shapes, decompose into legs and calculate per-leg cut plans
+    const pieceShapeType = piece.shape_type ?? 'RECTANGLE';
+    const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
+
+    let cutPlan: ReturnType<typeof calculateCutPlan>;
+    if (isLOrUShape) {
+      const rects = decomposeShapeIntoRects({
+        id: String(piece.id),
+        lengthMm: piece.length_mm,
+        widthMm: piece.width_mm,
+        shapeType: piece.shape_type,
+        shapeConfig: piece.shape_config,
+      });
+      const legPlans = rects.map(rect =>
+        calculateCutPlan(
+          { lengthMm: rect.width, widthMm: rect.height },
+          materialName,
+          20,
+          slabLengthMm,
+          slabWidthMm
+        )
+      );
+      const worstLeg = legPlans.reduce((worst, plan) =>
+        plan.joins.length > worst.joins.length ? plan : worst
+      , legPlans[0]);
+      cutPlan = {
+        ...worstLeg,
+        fitsOnSingleSlab: legPlans.every(p => p.fitsOnSingleSlab),
+        totalSlabsRequired: legPlans.reduce((sum, p) => sum + p.totalSlabsRequired, 0),
+        joinLengthMm: legPlans.reduce((sum, p) => sum + p.joinLengthMm, 0),
+        joinCost: legPlans.reduce((sum, p) => sum + p.joinCost, 0),
+      };
+    } else {
+      cutPlan = calculateCutPlan(
+        { lengthMm: piece.length_mm, widthMm: piece.width_mm },
+        materialName,
+        20,
+        slabLengthMm,
+        slabWidthMm
+      );
+    }
 
     if (!cutPlan.fitsOnSingleSlab) {
       oversizePieceIds.push(piece.id);
@@ -449,11 +486,13 @@ export async function POST(
 
       // OVERSIZE PERSISTENCE — Phase 2.5 (multi-material path)
       const allPieceRowsMulti = quote.quote_rooms.flatMap(
-        (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+        (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
           room.quote_pieces.map(p => ({
             id: p.id,
             length_mm: p.length_mm,
             width_mm: p.width_mm,
+            shape_type: p.shape_type,
+            shape_config: p.shape_config,
             materials: p.materials,
           }))
       );
@@ -564,11 +603,13 @@ export async function POST(
     // Write optimizer oversize detection back to quote_pieces.
     // slabWidth in the optimizer = slab length (longer dimension), slabHeight = slab width (shorter).
     const allPieceRows = quote.quote_rooms.flatMap(
-      (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+      (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
         room.quote_pieces.map(p => ({
           id: p.id,
           length_mm: p.length_mm,
           width_mm: p.width_mm,
+          shape_type: p.shape_type,
+          shape_config: p.shape_config,
           materials: p.materials,
         }))
     );

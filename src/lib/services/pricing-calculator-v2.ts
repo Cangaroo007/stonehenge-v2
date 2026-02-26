@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -670,14 +670,53 @@ export async function calculateQuotePrice(
       joinRateForCutPlan = jr;
     } catch { /* JOIN rate not configured — use 0 for estimation */ }
 
-    const cutPlan = calculateCutPlan(
-      { lengthMm: piece.length_mm, widthMm: piece.width_mm },
-      materialName,
-      20,
-      pieceSlabLengthMm,
-      pieceSlabWidthMm,
-      joinRateForCutPlan
-    );
+    // For L/U shapes, decompose into individual legs and calculate cut plan per leg.
+    // This prevents the bounding box from triggering false oversize splits.
+    const pieceShapeType = (piece.shape_type ?? 'RECTANGLE') as string;
+    const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
+
+    let cutPlan: ReturnType<typeof calculateCutPlan>;
+    if (isLOrUShape) {
+      const rects = decomposeShapeIntoRects({
+        id: String(piece.id),
+        lengthMm: piece.length_mm,
+        widthMm: piece.width_mm,
+        shapeType: piece.shape_type,
+        shapeConfig: piece.shape_config as unknown,
+      });
+      // Calculate cut plan per leg and pick the worst case for oversize detection
+      const legPlans = rects.map(rect =>
+        calculateCutPlan(
+          { lengthMm: rect.width, widthMm: rect.height },
+          materialName,
+          20,
+          pieceSlabLengthMm,
+          pieceSlabWidthMm,
+          joinRateForCutPlan
+        )
+      );
+      // Aggregate: if any leg is oversize, the piece is oversize.
+      // Use the leg with the most joins as the representative plan.
+      const worstLeg = legPlans.reduce((worst, plan) =>
+        plan.joins.length > worst.joins.length ? plan : worst
+      , legPlans[0]);
+      cutPlan = {
+        ...worstLeg,
+        fitsOnSingleSlab: legPlans.every(p => p.fitsOnSingleSlab),
+        totalSlabsRequired: legPlans.reduce((sum, p) => sum + p.totalSlabsRequired, 0),
+        joinLengthMm: legPlans.reduce((sum, p) => sum + p.joinLengthMm, 0),
+        joinCost: legPlans.reduce((sum, p) => sum + p.joinCost, 0),
+      };
+    } else {
+      cutPlan = calculateCutPlan(
+        { lengthMm: piece.length_mm, widthMm: piece.width_mm },
+        materialName,
+        20,
+        pieceSlabLengthMm,
+        pieceSlabWidthMm,
+        joinRateForCutPlan
+      );
+    }
     cutPlans.push(cutPlan);
 
     const isOversize = !cutPlan.fitsOnSingleSlab;
