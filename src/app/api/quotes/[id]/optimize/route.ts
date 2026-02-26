@@ -279,6 +279,9 @@ export async function POST(
       edge_bottom: string | null;
       edge_left: string | null;
       edge_right: string | null;
+      shape_type: string | null;
+      shape_config: unknown;
+      requiresGrainMatch: boolean | null;
       materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
     };
 
@@ -305,6 +308,10 @@ export async function POST(
           right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
         },
         materialId: piece.material_id?.toString() ?? null,
+        // Shape data for L/U decomposition in the optimizer
+        shapeType: piece.shape_type ?? undefined,
+        shapeConfig: piece.shape_config ?? undefined,
+        grainMatched: piece.requiresGrainMatch === true,
       }))
     );
 
@@ -348,7 +355,7 @@ export async function POST(
       );
 
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; materialId: string | null }) => ({
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
           height: p.height,
@@ -357,6 +364,9 @@ export async function POST(
           finishedEdges: p.finishedEdges,
           edgeTypeNames: p.edgeTypeNames,
           materialId: p.materialId,
+          shapeType: p.shapeType,
+          shapeConfig: p.shapeConfig,
+          grainMatched: p.grainMatched,
         })
       );
 

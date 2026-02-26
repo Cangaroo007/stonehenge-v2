@@ -772,6 +772,7 @@ export default function PieceRow({
   onRelationshipChange,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
+  const [showGrainWarning, setShowGrainWarning] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
@@ -833,9 +834,19 @@ export default function PieceRow({
                   </span>
                 )}
                 {piece.requiresGrainMatch && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
-                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
-                    GRAIN MATCH
-                  </span>
+                  breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible ? (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setShowGrainWarning(prev => !prev); }}
+                      className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold bg-amber-100 text-amber-800 border border-amber-300 hover:bg-amber-200"
+                      title={breakdown.grainMatchWarning.message}
+                    >
+                      GRAIN MATCH ⚠️
+                    </button>
+                  ) : (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+                      GRAIN MATCH
+                    </span>
+                  )
                 )}
                 <span className="font-semibold text-gray-900 tabular-nums">
                   {formatCurrency(pieceTotal)}
@@ -879,6 +890,39 @@ export default function PieceRow({
             {autoDescription && autoDescription.length > 5 && (
               <div className="text-xs text-gray-400 mt-0.5 truncate italic">
                 {autoDescription}
+              </div>
+            )}
+            {/* Grain match warning (inline alert — Rule 37: contextual, not modal) */}
+            {showGrainWarning && breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible && (
+              <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
+                <p className="font-medium mb-1">Grain match may not be achievable</p>
+                <p className="mb-3">{breakdown.grainMatchWarning.message}</p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
+                    className="px-2 py-1 text-xs rounded border border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
+                  >
+                    Keep grain match (add join cost)
+                  </button>
+                  {onSavePiece && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onSavePiece(piece.id, { requiresGrainMatch: false }, '');
+                        setShowGrainWarning(false);
+                      }}
+                      className="px-2 py-1 text-xs rounded border border-amber-300 bg-white text-amber-800 hover:bg-amber-50"
+                    >
+                      Remove grain match
+                    </button>
+                  )}
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
+                    className="text-xs text-amber-700 underline"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
           </div>

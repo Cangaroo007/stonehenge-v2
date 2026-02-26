@@ -85,6 +85,142 @@ export function calculateUShapeGeometry(config: UShapeConfig): ShapeGeometry {
   };
 }
 
+// ── Optimizer decomposition ─────────────────────────────────────────────────
+
+/** Optimizer-ready rectangle produced by decomposing L/U shapes into component rects */
+export interface OptimizerRect {
+  width: number;      // mm
+  height: number;     // mm
+  pieceId: string;    // parent piece ID
+  partIndex: number;  // 0 = first rect, 1 = second, etc.
+  groupId?: string;   // same as pieceId for L/U shapes; undefined for rectangles
+  mustBeAdjacent?: boolean; // true when grain_matched = true on parent piece
+  label?: string;     // e.g. "Leg A", "Leg B"
+}
+
+/**
+ * Decompose a piece into optimizer-ready rectangles.
+ * Rectangle pieces return a single rect (bounding box unchanged).
+ * L/U shapes return component rects that must share a slab (groupId set).
+ */
+export function decomposeShapeIntoRects(piece: {
+  id: string;
+  lengthMm: number;
+  widthMm: number;
+  shapeType?: string | null;
+  shapeConfig?: unknown;
+  grainMatched?: boolean | null;
+}): OptimizerRect[] {
+  const mustBeAdjacent = piece.grainMatched === true;
+
+  if (!piece.shapeType || piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
+    return [{
+      width: piece.lengthMm,
+      height: piece.widthMm,
+      pieceId: piece.id,
+      partIndex: 0,
+    }];
+  }
+
+  if (piece.shapeType === 'L_SHAPE') {
+    const cfg = piece.shapeConfig as LShapeConfig;
+    return [
+      {
+        width: cfg.leg1.length_mm,
+        height: cfg.leg1.width_mm,
+        pieceId: piece.id,
+        partIndex: 0,
+        groupId: piece.id,
+        mustBeAdjacent,
+        label: 'Leg A',
+      },
+      {
+        width: cfg.leg2.length_mm,
+        height: cfg.leg2.width_mm,
+        pieceId: piece.id,
+        partIndex: 1,
+        groupId: piece.id,
+        mustBeAdjacent,
+        label: 'Leg B',
+      },
+    ];
+  }
+
+  if (piece.shapeType === 'U_SHAPE') {
+    const cfg = piece.shapeConfig as UShapeConfig;
+    return [
+      {
+        width: cfg.back.length_mm,
+        height: cfg.back.width_mm,
+        pieceId: piece.id,
+        partIndex: 0,
+        groupId: piece.id,
+        mustBeAdjacent,
+        label: 'Back',
+      },
+      {
+        width: cfg.leftLeg.length_mm,
+        height: cfg.leftLeg.width_mm,
+        pieceId: piece.id,
+        partIndex: 1,
+        groupId: piece.id,
+        mustBeAdjacent,
+        label: 'Left Leg',
+      },
+      {
+        width: cfg.rightLeg.length_mm,
+        height: cfg.rightLeg.width_mm,
+        pieceId: piece.id,
+        partIndex: 2,
+        groupId: piece.id,
+        mustBeAdjacent,
+        label: 'Right Leg',
+      },
+    ];
+  }
+
+  // Fallback — unknown shape type, treat as rectangle
+  return [{
+    width: piece.lengthMm,
+    height: piece.widthMm,
+    pieceId: piece.id,
+    partIndex: 0,
+  }];
+}
+
+/**
+ * Get bounding box dimensions without running full geometry.
+ * Used by grain match feasibility check.
+ */
+export function getBoundingBox(piece: {
+  lengthMm: number;
+  widthMm: number;
+  shapeType?: string | null;
+  shapeConfig?: unknown;
+}): { length: number; width: number } {
+  if (!piece.shapeType || piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
+    return { length: piece.lengthMm, width: piece.widthMm };
+  }
+
+  if (piece.shapeType === 'L_SHAPE') {
+    const cfg = piece.shapeConfig as LShapeConfig;
+    return {
+      length: Math.max(cfg.leg1.length_mm, cfg.leg2.length_mm),
+      width: cfg.leg1.width_mm + cfg.leg2.width_mm,
+    };
+  }
+
+  if (piece.shapeType === 'U_SHAPE') {
+    const cfg = piece.shapeConfig as UShapeConfig;
+    return {
+      length: cfg.back.length_mm,
+      width: cfg.leftLeg.width_mm + cfg.back.width_mm + cfg.rightLeg.width_mm,
+    };
+  }
+
+  return { length: piece.lengthMm, width: piece.widthMm };
+}
+
 /**
  * Returns the actual edge length (in mm) for each of the 4 DB edge positions
  * mapped to the real shape segments. Inner step/concave edges are NOT mapped

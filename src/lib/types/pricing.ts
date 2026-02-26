@@ -301,7 +301,17 @@ export interface PiecePricingBreakdown {
     adjustedAreaM2?: number;
   };
 
+  /** Grain match feasibility warning — set when grain_matched piece may not fit on a single slab */
+  grainMatchWarning?: GrainMatchResult;
+
   pieceTotal: number;
+}
+
+/** Result of grain match feasibility check */
+export interface GrainMatchResult {
+  feasible: boolean;
+  reason?: 'BOUNDING_BOX_EXCEEDS_SLAB' | 'AREA_NEAR_LIMIT';
+  message?: string;
 }
 
 // Internal types used by the calculation service

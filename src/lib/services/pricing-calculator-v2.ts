@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getShapeEdgeLengths, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -45,6 +45,7 @@ import type {
   MaterialGroupBreakdown,
   PricingRuleWithOverrides,
   PiecePricingBreakdown,
+  GrainMatchResult,
 } from '@/lib/types/pricing';
 
 // Hardcoded delivery zones matching seed data (shared with /api/distance/calculate)
@@ -1125,6 +1126,32 @@ export async function calculateQuotePrice(
       }
     }
 
+    // Grain match feasibility check — warn if grain-matched piece may not fit on a single slab
+    if (piece.requiresGrainMatch === true && piece.materials) {
+      const matForCheck = piece.materials as unknown as {
+        slab_length_mm?: number | null;
+        slab_width_mm?: number | null;
+      };
+      const slabLenCheck = matForCheck.slab_length_mm ?? 3000;
+      const slabWdCheck = matForCheck.slab_width_mm ?? 1400;
+      const shapeTypeCheck = ((piece as any).shape_type ?? 'RECTANGLE') as string;
+      const shapeConfigCheck = (piece as any).shape_config as unknown;
+
+      const grainCheck = checkGrainMatchFeasibility(
+        {
+          shapeType: shapeTypeCheck,
+          shapeConfig: shapeConfigCheck,
+          lengthMm: piece.length_mm,
+          widthMm: piece.width_mm,
+        },
+        { slabLength_mm: slabLenCheck, slabWidth_mm: slabWdCheck },
+        pieceGeometries[i].totalAreaSqm
+      );
+      if (!grainCheck.feasible) {
+        pbd.grainMatchWarning = grainCheck;
+      }
+    }
+
     // Add per-piece proportional material cost
     // Each piece gets its area share of the total material cost (from optimizer/aggregate)
     if (piece.materials) {
@@ -1595,6 +1622,49 @@ function extractFabricationDiscount(client_tiers: { discount_matrix: unknown } |
   const matrix = client_tiers.discount_matrix as unknown as Record<string, unknown>;
   const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? matrix.discount ?? 0;
   return typeof discount === 'number' ? discount : 0;
+}
+
+/**
+ * Check whether a grain-matched piece can feasibly fit on a single slab.
+ * Returns a warning if the bounding box exceeds slab dimensions or area is >90% of slab.
+ */
+function checkGrainMatchFeasibility(
+  piece: { shapeType?: string | null; shapeConfig?: unknown; lengthMm: number; widthMm: number },
+  material: { slabLength_mm: number; slabWidth_mm: number },
+  pieceAreaSqm: number
+): GrainMatchResult {
+  const boundingBox = getBoundingBox({
+    lengthMm: piece.lengthMm,
+    widthMm: piece.widthMm,
+    shapeType: piece.shapeType,
+    shapeConfig: piece.shapeConfig,
+  });
+  const slabL = material.slabLength_mm;
+  const slabW = material.slabWidth_mm;
+
+  // Check if bounding box fits in either orientation
+  const fitsPortrait = boundingBox.length <= slabL && boundingBox.width <= slabW;
+  const fitsLandscape = boundingBox.width <= slabL && boundingBox.length <= slabW;
+
+  if (!fitsPortrait && !fitsLandscape) {
+    return {
+      feasible: false,
+      reason: 'BOUNDING_BOX_EXCEEDS_SLAB',
+      message: `This piece (${boundingBox.length} × ${boundingBox.width}mm bounding box) is larger than a single slab (${slabL} × ${slabW}mm) in both orientations. Grain matching across a join cannot be guaranteed. Options: remove grain match, or order a matched slab pair from the supplier.`,
+    };
+  }
+
+  // Check if actual area uses >90% of slab (high risk of not fitting after kerf/edge waste)
+  const slabAreaSqm = (slabL / 1000) * (slabW / 1000);
+  if (pieceAreaSqm > slabAreaSqm * 0.90) {
+    return {
+      feasible: false,
+      reason: 'AREA_NEAR_LIMIT',
+      message: `This piece (${pieceAreaSqm.toFixed(2)} m\u00B2) uses over 90% of a single slab (${slabAreaSqm.toFixed(2)} m\u00B2). After kerf and edge allowances, it may not fit. Confirm with your cutter before proceeding.`,
+    };
+  }
+
+  return { feasible: true };
 }
 
 function roundToTwo(num: number): number {
