@@ -1,6 +1,7 @@
 import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
+import { decomposeShapeIntoRects } from '@/lib/types/shapes';
 import type {
   OptimizationInput,
   MultiMaterialOptimisationResult,
@@ -240,6 +241,9 @@ function resolveSlabWidth(material?: MaterialInfo | null): number {
 /**
  * Detect oversize pieces from the optimizer warnings and build OversizePieceInfo.
  * Uses slab dimensions to determine join strategy and suggested join position.
+ *
+ * For L/U shapes, uses decomposed leg dimensions (not bounding box) so the
+ * oversize notice displays accurate per-leg dimensions.
  */
 function detectOversizePieces(
   pieces: MultiMaterialPiece[],
@@ -250,64 +254,78 @@ function detectOversizePieces(
   const oversizePieces: OversizePieceInfo[] = [];
 
   for (const piece of pieces) {
-    const pw = piece.width;   // piece length_mm (optimizer width)
-    const ph = piece.height;  // piece width_mm (optimizer height)
+    // Decompose L/U shapes into actual leg rects; rectangles return a single rect
+    const rects = decomposeShapeIntoRects({
+      id: piece.id,
+      lengthMm: piece.width,   // piece.width = length_mm from DB
+      widthMm: piece.height,   // piece.height = width_mm from DB
+      shapeType: piece.shapeType ?? null,
+      shapeConfig: piece.shapeConfig ?? null,
+      grainMatched: piece.grainMatched ?? null,
+    });
 
-    const exceedsLength = pw > slabLength;
-    const exceedsWidth = ph > slabWidth;
+    // Check each decomposed rect independently against slab dimensions
+    for (const rect of rects) {
+      const pw = rect.width;   // leg length
+      const ph = rect.height;  // leg width
 
-    if (!exceedsLength && !exceedsWidth) continue;
+      const exceedsLength = pw > slabLength;
+      const exceedsWidth = ph > slabWidth;
 
-    let joinStrategy: OversizePieceInfo['joinStrategy'];
-    let suggestedJoinPosition_mm: number;
-    const segments: Array<{ length: number; width: number }> = [];
+      if (!exceedsLength && !exceedsWidth) continue;
 
-    if (exceedsLength && exceedsWidth) {
-      joinStrategy = 'MULTI_JOIN';
-      // Suggest first join at the slab boundary
-      suggestedJoinPosition_mm = slabLength;
+      let joinStrategy: OversizePieceInfo['joinStrategy'];
+      let suggestedJoinPosition_mm: number;
+      const segments: Array<{ length: number; width: number }> = [];
 
-      const lengthSegments = Math.ceil(pw / slabLength);
-      const widthSegments = Math.ceil(ph / slabWidth);
-      for (let r = 0; r < widthSegments; r++) {
+      const rectLabel = rect.label
+        ? `${piece.label} — ${rect.label}`
+        : piece.label;
+
+      if (exceedsLength && exceedsWidth) {
+        joinStrategy = 'MULTI_JOIN';
+        suggestedJoinPosition_mm = slabLength;
+
+        const lengthSegments = Math.ceil(pw / slabLength);
+        const widthSegments = Math.ceil(ph / slabWidth);
+        for (let r = 0; r < widthSegments; r++) {
+          for (let c = 0; c < lengthSegments; c++) {
+            segments.push({
+              length: c === lengthSegments - 1 ? pw - slabLength * (lengthSegments - 1) : slabLength,
+              width: r === widthSegments - 1 ? ph - slabWidth * (widthSegments - 1) : slabWidth,
+            });
+          }
+        }
+      } else if (exceedsLength) {
+        joinStrategy = 'LENGTHWISE';
+        suggestedJoinPosition_mm = slabLength;
+        const lengthSegments = Math.ceil(pw / slabLength);
         for (let c = 0; c < lengthSegments; c++) {
           segments.push({
             length: c === lengthSegments - 1 ? pw - slabLength * (lengthSegments - 1) : slabLength,
+            width: ph,
+          });
+        }
+      } else {
+        joinStrategy = 'WIDTHWISE';
+        suggestedJoinPosition_mm = slabWidth;
+        const widthSegments = Math.ceil(ph / slabWidth);
+        for (let r = 0; r < widthSegments; r++) {
+          segments.push({
+            length: pw,
             width: r === widthSegments - 1 ? ph - slabWidth * (widthSegments - 1) : slabWidth,
           });
         }
       }
-    } else if (exceedsLength) {
-      joinStrategy = 'LENGTHWISE';
-      // Place vertical join at the slab boundary
-      suggestedJoinPosition_mm = slabLength;
-      const lengthSegments = Math.ceil(pw / slabLength);
-      for (let c = 0; c < lengthSegments; c++) {
-        segments.push({
-          length: c === lengthSegments - 1 ? pw - slabLength * (lengthSegments - 1) : slabLength,
-          width: ph,
-        });
-      }
-    } else {
-      joinStrategy = 'WIDTHWISE';
-      // Place horizontal join at the slab boundary
-      suggestedJoinPosition_mm = slabWidth;
-      const widthSegments = Math.ceil(ph / slabWidth);
-      for (let r = 0; r < widthSegments; r++) {
-        segments.push({
-          length: pw,
-          width: r === widthSegments - 1 ? ph - slabWidth * (widthSegments - 1) : slabWidth,
-        });
-      }
-    }
 
-    oversizePieces.push({
-      pieceId: piece.id,
-      label: piece.label,
-      joinStrategy,
-      segments,
-      suggestedJoinPosition_mm,
-    });
+      oversizePieces.push({
+        pieceId: piece.id,
+        label: rectLabel,
+        joinStrategy,
+        segments,
+        suggestedJoinPosition_mm,
+      });
+    }
   }
 
   return oversizePieces;
