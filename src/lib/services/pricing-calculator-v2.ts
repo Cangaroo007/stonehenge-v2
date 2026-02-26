@@ -890,8 +890,6 @@ export async function calculateQuotePrice(
 
     if (totalJoinLengthLm > 0) {
       const joinCost = totalJoinLengthLm * joinRate;
-      const grainSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
-      const grainSurcharge = joinCost * grainSurchargeRate;
       const pieceName = piece.name || piece.description || `Piece ${piece.id}`;
 
       serviceData.items.push({
@@ -903,15 +901,20 @@ export async function calculateQuotePrice(
       });
       serviceData.subtotal += joinCost;
 
-      if (grainSurcharge > 0) {
-        serviceData.items.push({
-          serviceType: 'JOIN',
-          name: `Grain Matching Surcharge - Corner Join (${pieceName})`,
-          quantity: 1, unit: 'FIXED',
-          rate: roundToTwo(grainSurcharge), subtotal: roundToTwo(grainSurcharge),
-          fabricationCategory: pieceFabCategory,
-        });
-        serviceData.subtotal += grainSurcharge;
+      // Grain matching surcharge only applied when explicitly opted-in
+      if (piece.requiresGrainMatch === true) {
+        const grainSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+        const grainSurcharge = joinCost * grainSurchargeRate;
+        if (grainSurcharge > 0) {
+          serviceData.items.push({
+            serviceType: 'JOIN',
+            name: `Grain Matching Surcharge - Corner Join (${pieceName})`,
+            quantity: 1, unit: 'FIXED',
+            rate: roundToTwo(grainSurcharge), subtotal: roundToTwo(grainSurcharge),
+            fabricationCategory: pieceFabCategory,
+          });
+          serviceData.subtotal += grainSurcharge;
+        }
       }
     }
   }
@@ -1084,7 +1087,10 @@ export async function calculateQuotePrice(
           } catch { /* No JOIN rate — skip */ }
 
           const cornerJoinCost = cornerJoinLengthLm * cornerJoinRate;
-          const grainSurchargeRate = pricingContext.grainMatchingSurchargePercent / 100;
+          // Grain matching surcharge only applied when explicitly opted-in
+          const grainSurchargeRate = piece.requiresGrainMatch === true
+            ? pricingContext.grainMatchingSurchargePercent / 100
+            : 0;
           const cornerGrainSurcharge = cornerJoinCost * grainSurchargeRate;
 
           pbd.cornerJoin = {

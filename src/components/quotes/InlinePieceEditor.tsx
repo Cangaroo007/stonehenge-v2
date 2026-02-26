@@ -77,6 +77,8 @@ export interface InlinePieceEditorProps {
   pieceSuggestions?: string[];
   /** Autocomplete suggestions for room names */
   roomSuggestions?: string[];
+  /** Grain matching surcharge percentage from tenant config (e.g. 15 for 15%) */
+  grainMatchingSurchargePercent?: number;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -150,6 +152,7 @@ export default function InlinePieceEditor({
   onCancel,
   pieceSuggestions = [],
   roomSuggestions = [],
+  grainMatchingSurchargePercent = 15,
 }: InlinePieceEditorProps) {
   // ── Local form state ────────────────────────────────────────────────────
   const [pieceName, setPieceName] = useState(piece.name || '');
@@ -197,6 +200,8 @@ export default function InlinePieceEditor({
   const [sameWidth, setSameWidth] = useState(true);
   // Track whether user has manually edited the piece name
   const [nameManuallyEdited, setNameManuallyEdited] = useState(false);
+  // Grain matching opt-in for L/U shaped pieces
+  const [grainMatched, setGrainMatched] = useState(false);
 
   // ── Reset form when piece changes ───────────────────────────────────────
   useEffect(() => {
@@ -228,6 +233,7 @@ export default function InlinePieceEditor({
     setShapeType('RECTANGLE');
     setSameWidth(true);
     setNameManuallyEdited(false);
+    setGrainMatched(false);
   }, [piece]);
 
   // ── Same-width sync: when checked, copy lead width to other legs ───────
@@ -435,6 +441,9 @@ export default function InlinePieceEditor({
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
     }
+
+    // Grain matching: only relevant for L/U shapes, always false for rectangles
+    payload.requiresGrainMatch = shapeType !== 'RECTANGLE' ? grainMatched : false;
 
     // Include name for new pieces
     if (isNew) {
@@ -843,6 +852,44 @@ export default function InlinePieceEditor({
             cutoutTypes={cutoutTypes}
             onChange={setCutouts}
           />
+        </div>
+      )}
+
+      {/* Grain Matching prompt — only for L/U shaped pieces */}
+      {(shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') && (
+        <div className="rounded-lg border border-gray-200 bg-gray-50/50 p-3">
+          <p className="text-xs font-medium text-gray-700 mb-1.5">
+            Grain Matching Required?
+          </p>
+          <p className="text-[11px] text-gray-500 mb-2">
+            Matching the grain pattern across the corner joins requires additional labour and slab selection care.
+          </p>
+          <div className="flex gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="radio"
+                name="grainMatch"
+                checked={!grainMatched}
+                onChange={() => setGrainMatched(false)}
+                className="text-gray-600 focus:ring-gray-500"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-xs text-gray-700">No — optimise independently</span>
+            </label>
+            <label className="flex items-center gap-1.5 cursor-pointer" onClick={(e) => e.stopPropagation()}>
+              <input
+                type="radio"
+                name="grainMatch"
+                checked={grainMatched}
+                onChange={() => setGrainMatched(true)}
+                className="text-primary-600 focus:ring-primary-500"
+                onClick={(e) => e.stopPropagation()}
+              />
+              <span className="text-xs text-gray-700">
+                Yes — grain match corner joins (+{Math.round(grainMatchingSurchargePercent)}%)
+              </span>
+            </label>
+          </div>
         </div>
       )}
 

@@ -169,6 +169,7 @@ export async function GET(
       edgeRight: p.edge_right,
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
+      requiresGrainMatch: piece.requiresGrainMatch ?? false,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
@@ -242,6 +243,7 @@ export async function PATCH(
       edgeRight,
       cutouts,
       laminationMethod,
+      requiresGrainMatch,
     } = data;
 
     // Get the current piece
@@ -373,6 +375,7 @@ export async function PATCH(
         edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
+        requiresGrainMatch: requiresGrainMatch !== undefined ? requiresGrainMatch : currentPiece.requiresGrainMatch,
       },
       include: {
         materials: true,
@@ -433,6 +436,7 @@ export async function PATCH(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
@@ -487,6 +491,7 @@ export async function PUT(
       edgeRight,
       cutouts,
       laminationMethod,
+      requiresGrainMatch: reqGrainMatch,
     } = data;
 
     // Get the current piece
@@ -672,6 +677,7 @@ export async function PUT(
         edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
+        requiresGrainMatch: reqGrainMatch !== undefined ? reqGrainMatch : currentPiece.requiresGrainMatch,
       },
       include: {
         materials: true,
@@ -705,6 +711,7 @@ export async function PUT(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      requiresGrainMatch: piece.requiresGrainMatch ?? false,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),

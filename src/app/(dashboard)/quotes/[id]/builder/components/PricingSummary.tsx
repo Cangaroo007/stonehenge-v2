@@ -653,6 +653,11 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
               OVERSIZE
             </span>
           )}
+          {piece.cornerJoin && piece.cornerJoin.grainMatchingSurcharge > 0 && (
+            <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
+              GRAIN MATCH
+            </span>
+          )}
         </div>
         <span className="font-medium text-gray-900">{formatCurrency(piece.pieceTotal)}</span>
       </button>
