@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-02-26
-> **Last Updated By:** claude/generate-system-state-AlNii
+> **Last Updated:** 2026-02-27
+> **Last Updated By:** claude/enforce-system-state-eUNz2
 
 ---
 
@@ -841,4 +841,4 @@ export interface ShapeGeometry {
 | Slab optimizer — L/U shapes | Not verified | — | — |
 | Grain match surcharge | Not verified | — | — |
 | Corner join cost | Not verified | — | — |
-| Pre-push hook enforcement | Not verified | — | — |
+| Pre-push hook enforcement (AUDIT_TRACKER + SYSTEM_STATE) | ✅ | Feb 27 | — |
