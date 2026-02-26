@@ -827,6 +827,30 @@ export default function PieceVisualEditor({
     const { x, y, innerW, innerH } = layout;
     const pad = 8;
 
+    // For L/U shapes, constrain cutouts to the first leg's area (not the empty corner)
+    let cutoutAreaX = x;
+    let cutoutAreaY = y;
+    let cutoutAreaW = innerW;
+    let cutoutAreaH = innerH;
+
+    if (effectiveShapeType === 'L_SHAPE' && shapeConfig) {
+      const cfg = shapeConfig as unknown as LShapeConfig;
+      const boundW = cfg.leg1.length_mm;
+      const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
+      // Scale leg1 proportionally to the rendered size
+      cutoutAreaW = (cfg.leg1.length_mm / boundW) * innerW;
+      cutoutAreaH = (cfg.leg1.width_mm / boundH) * innerH;
+    } else if (effectiveShapeType === 'U_SHAPE' && shapeConfig) {
+      const cfg = shapeConfig as unknown as UShapeConfig;
+      const boundW = cfg.back.length_mm;
+      const boundH = cfg.leftLeg.length_mm;
+      // Constrain to back section (bottom horizontal bar)
+      const backH = (cfg.back.width_mm / boundH) * innerH;
+      cutoutAreaY = y + innerH - backH;
+      cutoutAreaW = (cfg.back.length_mm / boundW) * innerW;
+      cutoutAreaH = backH;
+    }
+
     // Filter out cutouts with missing/invalid data to prevent crashes
     const safeCutouts = cutouts.filter(c => c && typeof c === 'object' && c.typeName);
 
@@ -837,29 +861,29 @@ export default function PieceVisualEditor({
       let shape: 'rect' | 'circle' | 'oval' | 'lines';
 
       if (lower.includes('undermount') || lower.includes('sink')) {
-        cw = innerW * 0.35; ch = innerH * 0.45; shape = 'rect';
+        cw = cutoutAreaW * 0.35; ch = cutoutAreaH * 0.45; shape = 'rect';
       } else if (lower.includes('hotplate') || lower.includes('cooktop') || lower.includes('flush')) {
-        cw = innerW * 0.25; ch = innerH * 0.4; shape = 'rect';
+        cw = cutoutAreaW * 0.25; ch = cutoutAreaH * 0.4; shape = 'rect';
       } else if (lower.includes('tap')) {
         cw = 16; ch = 16; shape = 'circle';
       } else if (lower.includes('gpo')) {
         cw = 18; ch = 18; shape = 'rect';
       } else if (lower.includes('basin')) {
-        cw = innerW * 0.2; ch = innerH * 0.35; shape = 'oval';
+        cw = cutoutAreaW * 0.2; ch = cutoutAreaH * 0.35; shape = 'oval';
       } else if (lower.includes('drainer') || lower.includes('groove')) {
-        cw = innerW * 0.25; ch = innerH * 0.35; shape = 'lines';
+        cw = cutoutAreaW * 0.25; ch = cutoutAreaH * 0.35; shape = 'lines';
       } else {
-        cw = innerW * 0.15; ch = innerH * 0.3; shape = 'rect';
+        cw = cutoutAreaW * 0.15; ch = cutoutAreaH * 0.3; shape = 'rect';
       }
 
       const totalCutouts = safeCutouts.length;
-      const slotW = (innerW - pad * 2) / totalCutouts;
-      const cx = x + pad + slotW * idx + slotW / 2;
-      const cy = y + innerH / 2;
+      const slotW = (cutoutAreaW - pad * 2) / totalCutouts;
+      const cx = cutoutAreaX + pad + slotW * idx + slotW / 2;
+      const cy = cutoutAreaY + cutoutAreaH / 2;
 
       return { ...cutout, cx, cy, w: cw, h: ch, shape };
     });
-  }, [cutouts, layout]);
+  }, [cutouts, layout, effectiveShapeType, shapeConfig]);
 
   // ── Join line position ────────────────────────────────────────────────
 
