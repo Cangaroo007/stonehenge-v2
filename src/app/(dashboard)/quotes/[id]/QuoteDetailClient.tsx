@@ -375,7 +375,7 @@ export default function QuoteDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('rooms');
   const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
-  const [collapsedRooms, setCollapsedRooms] = useState<Set<number>>(new Set());
+  const [expandedRooms, setExpandedRooms] = useState<Set<number>>(new Set());
   const [customerSectionExpanded, setCustomerSectionExpanded] = useState(false);
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
@@ -2079,7 +2079,7 @@ export default function QuoteDetailClient({
   }, [rooms]);
 
   const toggleRoomCollapse = useCallback((roomId: number) => {
-    setCollapsedRooms(prev => {
+    setExpandedRooms(prev => {
       const next = new Set(prev);
       if (next.has(roomId)) {
         next.delete(roomId);
@@ -2882,7 +2882,7 @@ export default function QuoteDetailClient({
                   {viewRooms.map(room => {
                     const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
                     if (roomPieces.length === 0) return null;
-                    const isCollapsed = collapsedRooms.has(room.id);
+                    const isCollapsed = !expandedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
                     const roomPieceIds = new Set(room.quote_pieces.map(p => String(p.id)));
                     const viewRoomTotal = roomPieces.reduce((sum, p) => sum + (viewBreakdownMap.get(p.id)?.pieceTotal ?? 0), 0);
@@ -2982,7 +2982,7 @@ export default function QuoteDetailClient({
                       >
                         <div className="flex items-center gap-2">
                           <svg
-                            className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                            className={`h-4 w-4 text-amber-600 transition-transform ${expandedRooms.has(-1) ? 'rotate-90' : ''}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -2995,7 +2995,7 @@ export default function QuoteDetailClient({
                           </span>
                         </div>
                       </div>
-                      {!collapsedRooms.has(-1) && (
+                      {expandedRooms.has(-1) && (
                         <div className="space-y-2">
                           {unassignedViewPieces.map(p => {
                             viewGlobalIndex++;
@@ -3536,7 +3536,7 @@ export default function QuoteDetailClient({
                 <>
                   {rooms.map(room => {
                     const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
-                    const isCollapsed = collapsedRooms.has(room.id);
+                    const isCollapsed = !expandedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
                     const spatialRoomPieces = roomPieces.map(p => {
                       const pb = breakdownMap.get(p.id);
@@ -3678,7 +3678,7 @@ export default function QuoteDetailClient({
                       >
                         <div className="flex items-center gap-2">
                           <svg
-                            className={`h-4 w-4 text-amber-600 transition-transform ${collapsedRooms.has(-1) ? '' : 'rotate-90'}`}
+                            className={`h-4 w-4 text-amber-600 transition-transform ${expandedRooms.has(-1) ? 'rotate-90' : ''}`}
                             fill="none" viewBox="0 0 24 24" stroke="currentColor"
                           >
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -3697,7 +3697,7 @@ export default function QuoteDetailClient({
                           + Add Piece
                         </button>
                       </div>
-                      {!collapsedRooms.has(-1) && (
+                      {expandedRooms.has(-1) && (
                         <div className="space-y-2">
                           {unassignedPieces.map(p => {
                             globalIndex++;
