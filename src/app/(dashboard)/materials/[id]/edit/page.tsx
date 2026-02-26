@@ -24,6 +24,8 @@ export default function EditMaterialPage() {
     description: '',
     isActive: true,
     fabricationCategory: 'ENGINEERED',
+    slabLengthMm: '' as string,
+    slabWidthMm: '' as string,
   });
 
   useEffect(() => {
@@ -39,6 +41,8 @@ export default function EditMaterialPage() {
             description: data.description || '',
             isActive: data.isActive ?? true,
             fabricationCategory: data.fabricationCategory || 'ENGINEERED',
+            slabLengthMm: data.slabLengthMm?.toString() || '',
+            slabWidthMm: data.slabWidthMm?.toString() || '',
           });
         } else {
           toast.error('Material not found');
@@ -64,6 +68,8 @@ export default function EditMaterialPage() {
         body: JSON.stringify({
           ...form,
           pricePerSqm: parseFloat(form.pricePerSqm),
+          slabLengthMm: form.slabLengthMm ? parseInt(form.slabLengthMm) : null,
+          slabWidthMm: form.slabWidthMm ? parseInt(form.slabWidthMm) : null,
         }),
       });
 
@@ -142,6 +148,36 @@ export default function EditMaterialPage() {
             </select>
             <p className="mt-1 text-xs text-gray-500">
               Determines service rate tier for cutting, polishing, and other fabrication costs.
+            </p>
+          </div>
+          <div>
+            <label className="label">Slab Length (mm)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className="input"
+              value={form.slabLengthMm}
+              onChange={(e) => setForm({ ...form, slabLengthMm: e.target.value })}
+              placeholder="e.g., 3000"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Leave blank to use the default for this material type.
+            </p>
+          </div>
+          <div>
+            <label className="label">Slab Width (mm)</label>
+            <input
+              type="number"
+              min="0"
+              step="1"
+              className="input"
+              value={form.slabWidthMm}
+              onChange={(e) => setForm({ ...form, slabWidthMm: e.target.value })}
+              placeholder="e.g., 1400"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Leave blank to use the default for this material type.
             </p>
           </div>
           <div className="flex items-center pt-6">

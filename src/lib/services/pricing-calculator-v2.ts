@@ -240,7 +240,7 @@ export function calculateMaterialCost(
       // Only override if no piece-level overrides were applied
       const hasOverrides = pieces.some(p => p.overrideMaterialCost);
       if (!hasOverrides) {
-        calculatedCost = slabCount * slabPrice;
+        calculatedCost = Math.ceil(slabCount) * slabPrice;
       }
     }
   }
@@ -307,9 +307,9 @@ export function calculateMaterialCost(
     discount: 0,
     total: roundToTwo(finalSubtotalWithWaste),
     pricingBasis,
-    slabCount: pricingBasis === 'PER_SLAB' ? slabCount : undefined,
+    slabCount: pricingBasis === 'PER_SLAB' && slabCount !== undefined ? Math.ceil(slabCount) : undefined,
     slabRate: pricingBasis === 'PER_SLAB' && slabCount
-      ? roundToTwo(subtotal / slabCount)
+      ? roundToTwo(subtotal / Math.ceil(slabCount))
       : undefined,
     wasteFactorPercent: appliedWastePercent,
     adjustedAreaM2,
@@ -406,7 +406,7 @@ function buildMaterialGroupings(
         * (group.slabWidthMm ?? defaultSlabWidthMm ?? 1400) / 1_000_000;
       // If we only have one material group and optimiser gave us a count, use that
       if (groups.size === 1 && slabCount !== undefined) {
-        groupSlabCount = slabCount;
+        groupSlabCount = Math.ceil(slabCount);
       } else {
         groupSlabCount = Math.ceil(areaM2 / slabAreaM2);
       }
