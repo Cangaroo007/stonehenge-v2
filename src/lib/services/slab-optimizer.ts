@@ -7,7 +7,7 @@ import {
 } from '@/types/slab-optimization';
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
-import { decomposeShapeIntoRects, type OptimizerRect } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, getShapeEdgeLengths, type OptimizerRect, type ShapeType, type ShapeConfig } from '@/lib/types/shapes';
 
 interface Rect {
   x: number;
@@ -161,6 +161,104 @@ function generateLaminationStrips(
       id: `${piece.id}-lam-right`,
       width: stripW,
       height: piece.height,
+      thickness: 20,
+      label: `${piece.label} (Lam-Right${edgeNames?.right ? ` ${edgeNames.right}` : ''})`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: 'right',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+    });
+  }
+
+  return strips;
+}
+
+/**
+ * Generates lamination strips for an L/U shaped piece using actual outer edge lengths.
+ * Called BEFORE decomposition so the parent piece still has its finishedEdges and edgeTypeNames.
+ * Uses getShapeEdgeLengths() to get real edge dimensions (not bounding box).
+ *
+ * The 4 DB edge positions (top/bottom/left/right) map to the shape's outer edges:
+ * - L-shape: top=leg1 top, right=leg2 right, bottom=combined bottom runs, left=leg1 left
+ * - U-shape: top=back, right=rightLeg right, bottom=combined bottom runs, left=leftLeg left
+ * Inner step edges are NOT mapped — they are always RAW (joins, not finished edges).
+ */
+function generateShapeStrips(
+  piece: OptimizationPiece,
+  edgeLengths: { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number },
+  kerfWidth?: number,
+  mitreKerfWidth?: number
+): OptimizationPiece[] {
+  if (!piece.finishedEdges) return [];
+
+  const strips: OptimizationPiece[] = [];
+  const edges = piece.finishedEdges;
+  const edgeNames = piece.edgeTypeNames;
+
+  const isMitreEdge = (name?: string): boolean => {
+    if (!name) return false;
+    return name.toLowerCase().includes('mitre');
+  };
+
+  // Top edge strip — uses actual top edge length from shape geometry
+  if (edges.top) {
+    const isMitre = isMitreEdge(edgeNames?.top);
+    const stripW = getStripWidthForEdge(edgeNames?.top);
+    strips.push({
+      id: `${piece.id}-lam-top`,
+      width: edgeLengths.top_mm,
+      height: stripW,
+      thickness: 20,
+      label: `${piece.label} (Lam-Top${edgeNames?.top ? ` ${edgeNames.top}` : ''})`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: 'top',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+    });
+  }
+
+  // Bottom edge strip — uses actual bottom edge length (may span multiple legs)
+  if (edges.bottom) {
+    const isMitre = isMitreEdge(edgeNames?.bottom);
+    const stripW = getStripWidthForEdge(edgeNames?.bottom);
+    strips.push({
+      id: `${piece.id}-lam-bottom`,
+      width: edgeLengths.bottom_mm,
+      height: stripW,
+      thickness: 20,
+      label: `${piece.label} (Lam-Bottom${edgeNames?.bottom ? ` ${edgeNames.bottom}` : ''})`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: 'bottom',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+    });
+  }
+
+  // Left edge strip — uses actual left edge length
+  if (edges.left) {
+    const isMitre = isMitreEdge(edgeNames?.left);
+    const stripW = getStripWidthForEdge(edgeNames?.left);
+    strips.push({
+      id: `${piece.id}-lam-left`,
+      width: stripW,
+      height: edgeLengths.left_mm,
+      thickness: 20,
+      label: `${piece.label} (Lam-Left${edgeNames?.left ? ` ${edgeNames.left}` : ''})`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: 'left',
+      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+    });
+  }
+
+  // Right edge strip — uses actual right edge length
+  if (edges.right) {
+    const isMitre = isMitreEdge(edgeNames?.right);
+    const stripW = getStripWidthForEdge(edgeNames?.right);
+    strips.push({
+      id: `${piece.id}-lam-right`,
+      width: stripW,
+      height: edgeLengths.right_mm,
       thickness: 20,
       label: `${piece.label} (Lam-Right${edgeNames?.right ? ` ${edgeNames.right}` : ''})`,
       isLaminationStrip: true,
@@ -371,13 +469,34 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // ── Step 1.5: Decompose L/U shapes into component rects ─────────────────
   // L/U shapes are replaced by their component rectangles (legs/back).
   // All rects from the same shape share a groupId so they land on the same slab.
+  // Lamination strips for L/U shapes are generated BEFORE decomposition using
+  // actual edge lengths from getShapeEdgeLengths() (not bounding box dimensions).
   const decomposedPieces: OptimizationPiece[] = [];
+  const shapeStrips: OptimizationPiece[] = []; // strips generated for L/U shapes pre-decomposition
   for (const piece of normalizedPieces) {
     // Only decompose non-strip, non-segment pieces that have shape data
     if (piece.isLaminationStrip || piece.isSegment || !piece.shapeType ||
         piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
       decomposedPieces.push(piece);
       continue;
+    }
+
+    // Generate lamination strips for L/U shapes BEFORE decomposition.
+    // Uses actual outer edge lengths (not bounding box) so strip dimensions are correct.
+    if (piece.thickness && piece.thickness >= LAMINATION_THRESHOLD && piece.finishedEdges) {
+      const edgeLengths = getShapeEdgeLengths(
+        piece.shapeType as ShapeType,
+        piece.shapeConfig as ShapeConfig,
+        piece.width,   // optimizer width = piece length_mm
+        piece.height    // optimizer height = piece width_mm
+      );
+      const strips = generateShapeStrips(piece, edgeLengths, kerfWidth, mitreKerfWidth);
+      shapeStrips.push(...strips);
+      if (strips.length > 0) {
+        logger.info(
+          `[Optimizer] Generated ${strips.length} lamination strip(s) for L/U shape "${piece.label}"`
+        );
+      }
     }
 
     const rects = decomposeShapeIntoRects({
@@ -408,7 +527,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
         partLabel: rect.label,
         totalParts: rects.length,
         parentPieceId: piece.id,
-        // Clear finished edges — lamination for decomposed parts handled per-rect
+        // Clear finished edges — lamination strips already generated above for L/U shapes
         finishedEdges: undefined,
         edgeTypeNames: undefined,
       });
@@ -429,12 +548,16 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     // Add the main piece
     allPieces.push(piece);
 
-    // Generate and add lamination strips if needed
-    // (segments and decomposed parts have finishedEdges cleared, so no strips are generated)
-    // Pass mitreKerfWidth so mitre strips use the MITRING machine's kerf
+    // Generate and add lamination strips for rectangle pieces.
+    // L/U shape strips were already generated in Step 1.5 (before decomposition)
+    // using actual edge lengths from getShapeEdgeLengths().
+    // Decomposed parts have finishedEdges cleared, so generateLaminationStrips returns [].
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
     allPieces.push(...strips);
   }
+
+  // Add pre-generated L/U shape strips
+  allPieces.push(...shapeStrips);
 
   // Log for debugging (visible in server logs)
   if (allPieces.length > decomposedPieces.length) {
