@@ -922,7 +922,22 @@ export default function QuickViewPieceRow({
           </div>
         </div>
 
+        {/* ── Line 3: Expand trigger — always accessible regardless of warning state ── */}
+        <button
+          onClick={() => setAccordionOpen(!accordionOpen)}
+          className="mt-2 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colours"
+        >
+          <svg
+            className={`h-3 w-3 transform transition-transform ${accordionOpen ? 'rotate-90' : ''}`}
+            fill="none" viewBox="0 0 24 24" stroke="currentColor"
+          >
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+          </svg>
+          {accordionOpen ? 'Collapse full view' : 'Expand full view'}
+        </button>
+
         {/* ── Grain match warning (inline alert — Rule 37: contextual, not modal) ── */}
+        {/* Rendered BELOW expand trigger so it never blocks piece editing access */}
         {showGrainWarning && breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible && (
           <div className="mt-2 p-3 bg-amber-50 border border-amber-200 rounded text-sm text-amber-900">
             <p className="font-medium mb-1">Grain match may not be achievable</p>
@@ -946,29 +961,28 @@ export default function QuickViewPieceRow({
                   Remove grain match
                 </button>
               )}
-              <button
-                onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
-                className="text-xs text-amber-700 underline"
-              >
-                Dismiss
-              </button>
+              {onSavePiece ? (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onSavePiece(piece.id, { requiresGrainMatch: false }, '');
+                    setShowGrainWarning(false);
+                  }}
+                  className="text-xs text-amber-700 underline"
+                >
+                  Dismiss
+                </button>
+              ) : (
+                <button
+                  onClick={(e) => { e.stopPropagation(); setShowGrainWarning(false); }}
+                  className="text-xs text-amber-700 underline"
+                >
+                  Dismiss
+                </button>
+              )}
             </div>
           </div>
         )}
-
-        {/* ── Line 3: Expand trigger ── */}
-        <button
-          onClick={() => setAccordionOpen(!accordionOpen)}
-          className="mt-2 flex items-center gap-1 text-xs text-gray-400 hover:text-gray-600 transition-colours"
-        >
-          <svg
-            className={`h-3 w-3 transform transition-transform ${accordionOpen ? 'rotate-90' : ''}`}
-            fill="none" viewBox="0 0 24 24" stroke="currentColor"
-          >
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-          </svg>
-          {accordionOpen ? 'Collapse full view' : 'Expand full view'}
-        </button>
       </div>
 
       {/* ══════════════ ACCORDION (Full View) ══════════════ */}
