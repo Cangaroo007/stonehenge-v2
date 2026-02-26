@@ -299,18 +299,32 @@ export function calculateMaterialCost(
   // Build per-material groupings for multi-material quotes
   const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides);
 
+  // For multi-material quotes, the single-material calculation above
+  // (slabCount × firstSlabPrice) is wrong — it uses one material's price for all slabs.
+  // Use the sum of per-material-group costs from buildMaterialGroupings() instead.
+  // buildMaterialGroupings already handles margin and waste per group.
+  let authoritativeSubtotal = roundToTwo(finalSubtotalWithWaste);
+  let authoritativeSlabCount = pricingBasis === 'PER_SLAB' && slabCount !== undefined ? Math.ceil(slabCount) : undefined;
+  if (byMaterial.length > 1) {
+    authoritativeSubtotal = roundToTwo(byMaterial.reduce((sum, g) => sum + g.totalCost, 0));
+    // Sum per-group slab counts for multi-material (more accurate than single aggregate)
+    if (pricingBasis === 'PER_SLAB') {
+      authoritativeSlabCount = byMaterial.reduce((sum, g) => sum + (g.slabCount ?? 0), 0);
+    }
+  }
+
   return {
     totalAreaM2: roundToTwo(totalAreaM2),
     baseRate: effectiveRate,
     thicknessMultiplier: 1,
     appliedRate: effectiveRate,
-    subtotal: roundToTwo(finalSubtotalWithWaste),
+    subtotal: authoritativeSubtotal,
     discount: 0,
-    total: roundToTwo(finalSubtotalWithWaste),
+    total: authoritativeSubtotal,
     pricingBasis,
-    slabCount: pricingBasis === 'PER_SLAB' && slabCount !== undefined ? Math.ceil(slabCount) : undefined,
-    slabRate: pricingBasis === 'PER_SLAB' && slabCount
-      ? roundToTwo(subtotal / Math.ceil(slabCount))
+    slabCount: authoritativeSlabCount,
+    slabRate: pricingBasis === 'PER_SLAB' && authoritativeSlabCount
+      ? roundToTwo(authoritativeSubtotal / authoritativeSlabCount)
       : undefined,
     wasteFactorPercent: appliedWastePercent,
     adjustedAreaM2,
@@ -962,7 +976,7 @@ export async function calculateQuotePrice(
     if (allPieces[j].materials) { lastMaterialPieceIdx = j; break; }
   }
 
-  // Build materialId → group lookup for per-piece display fields
+  // Build materialId → group lookup for per-piece display fields and per-group allocation
   const materialGroupMap = new Map<number, { materialName: string; slabCount: number | undefined; slabRate: number | undefined; totalCost: number; totalAreaM2: number }>();
   if (materialBreakdown.byMaterial) {
     for (const g of materialBreakdown.byMaterial) {
@@ -973,6 +987,20 @@ export async function calculateQuotePrice(
         totalCost: g.totalCost,
         totalAreaM2: g.totalAreaM2,
       });
+    }
+  }
+
+  // For multi-material quotes, track per-group allocation to avoid cross-material contamination.
+  // Each piece's material share comes from its OWN material group's totalCost, not the overall total.
+  const isMultiMaterial = materialGroupMap.size > 1;
+  const groupAllocation = new Map<number, { allocated: number; lastPieceIdx: number }>();
+  if (isMultiMaterial) {
+    // Find last piece index per material group for rounding correction
+    for (let j = allPieces.length - 1; j >= 0; j--) {
+      const matId = (allPieces[j].materials as unknown as { id?: number } | null)?.id ?? 0;
+      if (matId && allPieces[j].materials && !groupAllocation.has(matId)) {
+        groupAllocation.set(matId, { allocated: 0, lastPieceIdx: j });
+      }
     }
   }
 
@@ -1179,10 +1207,26 @@ export async function calculateQuotePrice(
       const pricePerSlab = mat.price_per_slab?.toNumber();
       const pricePerSqm = mat.price_per_sqm.toNumber();
 
-      // Proportional area share of total material cost
+      // Proportional area share of material cost.
+      // For multi-material quotes, allocate within each material group so a piece's
+      // cost comes exclusively from its own material, not from the cross-material total.
       let materialShare: number;
-      if (i === lastMaterialPieceIdx) {
-        // Last piece with material gets remainder to avoid rounding drift
+      const matId = (piece.materials as unknown as { id?: number }).id ?? 0;
+      const matGroup = materialGroupMap.get(matId);
+      if (isMultiMaterial && matGroup) {
+        const ga = groupAllocation.get(matId);
+        if (ga && i === ga.lastPieceIdx) {
+          // Last piece in this material group gets remainder to avoid rounding drift
+          materialShare = roundToTwo(matGroup.totalCost - ga.allocated);
+        } else {
+          materialShare = matGroup.totalAreaM2 > 0
+            ? roundToTwo((pieceAreaM2 / matGroup.totalAreaM2) * matGroup.totalCost)
+            : 0;
+          if (ga) ga.allocated += materialShare;
+        }
+        allocatedMaterial += materialShare;
+      } else if (i === lastMaterialPieceIdx) {
+        // Single material: last piece gets remainder to avoid rounding drift
         materialShare = roundToTwo(totalMaterialCost - allocatedMaterial);
       } else {
         materialShare = totalAreaSqm > 0
@@ -1205,8 +1249,7 @@ export async function calculateQuotePrice(
         : undefined;
 
       // Look up per-material group data for display fields
-      const matId = (piece.materials as unknown as { id?: number }).id ?? 0;
-      const matGroup = materialGroupMap.get(matId);
+      // matId and matGroup already resolved above for proportional allocation
       const matName = matGroup?.materialName
         ?? (piece.materials as unknown as { name?: string }).name
         ?? materialBreakdown.materialName;
