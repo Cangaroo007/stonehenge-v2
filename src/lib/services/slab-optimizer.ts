@@ -275,8 +275,51 @@ function generateShapeStrips(
 
   if (sType === 'L_SHAPE' && sCfg && 'leg1' in sCfg) {
     const cfg = sCfg as LShapeConfig;
-    // inner-horizontal: horizontal step between legs
-    if (shapeConfigEdges['inner-horizontal']) {
+    const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
+    // top: horizontal top of leg1
+    if (shapeConfigEdges['top']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-top`,
+        width: cfg.leg1.length_mm,
+        height: stripW,
+        thickness: 20,
+        label: `${piece.label} (Lam-Top)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'top',
+      });
+    }
+    // left: vertical left side = leg1.width
+    if (shapeConfigEdges['left']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-left`,
+        width: stripW,
+        height: cfg.leg1.width_mm,
+        thickness: 20,
+        label: `${piece.label} (Lam-Left)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'left',
+      });
+    }
+    // r_top: right side = leg2.width
+    if (shapeConfigEdges['r_top']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-rtop`,
+        width: stripW,
+        height: cfg.leg2.width_mm,
+        thickness: 20,
+        label: `${piece.label} (Lam-R-Top)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'r_top',
+      });
+    }
+    // inner: horizontal step between legs = leg1.length - leg2.width
+    if (shapeConfigEdges['inner']) {
       const innerLengthMm = cfg.leg1.length_mm - cfg.leg2.width_mm;
       const stripW = getStripWidthForEdge(undefined);
       strips.push({
@@ -287,70 +330,69 @@ function generateShapeStrips(
         label: `${piece.label} (Lam-Inner)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
-        stripPosition: 'inner-horizontal',
+        stripPosition: 'inner',
       });
     }
-    // right-bottom: vertical right side of leg2
-    if (shapeConfigEdges['right-bottom']) {
-      const rBtmLengthMm = cfg.leg2.length_mm;
+    // r_btm: vertical right side of leg2 = leg2_net
+    if (shapeConfigEdges['r_btm']) {
       const stripW = getStripWidthForEdge(undefined);
       strips.push({
         id: `${piece.id}-lam-rbtm`,
         width: stripW,
-        height: rBtmLengthMm,
+        height: leg2Net,
         thickness: 20,
         label: `${piece.label} (Lam-R-Btm)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
-        stripPosition: 'right-bottom',
+        stripPosition: 'r_btm',
+      });
+    }
+    // bottom: horizontal bottom = leg2_net
+    if (shapeConfigEdges['bottom']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-bottom`,
+        width: leg2Net,
+        height: stripW,
+        thickness: 20,
+        label: `${piece.label} (Lam-Bottom)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'bottom',
       });
     }
   }
 
   if (sType === 'U_SHAPE' && sCfg && 'leftLeg' in sCfg) {
     const cfg = sCfg as UShapeConfig;
-    if (shapeConfigEdges['top-right']) {
+    const bottomSpan = cfg.leftLeg.width_mm + cfg.back.length_mm + cfg.rightLeg.width_mm;
+    if (shapeConfigEdges['top_left']) {
       const stripW = getStripWidthForEdge(undefined);
       strips.push({
-        id: `${piece.id}-lam-topright`,
-        width: cfg.rightLeg.width_mm,
+        id: `${piece.id}-lam-topleft`,
+        width: cfg.leftLeg.width_mm,
         height: stripW,
         thickness: 20,
-        label: `${piece.label} (Lam-TopRight)`,
+        label: `${piece.label} (Lam-TopLeft)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
-        stripPosition: 'top-right',
+        stripPosition: 'top_left',
       });
     }
-    if (shapeConfigEdges['inner-right']) {
-      const innerRightMm = cfg.rightLeg.length_mm - cfg.back.width_mm;
+    if (shapeConfigEdges['outer_left']) {
       const stripW = getStripWidthForEdge(undefined);
       strips.push({
-        id: `${piece.id}-lam-innerright`,
+        id: `${piece.id}-lam-outerleft`,
         width: stripW,
-        height: innerRightMm,
+        height: cfg.leftLeg.length_mm,
         thickness: 20,
-        label: `${piece.label} (Lam-InnerRight)`,
+        label: `${piece.label} (Lam-OuterLeft)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
-        stripPosition: 'inner-right',
+        stripPosition: 'outer_left',
       });
     }
-    if (shapeConfigEdges['back']) {
-      const backMm = cfg.back.length_mm - cfg.leftLeg.width_mm - cfg.rightLeg.width_mm;
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-back`,
-        width: backMm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Back)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'back',
-      });
-    }
-    if (shapeConfigEdges['inner-left']) {
+    if (shapeConfigEdges['inner_left']) {
       const innerLeftMm = cfg.leftLeg.length_mm - cfg.back.width_mm;
       const stripW = getStripWidthForEdge(undefined);
       strips.push({
@@ -361,7 +403,74 @@ function generateShapeStrips(
         label: `${piece.label} (Lam-InnerLeft)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
-        stripPosition: 'inner-left',
+        stripPosition: 'inner_left',
+      });
+    }
+    if (shapeConfigEdges['back_inner']) {
+      const backMm = cfg.back.length_mm;
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-back`,
+        width: backMm,
+        height: stripW,
+        thickness: 20,
+        label: `${piece.label} (Lam-Back)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'back_inner',
+      });
+    }
+    if (shapeConfigEdges['inner_right']) {
+      const innerRightMm = cfg.rightLeg.length_mm - cfg.back.width_mm;
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-innerright`,
+        width: stripW,
+        height: innerRightMm,
+        thickness: 20,
+        label: `${piece.label} (Lam-InnerRight)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'inner_right',
+      });
+    }
+    if (shapeConfigEdges['top_right']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-topright`,
+        width: cfg.rightLeg.width_mm,
+        height: stripW,
+        thickness: 20,
+        label: `${piece.label} (Lam-TopRight)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'top_right',
+      });
+    }
+    if (shapeConfigEdges['outer_right']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-outerright`,
+        width: stripW,
+        height: cfg.rightLeg.length_mm,
+        thickness: 20,
+        label: `${piece.label} (Lam-OuterRight)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'outer_right',
+      });
+    }
+    if (shapeConfigEdges['bottom']) {
+      const stripW = getStripWidthForEdge(undefined);
+      strips.push({
+        id: `${piece.id}-lam-bottom`,
+        width: bottomSpan,
+        height: stripW,
+        thickness: 20,
+        label: `${piece.label} (Lam-Bottom)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: 'bottom',
       });
     }
   }

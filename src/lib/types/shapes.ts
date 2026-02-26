@@ -273,6 +273,96 @@ export function getShapeEdgeLengths(
   };
 }
 
+/**
+ * Cutting perimeter for pricing.
+ *
+ * RULE: A fabricator cuts every edge of every physical piece of stone.
+ * L/U shapes are made from multiple rectangular legs joined together.
+ * Each leg is cut on all 4 sides — including the join faces.
+ * Therefore: cutting perimeter = sum of perimeters of all decomposed legs.
+ *
+ * This correctly charges for cutting the join faces, which the outer L
+ * perimeter formula would miss.
+ */
+export function getCuttingPerimeterLm(
+  shapeType: ShapeType,
+  shapeConfig: ShapeConfig | null | undefined,
+  fallbackLengthMm: number,
+  fallbackWidthMm: number
+): number {
+  if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
+    const cfg = shapeConfig as LShapeConfig;
+    const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
+    const perimA = 2 * (cfg.leg1.length_mm + cfg.leg1.width_mm);
+    const perimB = 2 * (leg2Net + cfg.leg2.width_mm);
+    return (perimA + perimB) / 1000;
+  }
+  if (shapeType === 'U_SHAPE' && shapeConfig && 'leftLeg' in shapeConfig) {
+    const cfg = shapeConfig as UShapeConfig;
+    const perimLeft  = 2 * (cfg.leftLeg.length_mm  + cfg.leftLeg.width_mm);
+    const perimBack  = 2 * (cfg.back.length_mm     + cfg.back.width_mm);
+    const perimRight = 2 * (cfg.rightLeg.length_mm + cfg.rightLeg.width_mm);
+    return (perimLeft + perimBack + perimRight) / 1000;
+  }
+  return 2 * (fallbackLengthMm + fallbackWidthMm) / 1000;
+}
+
+/**
+ * Returns a map of edge-key → length-in-mm for all FINISHABLE edges.
+ *
+ * RULE: Only outer exposed faces receive edge profiles (polishing, bullnose, etc).
+ * Join faces where legs bond together are cut flat but NEVER finished — they are
+ * hidden inside the stone joint and never appear in this map.
+ *
+ * L-shape: 6 finishable edges (top, left, r_top, inner, r_btm, bottom)
+ * U-shape: 8 finishable edges (top_left, outer_left, bottom, outer_right,
+ *                               top_right, inner_right, back_inner, inner_left)
+ * Rectangle: 4 finishable edges (top, right, bottom, left)
+ *
+ * The 'inner' edge on an L-shape IS finishable — it is the exposed step face
+ * visible from the room. It is NOT a join face.
+ */
+export function getFinishableEdgeLengthsMm(
+  shapeType: ShapeType,
+  shapeConfig: ShapeConfig | null | undefined,
+  fallbackLengthMm: number,
+  fallbackWidthMm: number
+): Record<string, number> {
+  if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
+    const cfg = shapeConfig as LShapeConfig;
+    const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
+    return {
+      top:    cfg.leg1.length_mm,
+      left:   cfg.leg1.width_mm,
+      r_top:  cfg.leg2.width_mm,
+      inner:  cfg.leg1.length_mm - cfg.leg2.width_mm,
+      r_btm:  leg2Net,
+      bottom: leg2Net,
+    };
+  }
+  if (shapeType === 'U_SHAPE' && shapeConfig && 'leftLeg' in shapeConfig) {
+    const cfg = shapeConfig as UShapeConfig;
+    const bottomSpan = cfg.leftLeg.width_mm + cfg.back.length_mm + cfg.rightLeg.width_mm;
+    return {
+      top_left:    cfg.leftLeg.width_mm,
+      outer_left:  cfg.leftLeg.length_mm,
+      bottom:      bottomSpan,
+      outer_right: cfg.rightLeg.length_mm,
+      top_right:   cfg.rightLeg.width_mm,
+      inner_right: cfg.rightLeg.length_mm - cfg.back.width_mm,
+      back_inner:  cfg.back.length_mm,
+      inner_left:  cfg.leftLeg.length_mm - cfg.back.width_mm,
+    };
+  }
+  // Rectangle
+  return {
+    top:    fallbackLengthMm,
+    right:  fallbackWidthMm,
+    bottom: fallbackLengthMm,
+    left:   fallbackWidthMm,
+  };
+}
+
 export function getShapeGeometry(
   shapeType: ShapeType,
   shapeConfig: ShapeConfig,

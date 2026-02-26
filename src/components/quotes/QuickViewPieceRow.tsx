@@ -185,6 +185,27 @@ function getMiniShapePath(
   return null;
 }
 
+// ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
+function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
+  const cfg = piece.shapeConfig as unknown as Record<string, unknown>;
+
+  if (piece.shapeType === 'L_SHAPE' && cfg?.leg1 && cfg?.leg2) {
+    const leg1 = cfg.leg1 as { length_mm: number; width_mm: number };
+    const leg2 = cfg.leg2 as { length_mm: number; width_mm: number };
+    const leg2Net = leg2.length_mm - leg1.width_mm;
+    return `${leg1.length_mm}\u00D7${leg1.width_mm}  +  ${leg2Net}\u00D7${leg2.width_mm} mm`;
+  }
+
+  if (piece.shapeType === 'U_SHAPE' && cfg?.leftLeg && cfg?.back && cfg?.rightLeg) {
+    const l = cfg.leftLeg as { length_mm: number; width_mm: number };
+    const b = cfg.back as { length_mm: number; width_mm: number };
+    const r = cfg.rightLeg as { length_mm: number; width_mm: number };
+    return `${l.length_mm}\u00D7${l.width_mm}  /  ${b.length_mm}\u00D7${b.width_mm}  /  ${r.length_mm}\u00D7${r.width_mm} mm`;
+  }
+
+  return `${piece.lengthMm}\u00D7${piece.widthMm} mm`;
+}
+
 // ── Cutout name resolution (matches PieceRow pattern) ───────────────────────
 
 function resolveCutoutTypeName(
@@ -623,7 +644,7 @@ export default function QuickViewPieceRow({
             </div>
           ) : (
             <span className="text-xs text-gray-500 flex-shrink-0">
-              {piece.lengthMm} &times; {piece.widthMm} mm
+              {getPieceDimensionLabel(piece)}
             </span>
           )}
 

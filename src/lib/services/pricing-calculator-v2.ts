@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -747,46 +747,28 @@ export async function calculateQuotePrice(
       { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
     ];
 
-    // For L/U shapes, compute finished edges from the shape-aware lengths so
-    // polishing and lamination use correct Lm values instead of bounding-box ones.
+    // Compute finished edge length in Lm.
+    // For shaped pieces: edges stored in shape_config.edges — keyed by finishable edge name.
+    // For rectangles: leave undefined so the engine calculates from the edges array (unchanged).
     let finishedEdgesLm: number | undefined;
     if (isShapedPiece) {
-      finishedEdgesLm = edges
-        .filter(e => e.isFinished)
-        .reduce((sum, e) => sum + e.length_mm / 1000, 0);
+      const savedEdges = (piece.shape_config as unknown as {
+        edges?: Record<string, string | null>
+      })?.edges ?? {};
 
-      // Add extra edges stored in shape_config.edges (INNER, R-BTM, etc.)
-      const shapeEdges = (piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {};
+      const finishableLengths = getFinishableEdgeLengthsMm(
+        shapeType,
+        piece.shape_config as unknown as ShapeConfig,
+        piece.length_mm ?? 0,
+        piece.width_mm ?? 0
+      );
 
-      if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
-        // inner-horizontal: horizontal step between legs = leg1.length - leg2.width
-        if (shapeEdges['inner-horizontal']) {
-          const innerLengthMm = shapeConfig.leg1.length_mm - shapeConfig.leg2.width_mm;
-          finishedEdgesLm += innerLengthMm / 1000;
-        }
-        // right-bottom: vertical right side of leg2 = leg2.length
-        if (shapeEdges['right-bottom']) {
-          const rBtmLengthMm = shapeConfig.leg2.length_mm;
-          finishedEdgesLm += rBtmLengthMm / 1000;
-        }
-      }
-
-      if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
-        // top-right: top edge of right leg = rightLeg.width
-        if (shapeEdges['top-right']) {
-          finishedEdgesLm += shapeConfig.rightLeg.width_mm / 1000;
-        }
-        // inner-right: inner vertical of right leg = rightLeg.length - back.width
-        if (shapeEdges['inner-right']) {
-          finishedEdgesLm += (shapeConfig.rightLeg.length_mm - shapeConfig.back.width_mm) / 1000;
-        }
-        // back: inner horizontal = back.length - leftLeg.width - rightLeg.width
-        if (shapeEdges['back']) {
-          finishedEdgesLm += (shapeConfig.back.length_mm - shapeConfig.leftLeg.width_mm - shapeConfig.rightLeg.width_mm) / 1000;
-        }
-        // inner-left: inner vertical of left leg = leftLeg.length - back.width
-        if (shapeEdges['inner-left']) {
-          finishedEdgesLm += (shapeConfig.leftLeg.length_mm - shapeConfig.back.width_mm) / 1000;
+      // Sum lengths of edges that have a profile assigned (non-null)
+      // ONLY keys present in finishableLengths are valid — join faces are not in this map
+      finishedEdgesLm = 0;
+      for (const [key, lengthMm] of Object.entries(finishableLengths)) {
+        if (savedEdges[key]) {
+          finishedEdgesLm += lengthMm / 1000;
         }
       }
     }
@@ -810,7 +792,12 @@ export async function calculateQuotePrice(
       edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
-      cuttingPerimeterLm: isShapedPiece ? geometry.cuttingPerimeterLm : undefined,
+      cuttingPerimeterLm: isShapedPiece ? getCuttingPerimeterLm(
+        (piece.shape_type ?? 'RECTANGLE') as ShapeType,
+        piece.shape_config as unknown as ShapeConfig,
+        piece.length_mm ?? 0,
+        piece.width_mm ?? 0,
+      ) : undefined,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
     });
