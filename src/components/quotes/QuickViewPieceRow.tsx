@@ -1058,9 +1058,11 @@ export default function QuickViewPieceRow({
                     <span>Material</span>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-gray-400">
-                        {breakdown.materials.pricingBasis === 'PER_SLAB' && breakdown.materials.slabCount != null && breakdown.materials.pricePerSlab != null
-                          ? `${breakdown.materials.slabCount} slab${breakdown.materials.slabCount !== 1 ? 's' : ''} \u00D7 ${formatCurrency(breakdown.materials.pricePerSlab)}`
-                          : `${breakdown.materials.areaM2.toFixed(4)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
+                        {breakdown.materials.pricingBasis === 'PER_SLAB'
+                          ? `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 (slab share)`
+                          : breakdown.materials.wasteFactorPercent != null && breakdown.materials.ratePerSqm != null
+                            ? `${(breakdown.materials.adjustedAreaM2 ?? breakdown.materials.areaM2).toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.ratePerSqm)}/m\u00B2 (incl. ${breakdown.materials.wasteFactorPercent}% waste)`
+                            : `${breakdown.materials.areaM2.toFixed(2)} m\u00B2 \u00D7 ${formatCurrency(breakdown.materials.pricePerSqm ?? breakdown.materials.baseRate)}/m\u00B2`
                         }
                       </span>
                       <span className="font-medium tabular-nums">{formatCurrency(breakdown.materials.total)}</span>

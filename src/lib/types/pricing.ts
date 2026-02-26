@@ -293,6 +293,12 @@ export interface PiecePricingBreakdown {
     slabCount?: number;
     pricePerSlab?: number;
     pricePerSqm?: number;
+    /** Rate per m² (for PER_SQUARE_METRE display) */
+    ratePerSqm?: number;
+    /** Waste factor percent applied (for PER_SQUARE_METRE display) */
+    wasteFactorPercent?: number;
+    /** Area after waste factor (for PER_SQUARE_METRE display) */
+    adjustedAreaM2?: number;
   };
 
   pieceTotal: number;
