@@ -55,6 +55,8 @@ export async function POST(request: NextRequest) {
         price_per_sqm: data.pricePerSqm,
         is_active: data.isActive ?? true,
         fabrication_category: data.fabricationCategory || 'ENGINEERED',
+        slab_length_mm: data.slabLengthMm != null ? parseInt(String(data.slabLengthMm)) : null,
+        slab_width_mm: data.slabWidthMm != null ? parseInt(String(data.slabWidthMm)) : null,
         updated_at: new Date(),
       },
     });

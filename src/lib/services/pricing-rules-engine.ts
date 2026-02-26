@@ -322,7 +322,11 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
     })
   }
 
-  const materialCost          = input.slabCount * input.material.pricePerSlab
+  // PER_SLAB: customer pays for whole slabs — always round up (Pricing Bible v1.3)
+  const wholeSlabs = input.settings.materialPricingBasis === 'PER_SLAB'
+    ? Math.ceil(input.slabCount)
+    : input.slabCount
+  const materialCost          = wholeSlabs * input.material.pricePerSlab
   const fabricationSubtotal   = pieceResults.reduce((s, p) =>
     s + p.cutting.cost + p.polishing.cost + p.edgeProfiles.cost +
     (p.lamination?.cost ?? 0) + p.cutouts.cost + (p.join?.cost ?? 0) +
@@ -339,7 +343,7 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
 
   return {
     pieces: pieceResults,
-    material: { slabCount: input.slabCount, pricePerSlab: input.material.pricePerSlab, cost: materialCost },
+    material: { slabCount: wholeSlabs, pricePerSlab: input.material.pricePerSlab, cost: materialCost },
     fabricationSubtotal,
     installationSubtotal,
     deliveryCost:  input.settings.deliveryCost,
