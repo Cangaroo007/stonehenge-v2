@@ -344,6 +344,8 @@ export async function POST(
           left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
           right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
         },
+        // Extra edges stored in shape_config.edges (INNER, R-BTM, etc.)
+        shapeConfigEdges: (piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {},
         materialId: piece.material_id?.toString() ?? null,
         // Shape data for L/U decomposition in the optimizer
         shapeType: piece.shape_type ?? undefined,
@@ -392,7 +394,7 @@ export async function POST(
       );
 
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
           height: p.height,
@@ -400,6 +402,7 @@ export async function POST(
           thickness: p.thickness,
           finishedEdges: p.finishedEdges,
           edgeTypeNames: p.edgeTypeNames,
+          shapeConfigEdges: p.shapeConfigEdges,
           materialId: p.materialId,
           shapeType: p.shapeType,
           shapeConfig: p.shapeConfig,

@@ -29,25 +29,28 @@ export type ShapeEdgeSide =
   | 'top-left' | 'top-right' | 'outer-left' | 'outer-right' | 'inner-left' | 'inner-right' | 'back';  // U-shape
 type EdgeEditMode = 'select' | 'quickEdge';
 
-/** Maps shape edge sides to the 4 standard edge columns for profile lookup */
-const L_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeSide | null> = {
+/** Target for edge storage: standard DB column, shape_config JSON, or unmapped */
+export type EdgeStorageTarget = EdgeSide | 'shape_config' | null;
+
+/** Maps shape edge sides to storage targets for profile lookup */
+const L_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeStorageTarget> = {
   'top': 'top',
   'right-top': 'right',
-  'inner-horizontal': null,
-  'right-bottom': null,
+  'inner-horizontal': 'shape_config',
+  'right-bottom': 'shape_config',
   'bottom': 'bottom',
   'left': 'left',
 };
 
-const U_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeSide | null> = {
+const U_SHAPE_EDGE_TO_STANDARD: Record<string, EdgeStorageTarget> = {
   'top-left': 'top',
   'outer-left': 'left',
   'bottom': 'bottom',
   'outer-right': 'right',
-  'top-right': null,
-  'inner-right': null,
-  'back': null,
-  'inner-left': null,
+  'top-right': 'shape_config',
+  'inner-right': 'shape_config',
+  'back': 'shape_config',
+  'inner-left': 'shape_config',
 };
 
 /** Edge segment definition for shape rendering */
@@ -137,6 +140,12 @@ export interface PieceVisualEditorProps {
 
   /** Shape configuration with leg dimensions (required for L/U shapes) */
   shapeConfig?: ShapeConfig;
+
+  /** Called when a shape_config edge changes (INNER, R-BTM, etc.) */
+  onShapeEdgeChange?: (edgeId: string, profileId: string | null) => void;
+
+  /** Edge profiles stored in shape_config.edges (keyed by raw edge id) */
+  shapeConfigEdges?: Record<string, string | null>;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -194,6 +203,8 @@ export default function PieceVisualEditor({
   quoteId,
   shapeType = 'RECTANGLE',
   shapeConfig,
+  onShapeEdgeChange,
+  shapeConfigEdges,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -202,8 +213,14 @@ export default function PieceVisualEditor({
     y: number;
   } | null>(null);
   const [showCutoutDialog, setShowCutoutDialog] = useState(false);
-  const [hoveredEdge, setHoveredEdge] = useState<EdgeSide | null>(null);
+  const [hoveredEdge, setHoveredEdge] = useState<string | null>(null);
   const [hoveredCutout, setHoveredCutout] = useState<string | null>(null);
+  // Popover for shape_config edges (INNER, R-BTM, etc.)
+  const [shapeEdgePopover, setShapeEdgePopover] = useState<{
+    edgeId: string;
+    x: number;
+    y: number;
+  } | null>(null);
 
   // ── Multi-select & Quick Edge mode state ──────────────────────────────
   const [editMode, setEditMode] = useState<EdgeEditMode>('quickEdge');
@@ -489,10 +506,11 @@ export default function PieceVisualEditor({
   const handleSvgClick = useCallback(
     (e: React.MouseEvent) => {
       e.stopPropagation();
-      // Click on empty space clears selection
+      // Click on empty space clears selection and closes shape edge popover
       if (editMode === 'select' && selectedEdges.size > 0) {
         clearSelection();
       }
+      setShapeEdgePopover(null);
     },
     [editMode, selectedEdges.size, clearSelection]
   );
@@ -1135,7 +1153,20 @@ export default function PieceVisualEditor({
             {/* Shape edges */}
             {shapeLayout.edges.map((edge) => {
               const stdEdge = edge.standardEdge;
-              const profileId = stdEdge ? edgeIds[stdEdge] : null;
+              // Look up storage target from the mapping (supports 'shape_config' edges)
+              const edgeMapping = effectiveShapeType === 'L_SHAPE'
+                ? L_SHAPE_EDGE_TO_STANDARD
+                : effectiveShapeType === 'U_SHAPE'
+                ? U_SHAPE_EDGE_TO_STANDARD
+                : null;
+              const storageTarget: EdgeStorageTarget = edgeMapping
+                ? (edgeMapping[edge.side] ?? null)
+                : (stdEdge ?? null);
+              const profileId = stdEdge
+                ? edgeIds[stdEdge]
+                : storageTarget === 'shape_config'
+                ? (shapeConfigEdges?.[edge.side] ?? null)
+                : null;
               const name = profileId ? resolveEdgeName(profileId) : undefined;
               const isFinished = !!profileId;
               const colour = edgeColour(name);
@@ -1177,14 +1208,33 @@ export default function PieceVisualEditor({
                     <title>{name || 'Raw / Unfinished'}</title>
                   </line>
 
-                  {/* Hit area for clicking (edit mode, mapped edges only) */}
-                  {isEditMode && stdEdge && (onEdgeChange || onEdgesChange) && (
+                  {/* Hit area for clicking (edit mode, mapped or shape_config edges) */}
+                  {isEditMode && (stdEdge || storageTarget === 'shape_config') && (onEdgeChange || onEdgesChange || onShapeEdgeChange) && (
                     <line
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                       stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
                       style={{ cursor: 'pointer' }}
-                      onClick={(e) => handleEdgeClick(stdEdge, e)}
-                      onMouseEnter={() => setHoveredEdge(stdEdge)}
+                      onClick={(e) => {
+                        if (stdEdge) {
+                          handleEdgeClick(stdEdge, e);
+                        } else if (storageTarget === 'shape_config' && onShapeEdgeChange) {
+                          e.stopPropagation();
+                          // Quick Edge mode: instantly apply selected profile
+                          if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                            onShapeEdgeChange(edge.side, quickEdgeProfile);
+                            return;
+                          }
+                          // Select mode: open popover
+                          const svgRect = (e.currentTarget as SVGElement)
+                            .closest('svg')
+                            ?.getBoundingClientRect();
+                          if (!svgRect) return;
+                          const relX = e.clientX - svgRect.left;
+                          const relY = e.clientY - svgRect.top;
+                          setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
+                        }
+                      }}
+                      onMouseEnter={() => setHoveredEdge(stdEdge ?? edge.side)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     >
                       <title>{name || 'Raw / Unfinished'}</title>
@@ -1426,6 +1476,22 @@ export default function PieceVisualEditor({
           roomName={roomName}
           roomId={roomId}
           onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
+        />
+      )}
+
+      {/* Popover for shape_config edges (INNER, R-BTM, etc.) */}
+      {shapeEdgePopover && onShapeEdgeChange && (
+        <EdgeProfilePopover
+          isOpen={true}
+          position={{ x: shapeEdgePopover.x, y: shapeEdgePopover.y }}
+          currentProfileId={shapeConfigEdges?.[shapeEdgePopover.edgeId] ?? null}
+          profiles={edgeTypes}
+          isMitred={isMitred}
+          onSelect={(profileId) => {
+            onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+            setShapeEdgePopover(null);
+          }}
+          onClose={() => setShapeEdgePopover(null)}
         />
       )}
 

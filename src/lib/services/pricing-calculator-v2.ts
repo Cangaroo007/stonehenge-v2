@@ -754,6 +754,41 @@ export async function calculateQuotePrice(
       finishedEdgesLm = edges
         .filter(e => e.isFinished)
         .reduce((sum, e) => sum + e.length_mm / 1000, 0);
+
+      // Add extra edges stored in shape_config.edges (INNER, R-BTM, etc.)
+      const shapeEdges = (piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {};
+
+      if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+        // inner-horizontal: horizontal step between legs = leg1.length - leg2.width
+        if (shapeEdges['inner-horizontal']) {
+          const innerLengthMm = shapeConfig.leg1.length_mm - shapeConfig.leg2.width_mm;
+          finishedEdgesLm += innerLengthMm / 1000;
+        }
+        // right-bottom: vertical right side of leg2 = leg2.length
+        if (shapeEdges['right-bottom']) {
+          const rBtmLengthMm = shapeConfig.leg2.length_mm;
+          finishedEdgesLm += rBtmLengthMm / 1000;
+        }
+      }
+
+      if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+        // top-right: top edge of right leg = rightLeg.width
+        if (shapeEdges['top-right']) {
+          finishedEdgesLm += shapeConfig.rightLeg.width_mm / 1000;
+        }
+        // inner-right: inner vertical of right leg = rightLeg.length - back.width
+        if (shapeEdges['inner-right']) {
+          finishedEdgesLm += (shapeConfig.rightLeg.length_mm - shapeConfig.back.width_mm) / 1000;
+        }
+        // back: inner horizontal = back.length - leftLeg.width - rightLeg.width
+        if (shapeEdges['back']) {
+          finishedEdgesLm += (shapeConfig.back.length_mm - shapeConfig.leftLeg.width_mm - shapeConfig.rightLeg.width_mm) / 1000;
+        }
+        // inner-left: inner vertical of left leg = leftLeg.length - back.width
+        if (shapeEdges['inner-left']) {
+          finishedEdgesLm += (shapeConfig.leftLeg.length_mm - shapeConfig.back.width_mm) / 1000;
+        }
+      }
     }
 
     enginePieces.push({

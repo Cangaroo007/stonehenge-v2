@@ -717,6 +717,37 @@ function PieceVisualEditorSection({
     [onBatchEdgeUpdate, piece.id, fullPiece]
   );
 
+  // Handler for shape_config edges (INNER, R-BTM, etc.) — merges into shape_config.edges
+  const handleShapeEdgeChange = useCallback(
+    (edgeId: string, profileId: string | null) => {
+      if (!fullPiece || !onSavePiece) return;
+      const currentConfig = (fullPiece as unknown as Record<string, unknown>).shapeConfig as Record<string, unknown> ?? {};
+      const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
+      const updatedConfig = {
+        ...currentConfig,
+        edges: { ...currentEdges, [edgeId]: profileId },
+      };
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: fullPiece.cutouts,
+          shapeConfig: updatedConfig,
+        },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
   return (
     <div className="px-4 py-3 border-t border-gray-100">
       <PieceVisualEditor
@@ -742,6 +773,8 @@ function PieceVisualEditorSection({
         onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
         shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
         shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
+        onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
+        shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
       />
     </div>
   );
