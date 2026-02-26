@@ -181,6 +181,11 @@ export async function POST(
       }
     }
 
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     // If sourceAnalysisId is provided, update the analysis record with imported piece IDs
     if (sourceAnalysisId) {
       const analysisId = parseInt(sourceAnalysisId);

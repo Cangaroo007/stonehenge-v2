@@ -383,6 +383,11 @@ export async function PATCH(
       },
     });
 
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     // Clean up empty rooms
     const oldRoomPiecesCount = await prisma.quote_pieces.count({
       where: { room_id: currentPiece.room_id },
@@ -685,6 +690,11 @@ export async function PUT(
       },
     });
 
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     // Clean up empty rooms
     const oldRoomPiecesCount = await prisma.quote_pieces.count({
       where: { room_id: currentPiece.room_id },
@@ -768,6 +778,11 @@ export async function DELETE(
     // Delete the piece
     await prisma.quote_pieces.delete({
       where: { id: pieceIdNum },
+    });
+
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
     });
 
     // Check if the room is now empty

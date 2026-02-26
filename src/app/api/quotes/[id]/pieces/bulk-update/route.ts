@@ -93,6 +93,11 @@ export async function PATCH(
           updated++;
         }
 
+        // Invalidate stale optimizer results — piece data has changed
+        await prisma.slab_optimizations.deleteMany({
+          where: { quoteId },
+        });
+
         return NextResponse.json({ updated });
       } else {
         // Clear material
@@ -114,6 +119,11 @@ export async function PATCH(
         id: { in: pieces.map(p => p.id) },
       },
       data: updateData,
+    });
+
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
     });
 
     return NextResponse.json({ updated: result.count });

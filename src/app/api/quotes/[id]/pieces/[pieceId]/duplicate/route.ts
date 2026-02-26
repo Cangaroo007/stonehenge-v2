@@ -89,6 +89,11 @@ export async function POST(
       },
     });
 
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     return NextResponse.json({
       ...duplicatedPiece,
       quote_rooms: { id: duplicatedPiece.quote_rooms.id, name: duplicatedPiece.quote_rooms.name },

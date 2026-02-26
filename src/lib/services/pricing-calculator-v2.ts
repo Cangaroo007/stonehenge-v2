@@ -726,8 +726,13 @@ export async function calculateQuotePrice(
       isOversize,
       joinLength_Lm: joinLengthLm,
       requiresGrainMatch: isOversize,
-      laminationMethod: piece.lamination_method === 'LAMINATED' ? 'LAMINATED'
-        : piece.lamination_method === 'MITRED' ? 'MITRED' : null,
+      // Pricing Bible: 40mm thickness = lamination is a construction requirement.
+      // MITRED takes priority (explicit user choice), then LAMINATED (explicit or implied by thickness >= 40).
+      laminationMethod: piece.lamination_method === 'MITRED'
+        ? 'MITRED'
+        : piece.lamination_method === 'LAMINATED' || piece.thickness_mm >= 40
+        ? 'LAMINATED'
+        : null,
       edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values

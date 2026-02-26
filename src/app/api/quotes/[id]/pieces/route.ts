@@ -339,6 +339,11 @@ export async function POST(
       },
     });
 
+    // Invalidate stale optimizer results — piece data has changed
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     const pieceAny = piece as any;
     return NextResponse.json({
       ...piece,
