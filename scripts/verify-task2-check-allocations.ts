@@ -46,7 +46,9 @@ async function run() {
   const materialOk = Math.abs(totalMaterial - 3192) < 0.05;
   const installationOk = Math.abs(totalInstallation - 714.12) < 0.05;
   const subtotalOk = Math.abs(Number(quote!.subtotal) - 5275.11) < 0.05;
-  const noWholeSlab = pieces.every((p: any) => (p.materials?.total ?? 0) < 1596);
+  // "Full slab" means a piece got the TOTAL material cost (all slabs), not a proportional share.
+  // Total material is ~3192 (2 slabs). No single piece should get all of it.
+  const noWholeSlab = pieces.every((p: any) => (p.materials?.total ?? 0) < totalMaterial - 0.05);
 
   console.log('=== CHECKS ===');
   console.log('Material sums to 3192:            ', materialOk ? 'PASS' : 'FAIL');

@@ -17,3 +17,5 @@
 ## Open
 
 _No open audit items._
+
+| R-13 | Railway build broken by prepare script (no .git dir in CI) | fix/hotfix-railway-prepare-script | Feb 26 | install-hooks.sh now exits silently when .git directory absent |
