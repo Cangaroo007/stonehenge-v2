@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-02-27
-> **Last Updated By:** claude/fix-lshape-formula-Domy8
+> **Last Updated By:** claude/fix-lshape-null-guard-VDNE5
 
 ---
 
@@ -759,9 +759,22 @@ getFinishableEdgeLengthsMm(shapeType, shapeConfig, fallbackLengthMm, fallbackWid
   — Returns 6 keys: top, left, r_top, inner, r_btm, bottom (Rule 59B)
   — inner = leg1.length - leg2.width (exposed step face, NOT leg2Net)
 
-calculateLShapeGeometry(config: LShapeConfig): ShapeGeometry
+calculateLShapeGeometry(config: LShapeConfig | null | undefined): ShapeGeometry
+  — Returns zeroed result if config or leg data is missing (null-safe)
   — cuttingPerimeterLm uses decomposed leg perimeters (Rule 59A), same as getCuttingPerimeterLm
   — Fixed Feb 27 2026: was using outer 6-sided perimeter (11.2 Lm), now returns 12.4 Lm
+
+calculateUShapeGeometry(config: UShapeConfig | null | undefined): ShapeGeometry
+  — Returns zeroed result if config or leg data is missing (null-safe)
+
+getCuttingPerimeterLm(shapeType, shapeConfig, fallbackLengthMm, fallbackWidthMm): number
+  — Returns 0 if config is missing (null-safe)
+
+getFinishableEdgeLengthsMm(shapeType, shapeConfig, fallbackLengthMm, fallbackWidthMm): Record<string, number>
+  — Returns {} if config is missing (null-safe)
+
+getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_mm, width_mm): ShapeGeometry
+  — Dispatcher accepts null/undefined shapeConfig safely
 ```
 
 ### Cutting vs Finishing Rule (Rule 59)

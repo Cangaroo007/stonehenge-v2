@@ -24,7 +24,17 @@ export interface ShapeGeometry {
   boundingWidth_mm: number;   // widest outer dimension (for optimiser)
 }
 
-export function calculateLShapeGeometry(config: LShapeConfig): ShapeGeometry {
+export function calculateLShapeGeometry(config: LShapeConfig | null | undefined): ShapeGeometry {
+  // Guard against null/undefined config or missing leg data
+  if (!config || !config.leg1 || !config.leg2) {
+    return {
+      totalAreaSqm: 0,
+      cuttingPerimeterLm: 0,
+      cornerJoins: 0,
+      boundingLength_mm: 0,
+      boundingWidth_mm: 0,
+    };
+  }
   const { leg1, leg2 } = config;
   // Corner overlap = width × width (the square at the join)
   const cornerOverlap = leg1.width_mm * leg2.width_mm / 1_000_000;
@@ -50,7 +60,17 @@ export function calculateLShapeGeometry(config: LShapeConfig): ShapeGeometry {
   };
 }
 
-export function calculateUShapeGeometry(config: UShapeConfig): ShapeGeometry {
+export function calculateUShapeGeometry(config: UShapeConfig | null | undefined): ShapeGeometry {
+  // Guard against null/undefined config or missing leg data
+  if (!config || !config.leftLeg || !config.back || !config.rightLeg) {
+    return {
+      totalAreaSqm: 0,
+      cuttingPerimeterLm: 0,
+      cornerJoins: 0,
+      boundingLength_mm: 0,
+      boundingWidth_mm: 0,
+    };
+  }
   const { leftLeg, back, rightLeg } = config;
   const corner1Overlap = leftLeg.width_mm * back.width_mm / 1_000_000;
   const corner2Overlap = rightLeg.width_mm * back.width_mm / 1_000_000;
@@ -116,6 +136,9 @@ export function decomposeShapeIntoRects(piece: {
 
   if (piece.shapeType === 'L_SHAPE') {
     const cfg = piece.shapeConfig as LShapeConfig;
+    if (!cfg || !cfg.leg1 || !cfg.leg2) {
+      return [{ width: piece.lengthMm, height: piece.widthMm, pieceId: piece.id, partIndex: 0 }];
+    }
     return [
       {
         width: cfg.leg1.length_mm,
@@ -140,6 +163,9 @@ export function decomposeShapeIntoRects(piece: {
 
   if (piece.shapeType === 'U_SHAPE') {
     const cfg = piece.shapeConfig as UShapeConfig;
+    if (!cfg || !cfg.leftLeg || !cfg.back || !cfg.rightLeg) {
+      return [{ width: piece.lengthMm, height: piece.widthMm, pieceId: piece.id, partIndex: 0 }];
+    }
     return [
       {
         width: cfg.back.length_mm,
@@ -196,6 +222,9 @@ export function getBoundingBox(piece: {
 
   if (piece.shapeType === 'L_SHAPE') {
     const cfg = piece.shapeConfig as LShapeConfig;
+    if (!cfg || !cfg.leg1 || !cfg.leg2) {
+      return { length: piece.lengthMm, width: piece.widthMm };
+    }
     return {
       length: Math.max(cfg.leg1.length_mm, cfg.leg2.length_mm),
       width: cfg.leg1.width_mm + cfg.leg2.width_mm,
@@ -204,6 +233,9 @@ export function getBoundingBox(piece: {
 
   if (piece.shapeType === 'U_SHAPE') {
     const cfg = piece.shapeConfig as UShapeConfig;
+    if (!cfg || !cfg.leftLeg || !cfg.back || !cfg.rightLeg) {
+      return { length: piece.lengthMm, width: piece.widthMm };
+    }
     return {
       length: cfg.back.length_mm,
       width: cfg.leftLeg.width_mm + cfg.back.width_mm + cfg.rightLeg.width_mm,
@@ -239,6 +271,9 @@ export function getShapeEdgeLengths(
 ): { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number } {
   if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
     const { leg1, leg2 } = shapeConfig;
+    if (!leg1 || !leg2) {
+      return { top_mm: length_mm, bottom_mm: length_mm, left_mm: width_mm, right_mm: width_mm };
+    }
     return {
       top_mm: leg1.length_mm,
       right_mm: leg2.width_mm,
@@ -248,6 +283,9 @@ export function getShapeEdgeLengths(
   }
   if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
     const { leftLeg, back, rightLeg } = shapeConfig;
+    if (!leftLeg || !back || !rightLeg) {
+      return { top_mm: length_mm, bottom_mm: length_mm, left_mm: width_mm, right_mm: width_mm };
+    }
     return {
       top_mm: back.length_mm,
       right_mm: rightLeg.width_mm,
@@ -284,6 +322,7 @@ export function getCuttingPerimeterLm(
 ): number {
   if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
     const cfg = shapeConfig as LShapeConfig;
+    if (!cfg.leg1 || !cfg.leg2) return 0;
     const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
     const perimA = 2 * (cfg.leg1.length_mm + cfg.leg1.width_mm);
     const perimB = 2 * (leg2Net + cfg.leg2.width_mm);
@@ -291,6 +330,7 @@ export function getCuttingPerimeterLm(
   }
   if (shapeType === 'U_SHAPE' && shapeConfig && 'leftLeg' in shapeConfig) {
     const cfg = shapeConfig as UShapeConfig;
+    if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return 0;
     const perimLeft  = 2 * (cfg.leftLeg.length_mm  + cfg.leftLeg.width_mm);
     const perimBack  = 2 * (cfg.back.length_mm     + cfg.back.width_mm);
     const perimRight = 2 * (cfg.rightLeg.length_mm + cfg.rightLeg.width_mm);
@@ -322,6 +362,7 @@ export function getFinishableEdgeLengthsMm(
 ): Record<string, number> {
   if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
     const cfg = shapeConfig as LShapeConfig;
+    if (!cfg.leg1 || !cfg.leg2) return {};
     const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
     return {
       top:    cfg.leg1.length_mm,
@@ -334,6 +375,7 @@ export function getFinishableEdgeLengthsMm(
   }
   if (shapeType === 'U_SHAPE' && shapeConfig && 'leftLeg' in shapeConfig) {
     const cfg = shapeConfig as UShapeConfig;
+    if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return {};
     const bottomSpan = cfg.leftLeg.width_mm + cfg.back.length_mm + cfg.rightLeg.width_mm;
     return {
       top_left:    cfg.leftLeg.width_mm,
@@ -357,7 +399,7 @@ export function getFinishableEdgeLengthsMm(
 
 export function getShapeGeometry(
   shapeType: ShapeType,
-  shapeConfig: ShapeConfig,
+  shapeConfig: ShapeConfig | null | undefined,
   length_mm: number,
   width_mm: number
 ): ShapeGeometry {
