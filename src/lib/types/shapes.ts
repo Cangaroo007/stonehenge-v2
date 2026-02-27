@@ -33,15 +33,12 @@ export function calculateLShapeGeometry(config: LShapeConfig): ShapeGeometry {
     (leg2.length_mm * leg2.width_mm / 1_000_000) -
     cornerOverlap;
 
-  // Outer perimeter of L-shape (6 sides)
-  // Leg1 runs horizontally, leg2 drops vertically from right end
+  // Cutting perimeter = sum of decomposed leg perimeters (Rule 59A).
+  // Each leg is cut on all 4 sides — including the join faces.
+  const leg2Net = leg2.length_mm - leg1.width_mm;
   const cuttingPerimeterLm = (
-    leg1.length_mm +                       // top of leg1
-    leg2.width_mm +                        // right side of leg2
-    leg2.length_mm +                       // bottom of leg2
-    (leg1.length_mm - leg2.width_mm) +     // bottom of leg1 (exposed part)
-    leg1.width_mm +                        // left side of leg1
-    (leg2.length_mm - leg1.width_mm)       // inner vertical step
+    2 * (leg1.length_mm + leg1.width_mm) +  // Leg 1 full rectangle perimeter
+    2 * (leg2Net + leg2.width_mm)            // Leg 2 (net) full rectangle perimeter
   ) / 1000;
 
   return {
@@ -63,17 +60,12 @@ export function calculateUShapeGeometry(config: UShapeConfig): ShapeGeometry {
     (rightLeg.length_mm * rightLeg.width_mm / 1_000_000) -
     corner1Overlap - corner2Overlap;
 
-  // Outer perimeter of U-shape (8 sides)
+  // Cutting perimeter = sum of decomposed leg perimeters (Rule 59A).
+  // Each leg is cut on all 4 sides — including the join faces.
   const cuttingPerimeterLm = (
-    back.length_mm +                                          // top/back
-    rightLeg.width_mm +                                       // right outer
-    rightLeg.length_mm +                                      // right bottom
-    (back.length_mm - leftLeg.width_mm - rightLeg.width_mm) + // inner bottom
-    leftLeg.length_mm +                                       // left bottom
-    leftLeg.width_mm +                                        // left outer
-    // inner vertical sides
-    (rightLeg.length_mm - back.width_mm) +
-    (leftLeg.length_mm - back.width_mm)
+    2 * (leftLeg.length_mm  + leftLeg.width_mm)  +  // Left leg full perimeter
+    2 * (back.length_mm     + back.width_mm)      +  // Back full perimeter
+    2 * (rightLeg.length_mm + rightLeg.width_mm)     // Right leg full perimeter
   ) / 1000;
 
   return {
