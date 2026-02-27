@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-02-27
-> **Last Updated By:** claude/enforce-system-state-eUNz2
+> **Last Updated By:** claude/fix-lshape-formula-Domy8
 
 ---
 
@@ -538,8 +538,8 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `decomposeShapeIntoRects` | 106 | Decomposes L/U shape into rectangles for slab optimizer |
 | `getBoundingBox` | 195 | Returns bounding box for a shaped piece |
 | `getShapeEdgeLengths` | 242 | Returns named edge lengths for a shape |
-| `getCuttingPerimeterLm` | 287 | Returns cutting perimeter in linear metres |
-| `getFinishableEdgeLengthsMm` | 325 | Returns edge lengths eligible for finishing (mm) |
+| `getCuttingPerimeterLm` | 279 | Sum of decomposed leg perimeters (Rule 59A) — used by pricing-calculator-v2.ts |
+| `getFinishableEdgeLengthsMm` | 317 | 6 exposed edges for L-shape (Rule 59B) — used by pricing-calculator-v2.ts |
 | `getShapeGeometry` | 366 | Dispatcher — calls L or U geometry calculator |
 
 ### slab-optimizer.ts
@@ -746,13 +746,31 @@ export interface ShapeGeometry {
 | L_SHAPE | shape_config.edges (JSON) | top, left, r_top, inner, r_btm, bottom |
 | U_SHAPE | shape_config.edges (JSON) | top_left, outer_left, bottom, outer_right, top_right, inner_right, back_inner, inner_left |
 
+### Key Functions (shapes.ts)
+
+```
+getCuttingPerimeterLm(shapeType, shapeConfig, fallbackLengthMm, fallbackWidthMm): number
+  — Returns sum of perimeters of all decomposed legs (Rule 59A)
+  — Formula: 2×(leg1.length+leg1.width) + 2×(leg2Net+leg2.width)
+  — leg2Net = leg2.length_mm - leg1.width_mm (subtraction happens ONCE here only)
+  — Verified: 3200×600 + 1800×600 → 12.4 Lm ✅ (FIX-11-Phase1, Feb 27 2026)
+
+getFinishableEdgeLengthsMm(shapeType, shapeConfig, fallbackLengthMm, fallbackWidthMm): Record<string, number>
+  — Returns 6 keys: top, left, r_top, inner, r_btm, bottom (Rule 59B)
+  — inner = leg1.length - leg2.width (exposed step face, NOT leg2Net)
+
+calculateLShapeGeometry(config: LShapeConfig): ShapeGeometry
+  — cuttingPerimeterLm uses decomposed leg perimeters (Rule 59A), same as getCuttingPerimeterLm
+  — Fixed Feb 27 2026: was using outer 6-sided perimeter (11.2 Lm), now returns 12.4 Lm
+```
+
 ### Cutting vs Finishing Rule (Rule 59)
 
 | Shape | Cutting Perimeter | Finishable Edges |
 |-------|------------------|-----------------|
 | RECTANGLE | 2 x (length + width) | Up to 4 outer faces |
-| L_SHAPE | Sum of Leg A + Leg B perimeters | 6 outer exposed faces (no join faces) |
-| U_SHAPE | Sum of Left + Back + Right perimeters | 8 outer exposed faces (no join faces) |
+| L_SHAPE | Sum of Leg A + Leg B perimeters (decomposed rectangles, including join faces) | 6 outer exposed faces (no join faces) |
+| U_SHAPE | Sum of Left + Back + Right perimeters (decomposed rectangles, including join faces) | 8 outer exposed faces (no join faces) |
 
 ---
 
@@ -834,7 +852,8 @@ export interface ShapeGeometry {
 | Feature | Verified | Date | Quote Used |
 |---------|----------|------|------------|
 | Rectangle piece pricing (cutting, polishing, lamination) | Not verified | — | — |
-| L-shape cutting perimeter (decomposed legs) | Not verified | — | — |
+| L-shape cutting perimeter (decomposed legs) | Formula verified in code | Feb 27 2026 | — |
+| [ ] Quote 55 Family Room cutting = $558.00 (12.4 Lm × $45) | Pending production verification | — after merge + recalculate | Quote 55 |
 | L-shape edge saving and polishing cost | Not verified | — | — |
 | L-shape lamination cost (40mm) | Not verified | — | — |
 | Slab optimizer — rectangles | Not verified | — | — |
