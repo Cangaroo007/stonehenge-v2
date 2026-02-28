@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect } from 'react';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { Placement, LaminationSummary } from '@/types/slab-optimization';
 import { formatCurrency } from '@/lib/utils';
-import { decomposeShapeIntoRects } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, getFinishableEdgeLengthsMm, type ShapeType, type ShapeConfig } from '@/lib/types/shapes';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -22,6 +22,7 @@ interface QuotePiece {
   thickness_mm: number;
   shape_type?: string | null;
   shape_config?: unknown;
+  no_strip_edges?: unknown;
   edge_top: string | null;
   edge_bottom: string | null;
   edge_left: string | null;
@@ -280,24 +281,56 @@ function derivePartsForPiece(
         });
       }
     } else {
-      // Derive from finished edges
-      const finishedEdges = breakdown.fabrication.edges.filter(
-        (e) => e.edgeTypeName && e.lengthMm > 0
-      );
-      for (const edge of finishedEdges) {
-        const sideLabel = edge.side.charAt(0).toUpperCase() + edge.side.slice(1);
-        const isMitre = edge.edgeTypeName.toLowerCase().includes('mitre');
-        const stripWidth = isMitre ? 40 : 60;
+      // Fallback: derive strips from all edges minus wall edges
+      const noStripEdges = (piece.no_strip_edges as unknown as string[]) ?? [];
+      const pieceShapeTypeStr = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
+      const isShape = pieceShapeTypeStr === 'L_SHAPE' || pieceShapeTypeStr === 'U_SHAPE';
 
-        parts.push({
-          type: 'LAMINATION_STRIP',
-          name: `${sideLabel} lamination strip`,
-          lengthMm: edge.lengthMm,
-          widthMm: stripWidth,
-          thicknessMm: 20,
-          slab: findSlabForStrip(piece.id, edge.side, placements),
-          cost: null,
-        });
+      if (isShape && piece.shape_config) {
+        // L/U shapes: use all finishable edge lengths (6 for L, 8 for U)
+        const allEdgeLengths = getFinishableEdgeLengthsMm(
+          pieceShapeTypeStr,
+          piece.shape_config as unknown as ShapeConfig,
+          piece.length_mm,
+          piece.width_mm
+        );
+        for (const [edgeKey, lengthMm] of Object.entries(allEdgeLengths)) {
+          if (noStripEdges.includes(edgeKey)) continue;
+          if (lengthMm <= 0) continue;
+          const sideLabel = edgeKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          parts.push({
+            type: 'LAMINATION_STRIP',
+            name: `${sideLabel} lamination strip`,
+            lengthMm,
+            widthMm: 60,
+            thicknessMm: 20,
+            slab: findSlabForStrip(piece.id, edgeKey, placements),
+            cost: null,
+          });
+        }
+      } else {
+        // Rectangle: all 4 edges minus wall edges
+        const rectEdges: Record<string, number> = {
+          top: piece.length_mm,
+          bottom: piece.length_mm,
+          left: piece.width_mm,
+          right: piece.width_mm,
+        };
+        for (const [edgeKey, lengthMm] of Object.entries(rectEdges)) {
+          if (noStripEdges.includes(edgeKey)) continue;
+          const sideLabel = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
+          const edgeTypeId = piece[`edge_${edgeKey}` as keyof QuotePiece] as string | null;
+          const isMitre = edgeTypeId?.toLowerCase().includes('mitre') ?? false;
+          parts.push({
+            type: 'LAMINATION_STRIP',
+            name: `${sideLabel} lamination strip`,
+            lengthMm,
+            widthMm: isMitre ? 40 : 60,
+            thicknessMm: 20,
+            slab: findSlabForStrip(piece.id, edgeKey, placements),
+            cost: null,
+          });
+        }
       }
     }
 

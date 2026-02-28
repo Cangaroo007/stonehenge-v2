@@ -101,6 +101,7 @@ interface PieceData {
   shapeType?: string | null;
   shapeConfig?: Record<string, unknown> | null;
   requiresGrainMatch?: boolean;
+  noStripEdges?: string[];
 }
 
 export interface QuickViewPieceRowProps {
@@ -504,6 +505,10 @@ export default function QuickViewPieceRow({
   }, [fullPiece, onSavePiece, savePieceImmediate]);
 
   // Handler for shape_config edges (INNER, R-BTM, etc.) — merges into shape_config.edges
+  const handleNoStripEdgesChange = useCallback((noStripEdges: string[]) => {
+    savePieceImmediate({ noStripEdges });
+  }, [savePieceImmediate]);
+
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
     if (!fullPiece || !onSavePiece) return;
     const currentConfig = (fullPiece as unknown as Record<string, unknown>).shapeConfig as Record<string, unknown> ?? {};
@@ -1049,6 +1054,8 @@ export default function QuickViewPieceRow({
                 shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
                 onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
                 shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
+                noStripEdges={(piece.noStripEdges as string[]) ?? []}
+                onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
               />
             </div>
           </PieceEditorErrorBoundary>

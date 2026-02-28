@@ -747,10 +747,13 @@ export async function calculateQuotePrice(
       { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
     ];
 
-    // Compute finished edge length in Lm.
-    // For shaped pieces: edges stored in shape_config.edges — keyed by finishable edge name.
-    // For rectangles: leave undefined so the engine calculates from the edges array (unchanged).
+    // Get no_strip_edges for this piece (wall edges that don't need lamination strips)
+    const noStripEdges = (piece.no_strip_edges as unknown as string[]) ?? [];
+
+    // Compute finished edge length in Lm for polishing (edges with profiles assigned).
+    // Compute strip length in Lm for lamination (ALL edges minus wall edges).
     let finishedEdgesLm: number | undefined;
+    let stripLm: number | undefined;
     if (isShapedPiece) {
       const savedEdges = (piece.shape_config as unknown as {
         edges?: Record<string, string | null>
@@ -763,7 +766,7 @@ export async function calculateQuotePrice(
         piece.width_mm ?? 0
       );
 
-      // Sum lengths of edges that have a profile assigned (non-null)
+      // Sum lengths of edges that have a profile assigned (non-null) — for polishing
       // ONLY keys present in finishableLengths are valid — join faces are not in this map
       finishedEdgesLm = 0;
       for (const [key, lengthMm] of Object.entries(finishableLengths)) {
@@ -771,6 +774,22 @@ export async function calculateQuotePrice(
           finishedEdgesLm += lengthMm / 1000;
         }
       }
+
+      // Strip all edges MINUS wall edges — for lamination
+      stripLm = Object.entries(finishableLengths)
+        .filter(([key]) => !noStripEdges.includes(key))
+        .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+    } else {
+      // Rectangle: all 4 edges minus wall edges — for lamination
+      const rectEdgeLengths: Record<string, number> = {
+        top: piece.length_mm,
+        bottom: piece.length_mm,
+        left: piece.width_mm,
+        right: piece.width_mm,
+      };
+      stripLm = Object.entries(rectEdgeLengths)
+        .filter(([key]) => !noStripEdges.includes(key))
+        .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
     }
 
     enginePieces.push({
@@ -800,6 +819,7 @@ export async function calculateQuotePrice(
       ) : undefined,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
+      stripLm,
     });
   }
 

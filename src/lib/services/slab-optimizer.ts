@@ -7,7 +7,7 @@ import {
 } from '@/types/slab-optimization';
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
-import { decomposeShapeIntoRects, getShapeEdgeLengths, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
 
 interface Rect {
   x: number;
@@ -86,14 +86,9 @@ function generateLaminationStrips(
     return [];
   }
 
-  // If no finished edges specified, assume none (no strips needed)
-  if (!piece.finishedEdges) {
-    return [];
-  }
-
   const strips: OptimizationPiece[] = [];
-  const edges = piece.finishedEdges;
   const edgeNames = piece.edgeTypeNames;
+  const noStripEdges = piece.noStripEdges ?? [];
 
   // Helper: determine if an edge is a mitre edge
   const isMitreEdge = (name?: string): boolean => {
@@ -101,71 +96,31 @@ function generateLaminationStrips(
     return name.toLowerCase().includes('mitre');
   };
 
-  // Top edge strip (runs along the width)
-  if (edges.top) {
-    const isMitre = isMitreEdge(edgeNames?.top);
-    const stripW = getStripWidthForEdge(edgeNames?.top, piece.thickness, kerfWidth);
-    strips.push({
-      id: `${piece.id}-lam-top`,
-      width: piece.width,
-      height: stripW,
-      thickness: 20, // Strips are cut from 20mm slab
-      label: `${piece.label} (Lam-Top${edgeNames?.top ? ` ${edgeNames.top}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'top',
-      // Mitre strips use the MITRING machine's kerf for placement spacing
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
+  // Rectangle pieces: generate strips for all 4 edges minus no_strip_edges (wall edges)
+  const rectEdgeLengths: Record<string, { lengthMm: number; isWidth: boolean }> = {
+    top:    { lengthMm: piece.width, isWidth: true },
+    bottom: { lengthMm: piece.width, isWidth: true },
+    left:   { lengthMm: piece.height, isWidth: false },
+    right:  { lengthMm: piece.height, isWidth: false },
+  };
 
-  // Bottom edge strip (runs along the width)
-  if (edges.bottom) {
-    const isMitre = isMitreEdge(edgeNames?.bottom);
-    const stripW = getStripWidthForEdge(edgeNames?.bottom, piece.thickness, kerfWidth);
-    strips.push({
-      id: `${piece.id}-lam-bottom`,
-      width: piece.width,
-      height: stripW,
-      thickness: 20,
-      label: `${piece.label} (Lam-Bottom${edgeNames?.bottom ? ` ${edgeNames.bottom}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'bottom',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
+  for (const [edgeKey, { lengthMm, isWidth }] of Object.entries(rectEdgeLengths)) {
+    // Skip wall edges
+    if (noStripEdges.includes(edgeKey)) continue;
 
-  // Left edge strip (runs along the height)
-  if (edges.left) {
-    const isMitre = isMitreEdge(edgeNames?.left);
-    const stripW = getStripWidthForEdge(edgeNames?.left, piece.thickness, kerfWidth);
-    strips.push({
-      id: `${piece.id}-lam-left`,
-      width: stripW,
-      height: piece.height,
-      thickness: 20,
-      label: `${piece.label} (Lam-Left${edgeNames?.left ? ` ${edgeNames.left}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'left',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
+    const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
+    const isMitre = isMitreEdge(edgeName);
+    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
 
-  // Right edge strip (runs along the height)
-  if (edges.right) {
-    const isMitre = isMitreEdge(edgeNames?.right);
-    const stripW = getStripWidthForEdge(edgeNames?.right, piece.thickness, kerfWidth);
     strips.push({
-      id: `${piece.id}-lam-right`,
-      width: stripW,
-      height: piece.height,
+      id: `${piece.id}-lam-${edgeKey}`,
+      width: isWidth ? lengthMm : stripW,
+      height: isWidth ? stripW : lengthMm,
       thickness: 20,
-      label: `${piece.label} (Lam-Right${edgeNames?.right ? ` ${edgeNames.right}` : ''})`,
+      label: `${piece.label} (Lam-${edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1)}${edgeName ? ` ${edgeName}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
-      stripPosition: 'right',
+      stripPosition: edgeKey,
       pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
@@ -175,304 +130,54 @@ function generateLaminationStrips(
 
 /**
  * Generates lamination strips for an L/U shaped piece using actual outer edge lengths.
- * Called BEFORE decomposition so the parent piece still has its finishedEdges and edgeTypeNames.
- * Uses getShapeEdgeLengths() to get real edge dimensions (not bounding box).
+ * Called BEFORE decomposition so the parent piece still has its shape data.
+ * Uses getFinishableEdgeLengthsMm() to get all finishable edge dimensions.
  *
- * The 4 DB edge positions (top/bottom/left/right) map to the shape's outer edges:
- * - L-shape: top=leg1 top, right=leg2 right, bottom=combined bottom runs, left=leg1 left
- * - U-shape: top=back, right=rightLeg right, bottom=combined bottom runs, left=leftLeg left
- * Inner step edges are NOT mapped — they are always RAW (joins, not finished edges).
+ * Generates one strip per finishable edge NOT marked as a wall edge (noStripEdges).
+ * All edges get strips by default — wall edges are explicitly excluded.
  */
 function generateShapeStrips(
   piece: OptimizationPiece,
-  edgeLengths: { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number },
-  kerfWidth?: number,
-  mitreKerfWidth?: number
+  _edgeLengths: { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number },
+  _kerfWidth?: number,
+  _mitreKerfWidth?: number
 ): OptimizationPiece[] {
-  if (!piece.finishedEdges) return [];
-
-  const strips: OptimizationPiece[] = [];
-  const edges = piece.finishedEdges;
-  const edgeNames = piece.edgeTypeNames;
-
-  const isMitreEdge = (name?: string): boolean => {
-    if (!name) return false;
-    return name.toLowerCase().includes('mitre');
-  };
-
-  // Top edge strip — uses actual top edge length from shape geometry
-  if (edges.top) {
-    const isMitre = isMitreEdge(edgeNames?.top);
-    const stripW = getStripWidthForEdge(edgeNames?.top);
-    strips.push({
-      id: `${piece.id}-lam-top`,
-      width: edgeLengths.top_mm,
-      height: stripW,
-      thickness: 20,
-      label: `${piece.label} (Lam-Top${edgeNames?.top ? ` ${edgeNames.top}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'top',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
-
-  // Bottom edge strip — uses actual bottom edge length (may span multiple legs)
-  if (edges.bottom) {
-    const isMitre = isMitreEdge(edgeNames?.bottom);
-    const stripW = getStripWidthForEdge(edgeNames?.bottom);
-    strips.push({
-      id: `${piece.id}-lam-bottom`,
-      width: edgeLengths.bottom_mm,
-      height: stripW,
-      thickness: 20,
-      label: `${piece.label} (Lam-Bottom${edgeNames?.bottom ? ` ${edgeNames.bottom}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'bottom',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
-
-  // Left edge strip — uses actual left edge length
-  if (edges.left) {
-    const isMitre = isMitreEdge(edgeNames?.left);
-    const stripW = getStripWidthForEdge(edgeNames?.left);
-    strips.push({
-      id: `${piece.id}-lam-left`,
-      width: stripW,
-      height: edgeLengths.left_mm,
-      thickness: 20,
-      label: `${piece.label} (Lam-Left${edgeNames?.left ? ` ${edgeNames.left}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'left',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
-
-  // Right edge strip — uses actual right edge length
-  if (edges.right) {
-    const isMitre = isMitreEdge(edgeNames?.right);
-    const stripW = getStripWidthForEdge(edgeNames?.right);
-    strips.push({
-      id: `${piece.id}-lam-right`,
-      width: stripW,
-      height: edgeLengths.right_mm,
-      thickness: 20,
-      label: `${piece.label} (Lam-Right${edgeNames?.right ? ` ${edgeNames.right}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: 'right',
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-    });
-  }
-
-  // ── shape_config edge strips (INNER, R-BTM, etc.) ───────────────────────
-  const shapeConfigEdges = piece.shapeConfigEdges ?? {};
   const sType = piece.shapeType as ShapeType | undefined;
   const sCfg = piece.shapeConfig as ShapeConfig;
+  if (!sType || !sCfg) return [];
 
-  if (sType === 'L_SHAPE' && sCfg && 'leg1' in sCfg) {
-    const cfg = sCfg as LShapeConfig;
-    const leg2Net = cfg.leg2.length_mm - cfg.leg1.width_mm;
-    // top: horizontal top of leg1
-    if (shapeConfigEdges['top']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-top`,
-        width: cfg.leg1.length_mm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Top)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'top',
-      });
-    }
-    // left: vertical left side = leg1.width
-    if (shapeConfigEdges['left']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-left`,
-        width: stripW,
-        height: cfg.leg1.width_mm,
-        thickness: 20,
-        label: `${piece.label} (Lam-Left)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'left',
-      });
-    }
-    // r_top: right side = leg2.width
-    if (shapeConfigEdges['r_top']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-rtop`,
-        width: stripW,
-        height: cfg.leg2.width_mm,
-        thickness: 20,
-        label: `${piece.label} (Lam-R-Top)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'r_top',
-      });
-    }
-    // inner: horizontal step between legs = leg1.length - leg2.width
-    if (shapeConfigEdges['inner']) {
-      const innerLengthMm = cfg.leg1.length_mm - cfg.leg2.width_mm;
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-inner`,
-        width: innerLengthMm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Inner)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'inner',
-      });
-    }
-    // r_btm: vertical right side of leg2 = leg2_net
-    if (shapeConfigEdges['r_btm']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-rbtm`,
-        width: stripW,
-        height: leg2Net,
-        thickness: 20,
-        label: `${piece.label} (Lam-R-Btm)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'r_btm',
-      });
-    }
-    // bottom: horizontal bottom = leg2_net
-    if (shapeConfigEdges['bottom']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-bottom`,
-        width: leg2Net,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Bottom)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'bottom',
-      });
-    }
-  }
+  const noStripEdges = piece.noStripEdges ?? [];
+  const stripWidthMm = LAMINATION_STRIP_WIDTH_DEFAULT;
 
-  if (sType === 'U_SHAPE' && sCfg && 'leftLeg' in sCfg) {
-    const cfg = sCfg as UShapeConfig;
-    const bottomSpan = cfg.leftLeg.width_mm + cfg.back.length_mm + cfg.rightLeg.width_mm;
-    if (shapeConfigEdges['top_left']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-topleft`,
-        width: cfg.leftLeg.width_mm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-TopLeft)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'top_left',
-      });
-    }
-    if (shapeConfigEdges['outer_left']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-outerleft`,
-        width: stripW,
-        height: cfg.leftLeg.length_mm,
-        thickness: 20,
-        label: `${piece.label} (Lam-OuterLeft)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'outer_left',
-      });
-    }
-    if (shapeConfigEdges['inner_left']) {
-      const innerLeftMm = cfg.leftLeg.length_mm - cfg.back.width_mm;
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-innerleft`,
-        width: stripW,
-        height: innerLeftMm,
-        thickness: 20,
-        label: `${piece.label} (Lam-InnerLeft)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'inner_left',
-      });
-    }
-    if (shapeConfigEdges['back_inner']) {
-      const backMm = cfg.back.length_mm;
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-back`,
-        width: backMm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Back)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'back_inner',
-      });
-    }
-    if (shapeConfigEdges['inner_right']) {
-      const innerRightMm = cfg.rightLeg.length_mm - cfg.back.width_mm;
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-innerright`,
-        width: stripW,
-        height: innerRightMm,
-        thickness: 20,
-        label: `${piece.label} (Lam-InnerRight)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'inner_right',
-      });
-    }
-    if (shapeConfigEdges['top_right']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-topright`,
-        width: cfg.rightLeg.width_mm,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-TopRight)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'top_right',
-      });
-    }
-    if (shapeConfigEdges['outer_right']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-outerright`,
-        width: stripW,
-        height: cfg.rightLeg.length_mm,
-        thickness: 20,
-        label: `${piece.label} (Lam-OuterRight)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'outer_right',
-      });
-    }
-    if (shapeConfigEdges['bottom']) {
-      const stripW = getStripWidthForEdge(undefined);
-      strips.push({
-        id: `${piece.id}-lam-bottom`,
-        width: bottomSpan,
-        height: stripW,
-        thickness: 20,
-        label: `${piece.label} (Lam-Bottom)`,
-        isLaminationStrip: true,
-        parentPieceId: piece.id,
-        stripPosition: 'bottom',
-      });
-    }
+  // Get ALL finishable edge lengths for this shape (6 for L, 8 for U)
+  const allEdgeLengths = getFinishableEdgeLengthsMm(
+    sType,
+    sCfg,
+    piece.width,   // optimizer width = piece length_mm
+    piece.height    // optimizer height = piece width_mm
+  );
+
+  const strips: OptimizationPiece[] = [];
+
+  // Generate one strip per edge NOT marked as wall
+  for (const [edgeKey, lengthMm] of Object.entries(allEdgeLengths)) {
+    if (noStripEdges.includes(edgeKey)) continue;
+    if (lengthMm <= 0) continue;
+
+    // Determine strip orientation: horizontal edges have width=length, height=stripWidth
+    // Vertical edges have width=stripWidth, height=length
+    const isHorizontal = ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(edgeKey);
+
+    strips.push({
+      id: `${piece.id}-lam-${edgeKey}`,
+      width: isHorizontal ? lengthMm : stripWidthMm,
+      height: isHorizontal ? stripWidthMm : lengthMm,
+      thickness: 20,
+      label: `${piece.label} (Lam-${edgeKey.replace(/_/g, ' ')})`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: edgeKey,
+    });
   }
 
   return strips;
@@ -671,8 +376,8 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     }
 
     // Generate lamination strips for L/U shapes BEFORE decomposition.
-    // Uses actual outer edge lengths (not bounding box) so strip dimensions are correct.
-    if (piece.thickness && piece.thickness >= LAMINATION_THRESHOLD && piece.finishedEdges) {
+    // ALL edges get strips by default, minus any in noStripEdges (wall edges).
+    if (piece.thickness && piece.thickness >= LAMINATION_THRESHOLD) {
       const edgeLengths = getShapeEdgeLengths(
         piece.shapeType as ShapeType,
         piece.shapeConfig as ShapeConfig,

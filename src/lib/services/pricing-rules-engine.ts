@@ -76,6 +76,7 @@ export interface EnginePiece {
   cuttingPerimeterLm?: number   // overrides 2*(l+w)/1000
   areaSqm?: number              // overrides (l*w)/1_000_000
   finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
+  stripLm?: number              // all edges minus wall edges — for lamination strip cost
 }
 
 export interface EngineMaterial {
@@ -211,8 +212,8 @@ export function ruleLamination(
   if (piece.thickness_mm <= 20 || !piece.laminationMethod) return null
   const polishRate = rates.find(r => r.serviceType === 'POLISHING' && r.fabricationCategory === category)
   if (!polishRate) return null
-  // Use shape-aware override when provided (L/U shapes), else sum from edges array
-  const lm = piece.finishedEdgesLm ?? piece.edges.filter(e => e.isFinished).reduce((s, e) => s + e.length_mm / 1000, 0)
+  // Use stripLm (all edges minus wall edges) when available, else finishedEdgesLm, else sum from edges array
+  const lm = piece.stripLm ?? piece.finishedEdgesLm ?? piece.edges.filter(e => e.isFinished).reduce((s, e) => s + e.length_mm / 1000, 0)
   const multiplier = piece.laminationMethod === 'MITRED'
     ? settings.mitredMultiplier
     : settings.laminatedMultiplier

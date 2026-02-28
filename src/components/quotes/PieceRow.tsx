@@ -113,6 +113,7 @@ interface PieceRowProps {
     shapeType?: string | null;
     shapeConfig?: Record<string, unknown> | null;
     requiresGrainMatch?: boolean;
+    noStripEdges?: string[];
   };
   /** Per-piece cost breakdown from the calculation result */
   breakdown?: PiecePricingBreakdown;
@@ -738,6 +739,19 @@ function PieceVisualEditorSection({
     [onBatchEdgeUpdate, piece.id, fullPiece]
   );
 
+  // Handler for no_strip_edges (wall edges) — saves via PATCH
+  const handleNoStripEdgesChange = useCallback(
+    (noStripEdges: string[]) => {
+      if (!fullPiece || !onSavePiece) return;
+      onSavePiece(
+        piece.id,
+        { noStripEdges },
+        fullPiece.quote_rooms?.name || 'Kitchen'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
   // Handler for shape_config edges (INNER, R-BTM, etc.) — merges into shape_config.edges
   const handleShapeEdgeChange = useCallback(
     (edgeId: string, profileId: string | null) => {
@@ -796,6 +810,8 @@ function PieceVisualEditorSection({
         shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
         onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
         shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
+        noStripEdges={(piece.noStripEdges as string[]) ?? []}
+        onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
       />
     </div>
   );

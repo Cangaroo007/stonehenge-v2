@@ -108,6 +108,7 @@ interface QuotePiece {
   shapeType: string | null;
   shapeConfig: Record<string, unknown> | null;
   requiresGrainMatch: boolean;
+  noStripEdges?: string[];
   cutouts: PieceCutout[];
   sortOrder: number;
   totalCost: number;
@@ -2859,6 +2860,7 @@ export default function QuoteDetailClient({
                       shapeType: piece.shape_type ?? 'RECTANGLE',
                       shapeConfig: piece.shape_config ?? null,
                       requiresGrainMatch: piece.requiresGrainMatch ?? false,
+                      noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
                     }}
                     breakdown={pb}
                     mode="view"
@@ -3270,6 +3272,7 @@ export default function QuoteDetailClient({
               shapeType: p.shapeType ?? 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
               requiresGrainMatch: p.requiresGrainMatch ?? false,
+              noStripEdges: (p.noStripEdges as string[]) ?? [],
             }}
             breakdown={pb}
             machines={machines}
