@@ -170,6 +170,7 @@ export async function GET(
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
+      noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
@@ -245,6 +246,7 @@ export async function PATCH(
       laminationMethod,
       requiresGrainMatch,
       shapeConfig,
+      noStripEdges,
     } = data;
 
     // Get the current piece
@@ -379,6 +381,8 @@ export async function PATCH(
         requiresGrainMatch: requiresGrainMatch !== undefined ? requiresGrainMatch : currentPiece.requiresGrainMatch,
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
+        // no_strip_edges: wall edges that don't need lamination strips
+        ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,
@@ -445,6 +449,7 @@ export async function PATCH(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
+      noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
@@ -501,6 +506,7 @@ export async function PUT(
       laminationMethod,
       requiresGrainMatch: reqGrainMatch,
       shapeConfig: putShapeConfig,
+      noStripEdges: putNoStripEdges,
     } = data;
 
     // Get the current piece
@@ -689,6 +695,8 @@ export async function PUT(
         requiresGrainMatch: reqGrainMatch !== undefined ? reqGrainMatch : currentPiece.requiresGrainMatch,
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
+        // no_strip_edges: wall edges that don't need lamination strips
+        ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,

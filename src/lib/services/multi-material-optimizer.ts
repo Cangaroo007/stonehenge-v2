@@ -38,6 +38,8 @@ export interface MultiMaterialPiece {
   grainMatched?: boolean;
   /** Extra edges from shape_config.edges (INNER, R-BTM, etc.) */
   shapeConfigEdges?: Record<string, string | null>;
+  /** Edges marked as wall edges — no lamination strip generated for these */
+  noStripEdges?: string[];
 }
 
 export interface MaterialInfo {
@@ -146,6 +148,7 @@ export function optimizeMultiMaterial(
         shapeConfig: p.shapeConfig,
         grainMatched: p.grainMatched,
         shapeConfigEdges: p.shapeConfigEdges,
+        noStripEdges: p.noStripEdges,
       })),
       slabWidth: slabLength,   // optimizer "width" = slab length (longer dimension)
       slabHeight: slabWidth,   // optimizer "height" = slab width (shorter dimension)

@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-02-28
-> **Last Updated By:** claude/fix-silent-overwrite-crash-xpwSW
+> **Last Updated By:** claude/wall-edge-no-strip-toggle-HYxEq
 
 ---
 
@@ -61,6 +61,7 @@
 | waterfall_height_mm | Int? | |
 | shape_type | String? | Default "RECTANGLE" — values: RECTANGLE, L_SHAPE, U_SHAPE |
 | shape_config | Json? | L/U shape dimensions and edges (see Shape System §6) |
+| no_strip_edges | Json? | Default "[]" — edge keys marked as wall edges (no lamination strip) |
 
 #### quotes
 | Field | Type | Notes |
@@ -519,7 +520,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `loadPricingContext` | 131 | Loads all pricing config for an organisation |
 | `calculateMaterialCost` | 167 | Calculates material cost for a piece |
 | `buildMaterialGroupings` | 350 | Groups pieces by material for slab calculation |
-| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing |
+| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm` |
 | `getServiceRate` | 1573 | Looks up service rate by type/category |
 | `applyMinimumCharge` | 1610 | Applies minimum charge to a line item |
 | `getApplicableRules` | 1626 | Finds pricing rules matching a piece |
@@ -546,8 +547,8 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | Function | Line | Purpose |
 |----------|------|---------|
 | `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
-| `generateLaminationStrips` | 79 | Generates lamination strip cutting list |
-| `generateShapeStrips` | 186 | Generates strips for L/U shapes |
+| `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
+| `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
 | `generateLaminationSummary` | 484 | Summarises lamination strip usage |
 | `preprocessOversizePieces` | 539 | Splits oversize pieces into joinable segments |
 | `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
@@ -655,11 +656,12 @@ VersionDiffView, VersionHistoryTab
 - `fullPiece` now includes `shapeConfig: p.shapeConfig ?? null` — prevents silent overwrite of L/U shape geometry on edge save
 - `handleShapeEdgeChange` already wired internally in QuickViewPieceRow and PieceRow via `onSavePiece` chain
 
-#### PieceVisualEditor.tsx (PROMPT-11 updates)
+#### PieceVisualEditor.tsx (PROMPT-11 + PROMPT-12 updates)
 - Null guards at L-shape layout (~line 638): `if (!cfg.leg1 || !cfg.leg2) return null`
 - Null guards at U-shape layout (~line 720): `if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return null`
 - Null guards at cutout area constraint (~line 835/844): safe skip when leg sub-objects missing
 - Returns safe `null` fallback when leg sub-objects missing (same as RECTANGLE path)
+- **PROMPT-12:** "Against wall" toggle per edge — sets noStripEdges. Wall edges show "WALL" label in SVG.
 
 #### PieceVisualEditorProps (line 54)
 - `lengthMm`, `widthMm` — piece dimensions
@@ -673,6 +675,8 @@ VersionDiffView, VersionHistoryTab
 - `onEdgesChange?` — multi-edge change callback (template apply)
 - `onCutoutAdd?`, `onCutoutRemove?` — cutout callbacks
 - `onBulkApply?` — bulk edge apply to room/quote scope
+- `noStripEdges?` — edge keys marked as wall edges (no lamination strip)
+- `onNoStripEdgesChange?` — callback when wall edge state changes
 
 #### QuickViewPieceRowProps (line 106)
 - `piece` — PieceData object

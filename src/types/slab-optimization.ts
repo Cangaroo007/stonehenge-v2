@@ -106,6 +106,8 @@ export interface OptimizationInput {
     grainMatched?: boolean;
     // Extra edges from shape_config.edges (INNER, R-BTM, etc.) — used for L/U lamination strips
     shapeConfigEdges?: Record<string, string | null>;
+    // Edges marked as wall edges — no lamination strip generated for these
+    noStripEdges?: string[];
   }>;
   slabWidth: number;
   slabHeight: number;

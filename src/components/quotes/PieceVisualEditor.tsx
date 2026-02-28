@@ -121,6 +121,12 @@ export interface PieceVisualEditorProps {
 
   /** Edge profiles stored in shape_config.edges (keyed by raw edge id) */
   shapeConfigEdges?: Record<string, string | null>;
+
+  /** Edges marked as wall edges (no lamination strip) */
+  noStripEdges?: string[];
+
+  /** Called when wall edge state changes for the piece */
+  onNoStripEdgesChange?: (noStripEdges: string[]) => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -180,6 +186,8 @@ export default function PieceVisualEditor({
   shapeConfig,
   onShapeEdgeChange,
   shapeConfigEdges,
+  noStripEdges = [],
+  onNoStripEdgesChange,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -477,6 +485,15 @@ export default function PieceVisualEditor({
     },
     [onCutoutAdd]
   );
+
+  const handleWallEdgeToggle = useCallback((edgeKey: string) => {
+    if (!onNoStripEdgesChange) return;
+    const current = noStripEdges ?? [];
+    const updated = current.includes(edgeKey)
+      ? current.filter(k => k !== edgeKey)
+      : [...current, edgeKey];
+    onNoStripEdgesChange(updated);
+  }, [noStripEdges, onNoStripEdgesChange]);
 
   const handleSvgClick = useCallback(
     (e: React.MouseEvent) => {
@@ -1142,11 +1159,12 @@ export default function PieceVisualEditor({
             {/* Shape edges — all finishable, all stored in shape_config.edges */}
             {shapeLayout.edges.map((edge) => {
               // For shaped pieces: ALL edges read from shapeConfigEdges
+              const isWallEdge = noStripEdges.includes(edge.side);
               const profileId = shapeConfigEdges?.[edge.side] ?? null;
-              const name = profileId ? resolveEdgeName(profileId) : undefined;
-              const isFinished = !!profileId;
-              const colour = edgeColour(name);
-              const code = edgeCode(name);
+              const name = isWallEdge ? undefined : (profileId ? resolveEdgeName(profileId) : undefined);
+              const isFinished = !isWallEdge && !!profileId;
+              const colour = isWallEdge ? '#78716c' : edgeColour(name);
+              const code = isWallEdge ? 'WALL' : edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
               const isHovered = hoveredEdge === edge.side;
 
@@ -1219,8 +1237,8 @@ export default function PieceVisualEditor({
                       className={`select-none ${isFinished ? 'text-[9px] font-semibold' : 'text-[8px]'}`}
                       fill={colour}
                     >
-                      <title>{name || 'Raw / Unfinished'}</title>
-                      {isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`}
+                      <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                      {isWallEdge ? `WALL ${edge.label}` : (isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`)}
                     </text>
                   </g>
                 </g>
@@ -1271,10 +1289,11 @@ export default function PieceVisualEditor({
             {/* Edges */}
             {(Object.keys(edgeDefs) as EdgeSide[]).map((side) => {
               const def = edgeDefs[side];
-              const name = edgeNames[side];
-              const isFinished = !!edgeIds[side];
-              const colour = edgeColour(name);
-              const code = edgeCode(name);
+              const isWallEdge = noStripEdges.includes(side);
+              const name = isWallEdge ? undefined : edgeNames[side];
+              const isFinished = !isWallEdge && !!edgeIds[side];
+              const colour = isWallEdge ? '#78716c' : edgeColour(name);
+              const code = isWallEdge ? 'WALL' : edgeCode(name);
               const isHorizontal = side === 'top' || side === 'bottom';
               const isHovered = hoveredEdge === side;
               const isSelected = selectedEdges.has(side);
@@ -1316,12 +1335,12 @@ export default function PieceVisualEditor({
                     x2={def.x2}
                     y2={def.y2}
                     stroke={isFlashing ? '#22c55e' : colour}
-                    strokeWidth={isFlashing ? 5 : (isFinished ? 3 : 1)}
-                    strokeDasharray={isFinished ? undefined : '4 3'}
+                    strokeWidth={isFlashing ? 5 : (isWallEdge ? 2 : (isFinished ? 3 : 1))}
+                    strokeDasharray={isWallEdge ? '6 3' : (isFinished ? undefined : '4 3')}
                     opacity={1}
                     className={isFlashing ? 'edge-flash' : undefined}
                   >
-                    <title>{name || 'Raw / Unfinished'}</title>
+                    <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
                   </line>
 
                   {/* Hit area for clicking (edit mode only) */}
@@ -1338,7 +1357,7 @@ export default function PieceVisualEditor({
                       onMouseEnter={() => setHoveredEdge(side)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     >
-                      <title>{name || 'Raw / Unfinished'}</title>
+                      <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
                     </line>
                   )}
 
@@ -1349,14 +1368,16 @@ export default function PieceVisualEditor({
                     textAnchor={isHorizontal ? 'middle' : side === 'left' ? 'end' : 'start'}
                     dominantBaseline={isHorizontal ? (side === 'top' ? 'auto' : 'hanging') : 'middle'}
                     className={`select-none ${
-                      isFinished ? 'text-[10px] font-semibold' : 'text-[9px]'
+                      isWallEdge ? 'text-[9px] font-medium' : (isFinished ? 'text-[10px] font-semibold' : 'text-[9px]')
                     }`}
                     fill={colour}
                   >
-                    <title>{name || 'Raw / Unfinished'}</title>
-                    {isFinished
-                      ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
-                      : 'RAW'}
+                    <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                    {isWallEdge
+                      ? 'WALL'
+                      : (isFinished
+                        ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
+                        : 'RAW')}
                   </text>
                 </g>
               );
@@ -1425,35 +1446,115 @@ export default function PieceVisualEditor({
 
       {/* Edge profile popover (single-click with scope selector) */}
       {popover && (
-        <EdgeProfilePopover
-          isOpen={true}
-          position={{ x: popover.x, y: popover.y }}
-          currentProfileId={edgeIds[popover.side]}
-          profiles={edgeTypes}
-          isMitred={isMitred}
-          onSelect={handleProfileSelect}
-          onClose={() => setPopover(null)}
-          side={onApplyWithScope ? popover.side : undefined}
-          roomName={roomName}
-          roomId={roomId}
-          onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
-        />
+        <>
+          {isEditMode && onNoStripEdgesChange && (
+            <div
+              className="absolute z-50"
+              style={{ left: popover.x, top: popover.y - 32 }}
+            >
+              <button
+                onClick={() => handleWallEdgeToggle(popover.side)}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  noStripEdges.includes(popover.side)
+                    ? 'bg-slate-700 text-white border-slate-600'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {noStripEdges.includes(popover.side) ? 'Against wall' : 'Against wall'}
+              </button>
+              {noStripEdges.includes(popover.side) && (
+                <span className="ml-2 text-xs text-slate-400">No lamination</span>
+              )}
+            </div>
+          )}
+          {!noStripEdges.includes(popover.side) && (
+            <EdgeProfilePopover
+              isOpen={true}
+              position={{ x: popover.x, y: popover.y }}
+              currentProfileId={edgeIds[popover.side]}
+              profiles={edgeTypes}
+              isMitred={isMitred}
+              onSelect={handleProfileSelect}
+              onClose={() => setPopover(null)}
+              side={onApplyWithScope ? popover.side : undefined}
+              roomName={roomName}
+              roomId={roomId}
+              onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
+            />
+          )}
+          {noStripEdges.includes(popover.side) && (
+            <div
+              className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
+              style={{ left: popover.x, top: popover.y }}
+            >
+              <div className="text-xs text-slate-500">
+                Wall edge — no profile or lamination strip
+              </div>
+              <button
+                onClick={() => setPopover(null)}
+                className="mt-1 text-xs text-slate-400 hover:text-slate-600"
+              >
+                Close
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* Popover for shape_config edges (INNER, R-BTM, etc.) */}
       {shapeEdgePopover && onShapeEdgeChange && (
-        <EdgeProfilePopover
-          isOpen={true}
-          position={{ x: shapeEdgePopover.x, y: shapeEdgePopover.y }}
-          currentProfileId={shapeConfigEdges?.[shapeEdgePopover.edgeId] ?? null}
-          profiles={edgeTypes}
-          isMitred={isMitred}
-          onSelect={(profileId) => {
-            onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
-            setShapeEdgePopover(null);
-          }}
-          onClose={() => setShapeEdgePopover(null)}
-        />
+        <>
+          {isEditMode && onNoStripEdgesChange && (
+            <div
+              className="absolute z-50"
+              style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y - 32 }}
+            >
+              <button
+                onClick={() => handleWallEdgeToggle(shapeEdgePopover.edgeId)}
+                className={`text-xs px-2 py-1 rounded border transition-colors ${
+                  noStripEdges.includes(shapeEdgePopover.edgeId)
+                    ? 'bg-slate-700 text-white border-slate-600'
+                    : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                }`}
+              >
+                {noStripEdges.includes(shapeEdgePopover.edgeId) ? 'Against wall' : 'Against wall'}
+              </button>
+              {noStripEdges.includes(shapeEdgePopover.edgeId) && (
+                <span className="ml-2 text-xs text-slate-400">No lamination</span>
+              )}
+            </div>
+          )}
+          {!noStripEdges.includes(shapeEdgePopover.edgeId) && (
+            <EdgeProfilePopover
+              isOpen={true}
+              position={{ x: shapeEdgePopover.x, y: shapeEdgePopover.y }}
+              currentProfileId={shapeConfigEdges?.[shapeEdgePopover.edgeId] ?? null}
+              profiles={edgeTypes}
+              isMitred={isMitred}
+              onSelect={(profileId) => {
+                onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+                setShapeEdgePopover(null);
+              }}
+              onClose={() => setShapeEdgePopover(null)}
+            />
+          )}
+          {noStripEdges.includes(shapeEdgePopover.edgeId) && (
+            <div
+              className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
+              style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y }}
+            >
+              <div className="text-xs text-slate-500">
+                Wall edge — no profile or lamination strip
+              </div>
+              <button
+                onClick={() => setShapeEdgePopover(null)}
+                className="mt-1 text-xs text-slate-400 hover:text-slate-600"
+              >
+                Close
+              </button>
+            </div>
+          )}
+        </>
       )}
 
       {/* ── Multi-select action bar ──────────────────────────────────── */}
