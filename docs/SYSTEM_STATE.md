@@ -549,7 +549,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
-| `generateLaminationSummary` | 484 | Summarises lamination strip usage |
+| `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13) |
 | `preprocessOversizePieces` | 539 | Splits oversize pieces into joinable segments |
 | `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
@@ -721,6 +721,11 @@ VersionDiffView, VersionHistoryTab
 - `findSlabForSegment` — oversize segment lookup by pieceId + segmentIndex
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
 - `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
+
+#### PartsSection strip grouping (PROMPT-13)
+- `LSHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top, left], 1→[r_top, inner, r_btm, bottom]
+- `USHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top_left, outer_left, inner_left], 1→[bottom, back_inner], 2→[top_right, outer_right, inner_right]
+- Parts reordered at end of derivePartsForPiece so strips follow their parent leg
 
 ---
 
