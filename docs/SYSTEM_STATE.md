@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-02-28
-> **Last Updated By:** claude/wall-edge-no-strip-toggle-HYxEq
+> **Last Updated By:** claude/fix-lshape-slab-strip-B0GWq
 
 ---
 
@@ -715,6 +715,12 @@ VersionDiffView, VersionHistoryTab
 - `calcBreakdown` — { pieces?: PiecePricingBreakdown[] }
 - `optimiserRefreshKey?` — bump to re-fetch optimizer
 - `externalRelationships?` — piece relationships for edit mode
+
+#### PartsSection slab lookup functions
+- `findSlabForPiece` — standard piece lookup by pieceId
+- `findSlabForSegment` — oversize segment lookup by pieceId + segmentIndex
+- `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
+- `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
 
 ---
 

@@ -130,6 +130,24 @@ function findSlabForStrip(
   return p ? getSlabLabel(p.slabIndex) : null;
 }
 
+function findSlabForDecomposedPart(
+  pieceId: number | string,
+  partIndex: number,
+  placements: Placement[] | undefined
+): string | null {
+  if (!placements) return null;
+  const targetPieceId = `${pieceId}-part-${partIndex}`;
+  const placement = placements.find(pl => pl.pieceId === targetPieceId);
+  if (!placement) {
+    const byGroup = placements.find(
+      pl => pl.groupId === String(pieceId) && pl.partIndex === partIndex
+    );
+    if (byGroup) return `Slab ${byGroup.slabIndex + 1}`;
+    return null;
+  }
+  return `Slab ${placement.slabIndex + 1}`;
+}
+
 function derivePartsForPiece(
   piece: QuotePiece,
   breakdown: PiecePricingBreakdown | undefined,
@@ -177,7 +195,7 @@ function derivePartsForPiece(
         lengthMm: rect.width,
         widthMm: rect.height,
         thicknessMm,
-        slab: findSlabForSegment(piece.id, li, placements),
+        slab: findSlabForDecomposedPart(piece.id, li, placements),
         cost: legCost,
       });
     }
