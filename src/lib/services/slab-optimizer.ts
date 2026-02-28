@@ -207,7 +207,18 @@ function generateLaminationSummary(
     ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(position);
 
   for (const parentId of parentIds) {
-    const parent = originalPieces.find(p => p.id === parentId);
+    let parent = originalPieces.find(p => p.id === parentId);
+    // Fallback: if parent not in originalPieces (e.g. oversize segment),
+    // find it in allPieces and trace up parentPieceId to the original piece.
+    if (!parent && parentId) {
+      const intermediate = allPieces.find(p => p.id === parentId);
+      if (intermediate?.parentPieceId) {
+        parent = originalPieces.find(p => p.id === intermediate.parentPieceId);
+      }
+      if (!parent && intermediate) {
+        parent = intermediate;
+      }
+    }
     const parentStrips = strips.filter(s => s.parentPieceId === parentId);
 
     stripsByParent.push({

@@ -626,7 +626,7 @@ export default function PartsSection({
                           return (
                             <tr
                               key={`${piece.id}-${partIdx}`}
-                              className={`${rowBg} border-b border-gray-100 last:border-b-0`}
+                              className={`${rowBg} border-b border-gray-100 last:border-b-0${part.type === 'LAMINATION_STRIP' ? ' pl-6' : ''}`}
                             >
                               <td className="py-2 pr-3">
                                 <div className="flex flex-col">
@@ -640,13 +640,15 @@ export default function PartsSection({
                                       part.isCutout
                                         ? 'text-gray-400 italic text-xs'
                                         : part.type === 'LAMINATION_STRIP'
-                                          ? 'text-gray-600 text-xs'
+                                          ? 'text-slate-400 text-sm'
                                           : part.type === 'OVERSIZE_HALF'
                                             ? 'text-gray-700 text-xs font-medium'
                                             : 'text-gray-800 font-medium text-xs'
                                     }
                                   >
-                                    {part.name}
+                                    {part.type === 'LAMINATION_STRIP'
+                                      ? `↳ ${part.name.replace(/ lamination strip$/i, ' strip')}`
+                                      : part.name}
                                   </span>
                                   {part.note && (
                                     <span className="text-[10px] text-gray-400 mt-0.5">
@@ -658,7 +660,9 @@ export default function PartsSection({
                               <td className="py-2 pr-3 text-xs text-gray-600 whitespace-nowrap">
                                 {part.isCutout
                                   ? '—'
-                                  : `${part.lengthMm}mm × ${part.widthMm}mm × ${part.thicknessMm}mm`}
+                                  : part.type === 'LAMINATION_STRIP'
+                                    ? `${Math.max(part.lengthMm, part.widthMm)}mm × ${Math.min(part.lengthMm, part.widthMm)}mm × ${part.thicknessMm}mm`
+                                    : `${part.lengthMm}mm × ${part.widthMm}mm × ${part.thicknessMm}mm`}
                               </td>
                               <td className="py-2 pr-3 text-xs text-gray-600">
                                 {part.slab ?? '—'}
