@@ -549,7 +549,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
-| `generateLaminationSummary` | 484 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13) |
+| `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13) |
 | `preprocessOversizePieces` | 539 | Splits oversize pieces into joinable segments |
 | `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
