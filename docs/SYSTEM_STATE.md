@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-02-28
-> **Last Updated By:** claude/fix-lshape-slab-strip-B0GWq
+> **Last Updated By:** claude/fix-slab-display-hQGwQ
 
 ---
 
@@ -549,7 +549,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
-| `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13) |
+| `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
 | `preprocessOversizePieces` | 539 | Splits oversize pieces into joinable segments |
 | `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
@@ -718,7 +718,7 @@ VersionDiffView, VersionHistoryTab
 
 #### PartsSection slab lookup functions
 - `findSlabForPiece` — standard piece lookup by pieceId
-- `findSlabForSegment` — oversize segment lookup by pieceId + segmentIndex
+- `findSlabForSegment` — oversize segment lookup by parentPieceId + segmentIndex (PROMPT-14: fixed to match on parentPieceId instead of pieceId)
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
 - `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
 
@@ -726,6 +726,11 @@ VersionDiffView, VersionHistoryTab
 - `LSHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top, left], 1→[r_top, inner, r_btm, bottom]
 - `USHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top_left, outer_left, inner_left], 1→[bottom, back_inner], 2→[top_right, outer_right, inner_right]
 - Parts reordered at end of derivePartsForPiece so strips follow their parent leg
+
+#### PartsSection display fixes (PROMPT-14)
+- LAMINATION_STRIP dimensions: `Math.max(lengthMm, widthMm) × Math.min(lengthMm, widthMm)` — always shows longer dimension first (display-only)
+- LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
+- LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
 
 ---
 
