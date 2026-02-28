@@ -38,6 +38,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PROMPT-13 slab assignment + strip display | claude/fix-lshape-slab-strip-B0GWq | Feb 28 | 🔄 In progress |
 | HOTFIX Phase 1 null guard | claude/fix-lshape-null-guard-VDNE5 | Feb 27 | ✅ Complete |
 | FIX-11 Phase 1 — cutting formula | claude/fix-lshape-formula-Domy8 | Feb 27 | ✅ Complete |
 | FIX-11 Phase 2 — header display | fix/lshape-header-display | Feb 27 | ⏳ After Phase 1 |
@@ -49,4 +50,4 @@
 
 ---
 
-*Last Updated: Feb 28 2026 — PROMPT-12: no_strip_edges field added, wall edge toggle, per-edge strip generation, optimizer dead code cleaned up (A-14 resolved)*
+*Last Updated: Feb 28 2026 — PROMPT-13 Task 1: findSlabForDecomposedPart() added to PartsSection.tsx — L/U legs now resolve slab assignments via groupId/partIndex instead of isSegment/segmentIndex*
