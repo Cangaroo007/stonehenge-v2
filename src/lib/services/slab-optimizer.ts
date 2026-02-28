@@ -203,21 +203,20 @@ function generateLaminationSummary(
   // Group strips by parent piece
   const parentIds = Array.from(new Set(strips.map(s => s.parentPieceId).filter(Boolean)));
   
+  const isHorizontalEdge = (position: string) =>
+    ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(position);
+
   for (const parentId of parentIds) {
     const parent = originalPieces.find(p => p.id === parentId);
     const parentStrips = strips.filter(s => s.parentPieceId === parentId);
-    
+
     stripsByParent.push({
       parentPieceId: parentId || '',
       parentLabel: parent?.label || 'Unknown',
       strips: parentStrips.map(s => ({
         position: s.stripPosition || 'unknown',
-        lengthMm: s.stripPosition === 'left' || s.stripPosition === 'right'
-          ? s.height
-          : s.width,
-        widthMm: s.stripPosition === 'left' || s.stripPosition === 'right'
-          ? s.width
-          : s.height
+        lengthMm: isHorizontalEdge(s.stripPosition || '') ? s.width : s.height,
+        widthMm: isHorizontalEdge(s.stripPosition || '') ? s.height : s.width,
       }))
     });
   }

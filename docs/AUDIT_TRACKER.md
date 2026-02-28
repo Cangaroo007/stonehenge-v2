@@ -50,4 +50,4 @@
 
 ---
 
-*Last Updated: Feb 28 2026 — PROMPT-13 Task 1: findSlabForDecomposedPart() added to PartsSection.tsx — L/U legs now resolve slab assignments via groupId/partIndex instead of isSegment/segmentIndex*
+*Last Updated: Feb 28 2026 — PROMPT-13 Task 2: generateLaminationSummary() dimension swap fixed — uses isHorizontalEdge() matching generateShapeStrips() confirmed list*
