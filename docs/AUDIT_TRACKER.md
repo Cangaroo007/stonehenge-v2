@@ -49,6 +49,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PROMPT-14 slab display fixes (AUDIT-5) | claude/fix-slab-display-hQGwQ | Feb 28 | 🔄 In progress |
 | PROMPT-13 slab assignment + strip display | claude/fix-lshape-slab-strip-B0GWq | Feb 28 | ✅ Complete |
 | HOTFIX Phase 1 null guard | claude/fix-lshape-null-guard-VDNE5 | Feb 27 | ✅ Complete |
 | FIX-11 Phase 1 — cutting formula | claude/fix-lshape-formula-Domy8 | Feb 27 | ✅ Complete |
@@ -61,4 +62,4 @@
 
 ---
 
-*Last Updated: Feb 28 2026 — PROMPT-13 complete: R-18 slab lookup, R-19 dimension swap, R-20 strip grouping. D-01 kerf exception deferred.*
+*Last Updated: Feb 28 2026 — PROMPT-14 in progress: Task 1 findSlabForSegment fix (parentPieceId match). Tasks 2-4 pending approval.*

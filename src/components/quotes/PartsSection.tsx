@@ -124,8 +124,8 @@ function findSlabForSegment(
   if (!placements) return null;
   const p = placements.find(
     (pl) =>
-      pl.pieceId === String(pieceId) &&
-      pl.isSegment &&
+      pl.parentPieceId === String(pieceId) &&
+      pl.isSegment === true &&
       pl.segmentIndex === segmentIndex
   );
   return p ? getSlabLabel(p.slabIndex) : null;
