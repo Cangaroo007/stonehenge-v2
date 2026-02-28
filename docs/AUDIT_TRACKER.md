@@ -25,7 +25,7 @@
 
 | ID | Severity | Description | File | First Seen | Assigned To |
 |----|----------|-------------|------|------------|-------------|
-| A-14 | 🔴 Critical | R-10 false positive. L/U shapes broken in production: cutting $504 (should be $558), header shows bounding box 3200×2400, $0 polishing, $0 lamination, all 6 edges RAW. getCuttingPerimeterLm returns 11.20 Lm. onShapeEdgeChange not wired. getPieceDimensionLabel not in JSX. | PieceVisualEditor.tsx, QuickViewPieceRow.tsx, shapes.ts | Feb 27 | FIX-11-PHASE1/2/3 |
+| A-14 | 🟡 Partially Resolved | A-14: Silent overwrite fixed — fullPiece now includes shapeConfig, onShapeEdgeChange wired in QuoteDetailClient. Dashboard crash fixed via PieceVisualEditor null guards. Remaining: header display + polishing/lamination production verification. | PieceVisualEditor.tsx, QuoteDetailClient.tsx, shapes.ts | Feb 27 | PROMPT-11 |
 | A-15 | 🔴 Critical | Build broken on main. Prisma config validation + Turbopack root issue. Blocking Railway deploys. | next.config., prisma/ | Feb 27 | Fix before FIX-11 |
 | A-16 | 🟡 Medium | gh CLI not in Claude Code. Manual PR creation required every session. | dev tooling | Feb 27 | brew install gh |
 | A-17 | 🟡 Medium | AUDIT_TRACKER stale line number: extractFabricationDiscount at 1563, actually 1761. | docs/AUDIT_TRACKER.md | Feb 27 | Update inventory |
@@ -38,12 +38,13 @@
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
 | HOTFIX Phase 1 null guard | claude/fix-lshape-null-guard-VDNE5 | Feb 27 | ✅ Complete |
-| FIX-11 Phase 1 — cutting formula | claude/fix-lshape-formula-Domy8 | Feb 27 | 🔄 In progress |
+| FIX-11 Phase 1 — cutting formula | claude/fix-lshape-formula-Domy8 | Feb 27 | ✅ Complete |
 | FIX-11 Phase 2 — header display | fix/lshape-header-display | Feb 27 | ⏳ After Phase 1 |
 | FIX-11 Phase 3 — edge wiring | fix/lshape-edge-wiring | Feb 27 | ⏳ After Phase 2 |
+| PROMPT-11 silent overwrite | claude/fix-silent-overwrite-crash-xpwSW | Feb 28 | 🔄 In progress |
 | FIX-4 regression anchor | fix/locked-regression-anchor | — | ⏳ After Phase 3 |
 | Admin pricing auth fix | fix/admin-pricing-auth | — | ⏳ After FIX-4 |
 
 ---
 
-*Last Updated: Feb 27 2026 — HOTFIX: null guards added to all L/U shape geometry functions (A-19 resolved)*
+*Last Updated: Feb 28 2026 — PROMPT-11: shapeConfig added to fullPiece, null guards in PieceVisualEditor (A-14 partially resolved)*

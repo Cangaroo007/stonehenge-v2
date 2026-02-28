@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-02-27
-> **Last Updated By:** claude/fix-lshape-null-guard-VDNE5
+> **Last Updated:** 2026-02-28
+> **Last Updated By:** claude/fix-silent-overwrite-crash-xpwSW
 
 ---
 
@@ -651,6 +651,16 @@ VersionDiffView, VersionHistoryTab
 
 ### Key Props Interfaces
 
+#### QuoteDetailClient.tsx (PROMPT-11 updates)
+- `fullPiece` now includes `shapeConfig: p.shapeConfig ?? null` — prevents silent overwrite of L/U shape geometry on edge save
+- `handleShapeEdgeChange` already wired internally in QuickViewPieceRow and PieceRow via `onSavePiece` chain
+
+#### PieceVisualEditor.tsx (PROMPT-11 updates)
+- Null guards at L-shape layout (~line 638): `if (!cfg.leg1 || !cfg.leg2) return null`
+- Null guards at U-shape layout (~line 720): `if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return null`
+- Null guards at cutout area constraint (~line 835/844): safe skip when leg sub-objects missing
+- Returns safe `null` fallback when leg sub-objects missing (same as RECTANGLE path)
+
 #### PieceVisualEditorProps (line 54)
 - `lengthMm`, `widthMm` — piece dimensions
 - `edgeTop`, `edgeRight`, `edgeBottom`, `edgeLeft` — edge type IDs (string | null)
@@ -874,3 +884,7 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | Grain match surcharge | Not verified | — | — |
 | Corner join cost | Not verified | — | — |
 | Pre-push hook enforcement (AUDIT_TRACKER + SYSTEM_STATE) | ✅ | Feb 27 | — |
+| [ ] Quote 55 Family Room — edge click → leg data intact after save | Pending production verification | — | Quote 55 |
+| [ ] Quote 55 Family Room — cutting non-zero after recalculate | Pending production verification | — | Quote 55 |
+| [ ] Dashboard loads without crash | Pending production verification | — | — |
+| [ ] Kitchen pieces unchanged after edge edit | Pending production verification | — | — |

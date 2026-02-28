@@ -3292,6 +3292,7 @@ export default function QuoteDetailClient({
               edgeRight: p.edgeRight,
               cutouts: p.cutouts || [],
               quote_rooms: p.quote_rooms,
+              shapeConfig: p.shapeConfig ?? null,
             }}
             editData={inlineEditData}
             onSavePiece={handleInlineSavePiece}
