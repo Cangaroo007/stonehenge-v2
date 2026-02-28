@@ -635,6 +635,7 @@ export default function PieceVisualEditor({
 
     if (effectiveShapeType === 'L_SHAPE') {
       const cfg = shapeConfig as unknown as LShapeConfig;
+      if (!cfg.leg1 || !cfg.leg2) return null;
       const l1l = cfg.leg1.length_mm;  // leg1 length (horizontal top)
       const l1w = cfg.leg1.width_mm;   // leg1 width (vertical top part)
       const l2w = cfg.leg2.width_mm;   // leg2 width (horizontal bottom, narrower)
@@ -716,6 +717,7 @@ export default function PieceVisualEditor({
 
     if (effectiveShapeType === 'U_SHAPE') {
       const cfg = shapeConfig as unknown as UShapeConfig;
+      if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return null;
       const lw = cfg.leftLeg.width_mm;
       const ll = cfg.leftLeg.length_mm;   // full outer left height
       const bl = cfg.back.length_mm;      // full horizontal width
@@ -830,20 +832,24 @@ export default function PieceVisualEditor({
 
     if (effectiveShapeType === 'L_SHAPE' && shapeConfig) {
       const cfg = shapeConfig as unknown as LShapeConfig;
-      const boundW = cfg.leg1.length_mm;
-      const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
-      // Scale leg1 proportionally to the rendered size
-      cutoutAreaW = (cfg.leg1.length_mm / boundW) * innerW;
-      cutoutAreaH = (cfg.leg1.width_mm / boundH) * innerH;
+      if (cfg.leg1 && cfg.leg2) {
+        const boundW = cfg.leg1.length_mm;
+        const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
+        // Scale leg1 proportionally to the rendered size
+        cutoutAreaW = (cfg.leg1.length_mm / boundW) * innerW;
+        cutoutAreaH = (cfg.leg1.width_mm / boundH) * innerH;
+      }
     } else if (effectiveShapeType === 'U_SHAPE' && shapeConfig) {
       const cfg = shapeConfig as unknown as UShapeConfig;
-      const boundW = cfg.back.length_mm;
-      const boundH = cfg.leftLeg.length_mm;
-      // Constrain to back section (bottom horizontal bar)
-      const backH = (cfg.back.width_mm / boundH) * innerH;
-      cutoutAreaY = y + innerH - backH;
-      cutoutAreaW = (cfg.back.length_mm / boundW) * innerW;
-      cutoutAreaH = backH;
+      if (cfg.leftLeg && cfg.back) {
+        const boundW = cfg.back.length_mm;
+        const boundH = cfg.leftLeg.length_mm;
+        // Constrain to back section (bottom horizontal bar)
+        const backH = (cfg.back.width_mm / boundH) * innerH;
+        cutoutAreaY = y + innerH - backH;
+        cutoutAreaW = (cfg.back.length_mm / boundW) * innerW;
+        cutoutAreaH = backH;
+      }
     }
 
     // Filter out cutouts with missing/invalid data to prevent crashes
