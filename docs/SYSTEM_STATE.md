@@ -722,6 +722,11 @@ VersionDiffView, VersionHistoryTab
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
 - `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
 
+#### PartsSection strip grouping (PROMPT-13)
+- `LSHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top, left], 1→[r_top, inner, r_btm, bottom]
+- `USHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top_left, outer_left, inner_left], 1→[bottom, back_inner], 2→[top_right, outer_right, inner_right]
+- Parts reordered at end of derivePartsForPiece so strips follow their parent leg
+
 ---
 
 ## 6. Shape System

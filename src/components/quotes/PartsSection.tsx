@@ -57,6 +57,7 @@ interface Part {
   cost: number | null;
   note?: string;
   isCutout?: boolean;
+  stripPosition?: string;
 }
 
 interface OptimizerData {
@@ -81,6 +82,21 @@ interface PartsSectionProps {
     relationshipType: string;
   }>;
 }
+
+// ─── Leg-to-Edge Maps (for grouping strips under parent legs) ────────────────
+
+// L-shape: Leg A (index 0) owns top + left, Leg B (index 1) owns remaining 4
+const LSHAPE_LEG_EDGE_MAP: Record<number, string[]> = {
+  0: ['top', 'left'],
+  1: ['r_top', 'inner', 'r_btm', 'bottom'],
+};
+
+// U-shape: Left leg (index 0), Back (index 1), Right leg (index 2)
+const USHAPE_LEG_EDGE_MAP: Record<number, string[]> = {
+  0: ['top_left', 'outer_left', 'inner_left'],
+  1: ['bottom', 'back_inner'],
+  2: ['top_right', 'outer_right', 'inner_right'],
+};
 
 // ─── Derivation Logic ───────────────────────────────────────────────────────
 
@@ -296,6 +312,7 @@ function derivePartsForPiece(
           thicknessMm: 20,
           slab: findSlabForStrip(piece.id, strip.position, placements),
           cost: null,
+          stripPosition: strip.position,
         });
       }
     } else {
@@ -324,6 +341,7 @@ function derivePartsForPiece(
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
             cost: null,
+            stripPosition: edgeKey,
           });
         }
       } else {
@@ -347,6 +365,7 @@ function derivePartsForPiece(
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
             cost: null,
+            stripPosition: edgeKey,
           });
         }
       }
@@ -419,6 +438,37 @@ function derivePartsForPiece(
         });
       }
     }
+  }
+
+  // Reorder parts so strips appear grouped under their parent leg (L/U shapes only)
+  if (isLOrUShape) {
+    const edgeMap = pieceShapeType === 'L_SHAPE' ? LSHAPE_LEG_EDGE_MAP : USHAPE_LEG_EDGE_MAP;
+    const legs = parts.filter(p => p.type === 'MAIN');
+    const strips = parts.filter(p => p.type === 'LAMINATION_STRIP');
+    const others = parts.filter(p => p.type !== 'MAIN' && p.type !== 'LAMINATION_STRIP');
+
+    const reordered: Part[] = [];
+    const usedStrips = new Set<number>();
+
+    for (let legIdx = 0; legIdx < legs.length; legIdx++) {
+      reordered.push(legs[legIdx]);
+      const legEdges = edgeMap[legIdx] ?? [];
+      for (let si = 0; si < strips.length; si++) {
+        if (usedStrips.has(si)) continue;
+        if (strips[si].stripPosition && legEdges.includes(strips[si].stripPosition!)) {
+          reordered.push(strips[si]);
+          usedStrips.add(si);
+        }
+      }
+    }
+
+    // Add any unmatched strips (shouldn't happen, but safe fallback)
+    for (let si = 0; si < strips.length; si++) {
+      if (!usedStrips.has(si)) reordered.push(strips[si]);
+    }
+
+    reordered.push(...others);
+    return reordered;
   }
 
   return parts;

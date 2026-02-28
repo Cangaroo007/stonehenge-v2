@@ -50,4 +50,4 @@
 
 ---
 
-*Last Updated: Feb 28 2026 — PROMPT-13 Task 2: generateLaminationSummary() dimension swap fixed — uses isHorizontalEdge() matching generateShapeStrips() confirmed list*
+*Last Updated: Feb 28 2026 — PROMPT-13 Task 3: strips grouped under parent leg via LSHAPE_LEG_EDGE_MAP / USHAPE_LEG_EDGE_MAP*
