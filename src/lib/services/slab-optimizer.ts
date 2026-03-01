@@ -551,12 +551,16 @@ function preprocessOversizePieces(
 export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation, edgeAllowanceMm = 0, mitreKerfWidth } = input;
 
+  // Exclude zero-dimension pieces before packing.
+  // These should be filtered upstream, but this is defence-in-depth.
+  const validPieces = pieces.filter(p => p.width > 0 && p.height > 0);
+
   // Usable dimensions after subtracting edge allowance from both sides
   const usableWidth = slabWidth - (edgeAllowanceMm * 2);
   const usableHeight = slabHeight - (edgeAllowanceMm * 2);
 
   // Handle empty input
-  if (pieces.length === 0) {
+  if (validPieces.length === 0) {
     return {
       placements: [],
       slabs: [],
@@ -568,7 +572,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     };
   }
 
-  const inputPieceCount = pieces.length;
+  const inputPieceCount = validPieces.length;
 
   // ── Step 1: Decompose L/U shapes into component rects ───────────────────
   // L/U shapes are decomposed FIRST, BEFORE oversize detection.
@@ -578,7 +582,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // Rectangle pieces pass through unchanged.
   const decomposedPieces: OptimizationPiece[] = [];
   const shapeStrips: OptimizationPiece[] = []; // strips generated for L/U shapes pre-decomposition
-  for (const piece of (pieces as OptimizationPiece[])) {
+  for (const piece of (validPieces as OptimizationPiece[])) {
     // Only decompose non-strip pieces that have shape data
     if (piece.isLaminationStrip || !piece.shapeType ||
         piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
@@ -662,7 +666,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
 
   // Store original pieces for reference (before adding strips).
   // Uses raw input pieces so shape strip parents (L/U pieces) can be found by ID.
-  const originalPieces: OptimizationPiece[] = Array.from(pieces as OptimizationPiece[]);
+  const originalPieces: OptimizationPiece[] = Array.from(validPieces as OptimizationPiece[]);
 
   // Group slab assignment map: groupId → slabIndex
   const groupSlabMap = new Map<string, number>();

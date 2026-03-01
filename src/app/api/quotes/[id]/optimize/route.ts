@@ -375,9 +375,22 @@ export async function POST(
       );
     }
 
+    // Guard: exclude ghost pieces with zero or negative dimensions.
+    // Zero-dimension pieces cannot represent real stone and cause UI noise.
+    // The quote readiness checker already flags these as errors — this
+    // enforces the same rule at the optimizer boundary.
+    const validPieces = pieces.filter((p: { width: number; height: number }) => p.width > 0 && p.height > 0);
+
+    if (validPieces.length === 0) {
+      return NextResponse.json(
+        { error: 'Quote has no valid pieces to optimize' },
+        { status: 400 }
+      );
+    }
+
     // ── Detect distinct materials to decide single vs multi-material path ──
     const distinctMaterialIds = new Set(
-      pieces.map((p: { materialId: string | null }) => p.materialId).filter(Boolean)
+      validPieces.map((p: { materialId: string | null }) => p.materialId).filter(Boolean)
     );
     const isMultiMaterial = distinctMaterialIds.size > 1;
 
@@ -407,7 +420,7 @@ export async function POST(
         })
       );
 
-      const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
+      const multiMaterialPieces: MultiMaterialPiece[] = validPieces.map(
         (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
@@ -470,7 +483,7 @@ export async function POST(
             items: allPlacements,
             unplacedPieces: allUnplaced,
             warnings: allWarnings,
-            inputPieceCount: pieces.length,
+            inputPieceCount: validPieces.length,
             edgeAllowanceMm,
             // Multi-material metadata stored alongside
             multiMaterial: {
@@ -551,7 +564,7 @@ export async function POST(
     // ── Single-material optimisation path (existing, backward compatible) ──
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
     const result = optimizeSlabs({
-      pieces,
+      pieces: validPieces,
       slabWidth,
       slabHeight,
       kerfWidth,
@@ -561,7 +574,7 @@ export async function POST(
     });
 
     // Piece count validation at the API level
-    const totalPiecesIn = pieces.length;
+    const totalPiecesIn = validPieces.length;
     const placedMainPieces = result.placements.filter(
       (p: { isLaminationStrip?: boolean }) => !p.isLaminationStrip
     ).length;
