@@ -48,6 +48,12 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   partLabel?: string;
   /** Total parts in the decomposed group */
   totalParts?: number;
+  /** true for strip parts split from oversize strips */
+  isStripSegment?: boolean;
+  /** 0-based index within the split */
+  stripSegmentIndex?: number;
+  /** total number of parts this strip was split into */
+  totalStripSegments?: number;
 };
 
 /**
@@ -181,6 +187,52 @@ function generateShapeStrips(
   }
 
   return strips;
+}
+
+/**
+ * Split any lamination strips that exceed the usable slab width into
+ * N placeable segments. Mirrors preprocessOversizePieces() logic but
+ * is strip-specific. Strip part IDs use '-part-' (NOT '-seg-') so the
+ * ghost strip filter in generateLaminationSummary does not exclude them.
+ */
+function preprocessOversizeStrips(
+  strips: OptimizationPiece[],
+  usableWidth: number
+): OptimizationPiece[] {
+  const result: OptimizationPiece[] = [];
+
+  for (const strip of strips) {
+    if (strip.width <= usableWidth) {
+      result.push(strip);
+      continue;
+    }
+
+    // Strip exceeds usable width — split into segments
+    const numSegments = Math.ceil(strip.width / usableWidth);
+    const segmentLength = Math.floor(strip.width / numSegments);
+    const lastSegmentLength = strip.width - segmentLength * (numSegments - 1);
+
+    for (let i = 0; i < numSegments; i++) {
+      const isLast = i === numSegments - 1;
+      const partLength = isLast ? lastSegmentLength : segmentLength;
+
+      result.push({
+        ...strip,
+        id: `${strip.id}-part-${i}`,
+        width: partLength,
+        // height (strip width, e.g. 60mm) unchanged
+        label: `${strip.label} (Part ${i + 1} of ${numSegments})`,
+        isStripSegment: true,
+        stripSegmentIndex: i,
+        totalStripSegments: numSegments,
+        // CRITICAL: parentPieceId stays as original piece ID, not strip ID
+        parentPieceId: strip.parentPieceId,
+        stripPosition: strip.stripPosition,
+      });
+    }
+  }
+
+  return result;
 }
 
 /**
@@ -590,11 +642,14 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     // L/U shape strips were already generated in Step 1 (before decomposition)
     // using actual edge lengths from getShapeEdgeLengths().
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
-    allPieces.push(...strips);
+    // Split any strips that exceed usable slab width into placeable segments
+    const processedStrips = preprocessOversizeStrips(strips, usableWidth);
+    allPieces.push(...processedStrips);
   }
 
-  // Add pre-generated L/U shape strips
-  allPieces.push(...shapeStrips);
+  // Add pre-generated L/U shape strips (also split oversize ones)
+  const processedShapeStrips = preprocessOversizeStrips(shapeStrips, usableWidth);
+  allPieces.push(...processedShapeStrips);
 
   // Log for debugging (visible in server logs)
   if (allPieces.length > normalizedPieces.length) {
