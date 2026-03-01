@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/strip-cuts-match-parent-416hE
+> **Last Updated:** 2026-03-02
+> **Last Updated By:** claude/min-segment-size-warning-2IMDU
 
 ---
 
@@ -734,10 +734,11 @@ VersionDiffView, VersionHistoryTab
 - LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
 - LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
 
-#### OptimizationDisplay.tsx (PROMPT-18)
+#### OptimizationDisplay.tsx (PROMPT-18, PROMPT-19d)
 - **Recalculate button** in Slab Layout header — triggers POST to `/api/quotes/${quoteId}/optimize`, then re-fetches results via `localRefreshKey` state
 - Button disabled while `isRecalculating` or `isOptimising`
 - Resolves A-20: stale DB records from pre-fix optimiser runs can be refreshed without developer intervention
+- **PROMPT-19d: Minimum segment size warning** — `detectSmallSegments()` scans `result.placements` for `isSegment=true` pieces (skips `isLaminationStrip`). Uses `Math.max(width, height)` for longest axis. Constants: `SEGMENT_HARD_MIN_MM=150` (red error — unfabricable), `SEGMENT_SOFT_MIN_MM=300` (amber warning — review). Banner renders between Quick Summary grid and slab visualisation. Advisory only — no blocking of quote actions. Type: `Placement` from `@/types/slab-optimization`.
 
 #### PartsSection strip rendering for oversize segments (PROMPT-17, PROMPT-19)
 - Strip rendering loop tracks per-position occurrence count (`positionOccurrences`) for oversize pieces

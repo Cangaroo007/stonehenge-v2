@@ -3,9 +3,59 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { SlabResults } from '@/components/slab-optimizer';
 import { OptimizationResult } from '@/types/slab-optimization';
-import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo, SlabCutoutInfo } from '@/types/slab-optimization';
+import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo, SlabCutoutInfo, Placement } from '@/types/slab-optimization';
 import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { SlabEdgeAllowancePrompt } from './SlabEdgeAllowancePrompt';
+
+// Minimum segment lengths — based on Australian fabrication industry standards
+// Below HARD_MIN: piece is physically unfabricable (cannot be cut, polished, handled)
+// Below SOFT_MIN: piece is at risk — Jay should review and adjust the join position
+const SEGMENT_HARD_MIN_MM = 150;
+const SEGMENT_SOFT_MIN_MM = 300;
+
+interface SegmentSizeIssue {
+  pieceLabel: string;
+  segmentIndex: number;
+  totalSegments: number;
+  segmentLengthMm: number;
+  severity: 'error' | 'warning';
+  message: string;
+}
+
+function detectSmallSegments(
+  pieces: Placement[]
+): SegmentSizeIssue[] {
+  const issues: SegmentSizeIssue[] = [];
+
+  for (const piece of pieces) {
+    if (!piece.isSegment) continue;
+    if (piece.isLaminationStrip) continue; // strips handled separately
+
+    const longDimension = Math.max(piece.width, piece.height);
+
+    if (longDimension < SEGMENT_HARD_MIN_MM) {
+      issues.push({
+        pieceLabel: piece.label ?? String(piece.pieceId),
+        segmentIndex: piece.segmentIndex ?? 0,
+        totalSegments: piece.totalSegments ?? 2,
+        segmentLengthMm: longDimension,
+        severity: 'error',
+        message: `${longDimension}mm is below the minimum fabricable length of ${SEGMENT_HARD_MIN_MM}mm. This piece cannot be cut, polished, or installed safely. Adjust the join position.`,
+      });
+    } else if (longDimension < SEGMENT_SOFT_MIN_MM) {
+      issues.push({
+        pieceLabel: piece.label ?? String(piece.pieceId),
+        segmentIndex: piece.segmentIndex ?? 0,
+        totalSegments: piece.totalSegments ?? 2,
+        segmentLengthMm: longDimension,
+        severity: 'warning',
+        message: `${longDimension}mm is below the recommended minimum of ${SEGMENT_SOFT_MIN_MM}mm. Review the join position — this segment may be difficult to handle and install.`,
+      });
+    }
+  }
+
+  return issues;
+}
 
 interface OptimizationDisplayProps {
   quoteId: string;
@@ -455,6 +505,55 @@ export function OptimizationDisplay({
           <div className="text-xs text-gray-500">Waste</div>
         </div>
       </div>
+
+      {/* Segment size warnings — shown above slab layout */}
+      {(() => {
+        const allPieces = [
+          ...(result?.placements ?? []),
+        ];
+        const issues = detectSmallSegments(allPieces);
+        if (issues.length === 0) return null;
+
+        const errors = issues.filter(i => i.severity === 'error');
+        const warnings = issues.filter(i => i.severity === 'warning');
+
+        return (
+          <div className="mb-4 space-y-2 px-4 pt-4">
+            {errors.map((issue, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3"
+              >
+                <span className="mt-0.5 text-red-600 text-lg">{'\u26A0'}</span>
+                <div>
+                  <p className="font-semibold text-red-800 text-sm">
+                    Unfabricable segment: {issue.pieceLabel}
+                  </p>
+                  <p className="text-red-700 text-sm mt-0.5">{issue.message}</p>
+                  <p className="text-red-600 text-xs mt-1">
+                    Tip: The join position can be moved by adjusting where this piece
+                    is split. A balanced split (e.g. half/half) avoids tiny remnants.
+                  </p>
+                </div>
+              </div>
+            ))}
+            {warnings.map((issue, idx) => (
+              <div
+                key={idx}
+                className="flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3"
+              >
+                <span className="mt-0.5 text-amber-600 text-lg">{'\u26A0'}</span>
+                <div>
+                  <p className="font-semibold text-amber-800 text-sm">
+                    Short segment review: {issue.pieceLabel}
+                  </p>
+                  <p className="text-amber-700 text-sm mt-0.5">{issue.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
 
       {/* Detailed slab visualisation */}
       <div className={`p-4 border-t border-gray-200 ${isOptimising ? 'opacity-60' : ''}`}>
