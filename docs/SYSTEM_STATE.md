@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/fix-strip-lookup-cutouts-iXGyl
+> **Last Updated By:** claude/oversize-split-boundary-fix-Npclx
 
 ---
 
@@ -551,7 +551,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `preprocessOversizeStrips` | 198 | PROMPT-19: Splits lamination strips exceeding usable slab width into N placeable segments. IDs use '-part-' (not '-seg-'). parentPieceId = original piece ID. Applied to both rectangle and L/U shape strips. |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
 | `generateLaminationSummary` | 241 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
-| `preprocessOversizePieces` | 310 | Splits oversize pieces into joinable segments. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
+| `preprocessOversizePieces` | 316 | Splits oversize pieces into joinable segments at slab boundary (not midpoint). PROMPT-19b: first segment fills to usableWidth (or customJoinMm if set), remainder on subsequent segments. customJoinMm field on OptimizationPiece enables future NL join override. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
 | `optimizeSlabs` | 505 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). PROMPT-19: strips processed through preprocessOversizeStrips() before FFD placement. |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
 | `findPosition` | 1032 | Finds placement position on a slab |
