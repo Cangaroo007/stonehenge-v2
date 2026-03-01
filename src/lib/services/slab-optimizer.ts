@@ -572,7 +572,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // so we can skip generating strips for the original oversize piece
   // (their strips are already generated inside preprocessOversizePieces)
   const decomposedPieceIds = new Set(
-    allPieces
+    normalizedPieces
       .filter(p => p.isSegment && p.parentPieceId)
       .map(p => p.parentPieceId as string)
   );

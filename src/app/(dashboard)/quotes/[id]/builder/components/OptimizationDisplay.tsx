@@ -38,6 +38,8 @@ export function OptimizationDisplay({
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [localRefreshKey, setLocalRefreshKey] = useState(0);
 
   // Cutout data for slab canvas overlay (pieceId -> cutout info)
   const [pieceCutouts, setPieceCutouts] = useState<Record<string, SlabCutoutInfo[]>>({});
@@ -79,6 +81,23 @@ export function OptimizationDisplay({
     setLocalQuoteAllowance(allowanceMm);
     onEdgeAllowanceApplied?.();
   }, [onEdgeAllowanceApplied]);
+
+  const handleRecalculate = useCallback(async () => {
+    setIsRecalculating(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/optimize`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!response.ok) throw new Error('Recalculation failed');
+      // Trigger re-fetch of optimisation results
+      setLocalRefreshKey(prev => prev + 1);
+    } catch (error) {
+      console.error('Recalculate error:', error);
+    } finally {
+      setIsRecalculating(false);
+    }
+  }, [quoteId]);
 
   useEffect(() => {
     const loadOptimization = async () => {
@@ -189,7 +208,7 @@ export function OptimizationDisplay({
     };
 
     loadOptimization();
-  }, [quoteId, refreshKey]);
+  }, [quoteId, refreshKey, localRefreshKey]);
 
   // Fetch piece cutout data for slab canvas overlay
   useEffect(() => {
@@ -231,7 +250,7 @@ export function OptimizationDisplay({
     };
 
     loadPieceCutouts();
-  }, [quoteId, refreshKey]);
+  }, [quoteId, refreshKey, localRefreshKey]);
 
   // ── Loading state (initial fetch) ────────────────────────────────────────
 
@@ -393,15 +412,24 @@ export function OptimizationDisplay({
             </div>
           )}
         </div>
-        <div className="flex flex-col items-end gap-0.5">
-          <span className="text-xs text-gray-500">
-            Slab: {optimization.slabWidth}&times;{optimization.slabHeight}mm &middot; Kerf: {optimization.kerfWidth}mm
-          </span>
-          {resolvedAllowance > 0 && (
+        <div className="flex items-center gap-3">
+          <button
+            onClick={handleRecalculate}
+            disabled={isRecalculating || isOptimising}
+            className="text-xs px-3 py-1.5 rounded border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRecalculating ? 'Recalculating...' : 'Recalculate'}
+          </button>
+          <div className="flex flex-col items-end gap-0.5">
             <span className="text-xs text-gray-500">
-              Usable: {usableWidth.toLocaleString()}&times;{usableHeight.toLocaleString()}mm ({resolvedAllowance}mm edge allowance per side)
+              Slab: {optimization.slabWidth}&times;{optimization.slabHeight}mm &middot; Kerf: {optimization.kerfWidth}mm
             </span>
-          )}
+            {resolvedAllowance > 0 && (
+              <span className="text-xs text-gray-500">
+                Usable: {usableWidth.toLocaleString()}&times;{usableHeight.toLocaleString()}mm ({resolvedAllowance}mm edge allowance per side)
+              </span>
+            )}
+          </div>
         </div>
       </div>
 

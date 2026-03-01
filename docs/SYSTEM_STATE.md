@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/fix-strip-segmentation-VvJta
+> **Last Updated By:** claude/fix-decomposed-piece-ids-rerun-4VVjA
 
 ---
 
@@ -551,7 +551,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
 | `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
 | `preprocessOversizePieces` | 254 | Splits oversize pieces into joinable segments. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
-| `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
+| `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
 | `findPosition` | 1032 | Finds placement position on a slab |
 | `placePiece` | 1054 | Places piece at position on slab |
@@ -732,6 +732,11 @@ VersionDiffView, VersionHistoryTab
 - LAMINATION_STRIP dimensions: `Math.max(lengthMm, widthMm) × Math.min(lengthMm, widthMm)` — always shows longer dimension first (display-only)
 - LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
 - LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
+
+#### OptimizationDisplay.tsx (PROMPT-18)
+- **Recalculate button** in Slab Layout header — triggers POST to `/api/quotes/${quoteId}/optimize`, then re-fetches results via `localRefreshKey` state
+- Button disabled while `isRecalculating` or `isOptimising`
+- Resolves A-20: stale DB records from pre-fix optimiser runs can be refreshed without developer intervention
 
 #### PartsSection strip rendering for oversize segments (PROMPT-17)
 - Strip rendering loop tracks per-position occurrence count (`positionOccurrences`) for oversize pieces
