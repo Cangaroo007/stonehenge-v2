@@ -323,6 +323,11 @@ function derivePartsForPiece(
       // Use real optimizer strip data
       // Track occurrence index per position for oversize pieces with multiple
       // strips per position (e.g. two top strips, one per segment)
+      // First pass: count total occurrences per position to detect split strips
+      const positionTotals: Record<string, number> = {};
+      for (const strip of stripsByParent.strips) {
+        positionTotals[strip.position] = (positionTotals[strip.position] ?? 0) + 1;
+      }
       const positionOccurrences: Record<string, number> = {};
       for (const strip of stripsByParent.strips) {
         const position = strip.position;
@@ -333,9 +338,14 @@ function derivePartsForPiece(
         const sideLabel = hasValidPosition
           ? position.charAt(0).toUpperCase() + position.slice(1)
           : null;
+        const total = positionTotals[position];
+        // Show "Part N of M" suffix when a strip was split into multiple segments
+        const partSuffix = total > 1
+          ? ` — Part ${occurrenceIndex + 1} of ${total}`
+          : '';
         const stripName = sideLabel
-          ? `${sideLabel} lamination strip`
-          : `${pieceName} — Lamination Strip`;
+          ? `${sideLabel} lamination strip${partSuffix}`
+          : `${pieceName} — Lamination Strip${partSuffix}`;
         parts.push({
           type: 'LAMINATION_STRIP',
           name: stripName,

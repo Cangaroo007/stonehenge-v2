@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/fix-decomposed-piece-ids-rerun-4VVjA
+> **Last Updated By:** claude/strip-oversize-splitting-C5we8
 
 ---
 
@@ -548,10 +548,11 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 |----------|------|---------|
 | `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
+| `preprocessOversizeStrips` | 198 | PROMPT-19: Splits lamination strips exceeding usable slab width into N placeable segments. IDs use '-part-' (not '-seg-'). parentPieceId = original piece ID. Applied to both rectangle and L/U shape strips. |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
-| `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
-| `preprocessOversizePieces` | 254 | Splits oversize pieces into joinable segments. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
-| `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). |
+| `generateLaminationSummary` | 241 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
+| `preprocessOversizePieces` | 310 | Splits oversize pieces into joinable segments. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
+| `optimizeSlabs` | 505 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). PROMPT-19: strips processed through preprocessOversizeStrips() before FFD placement. |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
 | `findPosition` | 1032 | Finds placement position on a slab |
 | `placePiece` | 1054 | Places piece at position on slab |
@@ -738,10 +739,11 @@ VersionDiffView, VersionHistoryTab
 - Button disabled while `isRecalculating` or `isOptimising`
 - Resolves A-20: stale DB records from pre-fix optimiser runs can be refreshed without developer intervention
 
-#### PartsSection strip rendering for oversize segments (PROMPT-17)
+#### PartsSection strip rendering for oversize segments (PROMPT-17, PROMPT-19)
 - Strip rendering loop tracks per-position occurrence count (`positionOccurrences`) for oversize pieces
 - Each segment strip maps to the correct slab via `findSlabForStrip` occurrence index
 - Multiple strips per position (e.g. two top strips from two segments) render as separate rows with correct slab assignments
+- PROMPT-19: When multiple strips share same position (split by preprocessOversizeStrips), label shows "Part N of M" suffix (e.g. "Top strip — Part 1 of 2")
 
 #### PartsSection segment expansion + cost removal (PROMPT-15)
 - Oversize L/U legs now expand into one row per physical cut: "Segment X of Y" labels with correct slab assignments

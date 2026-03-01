@@ -37,6 +37,7 @@
 | R-33 | Original oversize piece now skipped in strip generation loop via decomposedPieceIds set — prevents 4941mm ghost strips appearing alongside correct per-segment strips in laminationSummary | fix/strip-segmentation |
 | R-34 | decomposedPieceIds now built from normalizedPieces (not empty allPieces) — ghost strips correctly excluded from laminationSummary. Oversize piece strips (4941mm, 3200mm etc.) no longer show in parts list; correct per-segment strips show with slab assignments. | claude/fix-decomposed-piece-ids-rerun-4VVjA |
 | R-35 | Recalculate button added to Slab Layout section — users can trigger fresh optimiser run (POST) to refresh stale saved results without developer intervention. | claude/fix-decomposed-piece-ids-rerun-4VVjA |
+| R-36 | preprocessOversizeStrips() splits strips exceeding usable slab width into placeable segments. Each segment: parentPieceId = original piece ID, id contains '-part-' (not '-seg-'), label shows "Part N of M". 4941mm strips become 2471+2470mm. 3200mm strips become 1600+1600mm. All strip segments placed on slabs and show in parts list with slab assignments. | claude/strip-oversize-splitting-C5we8 |
 
 ---
 
@@ -83,4 +84,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — PROMPT-18: A-21 fixed (decomposedPieceIds from normalizedPieces, R-34). A-20 fixed (Recalculate button for stale data, R-35).*
+*Last Updated: Mar 1 2026 — PROMPT-19: preprocessOversizeStrips() added (R-36). Strips exceeding slab usable width now split into placeable segments. PartsSection shows "Part N of M" for split strips.*
