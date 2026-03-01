@@ -41,6 +41,7 @@
 | R-35a | findSlabForStrip now falls back to segment lookup when parentPieceId refers to a piece that was split by preprocessOversizePieces. Strips on split pieces (e.g. Quote 58 Back) now render correctly instead of being silently invisible. | claude/fix-strip-lookup-cutouts-iXGyl |
 | R-35b | Cutout rows removed from Parts List. Cutouts are not stone parts, do not occupy slab space, and already appear in the Cutouts section. | claude/fix-strip-lookup-cutouts-iXGyl |
 | R-37 | preprocessOversizePieces now splits at slab boundary (usableWidth) not midpoint. First segment fills to usableWidth, remainder on next slab. customJoinMm field added to OptimizationPiece type — when set, overrides the first split position. Future NL commands will write this field. Kitchen 4941mm piece now splits 3200+1741 not 2471+2470. | claude/oversize-split-boundary-fix-Npclx |
+| R-38 | preprocessOversizePieces now returns segmentWidthMap — a Map from pieceId to the array of segment widths used when splitting. preprocessOversizeStrips accepts this map and uses parent segment widths directly when available, ensuring strip Part 1 = 3160mm matches parent Part 1 = 3160mm. Fallback to even split preserved for strips with no parent map entry. | claude/strip-cuts-match-parent-416hE |
 
 ---
 
@@ -87,4 +88,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — PROMPT-19b: preprocessOversizePieces splits at slab boundary not midpoint (R-37). customJoinMm added for future NL join override.*
+*Last Updated: Mar 1 2026 — PROMPT-19c: strip cuts now match parent piece cuts via segmentWidthMap (R-38). preprocessOversizeStrips uses parent segment widths when available, fallback to even split preserved.*
