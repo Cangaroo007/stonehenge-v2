@@ -5,11 +5,11 @@ const prisma = new PrismaClient();
 async function main() {
   console.log('🌱 Seeding materials with slab pricing and dimensions...');
 
-  // Standard slab dimensions: 3000mm x 1400mm = 4.2 sqm
-  // Slab price = price_per_sqm × slab area (4.2 sqm)
-  const SLAB_LENGTH_MM = 3000;
-  const SLAB_WIDTH_MM = 1400;
-  const SLAB_AREA_SQM = (SLAB_LENGTH_MM * SLAB_WIDTH_MM) / 1_000_000; // 4.2
+  // Standard slab dimensions: 3200mm x 1600mm = 5.12 sqm
+  // Slab price = price_per_sqm × slab area (5.12 sqm)
+  const SLAB_LENGTH_MM = 3200;
+  const SLAB_WIDTH_MM = 1600;
+  const SLAB_AREA_SQM = (SLAB_LENGTH_MM * SLAB_WIDTH_MM) / 1_000_000; // 5.12
 
   const materials = [
     { name: 'Alpha Zero', collection: 'Classic Collection', pricePerSqm: 450 },
