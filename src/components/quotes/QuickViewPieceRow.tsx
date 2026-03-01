@@ -730,7 +730,7 @@ export default function QuickViewPieceRow({
                 OVERSIZE
               </span>
             )}
-            {piece.requiresGrainMatch && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
+            {(piece.requiresGrainMatch || (isOversize && (breakdown?.oversize?.grainMatchingSurcharge ?? 0) > 0)) && (
               breakdown?.grainMatchWarning && !breakdown.grainMatchWarning.feasible ? (
                 <button
                   onClick={(e) => { e.stopPropagation(); setShowGrainWarning(prev => !prev); }}
@@ -740,8 +740,8 @@ export default function QuickViewPieceRow({
                   GRAIN MATCH ⚠️
                 </button>
               ) : (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-blue-100 text-blue-800 border border-blue-300">
-                  GRAIN MATCH
+                <span className="inline-flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800 border border-yellow-200">
+                  GRAIN MATCH {!piece.requiresGrainMatch && isOversize ? '⚠' : ''}
                 </span>
               )
             )}
@@ -1147,7 +1147,7 @@ export default function QuickViewPieceRow({
               {/* Lamination */}
               {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Lamination ({breakdown.fabrication.lamination.method})</span>
+                  <span>Lamination ({breakdown.fabrication.lamination.method && breakdown.fabrication.lamination.method !== 'NONE' ? breakdown.fabrication.lamination.method : breakdown.fabrication.lamination.total > 0 ? 'LAMINATED' : 'NONE'})</span>
                   <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.lamination.total)}</span>
                 </div>
               )}
