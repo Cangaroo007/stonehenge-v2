@@ -133,15 +133,18 @@ function findSlabForSegment(
 function findSlabForStrip(
   pieceId: number,
   position: string,
-  placements: Placement[] | undefined
+  placements: Placement[] | undefined,
+  occurrenceIndex = 0
 ): string | null {
   if (!placements) return null;
-  const p = placements.find(
+  // Find all matching placements for this parent piece and strip position
+  const matches = placements.filter(
     (pl) =>
       pl.parentPieceId === String(pieceId) &&
       pl.isLaminationStrip &&
       pl.stripPosition === position
   );
+  const p = matches[occurrenceIndex] ?? matches[0];
   return p ? getSlabLabel(p.slabIndex) : null;
 }
 
@@ -318,8 +321,14 @@ function derivePartsForPiece(
 
     if (stripsByParent && stripsByParent.strips.length > 0) {
       // Use real optimizer strip data
+      // Track occurrence index per position for oversize pieces with multiple
+      // strips per position (e.g. two top strips, one per segment)
+      const positionOccurrences: Record<string, number> = {};
       for (const strip of stripsByParent.strips) {
         const position = strip.position;
+        const occurrenceIndex = positionOccurrences[position] ?? 0;
+        positionOccurrences[position] = occurrenceIndex + 1;
+
         const hasValidPosition = position && position !== 'unknown';
         const sideLabel = hasValidPosition
           ? position.charAt(0).toUpperCase() + position.slice(1)
@@ -333,7 +342,7 @@ function derivePartsForPiece(
           lengthMm: strip.lengthMm,
           widthMm: strip.widthMm,
           thicknessMm: 20,
-          slab: findSlabForStrip(piece.id, strip.position, placements),
+          slab: findSlabForStrip(piece.id, strip.position, placements, occurrenceIndex),
           stripPosition: strip.position,
         });
       }
