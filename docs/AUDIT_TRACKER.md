@@ -55,6 +55,8 @@
 | A-16 | 🟡 Medium | gh CLI not in Claude Code. Manual PR creation required every session. | dev tooling | Feb 27 | brew install gh |
 | A-17 | 🟡 Medium | AUDIT_TRACKER stale line number: extractFabricationDiscount at 1563, actually 1761. | docs/AUDIT_TRACKER.md | Feb 27 | Update inventory |
 | A-18 | 🟡 Medium | A-02 may be incorrect — SYSTEM_STATE checked auth import, not per-handler auth calls. | src/app/api/admin/pricing/* | Feb 27 | Verify before closing A-02 |
+| A-20 | 🔴 Critical | Ghost strips in parts list — PartsSection reads stale DB record via GET; old laminationSummary has ghost strips. Filter only runs on POST (fresh run). Quotes optimised before commit 8aec506 still show ghost strips. | PartsSection.tsx, route.ts (optimize GET) | Mar 1 | AUDIT-10 |
+| A-21 | 🔴 Critical | decomposedPieceIds built from empty allPieces array (slab-optimizer.ts:574-578). Set is always empty, so generateLaminationStrips generates full-length ghost strips for oversize pieces. These are too large for FFD and show "—" in parts list. Fix: build from normalizedPieces. ~3 lines. | slab-optimizer.ts:574-578 | Mar 1 | AUDIT-10 |
 
 ---
 
@@ -62,6 +64,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| AUDIT-10 strip oversize + ghost strip | claude/audit-strip-issues-MKQM3 | Mar 1 | ✅ Complete |
 | PROMPT-17 strip segmentation fix | claude/fix-strip-segmentation-VvJta | Mar 1 | 🔄 In progress |
 | PROMPT-16 material cost per-slab fix | claude/fix-material-cost-slab-3fvzB | Mar 1 | 🔄 In progress |
 | PROMPT-15 optimizer display architecture | claude/fix-optimizer-display-QeIHt | Mar 1 | 🔄 In progress |
@@ -78,4 +81,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — PROMPT-17: R-31/R-32 strip segmentation fix. preprocessOversizePieces generates per-segment strips with end-cap logic. findSlabForStrip handles multiple occurrences per position.*
+*Last Updated: Mar 1 2026 — AUDIT-10: Ghost strip root cause (stale GET data, A-20) + oversize strip splitting bug (decomposedPieceIds built from empty array, A-21). Read-only audit, no code changes.*
