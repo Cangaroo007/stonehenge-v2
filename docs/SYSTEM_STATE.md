@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-02
-> **Last Updated By:** claude/min-segment-size-warning-2IMDU
+> **Last Updated By:** claude/fix-label-badge-display-ABdkH
 
 ---
 
@@ -933,3 +933,5 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | [ ] Quote 55 Family Room — cutting non-zero after recalculate | Pending production verification | — | Quote 55 |
 | [ ] Dashboard loads without crash | Pending production verification | — | — |
 | [ ] Kitchen pieces unchanged after edge edit | Pending production verification | — | — |
+| Lamination label shows correct method when charge > 0 | Not verified | — | Quote 55 |
+| Grain match badge visible on collapsed piece card for oversize pieces | Not verified | — | Quote 55 |
