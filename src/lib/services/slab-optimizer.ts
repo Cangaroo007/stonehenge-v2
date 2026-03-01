@@ -190,8 +190,14 @@ function generateLaminationSummary(
   originalPieces: OptimizationPiece[],
   allPieces: OptimizationPiece[]
 ): LaminationSummary | undefined {
-  const strips = allPieces.filter((p): p is OptimizationPiece & { isLaminationStrip: true } => 
-    p.isLaminationStrip === true
+  const strips = allPieces.filter((p): p is OptimizationPiece & { isLaminationStrip: true } =>
+    p.isLaminationStrip === true &&
+    !(p.parentPieceId &&
+      allPieces.some(seg =>
+        seg.isSegment && seg.parentPieceId === p.parentPieceId
+      ) &&
+      !p.id.includes('-seg-')
+    )
   );
   
   if (strips.length === 0) {
