@@ -52,6 +52,7 @@
 | A-16 | 🟡 Medium | gh CLI not in Claude Code. Manual PR creation required every session. | dev tooling | Feb 27 | brew install gh |
 | A-17 | 🟡 Medium | AUDIT_TRACKER stale line number: extractFabricationDiscount at 1563, actually 1761. | docs/AUDIT_TRACKER.md | Feb 27 | Update inventory |
 | A-18 | 🟡 Medium | A-02 may be incorrect — SYSTEM_STATE checked auth import, not per-handler auth calls. | src/app/api/admin/pricing/* | Feb 27 | Verify before closing A-02 |
+| A-20 | 🟡 Medium | AUDIT-9: Oversize strip segmentation — 3 data propagation bugs: (1) segments don't inherit noStripEdges → duplicate strips on non-split edges, (2) segments don't inherit edgeTypeNames → wrong mitre strip widths, (3) segment strip parentPieceId = segment ID, not original piece ID → PartsSection display can't find them. Fix: ~50 lines across slab-optimizer.ts + PartsSection.tsx. | slab-optimizer.ts:254-345, PartsSection.tsx:133-146 | Mar 1 | Fix prompt TBD |
 
 ---
 
@@ -59,6 +60,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| AUDIT-9 strip segmentation | claude/strip-segmentation-mPcZp | Mar 1 | ✅ Complete (audit only) |
 | PROMPT-16 material cost per-slab fix | claude/fix-material-cost-slab-3fvzB | Mar 1 | 🔄 In progress |
 | PROMPT-15 optimizer display architecture | claude/fix-optimizer-display-QeIHt | Mar 1 | 🔄 In progress |
 | PROMPT-14 slab display fixes (AUDIT-5) | claude/fix-slab-display-hQGwQ | Feb 28 | ✅ Complete |
@@ -74,4 +76,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — PROMPT-16: R-30 material cost per-slab fix. calculateMaterialCost() now uses buildMaterialGroupings result for ALL PER_SLAB quotes, not just multi-material.*
+*Last Updated: Mar 1 2026 — AUDIT-9: Strip segmentation audit complete. Three data propagation bugs identified in oversize strip generation. See docs/AUDIT-9-strip-segmentation.md.*
