@@ -1,27 +1,31 @@
-# Stone Henge — Mandatory Development Rulebook v13
+# Stone Henge — Mandatory Development Rulebook v14
 
-> **Updated:** February 27, 2026
+> **Updated:** March 2, 2026
 > **Status:** ACTIVE — read before writing any code
-> **Rules:** 59 total (all NON-NEGOTIABLE)
-> **Supersedes:** All previous dev-rules files (v1–v12 and all addenda)
+> **Rules:** 65 total (all NON-NEGOTIABLE)
+> **Supersedes:** All previous dev-rules files (v1–v13 and all addenda)
 > **Stable path:** `docs/stonehenge-dev-rulebook.md`
-> **Location note:** This file lives at `docs/stonehenge-dev-rulebook.md` with no version suffix. Always reference it by that path. The version number lives inside the document only.
+> **Location note:** This file lives at `docs/stonehenge-dev-rulebook.md` with no version
+> suffix. Always reference it by that path. The version number lives inside the document only.
 
 ---
 
 ## HOW TO USE THIS DOCUMENT
 
-This is the complete, single source of truth for all development rules. All previous rulebook versions and addenda are superseded. Do not reference any older file.
+**This is the complete, single source of truth for all development rules.**
+All previous rulebook versions and addenda are superseded. Do not reference any older file.
 
-At the start of every Claude Code or Cursor session, run:
-
-```
+**At the start of every Claude Code or Cursor session, run:**
+```bash
 cat docs/stonehenge-dev-rulebook.md
 ```
 
-The prompt preamble always references this path — never a versioned filename. When the rulebook is updated to v14, v15, etc., the file at `docs/stonehenge-dev-rulebook.md` is updated in place. The path never changes. Prompts never need updating when the rulebook version increments.
+**The prompt preamble always references this path — never a versioned filename.**
+When the rulebook is updated to v15, v16, etc., the file at `docs/stonehenge-dev-rulebook.md`
+is updated in place. The path never changes. Prompts never need updating when the rulebook version increments.
 
-> ⚠️ **LIVE PLATFORM NOTE:** Stone Henge is used by real users at Northcoast Stone. Rule violations cause real business harm. Every rule should be treated as if a live quote is at risk.
+**⚠️ LIVE PLATFORM NOTE:** Stone Henge is used by real users at Northcoast Stone. Rule
+violations cause real business harm. Every rule should be treated as if a live quote is at risk.
 
 ---
 
@@ -59,6 +63,9 @@ The prompt preamble always references this path — never a versioned filename. 
 30. API handler fields verified before frontend calls
 31. Test placeholders are ⚠️-flagged and replaced before commit
 32. DB-dependent tests skip gracefully without DATABASE_URL
+33. Stop Gates are absolute
+34. UI displays segments, not pieces
+35. Rulebook path never changes — version lives inside only
 
 ---
 
@@ -73,9 +80,9 @@ There is exactly ONE component tree for quotes. All routes render through `Quote
 | `/quotes/new` | `NewQuoteWizard` (3 paths: Drawing / Template / Manual) | — |
 | `/quotes/[id]` | `QuoteDetailClient` → `QuoteLayout` | View |
 | `/quotes/[id]?mode=edit` | `QuoteDetailClient` → `QuoteLayout` | Edit |
-| `/quotes/[id]/builder` | Redirect → `/quotes/[id]?mode=edit` | — |
+| `/quotes/[id]/builder` | **Redirect** → `/quotes/[id]?mode=edit` | — |
 
-`QuoteForm.tsx` is **RETIRED**. It must not be imported by any route.
+**`QuoteForm.tsx` is RETIRED.** It must not be imported by any route.
 
 > **Incident (Feb 14):** Series 12.1 and 12.2 were coded correctly but invisible in production because all live routes still rendered through the old `QuoteForm.tsx` monolith.
 
@@ -87,8 +94,8 @@ Before modifying ANY quote UI component:
 grep -r "QuoteForm\|QuoteLayout" src/app/ --include="*.tsx" -l
 ```
 
-* If the route imports `QuoteForm` → **STOP**. Rewire to `QuoteLayout` first.
-* If the route imports `QuoteLayout` → proceed.
+- If the route imports `QuoteForm` → **STOP.** Rewire to `QuoteLayout` first.
+- If the route imports `QuoteLayout` → proceed.
 
 ### RULE 3: TEST ON THE LIVE URL AFTER EVERY DEPLOY
 
@@ -100,7 +107,7 @@ After every deployment, verify changes are visible at the ACTUAL production URLs
 
 ### RULE 4: NO PARALLEL COMPONENT TREES
 
-There must NEVER be two component trees that render the same type of page. If a new component replaces an old one, all four steps happen in ONE prompt:
+There must NEVER be two component trees that render the same type of page. If a new component replaces an old one, **all four steps happen in ONE prompt:**
 
 1. Build new component
 2. Rewire route to new component
@@ -123,31 +130,31 @@ If `QuoteForm` appears in any active route → fix before proceeding.
 
 ## EXTEND, NEVER REPLACE (Rules 6–8)
 
-These three rules exist because replacing code instead of extending it has caused the three worst incidents in this project's history.
+> These three rules exist because replacing code instead of extending it has caused the three worst incidents in this project's history.
 
 ### RULE 6: ALWAYS EXTEND EXISTING HANDLERS — NEVER REPLACE THEM
 
 When modifying an existing function, handler, or component:
 
-1. **READ** the entire existing handler/function first — understand ALL the cases it handles
-2. **LIST** every caller — `grep -rn 'functionName\|/api/endpoint' src/ --include='*.ts' --include='*.tsx'`
-3. **ADD** your new code alongside the existing code — never remove or restructure
-4. **TEST** that all existing callers still work — not just your new feature
-5. If you're unsure whether existing code is still needed → **IT IS**. Leave it alone.
+1. **READ the entire existing handler/function first** — understand ALL the cases it handles
+2. **LIST every caller** — `grep -rn 'functionName\|/api/endpoint' src/ --include='*.ts' --include='*.tsx'`
+3. **ADD your new code alongside the existing code** — never remove or restructure
+4. **TEST that all existing callers still work** — not just your new feature
+5. **If you're unsure whether existing code is still needed → IT IS. Leave it alone.**
 
 | Date | What Happened | Root Cause | Impact |
 |------|---------------|------------|--------|
-| Feb 15, 2026 | Quote save returns 400, all calculations disappear | PATCH handler replaced with metadata-only handler | Full quote save broken |
-| Feb 14, 2026 | Route consolidation made 10+ hours of work invisible | Routes replaced instead of incrementally rewired | Appeared as if Series 12 work was lost |
-| Feb 10, 2026 | 401 errors on new API routes in production | Auth pattern rewritten instead of copied | API endpoints broken in production only |
+| Feb 15, 2026 | Quote save returns 400, all calculations disappear | PATCH handler **replaced** with metadata-only handler | Full quote save broken |
+| Feb 14, 2026 | Route consolidation made 10+ hours of work invisible | Routes **replaced** instead of incrementally rewired | Appeared as if Series 12 work was lost |
+| Feb 10, 2026 | 401 errors on new API routes in production | Auth pattern **rewritten** instead of copied | API endpoints broken in production only |
 
 ### RULE 7: NEW FEATURES ADD CODE — THEY DON'T RESTRUCTURE CODE
 
 When a prompt says "add feature X to file Y":
 
-* **ADD** new functions, conditions, props, or sections
-* **DO NOT** reorganise, rename, restructure, or "clean up" existing code in the same change
-* Refactoring and new features are **SEPARATE** prompts, never combined
+- **ADD** new functions, conditions, props, or sections
+- **DO NOT** reorganise, rename, restructure, or "clean up" existing code in the same change
+- Refactoring and new features are SEPARATE prompts, never combined
 
 ### RULE 8: API ROUTES MUST HANDLE ALL EXISTING REQUEST SHAPES
 
@@ -170,18 +177,15 @@ These cause silent build failures if violated:
 ```typescript
 // ✅ Set from Array
 const items = Array.from(new Set(array));
-// ❌ NEVER:
-const items = [...new Set(array)];
+// ❌ NEVER: const items = [...new Set(array)];
 
 // ✅ Prisma JSON double cast
 const data = someJsonField as unknown as MyType;
-// ❌ NEVER:
-const data = someJsonField as MyType;
+// ❌ NEVER: const data = someJsonField as MyType;
 
 // ✅ Next.js 14 params
 const { id } = await params;
-// ❌ NEVER:
-const id = params.id;
+// ❌ NEVER: const id = params.id;
 ```
 
 ### RULE 10: AUSTRALIAN SPELLING (ALL UI TEXT)
@@ -190,6 +194,7 @@ const id = params.id;
 |-----------|-------------|
 | metre | meter |
 | lineal metre | linear meter |
+| square metre | square meter |
 | colour | color |
 | organisation | organization |
 | optimiser | optimizer |
@@ -241,14 +246,13 @@ When a prompt claims a UI change is complete, the summary MUST include:
 
 1. Which file was modified (exact path)
 2. Which route renders that file (exact URL path)
-3. Verification that the route uses `QuoteLayout` (grep output)
+3. Verification that the route uses QuoteLayout (grep output)
 
 ### RULE 18: VALIDATE DIRECTION EVERY 2–3 PROMPTS
 
 After completing a batch of prompts, ask:
-
-* "Here's what we built. Here's what's next. Does this match your vision?"
-* "Any feedback before we continue?"
+- "Here's what we built. Here's what's next. Does this match your vision?"
+- "Any feedback before we continue?"
 
 Do not execute more than 3 prompts in a row without user confirmation.
 
@@ -285,14 +289,14 @@ Claude Code uses auto-generated branch names. After each session:
 
 All calculation logic must match the Pricing Bible specification:
 
-* Cutting uses full perimeter (all 4 sides) — for L/U shapes: sum of decomposed leg perimeters
-* Polishing applies ONLY to finished (exposed) edges — NEVER to join faces on L/U shapes
-* Edge profiles are ADDITIONAL cost on top of base polishing
-* 40mm = 20mm slab + lamination edge strips (mandatory, not optional)
-* Mitred edges → Pencil Round profile ONLY
-* All rates are tenant-configurable via Pricing Admin
-* Service units (Lm vs m²) are selectable per tenant
-* Cutout rates and edge surcharges are fabrication-category-aware
+- Cutting uses full perimeter (all 4 sides) — for L/U shapes: sum of decomposed leg perimeters
+- Polishing applies ONLY to finished (exposed) edges — NEVER to join faces on L/U shapes
+- Edge profiles are ADDITIONAL cost on top of base polishing
+- 40mm = 20mm slab + lamination edge strips (mandatory, not optional)
+- Mitred edges → Pencil Round profile ONLY
+- All rates are tenant-configurable via Pricing Admin
+- Service units (Lm vs m²) are selectable per tenant
+- Cutout rates and edge surcharges are fabrication-category-aware
 
 ### RULE 22: NO HARDCODED PRICES
 
@@ -313,24 +317,24 @@ Calculation triggers, data fetching, and business logic must NEVER live inside U
 
 **The Test:** If hiding/collapsing/switching any UI panel causes business data to disappear, the architecture is wrong.
 
-> **Incident (Feb 15):** PR #77 collapsed sidebar by default → `PricingSummary` never mounted → all pricing invisible → 3 days of debugging.
+> **Incident (Feb 15):** PR #77 collapsed sidebar by default → PricingSummary never mounted → all pricing invisible → 3 days of debugging.
 
 ### RULE 24: VERIFY WITH REAL DATA, NOT GREP
 
 Checking that code "exists in a file" is NOT verification. Verification means:
 
-1. The component actually renders — visible in the browser
-2. Real dollar amounts appear — not $0.00, not "-", not empty
-3. The database has data — query the actual tables
-4. The API returns data — check network tab
+1. **The component actually renders** — visible in the browser
+2. **Real dollar amounts appear** — not $0.00, not "-", not empty
+3. **The database has data** — query the actual tables
+4. **The API returns data** — check network tab
 
 ### RULE 25: GIT ARCHAEOLOGY BEFORE GUESSING
 
 When something stops working:
 
-1. Find the last commit where it worked — `git log` on the affected files
-2. Diff from working to broken — `git diff GOOD_HASH HEAD -- file`
-3. Read the diff, not the file — the diff tells you what changed
+1. **Find the last commit where it worked** — `git log` on the affected files
+2. **Diff from working to broken** — `git diff GOOD_HASH HEAD -- file`
+3. **Read the diff, not the file** — the diff tells you what changed
 
 ### RULE 26: EXECUTION ORDER FOR BUG SESSIONS
 
@@ -366,19 +370,18 @@ If Component A depends on Component B being rendered for data/calculation/state:
 
 When you fix the pricing calculator:
 
-1. The fix changes code, but stored calculations in the database still have OLD values
+1. The fix changes **code**, but stored calculations in the database still have **OLD values**
 2. You MUST re-trigger calculation (save the quote, or call the calculate endpoint)
-3. You MUST verify the NEW numbers appear in the browser
-4. If old numbers still appear → you fixed the wrong code path
+3. You MUST verify the **NEW numbers** appear in the browser
+4. If old numbers still appear → **you fixed the wrong code path**
 
 **Checklist for any calculator fix:**
-
-* [ ] Fix applied to code
-* [ ] Build passes
-* [ ] Deployed
-* [ ] Quote re-saved or recalculation triggered
-* [ ] Browser shows DIFFERENT numbers than before
-* [ ] Numbers are CORRECT (not just different)
+- [ ] Fix applied to code
+- [ ] Build passes
+- [ ] Deployed
+- [ ] Quote re-saved or recalculation triggered
+- [ ] Browser shows DIFFERENT numbers than before
+- [ ] Numbers are CORRECT (not just different)
 
 ### RULE 29: FIND THE ACTUAL CODE PATH BEFORE FIXING
 
@@ -397,7 +400,7 @@ grep -n 'import.*calc' src/app/api/quotes/[id]/calculate/route.ts
 # 6. If it doesn't → you're looking at the wrong function
 ```
 
-Never fix a function without first confirming it actually executes for the scenario you're debugging.
+**Never fix a function without first confirming it actually executes for the scenario you're debugging.**
 
 ---
 
@@ -419,7 +422,6 @@ Every verification checklist must include NEGATIVE checks (things that must NOT 
 ```
 ✅ Must exist after this PR:
 - [ ] New visual editor renders with SVG
-
 ❌ Must NOT exist after this PR:
 - [ ] grep "Edge Polish Selection" returns 0 results
 ```
@@ -441,7 +443,6 @@ A piece must have exactly ONE editing interface. If you find two sets of dimensi
 ### RULE 34: BUILD PASSING IS NECESSARY BUT NOT SUFFICIENT
 
 `npm run build` passing means TypeScript compiles. It does NOT mean the feature works. After every UI change, verify with BOTH:
-
 1. `npm run build` — TypeScript compiles ✅
 2. Manual grep checks for old patterns — confirmed removed ✅
 
@@ -502,7 +503,7 @@ Core editing actions must appear wherever a piece is visible: room spatial view,
 
 ### RULE 39: PROGRESSIVE DISCLOSURE, NEVER PROGRESSIVE HIDING
 
-Show summaries at the top level. Expand for detail. But never hide actions behind multiple levels. With all accordions collapsed, the user must still be able to see key info AND take the most common action.
+Show summaries at the top level. Expand for detail. But never hide *actions* behind multiple levels. With all accordions collapsed, the user must still be able to see key info AND take the most common action.
 
 ### RULE 40: CONTEXTUAL ACTIONS OVER NAVIGATION
 
@@ -536,20 +537,19 @@ When a discovery audit reveals that planned infrastructure already exists, the i
 
 ### RULE 44: BANNED COMPONENTS — PERMANENT DELETION LIST
 
-The following patterns are **PERMANENTLY BANNED**. Their presence in ANY file is a build-blocking error:
+The following patterns are PERMANENTLY BANNED. Their presence in ANY file is a build-blocking error:
 
 | Banned Pattern | Grep to Detect | Replacement |
-|---------------|---------------|-------------|
+|---|---|---|
 | `EdgePolishSelection` | `grep -rn 'EdgePolishSelection' src/` | PieceVisualEditor SVG click |
 | `EdgeSelector` component | `grep -rn 'EdgeSelector\b' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
 | `EdgeDropdown` component | `grep -rn 'EdgeDropdown\b' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
 | `EdgeManager` component | `grep -rn 'EdgeManager\b' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
 | `EdgeConfigPanel` | `grep -rn 'EdgeConfigPanel' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
-| edge checkbox in quotes UI | `grep -rn 'checkbox.*edge\|edge.*checkbox' src/components/quotes/` | PieceVisualEditor SVG click |
+| `edge.*checkbox` in quotes UI | `grep -rn 'checkbox.*edge\|edge.*checkbox' src/components/quotes/` | PieceVisualEditor SVG click |
 | Per-side dropdown edge lists | `grep -rn 'top.*edge.*select\|bottom.*edge.*select' src/components/quotes/` | PieceVisualEditor SVG click |
 
 **Enforcement (add to every PR verification):**
-
 ```bash
 echo "=== RULE 44: BANNED COMPONENTS ==="
 BANNED=0
@@ -589,7 +589,7 @@ function MyComponent({ data }: Props) {
 }
 ```
 
-> **Incident (Feb 18):** `ManualQuoteWizard` Step 4 crashed with React error #310. Edge type loading hooks were inside the step 4 conditional block.
+> **Incident (Feb 18):** ManualQuoteWizard Step 4 crashed with React error #310. Edge type loading hooks were inside the step 4 conditional block.
 
 ---
 
@@ -597,39 +597,36 @@ function MyComponent({ data }: Props) {
 
 ### RULE 46: SCHEMA-CODE PARITY GATE
 
-NEVER merge code that queries a new Prisma model unless the migration has been created and included in the same PR (or a previously merged and deployed PR).
+**NEVER merge code that queries a new Prisma model unless the migration has been created and included in the same PR (or a previously merged and deployed PR).**
 
 Before any PR that adds Prisma queries for a new model:
-
-1. Verify the model exists in `schema.prisma`
+1. Verify the model exists in schema.prisma
 2. Run `npx prisma migrate dev --name descriptive-name`
 3. Verify a migration SQL file was created in `prisma/migrations/`
 4. Include the migration file in the PR
 5. After merge, check Railway logs — migration count must increase
 
-> **Incident (Feb 18):** PR #124 added `PieceRelationship` to `schema.prisma` but never ran `prisma migrate dev`. The table never existed in production, crashing every quote page for ~4 hours.
+> **Incident (Feb 18):** PR #124 added `PieceRelationship` to schema.prisma but never ran `prisma migrate dev`. The table never existed in production, crashing every quote page for ~4 hours.
 
 ### RULE 47: NEW TABLE DEPLOYMENT CHECKLIST
 
 When adding a new database table, a single PR must contain ALL of:
-
-* [ ] Model added to `schema.prisma`
-* [ ] Migration SQL in `prisma/migrations/`
-* [ ] API routes with try/catch error handling
-* [ ] Components with optional chaining (`?? []`) for new relation data
-* [ ] Services with try/catch around new table queries
+- [ ] Model added to schema.prisma
+- [ ] Migration SQL in `prisma/migrations/`
+- [ ] API routes with try/catch error handling
+- [ ] Components with optional chaining (`?? []`) for new relation data
+- [ ] Services with try/catch around new table queries
 
 ### RULE 48: STUB-FIRST FOR UNRELEASED FEATURES
 
 When building for a feature that depends on schema changes:
-
-* API routes MUST return safe defaults (empty arrays, 501 status) if the query fails
-* Components MUST use optional chaining for data that may not exist yet
-* Add a comment: `// REQUIRES: Series X migration — stub until deployed`
+- API routes MUST return safe defaults (empty arrays, 501 status) if the query fails
+- Components MUST use optional chaining for data that may not exist yet
+- Add a comment: `// REQUIRES: Series X migration — stub until deployed`
 
 ### RULE 49: PRE-MERGE MIGRATION VERIFICATION
 
-Before every PR that touches `schema.prisma`:
+Before every PR that touches schema.prisma:
 
 ```bash
 npx prisma migrate status
@@ -638,7 +635,6 @@ npx prisma migrate status
 If it shows pending migrations or schema drift, those migration files MUST be in the PR.
 
 **Enforcement:**
-
 ```bash
 SCHEMA_CHANGED=$(git diff --name-only HEAD~1..HEAD | grep 'schema.prisma' | wc -l)
 MIGRATION_ADDED=$(git diff --name-only HEAD~1..HEAD | grep 'prisma/migrations/' | wc -l)
@@ -650,13 +646,12 @@ fi
 
 ### RULE 50: PRISMA CLIENT NEVER IN BROWSER BUNDLE
 
-NEVER use `import { X } from '@prisma/client'` (value import) in any file marked `'use client'` or any file imported by a client component. Use ONLY:
+**NEVER use `import { X } from '@prisma/client'` (value import) in any file marked `'use client'` or any file imported by a client component.** Use ONLY:
 
-* `import type { X } from '@prisma/client'` (type-only, erased at compile time)
-* String literals instead of Prisma enums in client code (e.g., `'ADMIN'` not `UserRole.ADMIN`)
+- `import type { X } from '@prisma/client'` (type-only, erased at compile time)
+- String literals instead of Prisma enums in client code (e.g., `'ADMIN'` not `UserRole.ADMIN`)
 
 **Enforcement:**
-
 ```bash
 grep -rn "from '@prisma/client'" src/ --include='*.tsx' --include='*.ts' | grep -v 'import type' | grep -v '\.server\.' && {
   echo "❌ RULE 50: Value import of @prisma/client found — use 'import type' or string literals"
@@ -668,13 +663,18 @@ grep -rn "from '@prisma/client'" src/ --include='*.tsx' --include='*.ts' | grep 
 
 ## LIVING DOCUMENTATION (Rules 51–53)
 
-These rules were created after episodic audits fell out of sync with the codebase, causing Phase 3 prompts to miss open issues and create duplicate implementations. The Feb 2026 L-shape two-day debugging loss was directly caused by R-10 being marked "confirmed working" without production verification.
+> These rules were created after episodic audits fell out of sync with the codebase,
+> causing Phase 3 prompts to miss open issues and create duplicate implementations.
+> The Feb 2026 L-shape two-day debugging loss was directly caused by R-10 being
+> marked "confirmed working" without production verification.
 
 ### RULE 51: LIVING AUDIT TRACKER — ALWAYS CURRENT (HARD GATE)
 
-`docs/AUDIT_TRACKER.md` is the single source of truth for all known issues.
+**`docs/AUDIT_TRACKER.md` is the single source of truth for all known issues.**
 
-A pre-push hook is installed at `.git/hooks/pre-push` (via `npm run prepare`). It blocks all pushes on `fix/*` and `feat/*` branches if `docs/AUDIT_TRACKER.md` was not modified in the commits being pushed. **This is not a warning — the push fails.**
+A pre-push hook is installed at `.git/hooks/pre-push` (via `npm run prepare`).
+**It blocks all pushes on `fix/*` and `feat/*` branches if `docs/AUDIT_TRACKER.md`
+was not modified in the commits being pushed.** This is not a warning — the push fails.
 
 **What to add when updating:**
 
@@ -684,46 +684,52 @@ A pre-push hook is installed at `.git/hooks/pre-push` (via `npm run prepare`). I
 | PR discovers a new issue | Add 🔴 Open row with severity, file, date |
 | PR is a chore with no audit relevance | Add: `R-XX \| No audit items — chore only \| PR# \| date \| n/a` |
 
-After merge, confirm the tracker appears in the squashed commit:
-
+**After merge, confirm the tracker appears in the squashed commit:**
 ```bash
 git show --name-only HEAD | grep AUDIT_TRACKER
 ```
-
 If it's missing, add a follow-up commit immediately.
 
 **Re-installing the hook after a fresh clone:**
-
 ```bash
 npm install   # triggers 'prepare' script → installs hooks automatically
 # OR manually:
 sh scripts/install-hooks.sh
 ```
 
-**Why hard enforcement:** Between Feb 3 and Feb 26, the audit tracker was not maintained. Issues were re-discovered, re-diagnosed, and re-fixed. The L-shape edge bug was a structural flaw that should have been tracked when K-series shipped. Forgetting must be impossible.
+> **Why hard enforcement:** Between Feb 3 and Feb 26, the audit tracker was not maintained.
+> Issues were re-discovered, re-diagnosed, and re-fixed. The L-shape edge bug was a structural
+> flaw that should have been tracked when K-series shipped. Forgetting must be impossible.
 
 ### RULE 52: LIVING SYSTEM STATE — ALWAYS CURRENT (HARD GATE)
 
-`docs/SYSTEM_STATE.md` is the living snapshot of what actually exists in the codebase. It records schema, routes, components, functions, shape system, and verified behaviour. It is NOT an issue tracker — that is `AUDIT_TRACKER.md`.
+**`docs/SYSTEM_STATE.md` is the living snapshot of what actually exists in the codebase.**
+It records schema, routes, components, functions, shape system, and verified behaviour.
+It is NOT an issue tracker — that is `AUDIT_TRACKER.md`.
 
-The same pre-push hook that enforces Rule 51 also enforces Rule 52. Pushes on `fix/*` and `feat/*` branches are blocked if `docs/SYSTEM_STATE.md` was not updated.
+The same pre-push hook that enforces Rule 51 also enforces Rule 52. **Pushes on `fix/*`
+and `feat/*` branches are blocked if `docs/SYSTEM_STATE.md` was not updated.**
 
 **Update the relevant section(s) of SYSTEM_STATE.md in every PR:**
 
 | If you changed... | Update this section |
-|-------------------|-------------------|
-| `prisma/schema.prisma` | §1 Schema |
-| `src/app/api/*/route.ts` | §2 API Routes |
-| `src/app/*/page.tsx` | §3 Page Routes |
-| `src/lib/services/*.ts` | §4 Core Service Functions |
-| `src/components/quotes/*.tsx` | §5 Quote Builder Components |
-| `src/lib/types/shapes.ts` | §6 Shape System |
+|-------------------|---------------------|
+| prisma/schema.prisma | §1 Schema |
+| src/app/api/*/route.ts | §2 API Routes |
+| src/app/*/page.tsx | §3 Page Routes |
+| src/lib/services/*.ts | §4 Core Service Functions |
+| src/components/quotes/*.tsx | §5 Quote Builder Components |
+| src/lib/types/shapes.ts | §6 Shape System |
 | Verified something works on production | §10 Verified Behaviour |
 | None of the above | Write: "No structural changes — [PR name]" |
 
-**§10 Verified Behaviour** is the most critical section. It distinguishes "code exists" from "confirmed working with real data on production." Only add ✅ entries to this section after manual verification with a named quote and date.
+**§10 Verified Behaviour is the most critical section.** It distinguishes "code exists"
+from "confirmed working with real data on production." Only add ✅ entries to this
+section after manual verification with a named quote and date.
 
-**Why it exists:** K-series marked L/U shape system as "confirmed end-to-end" (R-10) without production verification. Two days lost on L-shape debugging. §10 forces the distinction between shipping code and knowing it works.
+> **Why it exists:** K-series marked L/U shape system as "confirmed end-to-end" (R-10)
+> without production verification. Two days lost on L-shape debugging. §10 forces the
+> distinction between shipping code and knowing it works.
 
 ### RULE 53: POST-MERGE VERIFICATION STANDARD
 
@@ -733,7 +739,7 @@ Every prompt's verification section must include three checks, not one:
 2. **One adjacent thing that could have regressed still works** — named regression check
 3. **Both docs updated** — AUDIT_TRACKER ✅ and SYSTEM_STATE ✅ in same commit
 
-This replaces the pattern of "`npm run build` passes" as the only verification gate.
+This replaces the pattern of "npm run build passes" as the only verification gate.
 
 ---
 
@@ -755,7 +761,7 @@ If the field is NOT in the handler — add it to the handler FIRST, then write t
 
 Any code template in a prompt that uses placeholder field names MUST:
 
-1. Use ALL_CAPS to distinguish them from real field names
+1. Use `ALL_CAPS` to distinguish them from real field names
 2. Have an inline comment: `// ⚠️ REPLACE with exact field name — DO NOT COMMIT WITH PLACEHOLDER`
 3. Be listed in the verification section with: "Confirm all ⚠️ REPLACE placeholders substituted"
 
@@ -811,13 +817,11 @@ Every section of the UI that displays calculated data (parts list, slab count, p
 **Three implementation tiers:**
 
 **Tier 1 — Freshness timestamp (always):** Every calculated result stored in the database records `calculated_at`. The UI shows this subtly:
-
 ```
 Parts List  ·  Last calculated 2 mins ago  [Recalculate]
 ```
 
 **Tier 2 — Stale warning:** If any input has `updated_at` newer than the calculation's `calculated_at`, show:
-
 ```
 ⚠️ This piece was edited after the last optimiser run.
    Parts list may not be current.  [Run Optimiser]
@@ -826,14 +830,14 @@ Parts List  ·  Last calculated 2 mins ago  [Recalculate]
 **Tier 3 — Pre-send gate:** Before locking, sending, or exporting a quote as PDF, verify all pieces have been calculated after their last edit. If any check fails, show a blocking modal.
 
 **Roadmap (DF-1 through DF-5 in backlog):**
+- DF-1: "Recalculate All" button on quote page (no schema change — do first)
+- DF-2: Calculated-at timestamps on Parts List and Pricing Summary
+- DF-3: Stale warning banner on piece card
+- DF-4: Admin rate change propagation notice
+- DF-5: Pre-send gate (blocks stale data reaching client — required before client-facing PDF)
 
-* **DF-1:** "Recalculate All" button on quote page (no schema change — do first)
-* **DF-2:** Calculated-at timestamps on Parts List and Pricing Summary
-* **DF-3:** Stale warning banner on piece card
-* **DF-4:** Admin rate change propagation notice
-* **DF-5:** Pre-send gate (blocks stale data reaching client — required before client-facing PDF)
-
-**Why it exists:** FIX-10b improved optimizer logic but didn't retroactively update stored results. Fabricators sending quotes with old numbers is a real business risk.
+> **Why it exists:** FIX-10b improved optimizer logic but didn't retroactively update stored
+> results. Fabricators sending quotes with old numbers is a real business risk.
 
 ---
 
@@ -841,7 +845,8 @@ Parts List  ·  Last calculated 2 mins ago  [Recalculate]
 
 ### RULE 59: L/U SHAPE — TWO RULES GOVERN ALL CALCULATIONS
 
-This rule exists because L/U shape logic is the most complex pricing domain in the system. Every developer touching shaped piece code must internalise both rules before writing anything.
+This rule exists because L/U shape logic is the most complex pricing domain in the system.
+Every developer touching shaped piece code must internalise both rules before writing anything.
 
 **RULE A — CUTTING: All faces of all decomposed legs**
 
@@ -862,19 +867,280 @@ U-shape: 8 finishable edges  (top_left, outer_left, bottom, outer_right,
                                top_right, inner_right, back_inner, inner_left)
 ```
 
-**Note:** The inner edge on an L-shape IS finishable — it is the exposed step face visible from the room. It is not a join face. The join faces are the bonding surfaces between legs.
+Note: The `inner` edge on an L-shape IS finishable — it is the exposed step face visible from the room. It is not a join face. The join faces are the bonding surfaces between legs.
 
 **Edge storage by shape type:**
 
 | Shape | Storage | Keys |
 |-------|---------|------|
-| RECTANGLE | 4 DB columns: `edge_top/right/bottom/left` | `top`, `right`, `bottom`, `left` |
-| L_SHAPE | `shape_config.edges` (JSON) | `top`, `left`, `r_top`, `inner`, `r_btm`, `bottom` |
-| U_SHAPE | `shape_config.edges` (JSON) | `top_left`, `outer_left`, `bottom`, `outer_right`, `top_right`, `inner_right`, `back_inner`, `inner_left` |
+| RECTANGLE | 4 DB columns: `edge_top/right/bottom/left` | top, right, bottom, left |
+| L_SHAPE | `shape_config.edges` (JSON) | top, left, r_top, inner, r_btm, bottom |
+| U_SHAPE | `shape_config.edges` (JSON) | top_left, outer_left, bottom, outer_right, top_right, inner_right, back_inner, inner_left |
 
-The join faces are not keys, not null entries, not disabled UI elements — they **do not exist** at all.
+**The join faces are not keys, not null entries, not disabled UI elements — they do not exist at all.**
 
-**Why it exists:** The L/U shape system was grafted onto the rectangle system without resolving the fundamental conflict. This created: wrong cutting perimeter, $0 polishing, $0 lamination, 2 of 6 edges permanently unclickable, and bounding box display instead of leg dimensions. Two days of debugging in February 2026 traced to this single unresolved conflict.
+> **Why it exists:** The L/U shape system was grafted onto the rectangle system without
+> resolving the fundamental conflict. This created: wrong cutting perimeter, $0 polishing,
+> $0 lamination, 2 of 6 edges permanently unclickable, and bounding box display instead of
+> leg dimensions. Two days of debugging in February 2026 traced to this single unresolved conflict.
+
+---
+
+## STOP GATE PROTOCOL
+
+### RULE 60: STOP GATES ARE ABSOLUTE — NO CONTINUATION WITHOUT EXPLICIT APPROVAL
+
+**What a Stop Gate is:**
+
+A Stop Gate is a mandatory checkpoint written into a prompt where Claude Code must
+pause, show specific verification output, and wait for explicit human approval
+before continuing. Stop Gates exist because:
+
+- Some code changes cannot be undone once committed
+- Incorrect wiring into call order can cascade across the entire optimiser
+- Pricing calculator changes require human review before proceeding
+- The human must inspect intermediate state before it is built upon
+
+---
+
+**The Stop Gate phrase:**
+
+When a prompt instructs Claude Code to stop, it MUST write this exact phrase
+and NOTHING ELSE after it:
+
+> **"STOP GATE — WAITING FOR APPROVAL — do not proceed"**
+
+This phrase is the complete output for that turn. It is not a transition into
+further explanation. It is not followed by a summary of next steps.
+It is a full stop.
+
+---
+
+**After writing the Stop Gate phrase, Claude Code MUST NOT:**
+
+1. Run `npm run build`
+2. Run `npx tsc --noEmit`
+3. Write any additional code
+4. Stage any files (`git add`)
+5. Commit anything (`git commit`)
+6. Push any branch (`git push`)
+7. Create a PR (`gh pr create`)
+8. Merge anything (`gh pr merge`)
+9. Update `docs/AUDIT_TRACKER.md`
+10. Update `docs/SYSTEM_STATE.md`
+11. Summarise what comes next
+12. Explain what was just done
+13. Preview the next step
+14. Ask a clarifying question that implies continuation
+15. Write "I'll wait for your approval before continuing" followed by more content
+
+---
+
+**The only valid continuation trigger:**
+
+The human must reply with one of these exact words or phrases:
+- `approved`
+- `proceed`
+- `continue`
+- `looks good, go ahead`
+
+No other phrasing unlocks continuation. If the human asks a question or
+provides feedback instead of approving:
+1. Answer the question only
+2. Re-write the Stop Gate phrase
+3. Wait again
+
+---
+
+**If Claude Code has already continued past a Stop Gate:**
+
+1. Stop immediately at the point you notice
+2. DO NOT commit, push, or merge anything done after the Stop Gate
+3. Report: "I continued past a Stop Gate at [step]. The following was done
+   after the gate: [list]. None of it has been committed. Do you want me to
+   revert and stop, or proceed with what was done?"
+4. Wait for explicit instruction before doing anything further
+
+---
+
+**Standard Stop Gate template (for use in all future prompts):**
+
+```
+## ⛔ STOP GATE — HARD STOP — DO NOT PROCEED
+
+[Show specific verification output]
+
+Then answer all [N] as numbered responses:
+1. [Specific verifiable question]
+2. [Specific verifiable question]
+...N.
+
+Then write this exact phrase and nothing else:
+
+**"STOP GATE — WAITING FOR APPROVAL — do not proceed"**
+
+---
+
+Do NOT:
+- Run `npm run build`
+- Write any more code
+- Update any docs
+- Make any commits
+- Continue to the next step
+- Summarise what you plan to do next
+
+Sit and wait. Only continue when the human explicitly says "approved" or "proceed".
+```
+
+> **Why it exists:** Claude Code has continued past Stop Gates in previous sessions,
+> committing and pushing untested intermediate state. In one case this caused a 4-hour
+> production debugging incident. The Stop Gate phrase must be the ENTIRE output — any
+> text written after it, no matter how innocuous-seeming, signals that the model has
+> not respected the gate.
+
+---
+
+## PHYSICAL-TO-VISUAL PARITY (Rules 61–65)
+
+> These rules ensure that what the optimiser "thinks" is always what the user "sees,"
+> and that test data reflects the real-world constraints of the Australian stone industry.
+
+### RULE 61: PHYSICAL-TO-VISUAL PARITY — SEGMENTS, NOT PIECES
+
+Any UI component displaying a "Parts List," "Cut List," or "Fabrication Summary"
+(e.g., `PartsSection.tsx`) MUST iterate over the **Placements array** from the
+optimiser, not the original Pieces array.
+
+**Why:** Large pieces (especially L/U shape legs) are often decomposed into multiple
+physical segments to fit on a slab. If the UI only renders the original piece list,
+the fabricator's screen will show fewer rows than there are physical cuts on the saw.
+
+**Requirement:** If a piece is split into segments, the UI MUST display each segment as
+a unique row with its own dimensions and slab assignment. The digital cut list must
+match the physical stone on the saw exactly.
+
+```typescript
+// ❌ BAD — iterates original pieces, misses segments
+{quote.pieces.map(piece => (
+  <PieceRow key={piece.id} piece={piece} />
+))}
+
+// ✅ GOOD — iterates placements, shows every physical segment
+{optimiserResult.placements.map(placement => (
+  <PlacementRow key={placement.placementId} placement={placement} />
+))}
+```
+
+> **Why it exists:** A fabricator who sees 3 rows on screen but has 5 physical pieces
+> on the saw will lose material and time. Physical-to-visual parity is a factory safety rule.
+
+### RULE 62: SEGMENT LABELLING STANDARD
+
+When a single architectural piece is split into multiple physical segments, the label
+MUST follow the format:
+
+```
+[Piece Name] — Segment [X] of [Total]
+```
+
+**Examples:**
+- `Island Leg A — Segment 1 of 2`
+- `Island Leg A — Segment 2 of 2`
+- `Bathroom Vanity — Segment 1 of 3`
+
+**Why:** Unambiguous labelling prevents "lost parts" in the factory. A fabricator
+seeing "Segment 1" must immediately know whether to look for a "Segment 2." A row
+without a segment label implies it is a complete, unsplit piece.
+
+**Enforcement:** Any placement that is a sub-segment of a decomposed piece MUST carry
+this label. The label must be present in:
+- The on-screen Parts List / Cut List
+- Any exported manufacturing CSV
+- Any printed PDF quote that includes a fabrication section
+
+### RULE 63: L/U SHAPE PARENT RECOVERY IN DISPLAY COMPONENTS
+
+Components that reconstruct summaries from placement data (e.g., `OptimizationDisplay.tsx`)
+MUST implement a fallback lookup for decomposed pieces.
+
+**Requirement:** If a `pieceId` in a placement cannot be found directly in the original
+`pieces` array (because it was an L/U shape that was decomposed into `-part-N` segments),
+the code MUST search for any placement starting with `${pieceId}-part-` to recover the
+parent metadata (Label, Room, thickness, material, etc.).
+
+```typescript
+// ✅ GOOD — parent recovery pattern
+function getPieceMeta(placementId: string, pieces: Piece[]): PieceMeta {
+  // Direct match first
+  const direct = pieces.find(p => p.id === placementId);
+  if (direct) return direct;
+
+  // Decomposed L/U shape — strip '-part-N' suffix and find parent
+  const parentId = placementId.replace(/-part-\d+$/, '');
+  const parent = pieces.find(p => p.id === parentId);
+  if (parent) return parent;
+
+  // Unknown — return a safe default rather than crashing
+  return { label: placementId, room: 'Unknown', thickness: null, material: null };
+}
+```
+
+**Failure mode to prevent:** If parent recovery is missing, L/U shape segments render
+with `undefined` labels and `null` material — fabricators see blank rows and cannot
+identify which piece to cut.
+
+### RULE 64: STANDARD SLAB DIMENSION INTEGRITY
+
+The system's baseline "Source of Truth" for slab dimensions is **3200mm × 1600mm**
+(standard Jumbo engineered quartz slab).
+
+**Requirement:** All seed files (`prisma/seed-production.js`, `prisma/seed-pricing-settings.ts`,
+etc.) MUST maintain these dimensions unless a specific supplier or material overrides them.
+
+**Logic:** The "Oversize Stress Test" validation — confirming that a 3200mm piece on a
+3200mm slab correctly triggers a split when edge allowance is non-zero — is designed
+against this baseline. Altering default slab dimensions in code without a direct business
+directive from Northcoast Stone will silently break oversize detection.
+
+| Material Class | Standard Dimensions |
+|---|---|
+| Engineered Quartz (Jumbo) | 3200mm × 1600mm ← **baseline** |
+| Engineered Quartz (Standard) | 3050mm × 1440mm |
+| Natural Stone | 2800mm × 1600mm |
+| Porcelain | 3200mm × 1600mm |
+
+**Do NOT change these defaults without a documented business directive and an intentional
+seed-file change in a separately reviewed PR.**
+
+### RULE 65: EDGE ALLOWANCE TESTING PROTOCOL
+
+To verify "Oversize" splitting logic during development or QA, the `slab_edge_allowance_mm`
+setting MUST be set to a non-zero value (typically 20mm).
+
+**Why:** A 3200mm piece on a 3200mm slab with 0mm edge allowance will NOT trigger a split.
+The splitting condition is `piece_length > slab_length - edge_allowance`, not
+`piece_length > slab_length`. With 0mm allowance, the two are equal, and no split occurs.
+
+**Requirement:** Any test plan, QA checklist, or developer documentation for "Oversize
+splitting verification" MUST include a step that explicitly checks or sets the edge
+allowance to a non-zero value before running the test.
+
+```bash
+# Verify edge allowance is non-zero before testing oversize logic
+psql $DATABASE_URL -c "SELECT slab_edge_allowance_mm FROM tenant_settings WHERE tenant_id = 'northcoast';"
+# Must return: a value > 0 (typically 20)
+```
+
+**Standard QA step (add to all oversize-related verification checklists):**
+```
+[ ] Confirm slab_edge_allowance_mm = 20 in tenant settings before testing
+[ ] After test, confirm allowance was not inadvertently reset to 0 by seed scripts
+```
+
+> **Why it exists:** Test scenarios that appear to pass (no split triggered) when
+> edge allowance is 0 create false confidence. The splitting logic "works" but is never
+> actually exercised. Production edge allowance is non-zero, so the first real-world
+> oversize piece would fail silently.
 
 ---
 
@@ -884,7 +1150,7 @@ Run these commands ONE AT A TIME before writing any code in any session:
 
 ```bash
 # 1. Confirm on main and up to date
-cd ~/stonehenge-v2 && git checkout main && git pull --rebase origin main
+cd ~/Downloads/stonehenge-v2 && git checkout main && git pull --rebase origin main
 
 # 2. Confirm hook is installed
 ls .git/hooks/pre-push && echo "✅ Hook installed" || sh scripts/install-hooks.sh
@@ -899,7 +1165,8 @@ grep "🔴" docs/AUDIT_TRACKER.md
 cat docs/SYSTEM_STATE.md
 ```
 
-If step 4 surfaces an issue relevant to your task — STOP. Address it or note a deferral. If step 5 shows something that already does what you're about to build — STOP. Wire the existing one.
+**If step 4 surfaces an issue relevant to your task — STOP. Address it or note a deferral.**
+**If step 5 shows something that already does what you're about to build — STOP. Wire the existing one.**
 
 ---
 
@@ -937,7 +1204,7 @@ grep -rn "FUNCTION_NAME\|ComponentName" src/ --include="*.ts" --include="*.tsx" 
 grep -n "interface\|type\|export type" TARGET_FILE | head -20
 ```
 
-If any result is surprising — STOP. Update your approach before writing code.
+**If any result is surprising — STOP. Update your approach before writing code.**
 
 ---
 
@@ -949,10 +1216,10 @@ If any result is surprising — STOP. Update your approach before writing code.
 | Feb 14 | Route consolidation made 10+ hours invisible | 1–5 | Routes replaced instead of rewired |
 | Feb 14 | Sidebar expanded by default, looked like old builder | 13–16 | `useState(initialMode === 'edit')` |
 | Feb 15 | Quote save returns 400, all pricing invisible | 6–8 | PATCH handler replaced with metadata-only |
-| Feb 15 | Pricing invisible for 3+ days | 23, 27 | `PricingSummary` inside conditional sidebar render |
+| Feb 15 | Pricing invisible for 3+ days | 23, 27 | PricingSummary inside conditional sidebar render |
 | Feb 15 | Three fix attempts verified by grep, $0 in browser | 24 | Code existed in file but didn't execute |
-| Feb 15 | S2 Edge dimension fix deployed, nothing changed | 28–29 | Fixed code path that doesn't run at runtime |
-| Feb 16 | S3 Old form survived THREE deletion attempts | 30–35 | Build passed, old form never actually deleted |
+| Feb 15 S2 | Edge dimension fix deployed, nothing changed | 28–29 | Fixed code path that doesn't run at runtime |
+| Feb 16 S3 | Old form survived THREE deletion attempts | 30–35 | Build passed, old form never actually deleted |
 | Feb 17 | Series 13 prompt tried to CREATE existing table | 43 | Audit findings not applied to implementation prompt |
 | Feb 17 | FromTemplateSheet build failure on Railway | 36 | Nullable state accessed without null guard |
 | Feb 18 | ManualQuoteWizard Step 4 crash — React #310 | 45 | Hooks inside conditional step rendering |
@@ -962,6 +1229,7 @@ If any result is surprising — STOP. Update your approach before writing code.
 | Feb 26 | FIX-4 test code had 12+ placeholder field names | 55 | No policy requiring placeholder flagging |
 | Feb 27 | L/U shape pricing broken: $0 polishing/lamination | 59 | Rectangle edge system used for L-shapes — fundamental mismatch |
 | Feb 27 | FIX-10-FINAL partially failed after merge | 51–53 | R-10 marked confirmed without production verification |
+| Mar 1 | Claude Code continued past stop gates in optimiser prompts | 60 | Stop Gate phrase was in prompt text but not a named rule — model treated it as advisory |
 
 ---
 
@@ -982,8 +1250,10 @@ If any result is surprising — STOP. Update your approach before writing code.
 | v11 | Feb 18 | — | Consolidated v8–v10 |
 | v12 | Feb 26 | 51–57 | Living audit tracker, pre-prompt micro-audit, API verification, placeholder flagging, DB-graceful tests, regression anchor protocol |
 | v13 | Feb 27 | 51–59 | Full consolidation. Rule 51 hard gate. Rule 52 SYSTEM_STATE added. Rule 57 renamed. Rule 58 data freshness. Rule 59 L/U shape two-rule foundation. Stable path (no version suffix). Addenda eliminated. |
+| **v14** | **Mar 2, 2026** | **60–65** | **Rule 60: STOP GATE protocol — exact stop phrase, 15 prohibited post-gate actions, only valid continuation triggers, recovery procedure. Rules 61–65: Physical-to-visual parity (segment display), segment labelling standard, L/U parent recovery, standard slab dimension integrity, edge allowance testing protocol.** |
 
 ---
 
 **Stable path:** `docs/stonehenge-dev-rulebook.md`
-Always reference this path, never a versioned filename. When this document is updated to v14, the path stays the same.
+**Always reference this path, never a versioned filename.**
+**When this document is updated to v15, the path stays the same.**
