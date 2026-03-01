@@ -201,7 +201,8 @@ function generateShapeStrips(
  */
 function preprocessOversizeStrips(
   strips: OptimizationPiece[],
-  usableWidth: number
+  usableWidth: number,
+  segmentWidthMap?: Map<string, number[]>
 ): OptimizationPiece[] {
   const result: OptimizationPiece[] = [];
 
@@ -211,28 +212,48 @@ function preprocessOversizeStrips(
       continue;
     }
 
-    // Strip exceeds usable width — split into segments
-    const numSegments = Math.ceil(strip.width / usableWidth);
-    const segmentLength = Math.floor(strip.width / numSegments);
-    const lastSegmentLength = strip.width - segmentLength * (numSegments - 1);
+    // Check if the parent piece has a known segment width map
+    const parentWidths = segmentWidthMap?.get(String(strip.parentPieceId));
 
-    for (let i = 0; i < numSegments; i++) {
-      const isLast = i === numSegments - 1;
-      const partLength = isLast ? lastSegmentLength : segmentLength;
+    if (parentWidths && parentWidths.length > 1) {
+      // Use parent's exact segment widths — strip cuts must match piece cuts
+      for (let i = 0; i < parentWidths.length; i++) {
+        result.push({
+          ...strip,
+          id: `${strip.id}-part-${i}`,
+          width: parentWidths[i],
+          label: `${strip.label} (Part ${i + 1} of ${parentWidths.length})`,
+          isStripSegment: true,
+          stripSegmentIndex: i,
+          totalStripSegments: parentWidths.length,
+          parentPieceId: strip.parentPieceId,
+          stripPosition: strip.stripPosition,
+        });
+      }
+    } else {
+      // No parent map — fall back to even split (existing behaviour)
+      const numSegments = Math.ceil(strip.width / usableWidth);
+      const segmentLength = Math.floor(strip.width / numSegments);
+      const lastSegmentLength = strip.width - segmentLength * (numSegments - 1);
 
-      result.push({
-        ...strip,
-        id: `${strip.id}-part-${i}`,
-        width: partLength,
-        // height (strip width, e.g. 60mm) unchanged
-        label: `${strip.label} (Part ${i + 1} of ${numSegments})`,
-        isStripSegment: true,
-        stripSegmentIndex: i,
-        totalStripSegments: numSegments,
-        // CRITICAL: parentPieceId stays as original piece ID, not strip ID
-        parentPieceId: strip.parentPieceId,
-        stripPosition: strip.stripPosition,
-      });
+      for (let i = 0; i < numSegments; i++) {
+        const isLast = i === numSegments - 1;
+        const partLength = isLast ? lastSegmentLength : segmentLength;
+
+        result.push({
+          ...strip,
+          id: `${strip.id}-part-${i}`,
+          width: partLength,
+          // height (strip width, e.g. 60mm) unchanged
+          label: `${strip.label} (Part ${i + 1} of ${numSegments})`,
+          isStripSegment: true,
+          stripSegmentIndex: i,
+          totalStripSegments: numSegments,
+          // CRITICAL: parentPieceId stays as original piece ID, not strip ID
+          parentPieceId: strip.parentPieceId,
+          stripPosition: strip.stripPosition,
+        });
+      }
     }
   }
 
@@ -320,9 +341,10 @@ function preprocessOversizePieces(
   kerfWidth: number,
   allowRotation: boolean,
   mitreKerfWidth?: number
-): { processed: OptimizationPiece[]; warnings: string[] } {
+): { processed: OptimizationPiece[]; warnings: string[]; segmentWidthMap: Map<string, number[]> } {
   const processed: OptimizationPiece[] = [];
   const warnings: string[] = [];
+  const segmentWidthMap = new Map<string, number[]>();
 
   for (const piece of pieces) {
     const pw = piece.width + kerfWidth;
@@ -379,6 +401,9 @@ function preprocessOversizePieces(
       colWidths.push(w);
       wRemaining -= w;
     }
+
+    // Record the segment widths for this piece so strip splitting can match
+    segmentWidthMap.set(String(piece.id), colWidths);
 
     // Pre-compute height of each row segment at slab boundaries
     const rowHeights: number[] = [];
@@ -517,7 +542,7 @@ function preprocessOversizePieces(
     processed.push(...segmentStrips);
   }
 
-  return { processed, warnings };
+  return { processed, warnings, segmentWidthMap };
 }
 
 /**
@@ -622,7 +647,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // Now runs on decomposed legs (not bounding boxes). Each leg is checked
   // individually against slab dimensions. Split into segments only if needed.
   // Use usable dimensions (after edge allowance) for fitting checks.
-  const { processed: normalizedPieces, warnings } = preprocessOversizePieces(
+  const { processed: normalizedPieces, warnings, segmentWidthMap } = preprocessOversizePieces(
     decomposedPieces,
     usableWidth,
     usableHeight,
@@ -668,12 +693,12 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     // using actual edge lengths from getShapeEdgeLengths().
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
     // Split any strips that exceed usable slab width into placeable segments
-    const processedStrips = preprocessOversizeStrips(strips, usableWidth);
+    const processedStrips = preprocessOversizeStrips(strips, usableWidth, segmentWidthMap);
     allPieces.push(...processedStrips);
   }
 
   // Add pre-generated L/U shape strips (also split oversize ones)
-  const processedShapeStrips = preprocessOversizeStrips(shapeStrips, usableWidth);
+  const processedShapeStrips = preprocessOversizeStrips(shapeStrips, usableWidth, segmentWidthMap);
   allPieces.push(...processedShapeStrips);
 
   // Log for debugging (visible in server logs)
