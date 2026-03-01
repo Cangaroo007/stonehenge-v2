@@ -54,6 +54,10 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   stripSegmentIndex?: number;
   /** total number of parts this strip was split into */
   totalStripSegments?: number;
+  /** Override join position in mm from left edge.
+   *  If set, overrides the default slab-boundary split.
+   *  Future: set via natural language command. */
+  customJoinMm?: number;
 };
 
 /**
@@ -340,7 +344,7 @@ function preprocessOversizePieces(
       continue;
     }
 
-    // Piece is oversize — split into segments.
+    // Piece is oversize — split into segments at slab boundaries.
     // Orient the piece so its longer dimension maps to the slab's longer axis to minimise segments.
     const maxDim = Math.max(slabWidth, slabHeight) - kerfWidth;
     const minDim = Math.min(slabWidth, slabHeight) - kerfWidth;
@@ -357,8 +361,33 @@ function preprocessOversizePieces(
     const hSegments = isWidthLonger ? shortSegments : longSegments;
     const totalSegments = wSegments * hSegments;
 
-    const segmentWidth = Math.ceil(piece.width / wSegments);
-    const segmentHeight = Math.ceil(piece.height / hSegments);
+    // Split at slab boundary, not midpoint.
+    // Use custom join position for the first width segment if set and valid.
+    const wBoundary = isWidthLonger ? maxDim : minDim;
+    const hBoundary = isWidthLonger ? minDim : maxDim;
+    const firstWidthSplit = (piece.customJoinMm && piece.customJoinMm < wBoundary)
+      ? piece.customJoinMm
+      : wBoundary;
+
+    // Pre-compute width of each column segment at slab boundaries
+    const colWidths: number[] = [];
+    let wRemaining = piece.width;
+    for (let col = 0; col < wSegments; col++) {
+      const isFirst = col === 0;
+      const boundary = isFirst ? firstWidthSplit : wBoundary;
+      const w = Math.min(boundary, wRemaining);
+      colWidths.push(w);
+      wRemaining -= w;
+    }
+
+    // Pre-compute height of each row segment at slab boundaries
+    const rowHeights: number[] = [];
+    let hRemaining = piece.height;
+    for (let row = 0; row < hSegments; row++) {
+      const h = Math.min(hBoundary, hRemaining);
+      rowHeights.push(h);
+      hRemaining -= h;
+    }
 
     const joinCount = (wSegments - 1) * hSegments + (hSegments - 1) * wSegments;
     warnings.push(
@@ -385,12 +414,8 @@ function preprocessOversizePieces(
         const isFirstCol = col === 0;
         const isFirstRow = row === 0;
 
-        const thisWidth = isLastCol
-          ? piece.width - segmentWidth * (wSegments - 1)
-          : segmentWidth;
-        const thisHeight = isLastRow
-          ? piece.height - segmentHeight * (hSegments - 1)
-          : segmentHeight;
+        const thisWidth = colWidths[col];
+        const thisHeight = rowHeights[row];
 
         processed.push({
           id: `${piece.id}-seg-${segmentIndex}`,
