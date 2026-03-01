@@ -305,7 +305,7 @@ export function calculateMaterialCost(
   // buildMaterialGroupings already handles margin and waste per group.
   let authoritativeSubtotal = roundToTwo(finalSubtotalWithWaste);
   let authoritativeSlabCount = pricingBasis === 'PER_SLAB' && slabCount !== undefined ? Math.ceil(slabCount) : undefined;
-  if (byMaterial.length > 1) {
+  if (byMaterial.length > 1 || pricingBasis === 'PER_SLAB') {
     authoritativeSubtotal = roundToTwo(byMaterial.reduce((sum, g) => sum + g.totalCost, 0));
     // Sum per-group slab counts for multi-material (more accurate than single aggregate)
     if (pricingBasis === 'PER_SLAB') {

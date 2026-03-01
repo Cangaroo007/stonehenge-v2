@@ -31,6 +31,7 @@
 | R-27 | reconstructGroupLaminationSummary parent fallback — L/U shapes no longer show "Unknown" | fix/optimizer-display-architecture |
 | R-28 | Cost column removed from parts list (interface, calculations, table header, table cell) | fix/optimizer-display-architecture |
 | R-29 | Seed slab dimensions corrected: 3000x1400 → 3200x1600 | fix/optimizer-display-architecture |
+| R-30 | Material cost now uses flat per-slab price (price_per_slab field) for all PER_SLAB quotes -- single and multi-material. Root cause: line ~308 condition excluded single-material quotes from buildMaterialGroupings result, causing area x rate calculation instead of slabCount x price_per_slab. Pure White: $1,946 -> $1,596. | claude/fix-material-cost-slab-3fvzB |
 
 ---
 
@@ -58,6 +59,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PROMPT-16 material cost per-slab fix | claude/fix-material-cost-slab-3fvzB | Mar 1 | 🔄 In progress |
 | PROMPT-15 optimizer display architecture | claude/fix-optimizer-display-QeIHt | Mar 1 | 🔄 In progress |
 | PROMPT-14 slab display fixes (AUDIT-5) | claude/fix-slab-display-hQGwQ | Feb 28 | ✅ Complete |
 | PROMPT-13 slab assignment + strip display | claude/fix-lshape-slab-strip-B0GWq | Feb 28 | ✅ Complete |
@@ -72,4 +74,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — PROMPT-15 complete: R-25 segment rows for oversize L/U legs, R-26 findSlabForDecomposedPartSegment, R-27 lamination Unknown fix, R-28 cost column removed, R-29 seed slab dims corrected.*
+*Last Updated: Mar 1 2026 — PROMPT-16: R-30 material cost per-slab fix. calculateMaterialCost() now uses buildMaterialGroupings result for ALL PER_SLAB quotes, not just multi-material.*

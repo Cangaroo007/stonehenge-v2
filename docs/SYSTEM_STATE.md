@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/fix-optimizer-display-QeIHt
+> **Last Updated By:** claude/fix-material-cost-slab-3fvzB
 
 ---
 
@@ -518,7 +518,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | Function | Line | Purpose |
 |----------|------|---------|
 | `loadPricingContext` | 131 | Loads all pricing config for an organisation |
-| `calculateMaterialCost` | 167 | Calculates material cost for a piece |
+| `calculateMaterialCost` | 167 | Calculates material cost for a piece. PROMPT-16: PER_SLAB quotes now always use buildMaterialGroupings result (slabCount x price_per_slab), not just multi-material quotes. |
 | `buildMaterialGroupings` | 350 | Groups pieces by material for slab calculation |
 | `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm` |
 | `getServiceRate` | 1573 | Looks up service rate by type/category |
