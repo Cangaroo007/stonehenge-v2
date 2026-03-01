@@ -35,6 +35,8 @@
 | R-31 | preprocessOversizePieces generates correct per-segment strips -- Top/Bottom per segment, Left on first segment only, Right on last segment only. parentPieceId = original piece ID. Segments skipped in main strip generation loop. | claude/fix-strip-segmentation-VvJta |
 | R-32 | findSlabForStrip updated with occurrence index for multiple strip placements per position. Strip rendering tracks position occurrences to map each segment strip to correct slab. | claude/fix-strip-segmentation-VvJta |
 | R-33 | Original oversize piece now skipped in strip generation loop via decomposedPieceIds set — prevents 4941mm ghost strips appearing alongside correct per-segment strips in laminationSummary | fix/strip-segmentation |
+| R-34 | decomposedPieceIds now built from normalizedPieces (not empty allPieces) — ghost strips correctly excluded from laminationSummary. Oversize piece strips (4941mm, 3200mm etc.) no longer show in parts list; correct per-segment strips show with slab assignments. | claude/fix-decomposed-piece-ids-rerun-4VVjA |
+| R-35 | Recalculate button added to Slab Layout section — users can trigger fresh optimiser run (POST) to refresh stale saved results without developer intervention. | claude/fix-decomposed-piece-ids-rerun-4VVjA |
 
 ---
 
@@ -55,8 +57,8 @@
 | A-16 | 🟡 Medium | gh CLI not in Claude Code. Manual PR creation required every session. | dev tooling | Feb 27 | brew install gh |
 | A-17 | 🟡 Medium | AUDIT_TRACKER stale line number: extractFabricationDiscount at 1563, actually 1761. | docs/AUDIT_TRACKER.md | Feb 27 | Update inventory |
 | A-18 | 🟡 Medium | A-02 may be incorrect — SYSTEM_STATE checked auth import, not per-handler auth calls. | src/app/api/admin/pricing/* | Feb 27 | Verify before closing A-02 |
-| A-20 | 🔴 Critical | Ghost strips in parts list — PartsSection reads stale DB record via GET; old laminationSummary has ghost strips. Filter only runs on POST (fresh run). Quotes optimised before commit 8aec506 still show ghost strips. | PartsSection.tsx, route.ts (optimize GET) | Mar 1 | AUDIT-10 |
-| A-21 | 🔴 Critical | decomposedPieceIds built from empty allPieces array (slab-optimizer.ts:574-578). Set is always empty, so generateLaminationStrips generates full-length ghost strips for oversize pieces. These are too large for FFD and show "—" in parts list. Fix: build from normalizedPieces. ~3 lines. | slab-optimizer.ts:574-578 | Mar 1 | AUDIT-10 |
+| A-20 | ✅ Resolved | Ghost strips in parts list — PartsSection reads stale DB record via GET; old laminationSummary has ghost strips. Fix: Recalculate button added to Slab Layout section (POST triggers fresh optimiser run). | PartsSection.tsx, OptimizationDisplay.tsx | Mar 1 | R-35 |
+| A-21 | ✅ Resolved | decomposedPieceIds built from empty allPieces array (slab-optimizer.ts:574-578). Fix: changed allPieces to normalizedPieces. Ghost strips no longer generated. | slab-optimizer.ts:575 | Mar 1 | R-34 |
 
 ---
 
@@ -81,4 +83,4 @@
 
 ---
 
-*Last Updated: Mar 1 2026 — AUDIT-10: Ghost strip root cause (stale GET data, A-20) + oversize strip splitting bug (decomposedPieceIds built from empty array, A-21). Read-only audit, no code changes.*
+*Last Updated: Mar 1 2026 — PROMPT-18: A-21 fixed (decomposedPieceIds from normalizedPieces, R-34). A-20 fixed (Recalculate button for stale data, R-35).*
