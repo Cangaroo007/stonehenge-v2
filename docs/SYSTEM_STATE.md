@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/fix-material-cost-slab-3fvzB
+> **Last Updated By:** claude/fix-strip-segmentation-VvJta
 
 ---
 
@@ -550,7 +550,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
 | `generateLaminationSummary` | 189 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
-| `preprocessOversizePieces` | 539 | Splits oversize pieces into joinable segments |
+| `preprocessOversizePieces` | 254 | Splits oversize pieces into joinable segments. PROMPT-17: generates per-segment lamination strips with end-cap logic (Top/Bottom per segment, Left on first, Right on last). parentPieceId = original piece ID. |
 | `optimizeSlabs` | 635 | **Main entry point** — bin-packs pieces onto slabs |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
 | `findPosition` | 1032 | Finds placement position on a slab |
@@ -721,7 +721,7 @@ VersionDiffView, VersionHistoryTab
 - `findSlabForSegment` — oversize segment lookup by parentPieceId + segmentIndex (PROMPT-14: fixed to match on parentPieceId instead of pieceId)
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
 - `findSlabForDecomposedPartSegment` — decomposed-leg segment lookup by compound ID (e.g. "183-part-0-seg-0") or parentPieceId + segmentIndex (PROMPT-15)
-- `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
+- `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition + occurrence index (PROMPT-17: supports multiple strips per position for oversize segment pieces)
 
 #### PartsSection strip grouping (PROMPT-13)
 - `LSHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top, left], 1→[r_top, inner, r_btm, bottom]
@@ -732,6 +732,11 @@ VersionDiffView, VersionHistoryTab
 - LAMINATION_STRIP dimensions: `Math.max(lengthMm, widthMm) × Math.min(lengthMm, widthMm)` — always shows longer dimension first (display-only)
 - LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
 - LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
+
+#### PartsSection strip rendering for oversize segments (PROMPT-17)
+- Strip rendering loop tracks per-position occurrence count (`positionOccurrences`) for oversize pieces
+- Each segment strip maps to the correct slab via `findSlabForStrip` occurrence index
+- Multiple strips per position (e.g. two top strips from two segments) render as separate rows with correct slab assignments
 
 #### PartsSection segment expansion + cost removal (PROMPT-15)
 - Oversize L/U legs now expand into one row per physical cut: "Segment X of Y" labels with correct slab assignments
