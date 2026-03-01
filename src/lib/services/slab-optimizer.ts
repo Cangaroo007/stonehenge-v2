@@ -562,13 +562,23 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
   // ── Step 2: Generate lamination strips for all 40mm+ pieces ───────────────
   const allPieces: OptimizationPiece[] = [];
 
+  // Build set of piece IDs that have been decomposed into segments
+  // so we can skip generating strips for the original oversize piece
+  // (their strips are already generated inside preprocessOversizePieces)
+  const decomposedPieceIds = new Set(
+    allPieces
+      .filter(p => p.isSegment && p.parentPieceId)
+      .map(p => p.parentPieceId as string)
+  );
+
   for (const piece of normalizedPieces) {
     // Add the main piece
     allPieces.push(piece);
 
     // Skip segments — their strips were already generated in preprocessOversizePieces
     // with correct end-cap logic and parentPieceId set to the original piece ID.
-    if (piece.isSegment) continue;
+    // Also skip original oversize pieces that were decomposed into segments.
+    if (piece.isSegment || decomposedPieceIds.has(piece.id)) continue;
 
     // Generate and add lamination strips for rectangle pieces.
     // L/U shape strips were already generated in Step 1 (before decomposition)
