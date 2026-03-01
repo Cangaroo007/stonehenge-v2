@@ -137,13 +137,34 @@ function findSlabForStrip(
   occurrenceIndex = 0
 ): string | null {
   if (!placements) return null;
-  // Find all matching placements for this parent piece and strip position
-  const matches = placements.filter(
+  // 1. Try exact match first (piece was NOT split)
+  let matches = placements.filter(
     (pl) =>
       pl.parentPieceId === String(pieceId) &&
       pl.isLaminationStrip &&
       pl.stripPosition === position
   );
+
+  // 2. Fallback: parent was split by preprocessOversizePieces — find strip
+  //    placements belonging to any segment of this piece
+  if (matches.length === 0) {
+    matches = placements.filter(
+      (pl) =>
+        pl.isLaminationStrip &&
+        pl.stripPosition === position &&
+        pl.parentPieceId?.startsWith(`${pieceId}-seg-`)
+    );
+  }
+
+  // 3. Last resort: find the first segment's slab assignment so the strip
+  //    inherits a slab rather than showing "—"
+  if (matches.length === 0) {
+    const segmentPlacement = placements.find(
+      (pl) => pl.parentPieceId === String(pieceId) && pl.isSegment === true
+    );
+    if (segmentPlacement) return getSlabLabel(segmentPlacement.slabIndex);
+  }
+
   const p = matches[occurrenceIndex] ?? matches[0];
   return p ? getSlabLabel(p.slabIndex) : null;
 }
@@ -452,23 +473,9 @@ function derivePartsForPiece(
     });
   }
 
-  // 4. Cutouts (shown as deductions)
-  if (breakdown?.fabrication?.cutouts) {
-    for (const cutout of breakdown.fabrication.cutouts) {
-      if (cutout.quantity > 0) {
-        parts.push({
-          type: 'CUTOUT',
-          name: `— ${cutout.cutoutTypeName || 'Cutout'}`,
-          lengthMm: 0,
-          widthMm: 0,
-          thicknessMm: 0,
-          slab: null,
-          isCutout: true,
-          note: cutout.quantity > 1 ? `×${cutout.quantity}` : undefined,
-        });
-      }
-    }
-  }
+  // 4. Cutouts — intentionally excluded from Parts List.
+  //    Cutouts are not physical stone parts, do not occupy slab space,
+  //    and already appear in the Cutouts section of the quote.
 
   // Reorder parts so strips appear grouped under their parent leg (L/U shapes only)
   if (isLOrUShape) {

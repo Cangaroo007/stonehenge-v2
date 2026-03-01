@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-01
-> **Last Updated By:** claude/strip-oversize-splitting-C5we8
+> **Last Updated By:** claude/fix-strip-lookup-cutouts-iXGyl
 
 ---
 
@@ -722,7 +722,7 @@ VersionDiffView, VersionHistoryTab
 - `findSlabForSegment` — oversize segment lookup by parentPieceId + segmentIndex (PROMPT-14: fixed to match on parentPieceId instead of pieceId)
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
 - `findSlabForDecomposedPartSegment` — decomposed-leg segment lookup by compound ID (e.g. "183-part-0-seg-0") or parentPieceId + segmentIndex (PROMPT-15)
-- `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition + occurrence index (PROMPT-17: supports multiple strips per position for oversize segment pieces)
+- `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition + occurrence index (PROMPT-17: supports multiple strips per position for oversize segment pieces). PROMPT-19a: 3-tier fallback — (1) exact parentPieceId match, (2) segment ID prefix match (`${pieceId}-seg-*`), (3) first segment's slab assignment. Fixes invisible strips on split pieces.
 
 #### PartsSection strip grouping (PROMPT-13)
 - `LSHAPE_LEG_EDGE_MAP` — maps leg index to edge keys: 0→[top, left], 1→[r_top, inner, r_btm, bottom]
@@ -744,6 +744,12 @@ VersionDiffView, VersionHistoryTab
 - Each segment strip maps to the correct slab via `findSlabForStrip` occurrence index
 - Multiple strips per position (e.g. two top strips from two segments) render as separate rows with correct slab assignments
 - PROMPT-19: When multiple strips share same position (split by preprocessOversizeStrips), label shows "Part N of M" suffix (e.g. "Top strip — Part 1 of 2")
+
+#### PartsSection cutout removal (PROMPT-19a)
+- Cutout rows no longer pushed into `parts` array in `derivePartsForPiece`
+- Cutouts are not physical stone parts, do not occupy slab space, already shown in Cutouts section
+- Type definition (`CUTOUT`, `isCutout`) retained but dead — no data produced
+- Zero pricing impact — cutout pricing unchanged
 
 #### PartsSection segment expansion + cost removal (PROMPT-15)
 - Oversize L/U legs now expand into one row per physical cut: "Segment X of Y" labels with correct slab assignments
