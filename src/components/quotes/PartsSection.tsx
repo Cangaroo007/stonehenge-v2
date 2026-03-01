@@ -54,7 +54,6 @@ interface Part {
   widthMm: number;
   thicknessMm: number;
   slab: string | null;
-  cost: number | null;
   note?: string;
   isCutout?: boolean;
   stripPosition?: string;
@@ -164,6 +163,29 @@ function findSlabForDecomposedPart(
   return `Slab ${placement.slabIndex + 1}`;
 }
 
+function findSlabForDecomposedPartSegment(
+  legId: string,
+  segmentIndex: number,
+  placements: Placement[]
+): string | null {
+  // Try compound ID first: e.g. "183-part-0-seg-0"
+  const byId = placements.find(
+    pl => pl.pieceId === `${legId}-seg-${segmentIndex}`
+  );
+  if (byId) return `Slab ${byId.slabIndex + 1}`;
+
+  // Fallback: match by parentPieceId + segmentIndex
+  const byParent = placements.find(
+    pl =>
+      pl.parentPieceId === legId &&
+      pl.isSegment === true &&
+      pl.segmentIndex === segmentIndex
+  );
+  if (byParent) return `Slab ${byParent.slabIndex + 1}`;
+
+  return null;
+}
+
 function derivePartsForPiece(
   piece: QuotePiece,
   breakdown: PiecePricingBreakdown | undefined,
@@ -182,12 +204,6 @@ function derivePartsForPiece(
   const pieceName = piece.name || 'Unnamed piece';
   const thicknessMm = breakdown?.dimensions?.thicknessMm ?? piece.thickness_mm;
 
-  // Calculate non-main-piece costs for deduction from pieceTotal
-  let laminationCost = 0;
-  if (breakdown?.fabrication?.lamination) {
-    laminationCost = breakdown.fabrication.lamination.total ?? 0;
-  }
-
   // For L/U shapes, show decomposed legs instead of bounding-box oversize splits
   const pieceShapeType = piece.shape_type ?? 'RECTANGLE';
   const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
@@ -199,21 +215,38 @@ function derivePartsForPiece(
       shapeType: piece.shape_type,
       shapeConfig: piece.shape_config,
     });
-    const materialCost = breakdown?.materials?.total ?? 0;
-    const installationCost = breakdown?.fabrication?.installation?.total ?? 0;
-    const fabricationCost = (breakdown?.pieceTotal ?? 0) - materialCost - installationCost;
-    const legCost = rects.length > 0 ? fabricationCost / rects.length : 0;
     for (let li = 0; li < rects.length; li++) {
       const rect = rects[li];
-      parts.push({
-        type: 'MAIN',
-        name: rect.label ?? `Leg ${li + 1}`,
-        lengthMm: rect.width,
-        widthMm: rect.height,
-        thicknessMm,
-        slab: findSlabForDecomposedPart(piece.id, li, placements),
-        cost: legCost,
-      });
+      const legId = `${piece.id}-part-${li}`;
+
+      // Check if this leg was further split into segments by the optimizer
+      const legSegmentPlacements = placements?.filter(
+        pl => pl.parentPieceId === legId && pl.isSegment === true
+      ) ?? [];
+
+      if (legSegmentPlacements.length > 1) {
+        // Leg was split — emit one row per segment
+        for (const seg of legSegmentPlacements) {
+          parts.push({
+            type: 'OVERSIZE_HALF',
+            name: `${rect.label} — Segment ${(seg.segmentIndex ?? 0) + 1} of ${legSegmentPlacements.length}`,
+            lengthMm: seg.width,
+            widthMm: seg.height,
+            thicknessMm,
+            slab: findSlabForDecomposedPartSegment(legId, seg.segmentIndex ?? 0, placements ?? []),
+          });
+        }
+      } else {
+        // Leg fits on one slab — emit single row as before
+        parts.push({
+          type: 'MAIN',
+          name: rect.label ?? `Leg ${li + 1}`,
+          lengthMm: rect.width,
+          widthMm: rect.height,
+          thicknessMm,
+          slab: findSlabForDecomposedPart(piece.id, li, placements),
+        });
+      }
     }
     // Skip the normal oversize/main logic below for L/U shapes
   }
@@ -224,13 +257,6 @@ function derivePartsForPiece(
     const strategy = breakdown.oversize.strategy || 'LENGTHWISE';
     const joinCount = breakdown.oversize.joinCount || 1;
     const numberOfSegments = joinCount + 1;
-
-    // Derive proportional fabrication cost per segment
-    // Exclude material and installation (shown at piece level, not per-half)
-    const materialCost = breakdown.materials?.total ?? 0;
-    const installationCost = breakdown.fabrication?.installation?.total ?? 0;
-    const fabricationCost = breakdown.pieceTotal - materialCost - installationCost;
-    const segmentCost = fabricationCost / numberOfSegments;
 
     if (strategy === 'LENGTHWISE' || strategy === 'MULTI_JOIN') {
       const halfLength = Math.ceil(piece.length_mm / (joinCount + 1));
@@ -245,7 +271,6 @@ function derivePartsForPiece(
           widthMm: piece.width_mm,
           thicknessMm,
           slab: findSlabForSegment(piece.id, seg, placements),
-          cost: segmentCost,
           note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
         });
       }
@@ -263,7 +288,6 @@ function derivePartsForPiece(
           widthMm: segWidth,
           thicknessMm,
           slab: findSlabForSegment(piece.id, seg, placements),
-          cost: segmentCost,
           note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
         });
       }
@@ -282,7 +306,6 @@ function derivePartsForPiece(
       widthMm: piece.width_mm,
       thicknessMm,
       slab: findSlabForPiece(piece.id, placements),
-      cost: breakdown ? breakdown.pieceTotal - laminationCost : null,
     });
   }
 
@@ -311,7 +334,6 @@ function derivePartsForPiece(
           widthMm: strip.widthMm,
           thicknessMm: 20,
           slab: findSlabForStrip(piece.id, strip.position, placements),
-          cost: null,
           stripPosition: strip.position,
         });
       }
@@ -340,7 +362,6 @@ function derivePartsForPiece(
             widthMm: 60,
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
-            cost: null,
             stripPosition: edgeKey,
           });
         }
@@ -364,20 +385,12 @@ function derivePartsForPiece(
             widthMm: isMitre ? 40 : 60,
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
-            cost: null,
             stripPosition: edgeKey,
           });
         }
       }
     }
 
-    // Add lamination cost note to main piece if present
-    if (laminationCost > 0 && parts.length > 0) {
-      const mainPart = parts.find((p) => p.type === 'MAIN' || p.type === 'OVERSIZE_HALF');
-      if (mainPart && !mainPart.note) {
-        mainPart.note = `Lamination: ${formatCurrency(laminationCost)}`;
-      }
-    }
   }
 
   // 3. Waterfall legs (check inline relationships or external relationships)
@@ -416,7 +429,6 @@ function derivePartsForPiece(
       widthMm: child.width_mm,
       thicknessMm: child.thickness_mm,
       slab: findSlabForPiece(child.id, placements),
-      cost: null,
       note: 'Linked waterfall piece',
     });
   }
@@ -432,7 +444,6 @@ function derivePartsForPiece(
           widthMm: 0,
           thicknessMm: 0,
           slab: null,
-          cost: null,
           isCutout: true,
           note: cutout.quantity > 1 ? `×${cutout.quantity}` : undefined,
         });
@@ -613,7 +624,6 @@ export default function PartsSection({
                         <th className="text-left py-2 pr-3 font-medium">Part</th>
                         <th className="text-left py-2 pr-3 font-medium">Dimensions</th>
                         <th className="text-left py-2 pr-3 font-medium">Slab</th>
-                        <th className="text-right py-2 font-medium">Cost</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -666,9 +676,6 @@ export default function PartsSection({
                               </td>
                               <td className="py-2 pr-3 text-xs text-gray-600">
                                 {part.slab ?? '—'}
-                              </td>
-                              <td className="py-2 text-xs text-right text-gray-600">
-                                {part.cost != null ? formatCurrency(part.cost) : '—'}
                               </td>
                             </tr>
                           );

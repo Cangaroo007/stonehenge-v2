@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-02-28
-> **Last Updated By:** claude/fix-slab-display-hQGwQ
+> **Last Updated:** 2026-03-01
+> **Last Updated By:** claude/fix-optimizer-display-QeIHt
 
 ---
 
@@ -720,6 +720,7 @@ VersionDiffView, VersionHistoryTab
 - `findSlabForPiece` — standard piece lookup by pieceId
 - `findSlabForSegment` — oversize segment lookup by parentPieceId + segmentIndex (PROMPT-14: fixed to match on parentPieceId instead of pieceId)
 - `findSlabForDecomposedPart` — L/U decomposed leg lookup by pieceId-part-{index} or groupId + partIndex (PROMPT-13)
+- `findSlabForDecomposedPartSegment` — decomposed-leg segment lookup by compound ID (e.g. "183-part-0-seg-0") or parentPieceId + segmentIndex (PROMPT-15)
 - `findSlabForStrip` — lamination strip lookup by parentPieceId + stripPosition
 
 #### PartsSection strip grouping (PROMPT-13)
@@ -731,6 +732,11 @@ VersionDiffView, VersionHistoryTab
 - LAMINATION_STRIP dimensions: `Math.max(lengthMm, widthMm) × Math.min(lengthMm, widthMm)` — always shows longer dimension first (display-only)
 - LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
 - LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
+
+#### PartsSection segment expansion + cost removal (PROMPT-15)
+- Oversize L/U legs now expand into one row per physical cut: "Segment X of Y" labels with correct slab assignments
+- Cost column removed entirely from parts list (interface, calculations, table header, table cell)
+- `formatCurrency` import retained (still used for join cost note)
 
 ---
 
@@ -850,10 +856,10 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | `prisma/seed-fabrication-categories.ts` | Fabrication category seed data |
 | `prisma/seed-machine-operation-defaults.ts` | Machine operation defaults |
 | `prisma/seed-machine-profiles.ts` | Machine profile definitions |
-| `prisma/seed-material-slab-prices.ts` | Material slab pricing |
+| `prisma/seed-material-slab-prices.ts` | Material slab pricing (PROMPT-15: dims corrected 3000x1400 → 3200x1600) |
 | `prisma/seed-pricing-settings.ts` | Pricing settings defaults |
 | `prisma/seed-pricing.ts` | General pricing seed |
-| `prisma/seed-production.js` | Production seed data |
+| `prisma/seed-production.js` | Production seed data (PROMPT-15: slab dims corrected 3000x1400 → 3200x1600) |
 | `prisma/seed-quote-templates.ts` | Quote template seed data |
 | `prisma/seed-starter-templates.ts` | Starter template definitions |
 | `prisma/seed-suppliers.ts` | Supplier seed data |

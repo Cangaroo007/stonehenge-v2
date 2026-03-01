@@ -558,7 +558,23 @@ function reconstructGroupLaminationSummary(placements: any[]) {
     totalStripArea: strips.reduce((sum: number, s: any) => sum + (s.width * s.height) / 1_000_000, 0),
     stripsByParent: parentIds.map((parentId: string) => {
       const parentStrips = strips.filter((s: any) => s.parentPieceId === parentId);
-      const parent = placements.find((p: any) => p.pieceId === parentId);
+      let parent = placements.find((p: any) => p.pieceId === parentId);
+
+      // Fallback for L/U shapes — original piece has no placement (it was decomposed)
+      // Find any decomposed part of this piece and use its label, stripped of leg suffix
+      if (!parent && parentId) {
+        const decomposedPart = placements.find(
+          (p: any) => p.pieceId?.startsWith(parentId + '-part-')
+        );
+        if (decomposedPart) {
+          parent = {
+            ...decomposedPart,
+            label: decomposedPart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/, '')
+                    ?? decomposedPart.label,
+          };
+        }
+      }
+
       return {
         parentPieceId: parentId,
         parentLabel: parent?.label ?? 'Unknown',

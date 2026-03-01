@@ -193,9 +193,9 @@ async function seedMachineProfiles() {
 async function seedMaterialSlabPrices() {
   console.log('🌱 Seeding materials with slab pricing...');
 
-  const SLAB_LENGTH_MM = 3000;
-  const SLAB_WIDTH_MM = 1400;
-  const SLAB_AREA_SQM = (SLAB_LENGTH_MM * SLAB_WIDTH_MM) / 1_000_000; // 4.2
+  const SLAB_LENGTH_MM = 3200;
+  const SLAB_WIDTH_MM = 1600;
+  const SLAB_AREA_SQM = (SLAB_LENGTH_MM * SLAB_WIDTH_MM) / 1_000_000; // 5.12
 
   const materials = [
     { name: 'Alpha Zero', collection: 'Classic Collection', pricePerSqm: 450 },

@@ -1,6 +1,6 @@
 # Stone Henge — Audit Tracker
 
-> **Updated:** February 28, 2026
+> **Updated:** March 1, 2026
 > **Status:** ACTIVE
 
 ---
@@ -26,6 +26,11 @@
 | R-22 | r_top strip shows 60×600 instead of 600×60 — vertical strips display short dimension first | LAMINATION_STRIP parts now render `Math.max(lengthMm, widthMm) × Math.min(lengthMm, widthMm)`. Display-only fix in PartsSection.tsx. | claude/fix-slab-display-hQGwQ |
 | R-23 | Strips not visually distinct from parent legs — flat indentation, no hierarchy | Strip rows get `pl-6 text-slate-400 text-sm` class. Names shortened: "Top lamination strip" → "↳ Top strip". | claude/fix-slab-display-hQGwQ |
 | R-24 | "Unknown" parent label in lamination summary for oversize segment strips | generateLaminationSummary fallback: when parent not in originalPieces, traces parentPieceId chain through allPieces to find original piece label. | claude/fix-slab-display-hQGwQ |
+| R-25 | Parts list expanded oversize L/U legs into segment rows with "Segment X of Y" labels and correct slab assignments | fix/optimizer-display-architecture |
+| R-26 | findSlabForDecomposedPartSegment() added — handles compound pieceId format for decomposed-leg segments | fix/optimizer-display-architecture |
+| R-27 | reconstructGroupLaminationSummary parent fallback — L/U shapes no longer show "Unknown" | fix/optimizer-display-architecture |
+| R-28 | Cost column removed from parts list (interface, calculations, table header, table cell) | fix/optimizer-display-architecture |
+| R-29 | Seed slab dimensions corrected: 3000x1400 → 3200x1600 | fix/optimizer-display-architecture |
 
 ---
 
@@ -53,7 +58,8 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
-| PROMPT-14 slab display fixes (AUDIT-5) | claude/fix-slab-display-hQGwQ | Feb 28 | 🔄 In progress |
+| PROMPT-15 optimizer display architecture | claude/fix-optimizer-display-QeIHt | Mar 1 | 🔄 In progress |
+| PROMPT-14 slab display fixes (AUDIT-5) | claude/fix-slab-display-hQGwQ | Feb 28 | ✅ Complete |
 | PROMPT-13 slab assignment + strip display | claude/fix-lshape-slab-strip-B0GWq | Feb 28 | ✅ Complete |
 | HOTFIX Phase 1 null guard | claude/fix-lshape-null-guard-VDNE5 | Feb 27 | ✅ Complete |
 | FIX-11 Phase 1 — cutting formula | claude/fix-lshape-formula-Domy8 | Feb 27 | ✅ Complete |
@@ -66,4 +72,4 @@
 
 ---
 
-*Last Updated: Feb 28 2026 — PROMPT-14 complete: R-21 findSlabForSegment parentPieceId match, R-22 strip dimension display, R-23 strip visual indentation, R-24 Unknown parent label fallback.*
+*Last Updated: Mar 1 2026 — PROMPT-15 complete: R-25 segment rows for oversize L/U legs, R-26 findSlabForDecomposedPartSegment, R-27 lamination Unknown fix, R-28 cost column removed, R-29 seed slab dims corrected.*
