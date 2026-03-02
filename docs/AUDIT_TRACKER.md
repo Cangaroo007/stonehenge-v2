@@ -49,6 +49,7 @@
 | R-43 | BUG-08b: "Unknown" parent label in lamination summary for U-shape segment parents. parentPieceId "187-part-0" not found because the decomposed part was consumed by oversize segmentation. 4th fallback added to reconstructGroupLaminationSummary: strips `-part-{N}` suffix and looks up base piece via its decomposed parts. | claude/fix-lamination-strip-dims-7dNJO |
 | R-44 | BUG-08b residual: "Unknown" parentLabel in generateLaminationSummary when originalPieces.find returns piece with no label. Guard changed from `!parent` to `!parent?.label` at slab-optimizer.ts line ~319 so fallback fires for labelless parents too. | claude/fix-lamination-summary-QIESa |
 | R-45 | 200mm minimum segment enforcement in preprocessOversizePieces. MIN_SEGMENT_MM=200 constant added. colWidths and rowHeights loops now pull the split back when the remainder would be >0 but <200mm, ensuring every segment is at least 200mm. Eliminates 44mm unfabricable remnants (e.g. Quote 58 piece 187 Back leg). | claude/enforce-segment-length-Ci7r6 |
+| C1 | C1 complete — curved shape types added to shapes.ts. RADIUS_END, FULL_CIRCLE, CONCAVE_ARC added to ShapeType union and ShapeConfig. Config interfaces, area helpers (computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, computeArcBoundingBox), and getOptimizerRects() implemented. Pure types — no DB migration, no pricing changes. | claude/add-curved-shape-types-rNjWw |
 
 ---
 
@@ -79,6 +80,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| C1 curved shape types | claude/add-curved-shape-types-rNjWw | Mar 2 | ✅ Complete |
 | PROMPT-26 enforce 200mm minimum segment length | claude/enforce-segment-length-Ci7r6 | Mar 2 | ✅ Complete |
 | PROMPT-25 fix Unknown parentLabel in generateLaminationSummary | claude/fix-lamination-summary-QIESa | Mar 2 | ✅ Complete |
 | PROMPT-24 fix Unknown lam strips U-shape segments | claude/fix-lamination-strip-dims-7dNJO | Mar 2 | ✅ Complete |
@@ -102,4 +104,4 @@
 
 ---
 
-*Last Updated: Mar 2 2026 — PROMPT-26: Enforce 200mm minimum segment length in preprocessOversizePieces. R-45.*
+*Last Updated: Mar 2 2026 — C1: Curved shape types (RADIUS_END, FULL_CIRCLE, CONCAVE_ARC) added to shapes.ts. Pure types — no DB migration, no pricing changes.*
