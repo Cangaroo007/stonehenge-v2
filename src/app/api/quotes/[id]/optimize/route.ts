@@ -174,7 +174,7 @@ export async function GET(
 
     const optimization = await prisma.slab_optimizations.findFirst({
       where: { quoteId },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { updatedAt: 'desc' },
     });
 
     return NextResponse.json(optimization);
