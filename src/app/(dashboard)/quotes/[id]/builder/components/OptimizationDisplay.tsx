@@ -578,6 +578,30 @@ export function OptimizationDisplay({
 }
 
 /**
+ * Finds the best matching placement for a given original pieceId.
+ * Handles decomposed L/U shape pieces whose placements use derived IDs
+ * (e.g. "183-part-0-seg-0" for original pieceId "183").
+ * Returns the first non-lamination placement match for label/dimension recovery.
+ */
+function findPlacementForPiece(
+  pid: string,
+  groupPlacements: any[]
+): any | undefined {
+  // 1. Exact match first (rectangular pieces, undecomposed)
+  const exact = groupPlacements.find((p: any) => p.pieceId === pid);
+  if (exact) return exact;
+
+  // 2. Decomposed piece — find first non-lamination child placement
+  // Lamination strips use "-lam-" in their ID — skip those for dimension recovery
+  const child = groupPlacements.find(
+    (p: any) =>
+      p.pieceId?.startsWith(pid + '-') &&
+      !p.pieceId.includes('-lam-')
+  );
+  return child;
+}
+
+/**
  * Reconstruct a MultiMaterialOptimisationResult from saved DB metadata.
  * The DB stores per-group summary info + all placements in a flat array.
  * We re-group placements by materialId (via pieceIds stored in each group).
@@ -638,14 +662,17 @@ function reconstructMultiMaterialResult(
       materialId: gMeta.materialId,
       materialName: gMeta.materialName,
       slabDimensions: gMeta.slabDimensions,
-      pieces: (gMeta.pieceIds || []).map((pid: string) => ({
-        pieceId: pid,
-        label: groupPlacements.find((p: any) => p.pieceId === pid)?.label ?? pid,
-        dimensions: {
-          length: groupPlacements.find((p: any) => p.pieceId === pid)?.width ?? 0,
-          width: groupPlacements.find((p: any) => p.pieceId === pid)?.height ?? 0,
-        },
-      })),
+      pieces: (gMeta.pieceIds || []).map((pid: string) => {
+        const match = findPlacementForPiece(pid, groupPlacements);
+        return {
+          pieceId: pid,
+          label: match?.label ?? match?.pieceId ?? pid,
+          dimensions: {
+            length: match?.width ?? 0,
+            width: match?.height ?? 0,
+          },
+        };
+      }),
       slabCount: gMeta.slabCount,
       wastePercentage: gMeta.wastePercentage,
       slabLayouts,
