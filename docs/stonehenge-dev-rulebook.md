@@ -65,7 +65,7 @@ violations cause real business harm. Every rule should be treated as if a live q
 32. DB-dependent tests skip gracefully without DATABASE_URL
 33. Stop Gates are absolute
 34. .env is never committed to git
-35. Batch all DB queries upfront — never one at a time
+35. Real data before any conclusion — batch all DB queries upfront
 
 ---
 
@@ -1036,11 +1036,24 @@ No INSERT, UPDATE, or DELETE may be executed without:
 
 ---
 
-## DATABASE QUERY WORKFLOW
+## REAL DATA BEFORE ANY CONCLUSION
 
-### RULE 62: CLAUDE CODE CANNOT REACH RAILWAY DIRECTLY — BATCH ALL QUERIES UPFRONT
+### RULE 66: REAL DATA BEFORE ANY CONCLUSION — DB QUERY WORKFLOW
 
-Claude Code runs in a sandboxed environment that blocks outbound network connections. It cannot connect to the Railway PostgreSQL database directly. **This is permanent infrastructure — it cannot be changed.**
+Claude Code runs in a sandboxed environment that blocks outbound network connections. It cannot connect to the Railway PostgreSQL database directly. **This is permanent — it cannot be changed.**
+
+#### The Core Principle
+
+**Never guess. Never infer. Never assume.**
+
+If a question can be answered with real data from the database, Claude Code MUST request that data before drawing any conclusion, writing any fix, or making any recommendation. This applies to:
+
+- Diagnostic prompts (finding root causes)
+- Fix prompts (confirming what the data actually looks like before fixing)
+- Feature prompts (confirming existing data structure before building on it)
+- Any situation where "it depends on what's in the DB"
+
+**A fix written without real data is a guess. Guesses cause regressions.**
 
 #### The Workflow
 
@@ -1048,9 +1061,9 @@ At the START of any session that requires DB data, Claude Code must:
 
 1. Read all required steps for the task
 2. Identify every piece of DB data needed across ALL steps
-3. Write ALL required SQL queries in a single block upfront
+3. Write ALL required SQL queries in a single batch upfront
 4. Ask Sean to run them all at once and paste all results back
-5. Only then proceed with the full task using the actual output
+5. Only then proceed with the full task using actual output
 
 **Never ask for DB data one query at a time. Batch everything upfront.**
 
@@ -1062,43 +1075,49 @@ At the START of any session that requires DB data, Claude Code must:
 Run each query in your terminal and paste all results back at once:
 
 **Query 1 — [Description]**
-psql "$DATABASE_URL" -c "
+psql "postgresql://postgres:PJKvvXsaFIRMCyDrDRmSBndDXadvuRIb@switchyard.proxy.rlwy.net:40455/railway" -c "
 SELECT ...
 "
 
 **Query 2 — [Description]**
-psql "$DATABASE_URL" -c "
-SELECT ...
-"
-
-**Query 3 — [Description]**
-psql "$DATABASE_URL" -c "
+psql "postgresql://postgres:PJKvvXsaFIRMCyDrDRmSBndDXadvuRIb@switchyard.proxy.rlwy.net:40455/railway" -c "
 SELECT ...
 "
 
 Paste all results back and I will proceed with the full analysis.
 ```
 
+#### When to Request DB Data
+
+Request real DB data before proceeding when the task involves:
+
+| Situation | Why data is needed |
+|-----------|-------------------|
+| Bug reported in UI | Confirm what the DB actually contains — bug may be in data, not code |
+| Fix involves a specific record | Confirm the record exists with expected values before writing fix |
+| Optimiser output looks wrong | Check what pieceIds, placements, and JSON were actually saved |
+| Pricing shows wrong amount | Check what rates, materials, and calculations are stored |
+| Feature builds on existing data | Confirm schema and actual values before writing queries |
+| "Ghost" or missing UI elements | Check if the data exists before assuming a code bug |
+
 #### Hard Rules
 
-- **NEVER** ask for DB data one query at a time — always batch upfront
-- **NEVER** assume or infer what a query would return
+- **NEVER** guess what a DB query would return
 - **NEVER** fabricate query results
-- **NEVER** proceed past a DB-dependent step without real output
-- If additional queries are needed mid-session (unexpected finding), batch those together too — never ask for them one at a time
+- **NEVER** proceed past a DB-dependent decision without real output
+- **NEVER** write a fix for a bug that hasn't been confirmed with real data
+- If additional queries are needed mid-session, batch those together too — never one at a time
 
-#### What Counts as DB-Dependent
+#### What Does NOT Need DB Data
 
-Any step that requires knowledge of:
-- Actual data values in any table
-- Whether a record exists
-- Row counts
-- JSON field contents
-- Foreign key relationships between records
+Code analysis can proceed without DB data:
+- Reading file contents
+- Running grep searches
+- TypeScript compilation checks
+- Understanding component structure
+- Tracing code paths
 
-Code analysis (grep, file reading) does NOT require DB access and can proceed normally without waiting for query results.
-
-> **Why it exists (Mar 1, 2026):** Claude Code continued past Stop Gates in optimizer prompts, attempting live DB connections that silently failed, then proceeding with fabricated or assumed data. This rule supersedes any previous assumption that Claude Code can connect to Railway.
+> **Added March 2, 2026.** Applies to diagnostic, fix, and feature prompts equally. Supersedes any previous assumption that Claude Code can connect to Railway.
 
 ---
 
@@ -1206,7 +1225,7 @@ grep -n "interface\|type\|export type" TARGET_FILE | head -20
 | v12 | Feb 26 | 51–57 | Living audit tracker, pre-prompt micro-audit, API verification, placeholder flagging, DB-graceful tests, regression anchor protocol |
 | v13 | Feb 27 | 51–59 | Full consolidation. Rule 51 hard gate. Rule 52 SYSTEM_STATE added. Rule 58 data freshness. Rule 59 L/U shape two-rule foundation. Stable path (no version suffix). Addenda eliminated. |
 | v14 | Mar 2, 2026 | 60 | Rule 60: STOP GATE protocol. Defines the exact stop phrase, 15 prohibited actions after stop, the only valid continuation triggers, and the recovery procedure when a gate has been passed. Standard template included. |
-| **v15** | **Mar 2, 2026** | **61–62** | **Rule 61: Database access and .env management (6 sub-rules). Rule 62: Claude Code cannot reach Railway — batch all DB queries upfront, standard format, hard rules on fabrication. Golden Rules 34–35 added. Session startup updated to include git sync.** |
+| **v15** | **Mar 2, 2026** | **61, 66** | **Rule 61: Database access and .env management (6 sub-rules). Rule 66: Real data before any conclusion — Claude Code cannot reach Railway, batch all DB queries upfront, standard psql format, hard rules on fabrication and guessing. Golden Rules 34–35 added. Session startup updated to include git sync.** |
 
 ---
 
