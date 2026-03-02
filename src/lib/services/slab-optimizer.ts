@@ -316,7 +316,7 @@ function generateLaminationSummary(
           parent = originalPieces.find(p => p.id === partMatch[1]);
         }
         // If no -part- pattern, use segment label with Part suffixes stripped
-        if (!parent) {
+        if (!parent?.label) {
           parent = {
             ...segmentPart,
             label: segmentPart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/g, '')
