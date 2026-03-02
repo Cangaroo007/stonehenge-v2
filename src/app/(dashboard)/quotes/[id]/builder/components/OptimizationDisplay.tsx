@@ -417,6 +417,17 @@ export function OptimizationDisplay({
   const usableWidth = optimization.slabWidth - (resolvedAllowance * 2);
   const usableHeight = optimization.slabHeight - (resolvedAllowance * 2);
 
+  // ── Small segment notices (for Optimizer Notices banner) ────────────────
+  const smallSegmentNotices: string[] = [];
+  for (const p of result.placements) {
+    if (p.isSegment && !p.isLaminationStrip && Math.min(p.width, p.height) < 100) {
+      const minDim = Math.min(p.width, p.height);
+      smallSegmentNotices.push(
+        `\u26A0\uFE0F Small segment: "${p.label}" is only ${minDim}mm \u2014 consider adjusting piece dimensions or join position`
+      );
+    }
+  }
+
   // ── Results display ──────────────────────────────────────────────────────
 
   return (
@@ -559,13 +570,17 @@ export function OptimizationDisplay({
       <div className={`p-4 border-t border-gray-200 ${isOptimising ? 'opacity-60' : ''}`}>
         {multiMaterialResult && multiMaterialResult.materialGroups.length > 1 ? (
           <MultiMaterialOptimisationDisplay
-            multiMaterialResult={multiMaterialResult}
+            multiMaterialResult={smallSegmentNotices.length > 0
+              ? { ...multiMaterialResult, warnings: [...(multiMaterialResult.warnings || []), ...smallSegmentNotices] }
+              : multiMaterialResult}
             isOptimising={isOptimising}
             pieceCutouts={pieceCutouts}
           />
         ) : (
           <SlabResults
-            result={result}
+            result={smallSegmentNotices.length > 0
+              ? { ...result, warnings: [...(result.warnings || []), ...smallSegmentNotices] }
+              : result}
             slabWidth={optimization.slabWidth}
             slabHeight={optimization.slabHeight}
             edgeAllowanceMm={resolvedAllowance}
