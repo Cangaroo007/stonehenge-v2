@@ -760,6 +760,26 @@ function reconstructGroupLaminationSummary(placements: any[]) {
         }
       }
 
+      // Fallback for U-shape segment parents — parentId is "{baseId}-part-{N}"
+      // but that part was consumed by segmentation (no placement with that pieceId).
+      // Strip the -part-{N} suffix and look up the base piece via its decomposed parts.
+      if (!parent && parentId) {
+        const partSuffixMatch = parentId.match(/^(.+)-part-\d+$/);
+        if (partSuffixMatch) {
+          const baseId = partSuffixMatch[1];
+          const basePart = placements.find(
+            (p: any) => p.pieceId?.startsWith(baseId + '-part-')
+          );
+          if (basePart) {
+            parent = {
+              ...basePart,
+              label: basePart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/, '')
+                      ?? basePart.label,
+            };
+          }
+        }
+      }
+
       return {
         parentPieceId: parentId,
         parentLabel: parent?.label ?? 'Unknown',

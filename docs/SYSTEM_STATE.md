@@ -734,11 +734,12 @@ VersionDiffView, VersionHistoryTab
 - LAMINATION_STRIP rows: `pl-6 text-slate-400 text-sm` — indented and muted under parent leg
 - LAMINATION_STRIP names: `"↳ Top strip"` format (shortened from "Top lamination strip")
 
-#### OptimizationDisplay.tsx (PROMPT-18, PROMPT-19d)
+#### OptimizationDisplay.tsx (PROMPT-18, PROMPT-19d, PROMPT-24)
 - **Recalculate button** in Slab Layout header — triggers POST to `/api/quotes/${quoteId}/optimize`, then re-fetches results via `localRefreshKey` state
 - Button disabled while `isRecalculating` or `isOptimising`
 - Resolves A-20: stale DB records from pre-fix optimiser runs can be refreshed without developer intervention
 - **PROMPT-19d: Minimum segment size warning** — `detectSmallSegments()` scans `result.placements` for `isSegment=true` pieces (skips `isLaminationStrip`). Uses `Math.max(width, height)` for longest axis. Constants: `SEGMENT_HARD_MIN_MM=150` (red error — unfabricable), `SEGMENT_SOFT_MIN_MM=300` (amber warning — review). Banner renders between Quick Summary grid and slab visualisation. Advisory only — no blocking of quote actions. Type: `Placement` from `@/types/slab-optimization`.
+- **PROMPT-24: U-shape segment parent fallback** — `reconstructGroupLaminationSummary` 4th fallback: when `parentPieceId` matches `{baseId}-part-{N}` (e.g. "187-part-0") and all prior lookups fail, strips the `-part-{N}` suffix and looks up `{baseId}` via its decomposed parts. Resolves "Unknown" label for U-shape back pieces consumed by oversize segmentation. R-43.
 - **PROMPT-19d (banner): Small segment notice in Optimizer Notices** — `smallSegmentNotices` loop scans `result.placements` for `isSegment=true && !isLaminationStrip && Math.min(width, height) < 100`. Warning strings injected into `result.warnings` (for SlabResults) and `multiMaterialResult.warnings` (for MultiMaterialOptimisationDisplay) via spread before passing to sub-components. Format: `⚠️ Small segment: "[label]" is only [N]mm — consider adjusting piece dimensions or join position`. Display only — no new CSS, no pricing/placement logic touched.
 
 #### PartsSection strip rendering for oversize segments (PROMPT-17, PROMPT-19)
