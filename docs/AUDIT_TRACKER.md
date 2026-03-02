@@ -45,6 +45,7 @@
 | R-39 | detectSmallSegments() added to OptimizationDisplay. Scans all placed pieces for isSegment=true, skips isLaminationStrip. Hard error below 150mm (unfabricable — red banner), soft warning below 300mm (review recommended — amber banner). Based on Australian fabrication industry standards: engineered quartz min 150mm absolute, 300mm recommended; natural stone min 200-300mm absolute. Advisory only — does not block quote actions. | claude/min-segment-size-warning-2IMDU |
 | R-40 | Bug A fix: Lamination label in cost breakdown showed "NONE" while charging non-zero amount. Inline display logic now falls back to "LAMINATED" when stored method is null/"NONE" but charge > 0. Rendering layer only — no calculator changes. Fixed in PieceRow.tsx and QuickViewPieceRow.tsx. | claude/fix-label-badge-display-ABdkH |
 | R-41 | Bug B fix: Grain match badge condition expanded to include oversize + non-zero grainMatchingSurcharge path, not just explicit piece.requiresGrainMatch field. Badge now visible on collapsed piece card for oversize pieces with auto-applied surcharge. Auto-applied indicator preserved. Rendering layer only — no calculator changes. Fixed in PieceRow.tsx and QuickViewPieceRow.tsx. | claude/fix-label-badge-display-ABdkH |
+| R-42 | Small segment warning added to Optimizer Notices banner. Segments with Math.min(width, height) < 100mm flagged with ⚠️ warning in existing amber Optimizer Notices section (SlabResults + MultiMaterialOptimisationDisplay). Lamination strips excluded. Confirmed trigger: Quote 58 piece 187 Back leg 44×600mm remnant. Display only — no pricing/placement logic touched. | claude/minimum-segment-warning-banner-PuQnr |
 
 ---
 
@@ -74,6 +75,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PROMPT-19d small segment banner notice | claude/minimum-segment-warning-banner-PuQnr | Mar 2 | ✅ Complete |
 | PROMPT-19e lamination label + grain badge | claude/fix-label-badge-display-ABdkH | Mar 2 | ✅ Complete |
 | PROMPT-19d min segment size warning | claude/min-segment-size-warning-2IMDU | Mar 2 | ✅ Complete |
 | AUDIT-10 strip oversize + ghost strip | claude/audit-strip-issues-MKQM3 | Mar 1 | ✅ Complete |
@@ -93,4 +95,4 @@
 
 ---
 
-*Last Updated: Mar 2 2026 — PROMPT-19e: Lamination label + grain match badge display fixes. R-40, R-41.*
+*Last Updated: Mar 2 2026 — PROMPT-19d (banner): Small segment warning in Optimizer Notices. R-42.*
