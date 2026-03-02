@@ -613,15 +613,16 @@ function reconstructMultiMaterialResult(
   dbRecord: any
 ): MultiMaterialOptimisationResult {
   const groups: MaterialGroupResult[] = multiMaterialMeta.materialGroups.map((gMeta: any) => {
-    const pieceIdSet = new Set<string>(gMeta.pieceIds || []);
+    const pieceIdSet = new Set<string>((gMeta.pieceIds || []).map(String));
 
     // Filter placements belonging to this material group
     // Include placements whose pieceId is in the group's piece list,
     // and also lamination strips whose parentPieceId is in the group
     const groupPlacements = allPlacements.filter((p: any) => {
       if (pieceIdSet.has(p.pieceId)) return true;
-      // Check for segments (pieceId is "originalId-seg-N")
-      const basePieceId = p.pieceId?.split('-seg-')[0]?.split('-lam-')[0];
+      // Extract original piece ID by stripping all decomposition suffixes:
+      // {id}-part-{n}-seg-{n}-lam-{position} → {id}
+      const basePieceId = p.pieceId?.split('-seg-')[0]?.split('-part-')[0]?.split('-lam-')[0];
       if (basePieceId && pieceIdSet.has(basePieceId)) return true;
       // Check parentPieceId for lamination strips
       if (p.parentPieceId && pieceIdSet.has(p.parentPieceId)) return true;
