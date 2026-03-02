@@ -302,6 +302,29 @@ function generateLaminationSummary(
         parent = intermediate;
       }
     }
+    // Fallback: for L/U decomposed parts that were segmented (e.g., parentId "187-part-0").
+    // The decomposed part was replaced by segments in preprocessOversizePieces,
+    // so it doesn't exist in allPieces. Find any segment and trace back to original piece.
+    if (!parent && parentId) {
+      const segmentPart = allPieces.find(
+        p => p.id.startsWith(parentId + '-seg-') && !p.isLaminationStrip
+      );
+      if (segmentPart) {
+        // parentId is like "187-part-0" — extract root id "187" to find original piece
+        const partMatch = parentId.match(/^(.+)-part-\d+$/);
+        if (partMatch) {
+          parent = originalPieces.find(p => p.id === partMatch[1]);
+        }
+        // If no -part- pattern, use segment label with Part suffixes stripped
+        if (!parent) {
+          parent = {
+            ...segmentPart,
+            label: segmentPart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/g, '')
+                    ?? segmentPart.label,
+          };
+        }
+      }
+    }
     const parentStrips = strips.filter(s => s.parentPieceId === parentId);
 
     stripsByParent.push({
