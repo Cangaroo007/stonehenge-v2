@@ -1,9 +1,9 @@
-# Stone Henge — Mandatory Development Rulebook v14
+# Stone Henge — Mandatory Development Rulebook v15
 
 > **Updated:** March 2, 2026
 > **Status:** ACTIVE — read before writing any code
-> **Rules:** 65 total (all NON-NEGOTIABLE)
-> **Supersedes:** All previous dev-rules files (v1–v13 and all addenda)
+> **Rules:** 63 total (all NON-NEGOTIABLE)
+> **Supersedes:** All previous dev-rules files (v1–v14 and all addenda)
 > **Stable path:** `docs/stonehenge-dev-rulebook.md`
 > **Location note:** This file lives at `docs/stonehenge-dev-rulebook.md` with no version
 > suffix. Always reference it by that path. The version number lives inside the document only.
@@ -17,11 +17,11 @@ All previous rulebook versions and addenda are superseded. Do not reference any 
 
 **At the start of every Claude Code or Cursor session, run:**
 ```bash
-cat docs/stonehenge-dev-rulebook.md
+cd ~/Downloads/stonehenge-v2 && cat docs/stonehenge-dev-rulebook.md
 ```
 
 **The prompt preamble always references this path — never a versioned filename.**
-When the rulebook is updated to v15, v16, etc., the file at `docs/stonehenge-dev-rulebook.md`
+When the rulebook is updated to v16, v17, etc., the file at `docs/stonehenge-dev-rulebook.md`
 is updated in place. The path never changes. Prompts never need updating when the rulebook version increments.
 
 **⚠️ LIVE PLATFORM NOTE:** Stone Henge is used by real users at Northcoast Stone. Rule
@@ -64,8 +64,8 @@ violations cause real business harm. Every rule should be treated as if a live q
 31. Test placeholders are ⚠️-flagged and replaced before commit
 32. DB-dependent tests skip gracefully without DATABASE_URL
 33. Stop Gates are absolute
-34. UI displays segments, not pieces
-35. Rulebook path never changes — version lives inside only
+34. .env is never committed to git
+35. Batch all DB queries upfront — never one at a time
 
 ---
 
@@ -194,7 +194,6 @@ const { id } = await params;
 |-----------|-------------|
 | metre | meter |
 | lineal metre | linear meter |
-| square metre | square meter |
 | colour | color |
 | organisation | organization |
 | optimiser | optimizer |
@@ -311,7 +310,7 @@ Every price, rate, surcharge, and minimum must come from the database (tenant-co
 Calculation triggers, data fetching, and business logic must NEVER live inside UI panels that can be hidden (sidebars, accordions, modals, tabs).
 
 | ❌ BAD | ✅ GOOD |
-|--------|---------|
+|--------|---------| 
 | Calculator call inside `{sidebarOpen && <PricingSummary />}` | Calculator call in `useEffect` at the page level |
 | Data fetch inside a collapsed accordion | Data fetch at the parent component level |
 
@@ -526,7 +525,7 @@ Every click must produce visible feedback immediately. Never leave the user wond
 When a discovery audit reveals that planned infrastructure already exists, the implementation prompt MUST be updated to extend rather than create. Never execute a prompt that creates something the audit proved already exists.
 
 | Question | Action if Yes |
-|----------|--------------|
+|----------|--------------| 
 | Does the audit say this table/model already exists? | Change prompt from CREATE → EXTEND/EVOLVE |
 | Does the audit say this component already exists? | Change prompt from CREATE → MODIFY |
 | Does the audit show different field names than planned? | Update prompt to use actual field names |
@@ -679,7 +678,7 @@ was not modified in the commits being pushed.** This is not a warning — the pu
 **What to add when updating:**
 
 | Scenario | What to write |
-|----------|--------------|
+|----------|--------------| 
 | PR resolves an open issue | Move 🔴 → ✅, add PR number and date |
 | PR discovers a new issue | Add 🔴 Open row with severity, file, date |
 | PR is a chore with no audit relevance | Add: `R-XX \| No audit items — chore only \| PR# \| date \| n/a` |
@@ -897,7 +896,7 @@ pause, show specific verification output, and wait for explicit human approval
 before continuing. Stop Gates exist because:
 
 - Some code changes cannot be undone once committed
-- Incorrect wiring into call order can cascade across the entire optimiser
+- Incorrect wiring into call order can cascade across the entire optimizer
 - Pricing calculator changes require human review before proceeding
 - The human must inspect intermediate state before it is built upon
 
@@ -981,7 +980,7 @@ Then write this exact phrase and nothing else:
 
 ---
 
-Do NOT:
+**Do NOT:**
 - Run `npm run build`
 - Write any more code
 - Update any docs
@@ -1000,173 +999,129 @@ Sit and wait. Only continue when the human explicitly says "approved" or "procee
 
 ---
 
-## PHYSICAL-TO-VISUAL PARITY (Rules 61–65)
+## DATABASE ACCESS & ENVIRONMENT VARIABLE MANAGEMENT
 
-> These rules ensure that what the optimiser "thinks" is always what the user "sees,"
-> and that test data reflects the real-world constraints of the Australian stone industry.
+### RULE 61: DATABASE ACCESS & ENVIRONMENT VARIABLE MANAGEMENT
 
-### RULE 61: PHYSICAL-TO-VISUAL PARITY — SEGMENTS, NOT PIECES
+#### 61a — .env is never committed to git
 
-Any UI component displaying a "Parts List," "Cut List," or "Fabrication Summary"
-(e.g., `PartsSection.tsx`) MUST iterate over the **Placements array** from the
-optimiser, not the original Pieces array.
+The `.env` file contains real credentials and must never appear in version control. The `.gitignore` already enforces this. Never remove `.env` from `.gitignore`. Never use `git add .env` or `git add -f .env`.
 
-**Why:** Large pieces (especially L/U shape legs) are often decomposed into multiple
-physical segments to fit on a slab. If the UI only renders the original piece list,
-the fabricator's screen will show fewer rows than there are physical cuts on the saw.
+#### 61b — .env.example lives in the repo
 
-**Requirement:** If a piece is split into segments, the UI MUST display each segment as
-a unique row with its own dimensions and slab assignment. The digital cut list must
-match the physical stone on the saw exactly.
+The file `.env.example` shows the shape of all required variables with placeholder values only. It is committed to the repo so any new developer or Claude Code session on a new machine knows exactly what is needed. Real values are never placed in `.env.example`.
 
-```typescript
-// ❌ BAD — iterates original pieces, misses segments
-{quote.pieces.map(piece => (
-  <PieceRow key={piece.id} piece={piece} />
-))}
+#### 61c — Standard session startup
 
-// ✅ GOOD — iterates placements, shows every physical segment
-{optimiserResult.placements.map(placement => (
-  <PlacementRow key={placement.placementId} placement={placement} />
-))}
-```
-
-> **Why it exists:** A fabricator who sees 3 rows on screen but has 5 physical pieces
-> on the saw will lose material and time. Physical-to-visual parity is a factory safety rule.
-
-### RULE 62: SEGMENT LABELLING STANDARD
-
-When a single architectural piece is split into multiple physical segments, the label
-MUST follow the format:
-
-```
-[Piece Name] — Segment [X] of [Total]
-```
-
-**Examples:**
-- `Island Leg A — Segment 1 of 2`
-- `Island Leg A — Segment 2 of 2`
-- `Bathroom Vanity — Segment 1 of 3`
-
-**Why:** Unambiguous labelling prevents "lost parts" in the factory. A fabricator
-seeing "Segment 1" must immediately know whether to look for a "Segment 2." A row
-without a segment label implies it is a complete, unsplit piece.
-
-**Enforcement:** Any placement that is a sub-segment of a decomposed piece MUST carry
-this label. The label must be present in:
-- The on-screen Parts List / Cut List
-- Any exported manufacturing CSV
-- Any printed PDF quote that includes a fabrication section
-
-### RULE 63: L/U SHAPE PARENT RECOVERY IN DISPLAY COMPONENTS
-
-Components that reconstruct summaries from placement data (e.g., `OptimizationDisplay.tsx`)
-MUST implement a fallback lookup for decomposed pieces.
-
-**Requirement:** If a `pieceId` in a placement cannot be found directly in the original
-`pieces` array (because it was an L/U shape that was decomposed into `-part-N` segments),
-the code MUST search for any placement starting with `${pieceId}-part-` to recover the
-parent metadata (Label, Room, thickness, material, etc.).
-
-```typescript
-// ✅ GOOD — parent recovery pattern
-function getPieceMeta(placementId: string, pieces: Piece[]): PieceMeta {
-  // Direct match first
-  const direct = pieces.find(p => p.id === placementId);
-  if (direct) return direct;
-
-  // Decomposed L/U shape — strip '-part-N' suffix and find parent
-  const parentId = placementId.replace(/-part-\d+$/, '');
-  const parent = pieces.find(p => p.id === parentId);
-  if (parent) return parent;
-
-  // Unknown — return a safe default rather than crashing
-  return { label: placementId, room: 'Unknown', thickness: null, material: null };
-}
-```
-
-**Failure mode to prevent:** If parent recovery is missing, L/U shape segments render
-with `undefined` labels and `null` material — fabricators see blank rows and cannot
-identify which piece to cut.
-
-### RULE 64: STANDARD SLAB DIMENSION INTEGRITY
-
-The system's baseline "Source of Truth" for slab dimensions is **3200mm × 1600mm**
-(standard Jumbo engineered quartz slab).
-
-**Requirement:** All seed files (`prisma/seed-production.js`, `prisma/seed-pricing-settings.ts`,
-etc.) MUST maintain these dimensions unless a specific supplier or material overrides them.
-
-**Logic:** The "Oversize Stress Test" validation — confirming that a 3200mm piece on a
-3200mm slab correctly triggers a split when edge allowance is non-zero — is designed
-against this baseline. Altering default slab dimensions in code without a direct business
-directive from Northcoast Stone will silently break oversize detection.
-
-| Material Class | Standard Dimensions |
-|---|---|
-| Engineered Quartz (Jumbo) | 3200mm × 1600mm ← **baseline** |
-| Engineered Quartz (Standard) | 3050mm × 1440mm |
-| Natural Stone | 2800mm × 1600mm |
-| Porcelain | 3200mm × 1600mm |
-
-**Do NOT change these defaults without a documented business directive and an intentional
-seed-file change in a separately reviewed PR.**
-
-### RULE 65: EDGE ALLOWANCE TESTING PROTOCOL
-
-To verify "Oversize" splitting logic during development or QA, the `slab_edge_allowance_mm`
-setting MUST be set to a non-zero value (typically 20mm).
-
-**Why:** A 3200mm piece on a 3200mm slab with 0mm edge allowance will NOT trigger a split.
-The splitting condition is `piece_length > slab_length - edge_allowance`, not
-`piece_length > slab_length`. With 0mm allowance, the two are equal, and no split occurs.
-
-**Requirement:** Any test plan, QA checklist, or developer documentation for "Oversize
-splitting verification" MUST include a step that explicitly checks or sets the edge
-allowance to a non-zero value before running the test.
+Every Claude Code session must begin with:
 
 ```bash
-# Verify edge allowance is non-zero before testing oversize logic
-psql $DATABASE_URL -c "SELECT slab_edge_allowance_mm FROM tenant_settings WHERE tenant_id = 'northcoast';"
-# Must return: a value > 0 (typically 20)
+cd ~/Downloads/stonehenge-v2 && cat docs/stonehenge-dev-rulebook.md
 ```
 
-**Standard QA step (add to all oversize-related verification checklists):**
+#### 61d — DB connection failure means stop
+
+If DB data is needed and cannot be obtained, Claude Code must stop and request Sean runs the query manually. It must not infer, assume, or fabricate any DB values.
+
+#### 61e — Diagnostic prompts may SELECT freely
+
+Read-only SQL queries (SELECT) may be run in any session. Claude Code should write them proactively whenever real data would answer a question.
+
+#### 61f — No writes without explicit human approval
+
+No INSERT, UPDATE, or DELETE may be executed without:
+1. Showing the exact SQL to Sean in that session
+2. Receiving explicit written approval
+3. Sean typing "approved" or equivalent confirmation
+
+---
+
+## DATABASE QUERY WORKFLOW
+
+### RULE 62: CLAUDE CODE CANNOT REACH RAILWAY DIRECTLY — BATCH ALL QUERIES UPFRONT
+
+Claude Code runs in a sandboxed environment that blocks outbound network connections. It cannot connect to the Railway PostgreSQL database directly. **This is permanent infrastructure — it cannot be changed.**
+
+#### The Workflow
+
+At the START of any session that requires DB data, Claude Code must:
+
+1. Read all required steps for the task
+2. Identify every piece of DB data needed across ALL steps
+3. Write ALL required SQL queries in a single block upfront
+4. Ask Sean to run them all at once and paste all results back
+5. Only then proceed with the full task using the actual output
+
+**Never ask for DB data one query at a time. Batch everything upfront.**
+
+#### Standard Batch Query Format
+
 ```
-[ ] Confirm slab_edge_allowance_mm = 20 in tenant settings before testing
-[ ] After test, confirm allowance was not inadvertently reset to 0 by seed scripts
+## Database Queries — Run All of These Before We Proceed
+
+Run each query in your terminal and paste all results back at once:
+
+**Query 1 — [Description]**
+psql "$DATABASE_URL" -c "
+SELECT ...
+"
+
+**Query 2 — [Description]**
+psql "$DATABASE_URL" -c "
+SELECT ...
+"
+
+**Query 3 — [Description]**
+psql "$DATABASE_URL" -c "
+SELECT ...
+"
+
+Paste all results back and I will proceed with the full analysis.
 ```
 
-> **Why it exists:** Test scenarios that appear to pass (no split triggered) when
-> edge allowance is 0 create false confidence. The splitting logic "works" but is never
-> actually exercised. Production edge allowance is non-zero, so the first real-world
-> oversize piece would fail silently.
+#### Hard Rules
+
+- **NEVER** ask for DB data one query at a time — always batch upfront
+- **NEVER** assume or infer what a query would return
+- **NEVER** fabricate query results
+- **NEVER** proceed past a DB-dependent step without real output
+- If additional queries are needed mid-session (unexpected finding), batch those together too — never ask for them one at a time
+
+#### What Counts as DB-Dependent
+
+Any step that requires knowledge of:
+- Actual data values in any table
+- Whether a record exists
+- Row counts
+- JSON field contents
+- Foreign key relationships between records
+
+Code analysis (grep, file reading) does NOT require DB access and can proceed normally without waiting for query results.
+
+> **Why it exists (Mar 1, 2026):** Claude Code continued past Stop Gates in optimizer prompts, attempting live DB connections that silently failed, then proceeding with fabricated or assumed data. This rule supersedes any previous assumption that Claude Code can connect to Railway.
 
 ---
 
 ## MANDATORY SESSION START
 
-Run these commands ONE AT A TIME before writing any code in any session:
+Run these commands **one at a time** before writing any code in any session:
 
 ```bash
-# 1. Confirm on main and up to date
-cd ~/Downloads/stonehenge-v2 && git checkout main && git pull --rebase origin main
+# 1. Confirm on main, sync local, and read rulebook in one go
+cd ~/Downloads/stonehenge-v2 && git checkout main && git pull --rebase origin main && cat docs/stonehenge-dev-rulebook.md
 
 # 2. Confirm hook is installed
 ls .git/hooks/pre-push && echo "✅ Hook installed" || sh scripts/install-hooks.sh
 
-# 3. Read this rulebook (you're doing this now)
-cat docs/stonehenge-dev-rulebook.md
-
-# 4. Check open audit issues
+# 3. Check open audit issues
 grep "🔴" docs/AUDIT_TRACKER.md
 
-# 5. Check current system state
+# 4. Check current system state
 cat docs/SYSTEM_STATE.md
 ```
 
-**If step 4 surfaces an issue relevant to your task — STOP. Address it or note a deferral.**
-**If step 5 shows something that already does what you're about to build — STOP. Wire the existing one.**
+**If step 3 surfaces an issue relevant to your task — STOP. Address it or note a deferral.**
+**If step 4 shows something that already does what you're about to build — STOP. Wire the existing one.**
 
 ---
 
@@ -1229,7 +1184,7 @@ grep -n "interface\|type\|export type" TARGET_FILE | head -20
 | Feb 26 | FIX-4 test code had 12+ placeholder field names | 55 | No policy requiring placeholder flagging |
 | Feb 27 | L/U shape pricing broken: $0 polishing/lamination | 59 | Rectangle edge system used for L-shapes — fundamental mismatch |
 | Feb 27 | FIX-10-FINAL partially failed after merge | 51–53 | R-10 marked confirmed without production verification |
-| Mar 1 | Claude Code continued past stop gates in optimiser prompts | 60 | Stop Gate phrase was in prompt text but not a named rule — model treated it as advisory |
+| Mar 1, 2026 | Claude Code continued past stop gates in optimizer prompts | 60 | Stop Gate phrase was in prompt text but not a named rule — model treated it as advisory |
 
 ---
 
@@ -1249,11 +1204,12 @@ grep -n "interface\|type\|export type" TARGET_FILE | head -20
 | v10 | Feb 18 | 46–50 | Schema-code parity, migration verification, Prisma in browser |
 | v11 | Feb 18 | — | Consolidated v8–v10 |
 | v12 | Feb 26 | 51–57 | Living audit tracker, pre-prompt micro-audit, API verification, placeholder flagging, DB-graceful tests, regression anchor protocol |
-| v13 | Feb 27 | 51–59 | Full consolidation. Rule 51 hard gate. Rule 52 SYSTEM_STATE added. Rule 57 renamed. Rule 58 data freshness. Rule 59 L/U shape two-rule foundation. Stable path (no version suffix). Addenda eliminated. |
-| **v14** | **Mar 2, 2026** | **60–65** | **Rule 60: STOP GATE protocol — exact stop phrase, 15 prohibited post-gate actions, only valid continuation triggers, recovery procedure. Rules 61–65: Physical-to-visual parity (segment display), segment labelling standard, L/U parent recovery, standard slab dimension integrity, edge allowance testing protocol.** |
+| v13 | Feb 27 | 51–59 | Full consolidation. Rule 51 hard gate. Rule 52 SYSTEM_STATE added. Rule 58 data freshness. Rule 59 L/U shape two-rule foundation. Stable path (no version suffix). Addenda eliminated. |
+| v14 | Mar 2, 2026 | 60 | Rule 60: STOP GATE protocol. Defines the exact stop phrase, 15 prohibited actions after stop, the only valid continuation triggers, and the recovery procedure when a gate has been passed. Standard template included. |
+| **v15** | **Mar 2, 2026** | **61–62** | **Rule 61: Database access and .env management (6 sub-rules). Rule 62: Claude Code cannot reach Railway — batch all DB queries upfront, standard format, hard rules on fabrication. Golden Rules 34–35 added. Session startup updated to include git sync.** |
 
 ---
 
 **Stable path:** `docs/stonehenge-dev-rulebook.md`
 **Always reference this path, never a versioned filename.**
-**When this document is updated to v15, the path stays the same.**
+**When this document is updated to v16, the path stays the same.**
