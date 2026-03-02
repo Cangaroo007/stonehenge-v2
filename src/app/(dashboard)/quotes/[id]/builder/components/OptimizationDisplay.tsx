@@ -420,7 +420,7 @@ export function OptimizationDisplay({
   // ── Small segment notices (for Optimizer Notices banner) ────────────────
   const smallSegmentNotices: string[] = [];
   for (const p of result.placements) {
-    if (p.isSegment && !p.isLaminationStrip && Math.min(p.width, p.height) < 100) {
+    if (p.isSegment && !p.isLaminationStrip && Math.min(p.width, p.height) < 200) {
       const minDim = Math.min(p.width, p.height);
       smallSegmentNotices.push(
         `\u26A0\uFE0F Small segment: "${p.label}" is only ${minDim}mm \u2014 consider adjusting piece dimensions or join position`
@@ -741,6 +741,21 @@ function reconstructGroupLaminationSummary(placements: any[]) {
             ...decomposedPart,
             label: decomposedPart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/, '')
                     ?? decomposedPart.label,
+          };
+        }
+      }
+
+      // Fallback for oversize rectangle segments — piece was split into {id}-seg-{n}
+      // Find any segment of this piece and use its label, stripped of segment suffix
+      if (!parent && parentId) {
+        const segmentPart = placements.find(
+          (p: any) => p.pieceId?.startsWith(parentId + '-seg-') && !p.isLaminationStrip
+        );
+        if (segmentPart) {
+          parent = {
+            ...segmentPart,
+            label: segmentPart.label?.replace(/\s*\(Part \d+\/\d+[^)]*\)/, '')
+                    ?? segmentPart.label,
           };
         }
       }
