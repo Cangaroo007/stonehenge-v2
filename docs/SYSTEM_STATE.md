@@ -739,6 +739,7 @@ VersionDiffView, VersionHistoryTab
 - Button disabled while `isRecalculating` or `isOptimising`
 - Resolves A-20: stale DB records from pre-fix optimiser runs can be refreshed without developer intervention
 - **PROMPT-19d: Minimum segment size warning** — `detectSmallSegments()` scans `result.placements` for `isSegment=true` pieces (skips `isLaminationStrip`). Uses `Math.max(width, height)` for longest axis. Constants: `SEGMENT_HARD_MIN_MM=150` (red error — unfabricable), `SEGMENT_SOFT_MIN_MM=300` (amber warning — review). Banner renders between Quick Summary grid and slab visualisation. Advisory only — no blocking of quote actions. Type: `Placement` from `@/types/slab-optimization`.
+- **PROMPT-19d (banner): Small segment notice in Optimizer Notices** — `smallSegmentNotices` loop scans `result.placements` for `isSegment=true && !isLaminationStrip && Math.min(width, height) < 100`. Warning strings injected into `result.warnings` (for SlabResults) and `multiMaterialResult.warnings` (for MultiMaterialOptimisationDisplay) via spread before passing to sub-components. Format: `⚠️ Small segment: "[label]" is only [N]mm — consider adjusting piece dimensions or join position`. Display only — no new CSS, no pricing/placement logic touched.
 
 #### PartsSection strip rendering for oversize segments (PROMPT-17, PROMPT-19)
 - Strip rendering loop tracks per-position occurrence count (`positionOccurrences`) for oversize pieces
