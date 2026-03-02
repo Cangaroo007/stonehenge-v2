@@ -29,6 +29,7 @@ interface Slab {
 const LAMINATION_STRIP_WIDTH_DEFAULT = STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm; // 60mm
 const LAMINATION_STRIP_WIDTH_MITRE = STRIP_CONFIGURATIONS.STANDARD.laminationWidthMm; // 40mm
 const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
+const MIN_SEGMENT_MM = 200; // Minimum fabricable segment dimension (mm)
 
 // Internal type for pieces during optimization (includes lamination and segment data)
 type OptimizationPiece = OptimizationInput['pieces'][0] & {
@@ -420,7 +421,11 @@ function preprocessOversizePieces(
     for (let col = 0; col < wSegments; col++) {
       const isFirst = col === 0;
       const boundary = isFirst ? firstWidthSplit : wBoundary;
-      const w = Math.min(boundary, wRemaining);
+      let w = Math.min(boundary, wRemaining);
+      // If the remainder after this cut would be non-zero but below minimum, pull split back
+      if (wRemaining - w > 0 && wRemaining - w < MIN_SEGMENT_MM) {
+        w = wRemaining - MIN_SEGMENT_MM;
+      }
       colWidths.push(w);
       wRemaining -= w;
     }
@@ -432,7 +437,11 @@ function preprocessOversizePieces(
     const rowHeights: number[] = [];
     let hRemaining = piece.height;
     for (let row = 0; row < hSegments; row++) {
-      const h = Math.min(hBoundary, hRemaining);
+      let h = Math.min(hBoundary, hRemaining);
+      // If the remainder after this cut would be non-zero but below minimum, pull split back
+      if (hRemaining - h > 0 && hRemaining - h < MIN_SEGMENT_MM) {
+        h = hRemaining - MIN_SEGMENT_MM;
+      }
       rowHeights.push(h);
       hRemaining -= h;
     }
