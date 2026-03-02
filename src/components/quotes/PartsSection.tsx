@@ -278,48 +278,42 @@ function derivePartsForPiece(
   // 1. Oversize halves (if piece has a join in breakdown)
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   if (!isLOrUShape && isOversize && breakdown?.oversize) {
-    const strategy = breakdown.oversize.strategy || 'LENGTHWISE';
-    const joinCount = breakdown.oversize.joinCount || 1;
-    const numberOfSegments = joinCount + 1;
+    // For RECTANGLE oversize pieces, prefer actual optimizer segment placements
+    // over the calculated length_mm / N fallback (which produces fabrication-incorrect dimensions).
+    const segmentPlacements = placements?.filter(
+      (pl) =>
+        pl.parentPieceId === String(piece.id) &&
+        pl.isSegment === true
+    )?.sort((a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0)) ?? [];
 
-    if (strategy === 'LENGTHWISE' || strategy === 'MULTI_JOIN') {
-      const halfLength = Math.ceil(piece.length_mm / (joinCount + 1));
-      for (let seg = 0; seg <= joinCount; seg++) {
-        const segLength = seg < joinCount
-          ? halfLength
-          : piece.length_mm - halfLength * joinCount;
+    if (segmentPlacements.length > 0) {
+      // Use actual optimizer segment dimensions
+      // In the optimizer: width = piece length direction, height = piece width direction
+      for (let seg = 0; seg < segmentPlacements.length; seg++) {
+        const sp = segmentPlacements[seg];
         parts.push({
           type: 'OVERSIZE_HALF',
-          name: `Part ${seg + 1}`,
-          lengthMm: segLength,
-          widthMm: piece.width_mm,
+          name: `Part ${seg + 1}/${segmentPlacements.length}`,
+          lengthMm: sp.width,
+          widthMm: sp.height,
           thicknessMm,
-          slab: findSlabForSegment(piece.id, seg, placements),
-          note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
+          slab: getSlabLabel(sp.slabIndex),
+          note: seg === 0
+            ? `Joined at ${sp.width}mm — join cost ${formatCurrency(breakdown.oversize.joinCost)}`
+            : undefined,
         });
       }
     } else {
-      // WIDTHWISE
-      const halfWidth = Math.ceil(piece.width_mm / (joinCount + 1));
-      for (let seg = 0; seg <= joinCount; seg++) {
-        const segWidth = seg < joinCount
-          ? halfWidth
-          : piece.width_mm - halfWidth * joinCount;
-        parts.push({
-          type: 'OVERSIZE_HALF',
-          name: `Part ${seg + 1}`,
-          lengthMm: piece.length_mm,
-          widthMm: segWidth,
-          thicknessMm,
-          slab: findSlabForSegment(piece.id, seg, placements),
-          note: `Joined at ${Math.round(breakdown.oversize.joinLengthLm * 1000)}mm`,
-        });
-      }
-    }
-
-    // Add join cost as a note on the first half
-    if (parts.length > 0 && breakdown.oversize.joinCost > 0) {
-      parts[0].note = `${parts[0].note} — join cost ${formatCurrency(breakdown.oversize.joinCost)}`;
+      // Optimizer not yet run — show unsplit piece, not fabrication fiction
+      parts.push({
+        type: 'MAIN',
+        name: `${pieceName} — Main Piece`,
+        lengthMm: piece.length_mm,
+        widthMm: piece.width_mm,
+        thicknessMm,
+        slab: null,
+        note: 'Run optimiser to calculate cut positions',
+      });
     }
   } else if (!isLOrUShape) {
     // Main piece (not oversize — shown as single piece)
