@@ -1,22 +1,12 @@
-'use client';
-
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
-/**
- * Redirects /materials/suppliers to /materials?tab=suppliers.
- * The suppliers list is embedded as a tab on the Materials page.
- */
-export default function SuppliersRedirectPage() {
-  const router = useRouter();
-
-  useEffect(() => {
-    router.replace('/materials?tab=suppliers');
-  }, [router]);
-
+export default function SuppliersPage() {
   return (
-    <div className="flex items-center justify-center h-64">
-      <p className="text-gray-500">Redirecting to suppliers...</p>
+    <div className="space-y-4">
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Suppliers</h1>
+        <p className="mt-1 text-sm text-gray-500">
+          Supplier management — coming soon.
+        </p>
+      </div>
     </div>
   );
 }

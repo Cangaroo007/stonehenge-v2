@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, Fragment } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
@@ -20,8 +20,8 @@ import {
   Sliders,
   UserCircle,
   ClipboardList,
-  Truck,
   UploadCloud,
+  ChevronDown,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -40,13 +40,16 @@ const navigation: NavigationItem[] = [
   { name: 'Unit Block', href: '/quotes/unit-block', icon: Building2 },
   { name: 'Templates', href: '/templates', icon: ClipboardList },
   { name: 'Customers', href: '/customers', icon: UserCircle },
-  { name: 'Materials', href: '/materials', icon: Layers },
-  { name: 'Suppliers', href: '/materials/suppliers', icon: Truck, indent: true },
   { name: 'Optimiser', href: '/optimize', icon: Square },
   { name: 'Pricing', href: '/admin/pricing', icon: Sliders },
-  { name: 'AI Import', href: '/admin/pricing/import', icon: UploadCloud, indent: true },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
+];
+
+const materialsChildren: NavigationItem[] = [
+  { name: 'Suppliers', href: '/materials/suppliers', icon: Building2 },
+  { name: 'Price Lists', href: '/materials/price-lists', icon: FileText },
+  { name: 'Import', href: '/admin/pricing/import', icon: UploadCloud },
 ];
 
 const SIDEBAR_STATE_KEY = 'stonehenge-sidebar-collapsed';
@@ -73,6 +76,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [isPeeking, setIsPeeking] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [materialsOpen, setMaterialsOpen] = useState(false);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -99,6 +103,13 @@ export default function AppShell({ children, user }: AppShellProps) {
       }
     };
   }, []);
+
+  // Auto-open Materials accordion when on a materials sub-route
+  useEffect(() => {
+    if (pathname.startsWith('/materials') || pathname.startsWith('/admin/pricing/import')) {
+      setMaterialsOpen(true);
+    }
+  }, [pathname]);
 
   const toggleCollapsed = useCallback(() => {
     const newCollapsed = !collapsed;
@@ -136,14 +147,16 @@ export default function AppShell({ children, user }: AppShellProps) {
     }
   }
 
+  const isAnyMaterialsActive = materialsChildren.some(
+    (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+  );
+
   const isActive = (href: string) => {
     if (pathname === href) return true;
     if (!pathname.startsWith(`${href}/`)) return false;
-    // Prevent parent items highlighting when a child sub-link is active
-    // e.g. /materials should not be active when on /materials/suppliers/*
-    const childLinks = navigation.filter((n) => n.indent && n.href.startsWith(`${href}/`));
-    for (const child of childLinks) {
-      if (pathname === child.href || pathname.startsWith(`${child.href}/`)) return false;
+    // Exclude routes belonging to Materials accordion sub-items
+    for (const child of materialsChildren) {
+      if (child.href.startsWith(`${href}/`) && (pathname === child.href || pathname.startsWith(`${child.href}/`))) return false;
     }
     return true;
   };
@@ -201,33 +214,98 @@ export default function AppShell({ children, user }: AppShellProps) {
             const active = isActive(item.href);
 
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                className={cn(
-                  'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
-                  'hover:bg-zinc-800',
-                  active
-                    ? 'bg-zinc-800 text-primary-600'
-                    : 'text-zinc-400 hover:text-text-inverse',
-                  !showLabels && 'justify-center px-2',
-                  item.indent && showLabels && 'pl-10 text-xs'
+              <Fragment key={item.name}>
+                <Link
+                  href={item.href}
+                  className={cn(
+                    'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
+                    'hover:bg-zinc-800',
+                    active
+                      ? 'bg-zinc-800 text-primary-600'
+                      : 'text-zinc-400 hover:text-text-inverse',
+                    !showLabels && 'justify-center px-2'
+                  )}
+                  aria-label={item.name}
+                >
+                  {/* Active indicator bar in collapsed mode */}
+                  {!showLabels && active && (
+                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary-600 rounded-r" />
+                  )}
+                  <Icon className={cn('h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
+                  {showLabels && <span>{item.name}</span>}
+                  {/* Tooltip in collapsed mode */}
+                  {!showLabels && (
+                    <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
+                      {item.name}
+                    </span>
+                  )}
+                </Link>
+
+                {/* Materials accordion — inserted after Customers */}
+                {item.name === 'Customers' && (
+                  <div>
+                    <button
+                      onClick={() => setMaterialsOpen(!materialsOpen)}
+                      className={cn(
+                        'group relative flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 w-full',
+                        'hover:bg-zinc-800',
+                        isAnyMaterialsActive
+                          ? 'bg-zinc-800 text-primary-600'
+                          : 'text-zinc-400 hover:text-text-inverse',
+                        !showLabels && 'justify-center px-2'
+                      )}
+                      aria-expanded={materialsOpen}
+                      aria-label="Materials"
+                    >
+                      {!showLabels && isAnyMaterialsActive && (
+                        <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary-600 rounded-r" />
+                      )}
+                      <Layers className={cn('h-5 w-5 shrink-0', isAnyMaterialsActive && 'text-primary-600')} />
+                      {showLabels && (
+                        <>
+                          <span className="flex-1 text-left">Materials</span>
+                          <ChevronDown
+                            className={cn(
+                              'h-4 w-4 transition-transform duration-200',
+                              materialsOpen && 'rotate-180'
+                            )}
+                          />
+                        </>
+                      )}
+                      {!showLabels && (
+                        <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
+                          Materials
+                        </span>
+                      )}
+                    </button>
+                    {materialsOpen && showLabels && (
+                      <div className="mt-1 space-y-1">
+                        {materialsChildren.map((child) => {
+                          const ChildIcon = child.icon;
+                          const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                          return (
+                            <Link
+                              key={child.name}
+                              href={child.href}
+                              className={cn(
+                                'group relative flex items-center gap-3 pl-10 pr-3 py-2 rounded-md text-xs font-medium transition-all duration-150',
+                                'hover:bg-zinc-800',
+                                childActive
+                                  ? 'bg-zinc-800 text-primary-600'
+                                  : 'text-zinc-400 hover:text-text-inverse'
+                              )}
+                              aria-label={child.name}
+                            >
+                              <ChildIcon className={cn('h-4 w-4 shrink-0', childActive && 'text-primary-600')} />
+                              <span>{child.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
-                aria-label={item.name}
-              >
-                {/* Active indicator bar in collapsed mode */}
-                {!showLabels && active && (
-                  <span className="absolute left-0 top-1/2 -translate-y-1/2 w-0.5 h-5 bg-primary-600 rounded-r" />
-                )}
-                <Icon className={cn(item.indent ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
-                {showLabels && <span>{item.name}</span>}
-                {/* Tooltip in collapsed mode */}
-                {!showLabels && (
-                  <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
-                    {item.name}
-                  </span>
-                )}
-              </Link>
+              </Fragment>
             );
           })}
         </nav>
@@ -328,22 +406,73 @@ export default function AppShell({ children, user }: AppShellProps) {
             const active = isActive(item.href);
 
             return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setMobileMenuOpen(false)}
-                className={cn(
-                  'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
-                  'hover:bg-zinc-800',
-                  active
-                    ? 'bg-zinc-800 text-primary-600'
-                    : 'text-zinc-400 hover:text-text-inverse',
-                  item.indent && 'pl-10 text-xs'
+              <Fragment key={item.name}>
+                <Link
+                  href={item.href}
+                  onClick={() => setMobileMenuOpen(false)}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150',
+                    'hover:bg-zinc-800',
+                    active
+                      ? 'bg-zinc-800 text-primary-600'
+                      : 'text-zinc-400 hover:text-text-inverse'
+                  )}
+                >
+                  <Icon className={cn('h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
+                  <span>{item.name}</span>
+                </Link>
+
+                {/* Materials accordion — inserted after Customers */}
+                {item.name === 'Customers' && (
+                  <div>
+                    <button
+                      onClick={() => setMaterialsOpen(!materialsOpen)}
+                      className={cn(
+                        'flex items-center gap-3 px-3 py-2 rounded-md text-sm font-medium transition-all duration-150 w-full',
+                        'hover:bg-zinc-800',
+                        isAnyMaterialsActive
+                          ? 'bg-zinc-800 text-primary-600'
+                          : 'text-zinc-400 hover:text-text-inverse'
+                      )}
+                      aria-expanded={materialsOpen}
+                    >
+                      <Layers className={cn('h-5 w-5 shrink-0', isAnyMaterialsActive && 'text-primary-600')} />
+                      <span className="flex-1 text-left">Materials</span>
+                      <ChevronDown
+                        className={cn(
+                          'h-4 w-4 transition-transform duration-200',
+                          materialsOpen && 'rotate-180'
+                        )}
+                      />
+                    </button>
+                    {materialsOpen && (
+                      <div className="mt-1 space-y-1">
+                        {materialsChildren.map((child) => {
+                          const ChildIcon = child.icon;
+                          const childActive = pathname === child.href || pathname.startsWith(`${child.href}/`);
+                          return (
+                            <Link
+                              key={child.name}
+                              href={child.href}
+                              onClick={() => setMobileMenuOpen(false)}
+                              className={cn(
+                                'flex items-center gap-3 pl-10 pr-3 py-2 rounded-md text-xs font-medium transition-all duration-150',
+                                'hover:bg-zinc-800',
+                                childActive
+                                  ? 'bg-zinc-800 text-primary-600'
+                                  : 'text-zinc-400 hover:text-text-inverse'
+                              )}
+                            >
+                              <ChildIcon className={cn('h-4 w-4 shrink-0', childActive && 'text-primary-600')} />
+                              <span>{child.name}</span>
+                            </Link>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
                 )}
-              >
-                <Icon className={cn(item.indent ? 'h-4 w-4' : 'h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
-                <span>{item.name}</span>
-              </Link>
+              </Fragment>
             );
           })}
         </nav>
