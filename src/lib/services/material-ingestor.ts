@@ -25,6 +25,12 @@ export interface ProposedMaterial {
   isDiscontinued: boolean;
   notes: string | null;
   confidence: 'high' | 'medium' | 'low';
+  /**
+   * True when the stone has a visible grain/pattern that must be direction-matched
+   * (e.g. book-matched slabs, veined marble, wood-look porcelain).
+   * Stored as materials.requires_grain_match in the DB.
+   */
+  requiresGrainMatch: boolean;
   /** Intended DB action for this row. */
   action: 'create' | 'update' | 'skip' | 'create_variant';
   existingMaterialId: number | null;
@@ -92,7 +98,8 @@ Return ONLY a valid JSON object (no markdown, no commentary):
       "thicknessMm": number | null,
       "isDiscontinued": boolean,
       "notes": string | null,
-      "confidence": "high" | "medium" | "low"
+      "confidence": "high" | "medium" | "low",
+      "requiresGrainMatch": boolean
     }
   ],
   "uncertainties": [
@@ -110,6 +117,9 @@ CONFIDENCE LEVELS:
 - high: All fields clearly present and unambiguous
 - medium: Some inference required (e.g., price derived from a discount %)
 - low: Significant uncertainty (missing critical fields, ambiguous data)
+
+GRAIN MATCHING (requiresGrainMatch):
+Set to true when the material has a visible directional pattern that requires orientation matching during fabrication. Indicators: notes containing "book match", "book-matched", "grain match", "directional", "vein match", "matched pair". Also infer true for materials with names suggesting strong veining: marble, travertine, onyx, wood-look porcelain/sintered. Default false for plain/uniform surfaces (engineered quartz, solid colours, terrazzo).
 
 RAISE AN UNCERTAINTY (and set appropriate severity) for:
 - Two price columns where wholesale vs cost is unclear → critical
@@ -306,6 +316,7 @@ export async function ingestPriceList(
       isDiscontinued: m.isDiscontinued ?? false,
       notes: m.notes ?? null,
       confidence: m.confidence ?? 'medium',
+      requiresGrainMatch: m.requiresGrainMatch ?? false,
       action: existing ? 'update' : 'create',
       existingMaterialId: existing?.id ?? null,
       matchType,

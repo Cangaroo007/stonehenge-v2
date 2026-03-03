@@ -31,7 +31,7 @@ function variantName(name: string, index: number): string {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(['ADMIN', 'SALES_MANAGER']);
+    const auth = await requireAuth();
     if ('error' in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -109,6 +109,7 @@ export async function POST(request: NextRequest) {
             is_discontinued: m.isDiscontinued,
             fabrication_category: fabricationCategory,
             is_active: !m.isDiscontinued,
+            requires_grain_match: m.requiresGrainMatch ?? false,
             updated_at: new Date(),
           },
         });
@@ -132,6 +133,7 @@ export async function POST(request: NextRequest) {
             is_discontinued: m.isDiscontinued,
             discontinued_at: m.isDiscontinued ? new Date() : null,
             is_active: !m.isDiscontinued,
+            requires_grain_match: m.requiresGrainMatch ?? false,
             updated_at: new Date(),
           },
         });

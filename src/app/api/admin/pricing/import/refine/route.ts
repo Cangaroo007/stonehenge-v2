@@ -4,7 +4,7 @@ import { refineProposal, type Proposal } from '@/lib/services/material-ingestor'
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(['ADMIN', 'SALES_MANAGER']);
+    const auth = await requireAuth();
     if ('error' in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
