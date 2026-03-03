@@ -5,6 +5,8 @@ import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
 import type { Prisma } from '@prisma/client';
 
+const ARRIS_EDGE_ID = 'cmlar3etm0002znat72h7jnx0';
+
 // GET - List all pieces for a quote
 export async function GET(
   request: NextRequest,
@@ -323,10 +325,10 @@ export async function POST(
         total_cost: materialCost,
         sort_order: (maxPiece?.sort_order ?? -1) + 1,
         cutouts: [],
-        edge_top: edgeTop || null,
-        edge_bottom: edgeBottom || null,
-        edge_left: edgeLeft || null,
-        edge_right: edgeRight || null,
+        edge_top: edgeTop || ARRIS_EDGE_ID,
+        edge_bottom: edgeBottom || ARRIS_EDGE_ID,
+        edge_left: edgeLeft || ARRIS_EDGE_ID,
+        edge_right: edgeRight || ARRIS_EDGE_ID,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
