@@ -157,11 +157,30 @@ export default function ImportPage() {
   const newItems = activeItems.filter((m) => m.action === 'create' || m.action === 'create_variant');
   const updateItems = activeItems.filter((m) => m.action === 'update');
 
-  // ── Handlers ───────────────────────────────────────────────────────────────
+  // ── Helpers ────────────────────────────────────────────────────────────────
 
   const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
     setToast({ message, type });
   }, []);
+
+  /**
+   * Safely parse a Response as JSON.
+   * If the server returns HTML (a 404/500 error page, a login redirect, or an
+   * uncaught Next.js exception), this throws a readable error instead of the
+   * cryptic "Unexpected token <" SyntaxError.
+   */
+  async function safeJson(res: Response): Promise<Record<string, unknown>> {
+    const ct = res.headers.get('content-type') ?? '';
+    if (!ct.includes('application/json')) {
+      const body = await res.text();
+      const title = body.match(/<title>([^<]+)<\/title>/i)?.[1];
+      const hint = title ?? body.slice(0, 160).replace(/\s+/g, ' ');
+      throw new Error(
+        `Server returned a non-JSON response (HTTP ${res.status}):\n${hint}\n\nMake sure ANTHROPIC_API_KEY is set in .env and the dev server was restarted.`,
+      );
+    }
+    return res.json() as Promise<Record<string, unknown>>;
+  }
 
   async function handleFileUpload(file: File) {
     setPhase('parsing');
@@ -174,9 +193,9 @@ export default function ImportPage() {
         method: 'POST',
         body: fd,
       });
-      const data = await res.json();
+      const data = await safeJson(res);
 
-      if (!res.ok) throw new Error(data.error ?? 'Parse failed');
+      if (!res.ok) throw new Error((data.error as string) ?? 'Parse failed');
 
       setProposal(data as Proposal);
       setPhase('staging');
@@ -213,8 +232,8 @@ export default function ImportPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ proposal, command: cmd }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Refine failed');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Refine failed');
       setProposal(data as Proposal);
       showToast('Proposal updated');
     } catch (err) {
@@ -267,8 +286,8 @@ export default function ImportPage() {
           fabricationCategory,
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? 'Sync failed');
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Sync failed');
       setSyncResult(data as SyncResult);
       setPhase('done');
     } catch (err) {
