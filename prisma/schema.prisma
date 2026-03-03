@@ -335,6 +335,10 @@ model materials {
   is_discontinued        Boolean                  @default(false)
   discontinued_at        DateTime?
 
+  // Grain matching metadata
+  requires_grain_match   Boolean                  @default(false)
+  grain_direction        String?
+
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
 

@@ -21,6 +21,7 @@ import {
   UserCircle,
   ClipboardList,
   Truck,
+  UploadCloud,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -43,6 +44,7 @@ const navigation: NavigationItem[] = [
   { name: 'Suppliers', href: '/materials/suppliers', icon: Truck, indent: true },
   { name: 'Optimiser', href: '/optimize', icon: Square },
   { name: 'Pricing', href: '/admin/pricing', icon: Sliders },
+  { name: 'AI Import', href: '/admin/pricing/import', icon: UploadCloud, indent: true },
   { name: 'Users', href: '/admin/users', icon: Users },
   { name: 'Settings', href: '/settings', icon: Settings },
 ];
