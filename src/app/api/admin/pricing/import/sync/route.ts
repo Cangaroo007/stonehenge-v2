@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import { requireAuth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import type { Proposal, ProposedMaterial } from '@/lib/services/material-ingestor';
@@ -151,7 +152,7 @@ export async function POST(request: NextRequest) {
         company_id: auth.user.companyId,
         file_name: `AI Import – ${body.proposal.supplierName ?? 'Unknown'} ${new Date().toISOString().slice(0, 10)}`,
         file_url: '',
-        extracted_data: body.proposal as unknown as Record<string, unknown>,
+        extracted_data: body.proposal as unknown as Prisma.InputJsonValue,
         status: 'APPLIED',
         processed_at: new Date(),
         materials_created: created,
