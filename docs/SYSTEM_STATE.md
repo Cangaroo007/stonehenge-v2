@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-02
-> **Last Updated By:** claude/fix-label-badge-display-ABdkH
+> **Last Updated:** 2026-03-03
+> **Last Updated By:** claude/default-arris-new-pieces-KaHjI — P1a: Default Arris on all new piece edges
 
 ---
 
