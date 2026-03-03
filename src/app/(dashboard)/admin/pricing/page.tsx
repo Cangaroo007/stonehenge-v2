@@ -1,8 +1,6 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import Link from 'next/link';
-import { UploadCloud } from 'lucide-react';
 import EntityTable from './components/EntityTable';
 import EntityModal from './components/EntityModal';
 import EdgeTypeForm from './components/EdgeTypeForm';
@@ -301,13 +299,6 @@ export default function PricingAdminPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Pricing Management</h1>
-        <Link
-          href="/admin/pricing/import"
-          className="flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition-colors"
-        >
-          <UploadCloud className="h-4 w-4" />
-          AI Import
-        </Link>
       </div>
 
       {/* Toast Notification */}
