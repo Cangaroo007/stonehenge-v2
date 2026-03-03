@@ -10,6 +10,7 @@ const tabs = [
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
   { name: 'Edge Rates', href: '/admin/pricing/edges' },
   { name: 'Configuration', href: '/admin/pricing' },
+  { name: 'Import', href: '/admin/pricing/import' },
 ];
 
 export default function PricingLayout({
