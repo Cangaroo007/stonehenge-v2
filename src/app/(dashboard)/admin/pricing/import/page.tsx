@@ -197,10 +197,10 @@ export default function ImportPage() {
 
       if (!res.ok) throw new Error((data.error as string) ?? 'Parse failed');
 
-      setProposal(data as Proposal);
+      setProposal(data as unknown as Proposal);
       setPhase('staging');
 
-      const critCount = (data as Proposal).uncertainties.filter(
+      const critCount = (data as unknown as Proposal).uncertainties.filter(
         (u: Uncertainty) => u.severity === 'critical',
       ).length;
       if (critCount > 0) setDrawerOpen(true);
@@ -234,7 +234,7 @@ export default function ImportPage() {
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error((data.error as string) ?? 'Refine failed');
-      setProposal(data as Proposal);
+      setProposal(data as unknown as Proposal);
       showToast('Proposal updated');
     } catch (err) {
       showToast(err instanceof Error ? err.message : 'Command failed', 'error');
@@ -288,7 +288,7 @@ export default function ImportPage() {
       });
       const data = await safeJson(res);
       if (!res.ok) throw new Error((data.error as string) ?? 'Sync failed');
-      setSyncResult(data as SyncResult);
+      setSyncResult(data as unknown as SyncResult);
       setPhase('done');
     } catch (err) {
       setPhase('staging');
