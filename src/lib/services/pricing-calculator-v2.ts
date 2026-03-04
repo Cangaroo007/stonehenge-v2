@@ -658,7 +658,14 @@ export async function calculateQuotePrice(
 
   // Calculate material costs with pricing basis, waste factor, and margin
   // Pass shape-aware area overrides so L/U pieces use correct area
-  const pieceAreaValues = pieceGeometries.map((g: { totalAreaSqm: number }) => g.totalAreaSqm);
+  const pieceAreaValues = pieceGeometries.map((g: { totalAreaSqm: number }, i: number) => {
+    const piece = allPieces[i];
+    if (isCurvedShape((piece as any).shape_type) && (piece as any).shape_config) {
+      const trueArea = getCurvedTrueAreaM2((piece as any).shape_type!, (piece as any).shape_config);
+      if (trueArea !== null) return trueArea;
+    }
+    return g.totalAreaSqm;
+  });
   const piecesWithOverride = allPieces.map((piece: any) => ({
     ...piece,
     overrideMaterialCost: piece.override_material_cost,
