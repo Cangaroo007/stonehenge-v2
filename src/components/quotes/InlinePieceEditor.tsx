@@ -59,6 +59,7 @@ export interface InlinePieceData {
   cutouts: PieceCutout[];
   quote_rooms: { id: number; name: string };
   shapeConfig?: Record<string, unknown> | null;
+  overrideMaterialCost?: number | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -174,6 +175,9 @@ export default function InlinePieceEditor({
     return t !== 20 && t !== 40 ? t.toString() : '';
   });
   const [materialId, setMaterialId] = useState<number | null>(piece.materialId);
+  const [overrideMaterialCost, setOverrideMaterialCost] = useState<string>(
+    piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+  );
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
@@ -237,6 +241,9 @@ export default function InlinePieceEditor({
       setCustomThickness(piece.thicknessMm.toString());
     }
     setMaterialId(piece.materialId);
+    setOverrideMaterialCost(
+      piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+    );
     setRoomName(piece.quote_rooms?.name || 'Kitchen');
     setEdgeSelections({
       edgeTop: piece.edgeTop || null,
@@ -456,6 +463,9 @@ export default function InlinePieceEditor({
       laminationMethod,
       materialId,
       materialName: selectedMaterial?.name || null,
+      overrideMaterialCost: overrideMaterialCost !== ''
+        ? parseFloat(overrideMaterialCost)
+        : null,
       cutouts,
     };
 
@@ -721,6 +731,34 @@ export default function InlinePieceEditor({
                 + New
               </button>
             </div>
+            <div className="mt-2">
+              <label className="block text-xs font-medium text-gray-600 mb-1">
+                Material Cost Override
+                <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
+              </label>
+              <div className="relative">
+                <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={overrideMaterialCost}
+                  onChange={(e) => setOverrideMaterialCost(e.target.value)}
+                  onClick={(e) => e.stopPropagation()}
+                  placeholder="Leave blank to use catalogue price"
+                  className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                    overrideMaterialCost !== ''
+                      ? 'border-amber-400 bg-amber-50'
+                      : 'border-gray-300'
+                  }`}
+                />
+              </div>
+              {overrideMaterialCost !== '' && (
+                <p className="text-xs text-amber-600 mt-1">
+                  ⚠ Catalogue price overridden — margin does not apply to this piece.
+                </p>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -796,6 +834,34 @@ export default function InlinePieceEditor({
                   {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
                 </select>
                 <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
+              </div>
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Material Cost Override
+                  <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={overrideMaterialCost}
+                    onChange={(e) => setOverrideMaterialCost(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Leave blank to use catalogue price"
+                    className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                      overrideMaterialCost !== ''
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+                {overrideMaterialCost !== '' && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠ Catalogue price overridden — margin does not apply to this piece.
+                  </p>
+                )}
               </div>
             </div>
           </div>
@@ -885,6 +951,34 @@ export default function InlinePieceEditor({
                   {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
                 </select>
                 <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
+              </div>
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Material Cost Override
+                  <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
+                </label>
+                <div className="relative">
+                  <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={overrideMaterialCost}
+                    onChange={(e) => setOverrideMaterialCost(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Leave blank to use catalogue price"
+                    className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                      overrideMaterialCost !== ''
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                </div>
+                {overrideMaterialCost !== '' && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠ Catalogue price overridden — margin does not apply to this piece.
+                  </p>
+                )}
               </div>
             </div>
           </div>

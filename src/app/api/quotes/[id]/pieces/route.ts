@@ -91,6 +91,9 @@ export async function GET(
           shapeType: piece.shape_type || 'RECTANGLE',
           shapeConfig: piece.shape_config || null,
           requiresGrainMatch: piece.requiresGrainMatch ?? false,
+          overrideMaterialCost: piece.override_material_cost
+            ? Number(piece.override_material_cost)
+            : null,
           // Pricing from calculation_breakdown (not runtime-calculated)
           pieceTotal: pricing?.pieceTotal ?? null,
           slabCost: pricing?.slabCost ?? null,

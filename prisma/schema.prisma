@@ -543,6 +543,7 @@ model quote_pieces {
   joinCount            Int              @default(0)
   joinLengthMm         Int?
   requiresGrainMatch   Boolean          @default(false)
+  override_material_cost Decimal?       @db.Decimal(10, 2)
   waterfall_height_mm  Int?
   shape_type           String?          @default("RECTANGLE")
   shape_config         Json?
