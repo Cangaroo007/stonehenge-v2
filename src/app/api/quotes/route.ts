@@ -4,7 +4,6 @@ import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
 
-const ARRIS_EDGE_ID = 'cmlar3etm0002znat72h7jnx0';
 
 interface RoomData {
   name: string;
@@ -154,10 +153,10 @@ export async function POST(request: NextRequest) {
                 // Kept to avoid null constraint violations. Do not read this value for display.
                 total_cost: piece.totalCost,
                 sort_order: piece.sortOrder,
-                edge_top: piece.edgeTop || ARRIS_EDGE_ID,
-                edge_bottom: piece.edgeBottom || ARRIS_EDGE_ID,
-                edge_left: piece.edgeLeft || ARRIS_EDGE_ID,
-                edge_right: piece.edgeRight || ARRIS_EDGE_ID,
+                edge_top: piece.edgeTop || null,
+                edge_bottom: piece.edgeBottom || null,
+                edge_left: piece.edgeLeft || null,
+                edge_right: piece.edgeRight || null,
                 piece_features: {
                   create: piece.piece_features.map((feature: FeatureData) => ({
                     name: feature.name,
