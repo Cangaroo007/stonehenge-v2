@@ -1527,3 +1527,37 @@ model drawing_corrections {
   @@index([correction_type])
   @@index([created_at])
 }
+
+model strip_configurations {
+  id              String   @id @default(cuid())
+  company_id      Int
+
+  /// Identifier used by the optimizer to look up this config
+  /// e.g. "STANDARD", "MITRE", "WIDE" — must be unique per company
+  stripType       String
+
+  /// Human-readable label shown in admin UI
+  label           String
+
+  /// Total width of the strip cut from the slab (visible + kerf)
+  stripWidthMm    Int
+
+  /// Visible width after kerf loss (what the customer sees)
+  visibleWidthMm  Int
+
+  /// Lamination width (thickness of the edge build-up, always 40mm)
+  laminationWidthMm Int   @default(40)
+
+  /// Kerf loss from the blade cut
+  kerfLossMm      Int     @default(8)
+
+  /// Whether this config is active
+  isActive        Boolean @default(true)
+
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@unique([company_id, stripType])
+  @@index([company_id])
+  @@map("strip_configurations")
+}
