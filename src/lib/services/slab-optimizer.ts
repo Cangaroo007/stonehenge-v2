@@ -106,9 +106,12 @@ function getStripWidthForEdge(
   _thickness?: number,
   _kerfWidth?: number,
   stripConfigs?: { standard: number; mitre: number; wide: number },
-  pieceOverrideMm?: number | null,
+  pieceOverrides?: Record<string, number> | null,
 ): number {
-  if (pieceOverrideMm) return pieceOverrideMm;
+  // Per-edge override takes priority over tenant default
+  if (pieceOverrides && edgeTypeName && pieceOverrides[edgeTypeName] != null) {
+    return pieceOverrides[edgeTypeName]!;
+  }
   const cfg = stripConfigs ?? {
     standard: LAMINATION_STRIP_WIDTH_DEFAULT,
     mitre: LAMINATION_STRIP_WIDTH_MITRE,
@@ -166,7 +169,7 @@ function generateLaminationStrips(
 
     const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
     const isMitre = isMitreEdge(edgeName);
-    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
+    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
 
     strips.push({
       id: `${piece.id}-lam-${edgeKey}`,
@@ -204,7 +207,7 @@ function generateShapeStrips(
   if (!sType || !sCfg) return [];
 
   const noStripEdges = piece.noStripEdges ?? [];
-  const stripWidthMm = getStripWidthForEdge(undefined, undefined, undefined, stripConfigs, piece.stripWidthOverrideMm);
+  const stripWidthMm = getStripWidthForEdge(undefined, undefined, undefined, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
 
   // Get ALL finishable edge lengths for this shape (6 for L, 8 for U)
   const allEdgeLengths = getFinishableEdgeLengthsMm(
@@ -544,7 +547,7 @@ function preprocessOversizePieces(
           if (isFirstRow && !noStripEdges.includes('top')) {
             const edgeName = edgeNames?.top;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-top`,
               width: thisWidth,
@@ -562,7 +565,7 @@ function preprocessOversizePieces(
           if (isLastRow && !noStripEdges.includes('bottom')) {
             const edgeName = edgeNames?.bottom;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-bottom`,
               width: thisWidth,
@@ -580,7 +583,7 @@ function preprocessOversizePieces(
           if (isFirstCol && !noStripEdges.includes('left')) {
             const edgeName = edgeNames?.left;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-left`,
               width: stripW,
@@ -598,7 +601,7 @@ function preprocessOversizePieces(
           if (isLastCol && !noStripEdges.includes('right')) {
             const edgeName = edgeNames?.right;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-right`,
               width: stripW,

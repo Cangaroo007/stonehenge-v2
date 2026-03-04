@@ -110,8 +110,8 @@ export interface OptimizationInput {
     shapeConfigEdges?: Record<string, string | null>;
     // Edges marked as wall edges — no lamination strip generated for these
     noStripEdges?: string[];
-    // Per-piece strip width override (mm) — overrides tenant default
-    stripWidthOverrideMm?: number | null;
+    // Per-edge strip width overrides (mm) — overrides tenant default per edge
+    stripWidthOverrides?: Record<string, number> | null;
   }>;
   slabWidth: number;
   slabHeight: number;
