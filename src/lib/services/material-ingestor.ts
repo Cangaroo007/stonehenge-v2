@@ -31,6 +31,11 @@ export interface ProposedMaterial {
    * Stored as materials.requires_grain_match in the DB.
    */
   requiresGrainMatch: boolean;
+  /**
+   * Fabrication category inferred from material type.
+   * null = could not be determined — user must select before syncing.
+   */
+  fabricationCategory: 'ENGINEERED' | 'NATURAL_HARD' | 'NATURAL_SOFT' | 'NATURAL_PREMIUM' | 'SINTERED' | null;
   /** Intended DB action for this row. */
   action: 'create' | 'update' | 'skip' | 'create_variant';
   existingMaterialId: number | null;
@@ -99,7 +104,8 @@ Return ONLY a valid JSON object (no markdown, no commentary):
       "isDiscontinued": boolean,
       "notes": string | null,
       "confidence": "high" | "medium" | "low",
-      "requiresGrainMatch": boolean
+      "requiresGrainMatch": boolean,
+      "fabricationCategory": "ENGINEERED" | "NATURAL_HARD" | "NATURAL_SOFT" | "NATURAL_PREMIUM" | "SINTERED" | null
     }
   ],
   "uncertainties": [
@@ -120,6 +126,15 @@ CONFIDENCE LEVELS:
 
 GRAIN MATCHING (requiresGrainMatch):
 Set to true when the material has a visible directional pattern that requires orientation matching during fabrication. Indicators: notes containing "book match", "book-matched", "grain match", "directional", "vein match", "matched pair". Also infer true for materials with names suggesting strong veining: marble, travertine, onyx, wood-look porcelain/sintered. Default false for plain/uniform surfaces (engineered quartz, solid colours, terrazzo).
+
+FABRICATION CATEGORY (fabricationCategory):
+Infer from material name, collection name, and surface finish.
+- "quartz", "engineered", "composite", "caesarstone", "silestone", "quantum", "zenith" → "ENGINEERED"
+- "granite", "quartzite" → "NATURAL_HARD"
+- "marble", "travertine", "onyx", "limestone", "calacatta", "statuario", "carrara" → "NATURAL_SOFT"
+- "premium", "exotic", "semi-precious" → "NATURAL_PREMIUM"
+- "porcelain", "sintered", "dekton", "neolith", "lapitec" → "SINTERED"
+- If uncertain: null
 
 RAISE AN UNCERTAINTY (and set appropriate severity) for:
 - Two price columns where wholesale vs cost is unclear → critical
@@ -317,6 +332,7 @@ export async function ingestPriceList(
       notes: m.notes ?? null,
       confidence: m.confidence ?? 'medium',
       requiresGrainMatch: m.requiresGrainMatch ?? false,
+      fabricationCategory: m.fabricationCategory ?? null,
       action: existing ? 'update' : 'create',
       existingMaterialId: existing?.id ?? null,
       matchType,

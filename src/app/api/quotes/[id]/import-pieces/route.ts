@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 
-const ARRIS_EDGE_ID = 'cmlar3etm0002znat72h7jnx0';
 
 interface ImportPieceData {
   name: string;
@@ -168,10 +167,10 @@ export async function POST(
             total_cost: 0,
             sort_order: sortOrder++,
             cutouts: [],
-            edge_top: pieceData.edgeTop || ARRIS_EDGE_ID,
-            edge_bottom: pieceData.edgeBottom || ARRIS_EDGE_ID,
-            edge_left: pieceData.edgeLeft || ARRIS_EDGE_ID,
-            edge_right: pieceData.edgeRight || ARRIS_EDGE_ID,
+            edge_top: pieceData.edgeTop || null,
+            edge_bottom: pieceData.edgeBottom || null,
+            edge_left: pieceData.edgeLeft || null,
+            edge_right: pieceData.edgeRight || null,
           },
         });
 

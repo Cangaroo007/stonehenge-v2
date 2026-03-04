@@ -122,7 +122,6 @@ export default function ImportPage() {
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [suppliers, setSuppliers] = useState<Supplier[]>([]);
   const [selectedSupplierId, setSelectedSupplierId] = useState('');
-  const [fabricationCategory, setFabricationCategory] = useState('ENGINEERED');
   const [drawerOpen, setDrawerOpen] = useState(true);
   const [commandInput, setCommandInput] = useState('');
   const [isRefining, setIsRefining] = useState(false);
@@ -152,7 +151,11 @@ export default function ImportPage() {
     (u) => u.severity === 'critical' && !u.resolved,
   ) ?? [];
 
-  const canSync = proposal !== null && criticalOpen.length === 0 && phase === 'staging';
+  const hasUnsetFabrication = proposal?.extractedData
+    .filter(m => m.action !== 'skip')
+    .some(m => !m.fabricationCategory) ?? false;
+
+  const canSync = proposal !== null && criticalOpen.length === 0 && !hasUnsetFabrication && phase === 'staging';
 
   const activeItems = proposal?.extractedData.filter((m) => m.action !== 'skip') ?? [];
   const newItems = activeItems.filter((m) => m.action === 'create' || m.action === 'create_variant');
@@ -339,7 +342,6 @@ export default function ImportPage() {
         body: JSON.stringify({
           proposal,
           supplierId: selectedSupplierId,
-          fabricationCategory,
         }),
       });
       const data = await safeJson(res);
@@ -466,6 +468,9 @@ export default function ImportPage() {
               <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Grain
               </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                Fabrication
+              </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Conf.
               </th>
@@ -561,6 +566,36 @@ export default function ImportPage() {
                   >
                     G
                   </button>
+                </td>
+                {/* Fabrication category */}
+                <td className="px-3 py-2">
+                  <select
+                    value={m.fabricationCategory ?? ''}
+                    onChange={(e) => {
+                      if (!proposal) return;
+                      setProposal({
+                        ...proposal,
+                        extractedData: proposal.extractedData.map((row) =>
+                          row._id === m._id
+                            ? { ...row, fabricationCategory: (e.target.value || null) as ProposedMaterial['fabricationCategory'] }
+                            : row,
+                        ),
+                      });
+                    }}
+                    className={cn(
+                      'text-xs rounded border px-1.5 py-0.5',
+                      !m.fabricationCategory
+                        ? 'border-amber-400 bg-amber-50 text-amber-700'
+                        : 'border-gray-200 bg-white text-gray-700',
+                    )}
+                  >
+                    <option value="">Select...</option>
+                    <option value="ENGINEERED">Engineered Quartz</option>
+                    <option value="NATURAL_HARD">Natural Granite</option>
+                    <option value="NATURAL_SOFT">Natural Marble</option>
+                    <option value="NATURAL_PREMIUM">Natural Premium</option>
+                    <option value="SINTERED">Porcelain / Sintered</option>
+                  </select>
                 </td>
                 {/* Confidence */}
                 <td className="px-3 py-2 text-center">
@@ -707,19 +742,6 @@ export default function ImportPage() {
                 ))}
               </select>
             )}
-            {/* Fabrication category */}
-            <select
-              value={fabricationCategory}
-              onChange={(e) => setFabricationCategory(e.target.value)}
-              className="rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              title="Fabrication category for new materials"
-            >
-              <option value="ENGINEERED">Engineered</option>
-              <option value="NATURAL_HARD">Natural Hard</option>
-              <option value="NATURAL_SOFT">Natural Soft</option>
-              <option value="NATURAL_PREMIUM">Natural Premium</option>
-              <option value="SINTERED">Sintered</option>
-            </select>
             <button
               onClick={() => {
                 setPhase('upload');
@@ -817,10 +839,17 @@ export default function ImportPage() {
 
             {/* Sync footer */}
             <div className="flex items-center justify-between border-t border-gray-200 pt-4">
-              <p className="text-sm text-gray-500">
-                {activeItems.length} item{activeItems.length !== 1 ? 's' : ''} selected ·{' '}
-                {proposal.extractedData.filter((m) => m.action === 'skip').length} skipped
-              </p>
+              <div>
+                <p className="text-sm text-gray-500">
+                  {activeItems.length} item{activeItems.length !== 1 ? 's' : ''} selected ·{' '}
+                  {proposal.extractedData.filter((m) => m.action === 'skip').length} skipped
+                </p>
+                {hasUnsetFabrication && (
+                  <p className="text-xs text-amber-600">
+                    Assign fabrication category to all materials before syncing.
+                  </p>
+                )}
+              </div>
               <button
                 onClick={handleSync}
                 disabled={!canSync || !selectedSupplierId}
