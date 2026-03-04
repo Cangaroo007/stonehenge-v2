@@ -551,6 +551,9 @@ export async function POST(
     }
 
     // ── Single-material optimisation path (existing, backward compatible) ──
+    // Filter out zero/negative dimension pieces before optimization
+    const validPieces = pieces.filter((p: { width: number; height: number }) => p.width > 0 && p.height > 0);
+
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
     const result = await optimizeSlabs({
       pieces: validPieces,
