@@ -359,8 +359,8 @@ function derivePartsForPiece(
           ? ` — Part ${occurrenceIndex + 1} of ${total}`
           : '';
         const stripName = sideLabel
-          ? `${sideLabel} lamination strip${partSuffix}`
-          : `${pieceName} — Lamination Strip${partSuffix}`;
+          ? `${sideLabel} strip${partSuffix}`
+          : `${pieceName} — Strip${partSuffix}`;
         parts.push({
           type: 'LAMINATION_STRIP',
           name: stripName,
@@ -391,7 +391,7 @@ function derivePartsForPiece(
           const sideLabel = edgeKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
           parts.push({
             type: 'LAMINATION_STRIP',
-            name: `${sideLabel} lamination strip`,
+            name: `${sideLabel} strip`,
             lengthMm,
             widthMm: 60,
             thicknessMm: 20,
@@ -414,7 +414,7 @@ function derivePartsForPiece(
           const isMitre = edgeTypeId?.toLowerCase().includes('mitre') ?? false;
           parts.push({
             type: 'LAMINATION_STRIP',
-            name: `${sideLabel} lamination strip`,
+            name: `${sideLabel} strip`,
             lengthMm,
             widthMm: isMitre ? 40 : 60,
             thicknessMm: 20,
@@ -677,7 +677,7 @@ export default function PartsSection({
                                     }
                                   >
                                     {part.type === 'LAMINATION_STRIP'
-                                      ? `↳ ${part.name.replace(/ lamination strip$/i, ' strip')}`
+                                      ? `↳ ${part.name}`
                                       : part.name}
                                   </span>
                                   {part.note && (
