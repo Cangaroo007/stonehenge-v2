@@ -28,6 +28,9 @@ interface Material {
   supplier_range: string | null;
   surface_finish: string | null;
   margin_override_percent: string | null;
+  slabLengthMm: number | null;
+  slabWidthMm: number | null;
+  requires_grain_match: boolean;
 }
 
 interface Supplier {
