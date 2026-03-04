@@ -22,6 +22,7 @@ import {
   ClipboardList,
   UploadCloud,
   ChevronDown,
+  Package,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
@@ -48,8 +49,8 @@ const navigation: NavigationItem[] = [
 
 const materialsChildren: NavigationItem[] = [
   { name: 'Suppliers', href: '/materials/suppliers', icon: Building2 },
-  { name: 'Price Lists', href: '/materials/price-lists', icon: FileText },
-  { name: 'Import', href: '/admin/pricing/import', icon: UploadCloud },
+  { name: 'Materials', href: '/materials', icon: Package },
+  { name: 'AI Import', href: '/admin/pricing/import', icon: UploadCloud },
 ];
 
 const SIDEBAR_STATE_KEY = 'stonehenge-sidebar-collapsed';
