@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-03
-> **Last Updated By:** claude/default-arris-new-pieces-KaHjI — P1a: Default Arris on all new piece edges
+> **Last Updated:** 2026-03-04
+> **Last Updated By:** claude/c5-curved-optimizer-8N0ck — C5: Curved shape bounding rect pre-processing in optimizer
 
 ---
 
@@ -552,7 +552,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |
 | `generateLaminationSummary` | 241 | Summarises lamination strip usage — uses isHorizontalEdge() for correct length/width (PROMPT-13). PROMPT-14: fallback parent lookup traces parentPieceId chain through allPieces when originalPieces miss (oversize segments). |
 | `preprocessOversizePieces` | 337 | Splits oversize pieces into joinable segments at slab boundary (not midpoint). PROMPT-19b: first segment fills to usableWidth (or customJoinMm if set), remainder on subsequent segments. PROMPT-19c: now returns segmentWidthMap (Map<string, number[]>) — maps pieceId to array of colWidths used for splitting. This map is passed to preprocessOversizeStrips so strip cuts match parent piece cuts exactly. PROMPT-17: generates per-segment lamination strips with end-cap logic. parentPieceId = original piece ID. |
-| `optimizeSlabs` | 505 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). PROMPT-19: strips processed through preprocessOversizeStrips() before FFD placement. |
+| `optimizeSlabs` | 505 | **Main entry point** — bin-packs pieces onto slabs. PROMPT-18: decomposedPieceIds now built from normalizedPieces (not empty allPieces). PROMPT-19: strips processed through preprocessOversizeStrips() before FFD placement. C5: curved shape pre-processing applied before FFD sort — RADIUS_END, FULL_CIRCLE, CONCAVE_ARC pieces transformed to bounding rectangles via getOptimizerRects(). trueArea_m2 tracked on Placement for curved shapes (used by C6 for accurate material cost). |
 | `createSlab` | 1020 | Creates empty slab with free rectangles |
 | `findPosition` | 1032 | Finds placement position on a slab |
 | `placePiece` | 1054 | Places piece at position on slab |

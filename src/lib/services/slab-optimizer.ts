@@ -8,7 +8,7 @@ import {
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
 import prisma from '@/lib/db';
-import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, getOptimizerRects, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
 
 interface Rect {
   x: number;
@@ -91,6 +91,8 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
    *  If set, overrides the default slab-boundary split.
    *  Future: set via natural language command. */
   customJoinMm?: number;
+  /** True area in m² for curved shapes — less than bounding box. Used by C6 for pricing. */
+  trueArea_m2?: number;
 };
 
 /**
@@ -786,10 +788,28 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
     logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} lamination strips = ${allPieces.length} total`);
   }
 
+  // ── Curved shape pre-processing ───────────────────────────────────────────────
+  const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC']);
+
+  const processedPieces = allPieces.map((piece) => {
+    if (!piece.shapeType || !CURVED_SHAPE_TYPES.has(piece.shapeType) || !piece.shapeConfig) {
+      return piece;
+    }
+    const rects = getOptimizerRects(piece.shapeType as ShapeType, piece.shapeConfig as ShapeConfig, piece.id, piece.label);
+    if (!rects || rects.length === 0) return piece;
+    const boundingRect = rects[0];
+    return {
+      ...piece,
+      width: boundingRect.width_mm,
+      height: boundingRect.height_mm,
+      trueArea_m2: boundingRect.trueArea_m2,
+    };
+  });
+
   // Sort pieces by area (largest first) for better packing
   // IMPORTANT: Use Array.from() to avoid Railway build issues
   // Grouped rects (from L/U decomposition) are kept together so they land on the same slab.
-  const sortedPieces = Array.from(allPieces).sort((a, b) => {
+  const sortedPieces = Array.from(processedPieces).sort((a, b) => {
     // Primary sort: grouped rects before non-grouped (so they get first pick of slabs)
     const aGrouped = a.groupId ? 1 : 0;
     const bGrouped = b.groupId ? 1 : 0;
@@ -1096,6 +1116,8 @@ function placePiece(
     partIndex: piece.partIndex,
     partLabel: piece.partLabel,
     totalParts: piece.totalParts,
+    // Curved shape true area for pricing (C6)
+    trueArea_m2: piece.trueArea_m2 ?? undefined,
   };
 
   slab.placements.push(placement);
