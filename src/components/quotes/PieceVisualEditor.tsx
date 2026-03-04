@@ -4,7 +4,10 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
-import type { ShapeType, ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import type {
+  ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
+  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig,
+} from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -26,7 +29,9 @@ export type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
 export type ShapeEdgeSide =
   | EdgeSide
   | 'r_top' | 'r_btm' | 'inner'  // L-shape
-  | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner';  // U-shape
+  | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner'  // U-shape
+  | 'arc_end' | 'arc_body'  // RADIUS_END / FULL_CIRCLE
+  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer';  // CONCAVE_ARC
 type EdgeEditMode = 'select' | 'quickEdge';
 
 /** Edge segment definition for shape rendering */
@@ -641,6 +646,9 @@ export default function PieceVisualEditor({
   const effectiveShapeType: ShapeType = useMemo(() => {
     if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
     if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
+    if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
+    if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
+    if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
     return 'RECTANGLE';
   }, [shapeType, shapeConfig]);
 
