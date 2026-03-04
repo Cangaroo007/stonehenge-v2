@@ -7,6 +7,7 @@ import {
 } from '@/types/slab-optimization';
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
+import prisma from '@/lib/db';
 import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
 
 interface Rect {
@@ -30,6 +31,37 @@ const LAMINATION_STRIP_WIDTH_DEFAULT = STRIP_CONFIGURATIONS.STANDARD.visibleWidt
 const LAMINATION_STRIP_WIDTH_MITRE = STRIP_CONFIGURATIONS.STANDARD.laminationWidthMm; // 40mm
 const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
 const MIN_SEGMENT_MM = 200; // Minimum fabricable segment dimension (mm)
+
+/**
+ * Load strip configurations from DB for a given company.
+ * Falls back to hardcoded constants if DB lookup fails or no configs exist.
+ */
+async function loadStripConfigs(companyId?: number): Promise<{
+  standard: number;
+  mitre: number;
+  wide: number;
+}> {
+  const defaults = {
+    standard: LAMINATION_STRIP_WIDTH_DEFAULT,
+    mitre: LAMINATION_STRIP_WIDTH_MITRE,
+    wide: STRIP_CONFIGURATIONS.WIDE.visibleWidthMm,
+  };
+  if (!companyId) return defaults;
+  try {
+    const configs = await prisma.strip_configurations.findMany({
+      where: { company_id: companyId, isActive: true },
+    });
+    const get = (type: string, fallback: number) =>
+      configs.find(c => c.stripType === type)?.visibleWidthMm ?? fallback;
+    return {
+      standard: get('STANDARD', defaults.standard),
+      mitre: get('MITRE', defaults.mitre),
+      wide: get('WIDE', defaults.wide),
+    };
+  } catch {
+    return defaults;
+  }
+}
 
 // Internal type for pieces during optimization (includes lamination and segment data)
 type OptimizationPiece = OptimizationInput['pieces'][0] & {
@@ -67,14 +99,24 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
  * Waterfall & standard polish strips: ~60mm (kerf added by optimizer during placement).
  * Strip widths should come from strip_configurations table; these are defaults if not found.
  */
-function getStripWidthForEdge(edgeTypeName?: string, _thickness?: number, _kerfWidth?: number): number {
-  if (!edgeTypeName) return LAMINATION_STRIP_WIDTH_DEFAULT;
+function getStripWidthForEdge(
+  edgeTypeName?: string,
+  _thickness?: number,
+  _kerfWidth?: number,
+  stripConfigs?: { standard: number; mitre: number; wide: number },
+  pieceOverrideMm?: number | null,
+): number {
+  if (pieceOverrideMm) return pieceOverrideMm;
+  const cfg = stripConfigs ?? {
+    standard: LAMINATION_STRIP_WIDTH_DEFAULT,
+    mitre: LAMINATION_STRIP_WIDTH_MITRE,
+    wide: STRIP_CONFIGURATIONS.WIDE.visibleWidthMm,
+  };
+  if (!edgeTypeName) return cfg.standard;
   const lower = edgeTypeName.toLowerCase();
-  if (lower.includes('mitre')) {
-    return LAMINATION_STRIP_WIDTH_MITRE;
-  }
-  // Waterfall and standard polish edges use the default laminated width
-  return LAMINATION_STRIP_WIDTH_DEFAULT;
+  if (lower.includes('mitre')) return cfg.mitre;
+  if (lower.includes('waterfall') || lower.includes('wide')) return cfg.wide;
+  return cfg.standard;
 }
 
 /**
@@ -90,7 +132,8 @@ function getStripWidthForEdge(edgeTypeName?: string, _thickness?: number, _kerfW
 function generateLaminationStrips(
   piece: OptimizationPiece,
   kerfWidth?: number,
-  mitreKerfWidth?: number
+  mitreKerfWidth?: number,
+  stripConfigs?: { standard: number; mitre: number; wide: number }
 ): OptimizationPiece[] {
   // Only generate strips for 40mm+ pieces
   if (!piece.thickness || piece.thickness < LAMINATION_THRESHOLD) {
@@ -121,14 +164,14 @@ function generateLaminationStrips(
 
     const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
     const isMitre = isMitreEdge(edgeName);
-    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
+    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
 
     strips.push({
       id: `${piece.id}-lam-${edgeKey}`,
       width: isWidth ? lengthMm : stripW,
       height: isWidth ? stripW : lengthMm,
       thickness: 20,
-      label: `${piece.label} (Lam-${edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1)}${edgeName ? ` ${edgeName}` : ''})`,
+      label: `${piece.label} (Strip-${edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1)}${edgeName ? ` ${edgeName}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
@@ -151,14 +194,15 @@ function generateShapeStrips(
   piece: OptimizationPiece,
   _edgeLengths: { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number },
   _kerfWidth?: number,
-  _mitreKerfWidth?: number
+  _mitreKerfWidth?: number,
+  stripConfigs?: { standard: number; mitre: number; wide: number }
 ): OptimizationPiece[] {
   const sType = piece.shapeType as ShapeType | undefined;
   const sCfg = piece.shapeConfig as ShapeConfig;
   if (!sType || !sCfg) return [];
 
   const noStripEdges = piece.noStripEdges ?? [];
-  const stripWidthMm = LAMINATION_STRIP_WIDTH_DEFAULT;
+  const stripWidthMm = getStripWidthForEdge(undefined, undefined, undefined, stripConfigs, piece.stripWidthOverrideMm);
 
   // Get ALL finishable edge lengths for this shape (6 for L, 8 for U)
   const allEdgeLengths = getFinishableEdgeLengthsMm(
@@ -184,7 +228,7 @@ function generateShapeStrips(
       width: isHorizontal ? lengthMm : stripWidthMm,
       height: isHorizontal ? stripWidthMm : lengthMm,
       thickness: 20,
-      label: `${piece.label} (Lam-${edgeKey.replace(/_/g, ' ')})`,
+      label: `${piece.label} (Strip-${edgeKey.replace(/_/g, ' ')})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
@@ -364,7 +408,8 @@ function preprocessOversizePieces(
   slabHeight: number,
   kerfWidth: number,
   allowRotation: boolean,
-  mitreKerfWidth?: number
+  mitreKerfWidth?: number,
+  stripConfigs?: { standard: number; mitre: number; wide: number }
 ): { processed: OptimizationPiece[]; warnings: string[]; segmentWidthMap: Map<string, number[]> } {
   const processed: OptimizationPiece[] = [];
   const warnings: string[] = [];
@@ -497,13 +542,13 @@ function preprocessOversizePieces(
           if (isFirstRow && !noStripEdges.includes('top')) {
             const edgeName = edgeNames?.top;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-top`,
               width: thisWidth,
               height: stripW,
               thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Lam-Top${edgeName ? ` ${edgeName}` : ''})`,
+              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Top${edgeName ? ` ${edgeName}` : ''})`,
               isLaminationStrip: true,
               parentPieceId: piece.id,
               stripPosition: 'top',
@@ -515,13 +560,13 @@ function preprocessOversizePieces(
           if (isLastRow && !noStripEdges.includes('bottom')) {
             const edgeName = edgeNames?.bottom;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-bottom`,
               width: thisWidth,
               height: stripW,
               thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Lam-Bottom${edgeName ? ` ${edgeName}` : ''})`,
+              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Bottom${edgeName ? ` ${edgeName}` : ''})`,
               isLaminationStrip: true,
               parentPieceId: piece.id,
               stripPosition: 'bottom',
@@ -533,13 +578,13 @@ function preprocessOversizePieces(
           if (isFirstCol && !noStripEdges.includes('left')) {
             const edgeName = edgeNames?.left;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-left`,
               width: stripW,
               height: thisHeight,
               thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Lam-Left${edgeName ? ` ${edgeName}` : ''})`,
+              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Left${edgeName ? ` ${edgeName}` : ''})`,
               isLaminationStrip: true,
               parentPieceId: piece.id,
               stripPosition: 'left',
@@ -551,13 +596,13 @@ function preprocessOversizePieces(
           if (isLastCol && !noStripEdges.includes('right')) {
             const edgeName = edgeNames?.right;
             const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth);
+            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrideMm);
             segmentStrips.push({
               id: `${piece.id}-seg-${segmentIndex}-lam-right`,
               width: stripW,
               height: thisHeight,
               thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Lam-Right${edgeName ? ` ${edgeName}` : ''})`,
+              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Right${edgeName ? ` ${edgeName}` : ''})`,
               isLaminationStrip: true,
               parentPieceId: piece.id,
               stripPosition: 'right',
@@ -580,8 +625,10 @@ function preprocessOversizePieces(
 /**
  * Main optimization function using First Fit Decreasing algorithm
  */
-export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
+export async function optimizeSlabs(input: OptimizationInput): Promise<OptimizationResult> {
   const { pieces, slabWidth, slabHeight, kerfWidth, allowRotation, edgeAllowanceMm = 0, mitreKerfWidth } = input;
+
+  const stripConfigs = await loadStripConfigs(input.companyId);
 
   // Usable dimensions after subtracting edge allowance from both sides
   const usableWidth = slabWidth - (edgeAllowanceMm * 2);
@@ -627,7 +674,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
         piece.width,   // optimizer width = piece length_mm
         piece.height    // optimizer height = piece width_mm
       );
-      const strips = generateShapeStrips(piece, edgeLengths, kerfWidth, mitreKerfWidth);
+      const strips = generateShapeStrips(piece, edgeLengths, kerfWidth, mitreKerfWidth, stripConfigs);
       shapeStrips.push(...strips);
       if (strips.length > 0) {
         logger.info(
@@ -686,6 +733,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     kerfWidth,
     allowRotation,
     mitreKerfWidth,
+    stripConfigs,
   );
 
   if (warnings.length > 0) {
@@ -723,7 +771,7 @@ export function optimizeSlabs(input: OptimizationInput): OptimizationResult {
     // Generate and add lamination strips for rectangle pieces.
     // L/U shape strips were already generated in Step 1 (before decomposition)
     // using actual edge lengths from getShapeEdgeLengths().
-    const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth);
+    const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth, stripConfigs);
     // Split any strips that exceed usable slab width into placeable segments
     const processedStrips = preprocessOversizeStrips(strips, usableWidth, segmentWidthMap);
     allPieces.push(...processedStrips);

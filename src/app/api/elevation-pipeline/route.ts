@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     }
 
     const config = getDefaultSlabConfig(materialCategory, thickness);
-    const result = runElevationPipeline(elevationAnalysis, config);
+    const result = await runElevationPipeline(elevationAnalysis, config);
 
     // Save to database if quoteId is provided
     if (quoteId) {

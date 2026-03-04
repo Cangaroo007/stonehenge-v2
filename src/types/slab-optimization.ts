@@ -108,6 +108,8 @@ export interface OptimizationInput {
     shapeConfigEdges?: Record<string, string | null>;
     // Edges marked as wall edges — no lamination strip generated for these
     noStripEdges?: string[];
+    // Per-piece strip width override (mm) — overrides tenant default
+    stripWidthOverrideMm?: number | null;
   }>;
   slabWidth: number;
   slabHeight: number;
@@ -118,6 +120,8 @@ export interface OptimizationInput {
   /** Kerf width (mm) for the MITRING machine — used for mitre strip width calculations.
    *  Falls back to kerfWidth if not provided. */
   mitreKerfWidth?: number;
+  /** Company ID for loading tenant-specific strip configurations from DB. */
+  companyId?: number;
 }
 
 // ── Multi-Material Optimisation Types ─────────────────────────────────────

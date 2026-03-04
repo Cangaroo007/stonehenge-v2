@@ -174,6 +174,7 @@ export async function GET(
         ? Number(piece.override_material_cost)
         : null,
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
+      stripWidthOverrideMm: piece.strip_width_override_mm ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
@@ -251,6 +252,7 @@ export async function PATCH(
       overrideMaterialCost,
       shapeConfig,
       noStripEdges,
+      stripWidthOverrideMm,
     } = data;
 
     // Get the current piece
@@ -390,6 +392,9 @@ export async function PATCH(
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // no_strip_edges: wall edges that don't need lamination strips
         ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
+        strip_width_override_mm: stripWidthOverrideMm !== undefined
+          ? stripWidthOverrideMm
+          : undefined,
       },
       include: {
         materials: true,
@@ -460,6 +465,7 @@ export async function PATCH(
         ? Number(updatedPiece.override_material_cost)
         : null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
+      stripWidthOverrideMm: updatedPiece.strip_width_override_mm ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
