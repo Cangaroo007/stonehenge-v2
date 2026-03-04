@@ -66,7 +66,15 @@ const COMPANY_ADDRESS =
 /**
  * Enhanced pricing calculation result
  */
+interface MissingRate {
+  code: string;
+  pieceId: string;
+  pieceName: string;
+  description: string;
+}
+
 export interface EnhancedCalculationResult extends CalculationResult {
+  missingRates?: MissingRate[];
   fabricationCategory?: string;
   baseSubtotal?: number;
   customCharges?: Array<{ id: number; description: string; amount: number }>;
