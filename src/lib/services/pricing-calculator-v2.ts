@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, type ShapeConfig, type ShapeType, type RadiusEndConfig, type FullCircleConfig, type ConcaveArcConfig } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -63,10 +63,76 @@ const COMPANY_ADDRESS =
 // Grain matching surcharge rate is now tenant-configurable via pricing_settings.
 // See pricingContext.grainMatchingSurchargePercent (stored as percentage, e.g. 15.0 = 15%).
 
+// ── Curved shape helpers (C6) ─────────────────────────────────────────────────
+
+const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC']);
+
+function isCurvedShape(shapeType?: string | null): boolean {
+  return !!shapeType && CURVED_SHAPE_TYPES.has(shapeType);
+}
+
+/**
+ * Calculate true stone area in m² for a curved piece.
+ * Uses exact geometry — not bounding box.
+ * Returns null if config is missing or invalid.
+ */
+function getCurvedTrueAreaM2(shapeType: string, shapeConfig: unknown): number | null {
+  if (!shapeConfig || typeof shapeConfig !== 'object') return null;
+  try {
+    switch (shapeType) {
+      case 'RADIUS_END':
+        return computeRadiusEndArea(shapeConfig as RadiusEndConfig) / 1_000_000;
+      case 'FULL_CIRCLE':
+        return computeFullCircleArea(shapeConfig as FullCircleConfig) / 1_000_000;
+      case 'CONCAVE_ARC':
+        return computeConcaveArcArea(shapeConfig as ConcaveArcConfig) / 1_000_000;
+      default:
+        return null;
+    }
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Calculate arc length in metres for a curved piece.
+ * Returns 0 if config is missing or invalid.
+ */
+function calcArcLengthM(shapeType: string, shapeConfig: unknown): number {
+  if (!shapeConfig || typeof shapeConfig !== 'object') return 0;
+  const cfg = shapeConfig as Record<string, unknown>;
+  switch (shapeType) {
+    case 'RADIUS_END': {
+      const r = Number(cfg.radius_mm) || 0;
+      const ends = cfg.curved_ends === 'BOTH' ? 2 : 1;
+      return (Math.PI * r * ends) / 1000; // mm → metres
+    }
+    case 'FULL_CIRCLE': {
+      const d = Number(cfg.diameter_mm) || 0;
+      return (Math.PI * d) / 1000; // mm → metres
+    }
+    case 'CONCAVE_ARC': {
+      const r = Number(cfg.inner_radius_mm) || 0;
+      const sweep = Number(cfg.sweep_deg) || 0;
+      return ((sweep / 360) * 2 * Math.PI * r) / 1000; // mm → metres
+    }
+    default:
+      return 0;
+  }
+}
+
 /**
  * Enhanced pricing calculation result
  */
+interface MissingRate {
+  code: string;
+  pieceId: string;
+  pieceName: string;
+  description: string;
+}
+
 export interface EnhancedCalculationResult extends CalculationResult {
+  missingRates?: MissingRate[];
   fabricationCategory?: string;
   baseSubtotal?: number;
   customCharges?: Array<{ id: number; description: string; amount: number }>;
@@ -592,7 +658,14 @@ export async function calculateQuotePrice(
 
   // Calculate material costs with pricing basis, waste factor, and margin
   // Pass shape-aware area overrides so L/U pieces use correct area
-  const pieceAreaValues = pieceGeometries.map((g: { totalAreaSqm: number }) => g.totalAreaSqm);
+  const pieceAreaValues = pieceGeometries.map((g: { totalAreaSqm: number }, i: number) => {
+    const piece = allPieces[i];
+    if (isCurvedShape((piece as any).shape_type) && (piece as any).shape_config) {
+      const trueArea = getCurvedTrueAreaM2((piece as any).shape_type!, (piece as any).shape_config);
+      if (trueArea !== null) return trueArea;
+    }
+    return g.totalAreaSqm;
+  });
   const piecesWithOverride = allPieces.map((piece: any) => ({
     ...piece,
     overrideMaterialCost: piece.override_material_cost,
