@@ -228,6 +228,20 @@ export default function InlinePieceEditor({
   // Grain matching opt-in for L/U shaped pieces
   const [grainMatched, setGrainMatched] = useState(false);
 
+  // ── Curved shape state (C2–C4) ───────────────────────────────────────────
+  // RADIUS_END
+  const [radiusEndLength, setRadiusEndLength] = useState('2400');
+  const [radiusEndWidth, setRadiusEndWidth] = useState('900');
+  const [radiusEndRadius, setRadiusEndRadius] = useState('450');
+  const [radiusEndCurvedEnds, setRadiusEndCurvedEnds] = useState<'ONE' | 'BOTH'>('ONE');
+  // FULL_CIRCLE
+  const [circleDiameter, setCircleDiameter] = useState('900');
+  // CONCAVE_ARC
+  const [arcInnerRadius, setArcInnerRadius] = useState('1200');
+  const [arcDepth, setArcDepth] = useState('600');
+  const [arcSweepDeg, setArcSweepDeg] = useState<90 | 120 | 180>(90);
+  const [arcCurvedEnds, setArcCurvedEnds] = useState(false);
+
   // ── Reset form when piece changes ───────────────────────────────────────
   useEffect(() => {
     setPieceName(piece.name || '');
