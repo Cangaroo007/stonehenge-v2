@@ -123,7 +123,8 @@ export async function POST(request: NextRequest) {
             slab_width_mm: m.slabWidthMm,
             is_discontinued: m.isDiscontinued,
             discontinued_at: m.isDiscontinued ? new Date() : null,
-            fabrication_category: m.fabricationCategory ?? undefined,
+            fabrication_category: (m.fabricationCategory ?? 'ENGINEERED') as
+              'ENGINEERED' | 'NATURAL_HARD' | 'NATURAL_SOFT' | 'NATURAL_PREMIUM' | 'SINTERED',
             is_active: !m.isDiscontinued,
             requires_grain_match: m.requiresGrainMatch ?? false,
             updated_at: new Date(),
