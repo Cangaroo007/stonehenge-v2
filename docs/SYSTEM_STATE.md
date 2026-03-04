@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-04
-> **Last Updated By:** claude/per-edge-strip-widths-COpEr — SW-1: Per-edge strip width overrides (schema + API + optimizer)
+> **Last Updated By:** claude/per-edge-strip-width-ui-7jcgJ — SW-2: Per-edge strip width UI (Parts List + Piece Editor)
 
 ---
 
@@ -911,6 +911,16 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 |--------|-----------------|--------------------|-----------------------|----------------|
 | STANDARD | 108 | 60 | 40 | 8 |
 | WIDE | 348 | 300 | 40 | 8 |
+
+### Strip Width Overrides (SW-1 + SW-2)
+- Schema: `quote_pieces.strip_width_overrides Json?` — `Record<string, number>` keyed by edgeTypeName
+- Defaults: 60mm standard, 40mm mitre (hardcoded — strip_configurations table currently empty)
+- Optimizer: `getStripWidthForEdge()` checks pieceOverrides[edgeTypeName] first, then falls back to defaults
+- UI (Parts List): width pill on every strip row, inline editable, amber when overridden, ↺ reset
+- UI (Piece Editor): per-edge table with individual save/reset, "Apply to all 40mm pieces" button
+- Re-optimise: triggered via optimiserRefreshKey increment after any strip width PATCH
+- Old field `strip_width_override_mm` and all `stripWidthOverrideMm` references fully removed
+- PATCH route already wired: accepts `stripWidthOverrides` in body, double-casts to Prisma JSON
 
 ### Helper Functions
 - `getSlabSize(materialCategory)` — maps material category name to slab size
