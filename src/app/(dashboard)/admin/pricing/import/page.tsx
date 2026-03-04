@@ -17,6 +17,7 @@ import {
   Database,
   MessageSquare,
 } from 'lucide-react';
+import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { Proposal, ProposedMaterial, Uncertainty } from '@/lib/services/material-ingestor';
 
@@ -381,14 +382,30 @@ export default function ImportPage() {
               </option>
             ))}
           </select>
+          <Link href="/materials/suppliers" className="text-xs text-primary-600 hover:underline">
+            Supplier not listed? Add one first &rarr;
+          </Link>
         </div>
+
+        {/* Supplier required warning */}
+        {!selectedSupplierId && (
+          <div className="w-full max-w-sm rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+            Select a supplier before uploading a price list.
+          </div>
+        )}
 
         {/* Drop zone */}
         <div
-          onDragOver={(e) => e.preventDefault()}
-          onDrop={onDropFile}
-          onClick={() => fileInputRef.current?.click()}
-          className="w-full max-w-sm cursor-pointer rounded-2xl border-2 border-dashed border-gray-300 bg-gray-50 p-10 text-center transition hover:border-primary-400 hover:bg-primary-50"
+          onDragOver={(e) => { e.preventDefault(); if (!selectedSupplierId) e.dataTransfer.dropEffect = 'none'; }}
+          onDrop={(e) => { if (!selectedSupplierId) { e.preventDefault(); return; } onDropFile(e); }}
+          onClick={() => { if (!selectedSupplierId) return; fileInputRef.current?.click(); }}
+          className={cn(
+            'w-full max-w-sm rounded-2xl border-2 border-dashed p-10 text-center transition',
+            selectedSupplierId
+              ? 'cursor-pointer border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-primary-50'
+              : 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-100'
+          )}
         >
           <Upload className="mx-auto h-8 w-8 text-gray-400 mb-3" />
           <p className="text-sm font-medium text-gray-700">Click or drag & drop a PDF</p>
