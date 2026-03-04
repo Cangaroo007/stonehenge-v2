@@ -193,17 +193,72 @@ export default function ImportPage() {
         method: 'POST',
         body: fd,
       });
-      const data = await safeJson(res);
 
-      if (!res.ok) throw new Error((data.error as string) ?? 'Parse failed');
+      // Handle non-streaming error responses (auth failures, validation errors)
+      // These return JSON directly with a non-event-stream content type.
+      const ct = res.headers.get('content-type') ?? '';
+      if (!ct.includes('text/event-stream')) {
+        // Fell through to a fast-path JSON error response
+        const data = await res.json() as { error?: string };
+        throw new Error(data.error ?? `Server error (HTTP ${res.status})`);
+      }
 
-      setProposal(data as unknown as Proposal);
-      setPhase('staging');
+      if (!res.body) throw new Error('No response body from server');
 
-      const critCount = (data as unknown as Proposal).uncertainties.filter(
-        (u: Uncertainty) => u.severity === 'critical',
-      ).length;
-      if (critCount > 0) setDrawerOpen(true);
+      // Read the SSE stream until we get a 'result' or 'error' event
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+
+        // SSE events are separated by double newlines
+        const events = buffer.split('\n\n');
+        // Keep the last incomplete chunk in the buffer
+        buffer = events.pop() ?? '';
+
+        for (const eventBlock of events) {
+          if (!eventBlock.trim()) continue;
+
+          const lines = eventBlock.split('\n');
+          const eventType = lines.find(l => l.startsWith('event:'))?.slice(7).trim();
+          const dataLine = lines.find(l => l.startsWith('data:'))?.slice(5).trim();
+
+          if (!eventType || !dataLine) continue;
+
+          if (eventType === 'heartbeat') {
+            // Keep-alive ping — ignore, spinner is already showing
+            continue;
+          }
+
+          if (eventType === 'error') {
+            const { error } = JSON.parse(dataLine) as { error: string };
+            throw new Error(error ?? 'Failed to parse price list');
+          }
+
+          if (eventType === 'result') {
+            const proposal = JSON.parse(dataLine) as Proposal;
+            setProposal(proposal);
+            setPhase('staging');
+
+            const critCount = proposal.uncertainties.filter(
+              (u: Uncertainty) => u.severity === 'critical',
+            ).length;
+            if (critCount > 0) setDrawerOpen(true);
+
+            reader.cancel(); // Clean up the stream
+            return;
+          }
+        }
+      }
+
+      // If we exit the loop without a result, something went wrong
+      throw new Error('Connection closed before result was received');
+
     } catch (err) {
       setPhase('upload');
       showToast(err instanceof Error ? err.message : 'Failed to parse price list', 'error');
@@ -355,7 +410,7 @@ export default function ImportPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="h-10 w-10 rounded-full border-4 border-primary-200 border-t-primary-600 animate-spin" />
         <p className="text-sm font-medium text-gray-600">AI is reading your price list…</p>
-        <p className="text-xs text-gray-400">This usually takes 15–30 seconds</p>
+        <p className="text-xs text-gray-400">This can take up to 90 seconds for large price lists</p>
       </div>
     );
   }
