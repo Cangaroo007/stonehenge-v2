@@ -553,7 +553,7 @@ export async function POST(
     // ── Single-material optimisation path (existing, backward compatible) ──
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
     const result = await optimizeSlabs({
-      pieces,
+      pieces: validPieces,
       slabWidth,
       slabHeight,
       kerfWidth,
