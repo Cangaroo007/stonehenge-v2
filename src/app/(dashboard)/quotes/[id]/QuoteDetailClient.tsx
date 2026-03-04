@@ -109,6 +109,7 @@ interface QuotePiece {
   shapeConfig: Record<string, unknown> | null;
   requiresGrainMatch: boolean;
   noStripEdges?: string[];
+  stripWidthOverrides?: Record<string, number> | null;
   cutouts: PieceCutout[];
   sortOrder: number;
   totalCost: number;
@@ -3296,6 +3297,7 @@ export default function QuoteDetailClient({
               cutouts: p.cutouts || [],
               quote_rooms: p.quote_rooms,
               shapeConfig: p.shapeConfig ?? null,
+              stripWidthOverrides: p.stripWidthOverrides ?? null,
             }}
             editData={inlineEditData}
             onSavePiece={handleInlineSavePiece}
@@ -3312,6 +3314,7 @@ export default function QuoteDetailClient({
             allPiecesForRelationships={allPiecesForRelationships}
             quoteIdStr={quoteIdStr}
             onRelationshipChange={fetchRelationships}
+            onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
@@ -3520,6 +3523,8 @@ export default function QuoteDetailClient({
                 roomSuggestions={roomSuggestions}
                 grainMatchingSurchargePercent={serverData.grainMatchingSurchargePercent}
                 onMaterialCreated={fetchMaterials}
+                quoteId={quoteIdStr}
+                onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
               />
             </div>
           )}
@@ -3780,6 +3785,7 @@ export default function QuoteDetailClient({
               childPieceId: r.childPieceId,
               relationshipType: r.relationshipType,
             }))}
+            onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
           />
         )}
 

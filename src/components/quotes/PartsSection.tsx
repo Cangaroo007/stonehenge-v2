@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { Placement, LaminationSummary } from '@/types/slab-optimization';
 import { formatCurrency } from '@/lib/utils';
@@ -57,6 +57,7 @@ interface Part {
   note?: string;
   isCutout?: boolean;
   stripPosition?: string;
+  parentPieceId?: number;
 }
 
 interface OptimizerData {
@@ -80,6 +81,8 @@ interface PartsSectionProps {
     childPieceId: string;
     relationshipType: string;
   }>;
+  /** Callback after strip width is changed — parent should trigger re-optimise */
+  onStripWidthChange?: () => void;
 }
 
 // ─── Leg-to-Edge Maps (for grouping strips under parent legs) ────────────────
@@ -369,6 +372,7 @@ function derivePartsForPiece(
           thicknessMm: 20,
           slab: findSlabForStrip(piece.id, strip.position, placements, occurrenceIndex),
           stripPosition: strip.position,
+          parentPieceId: piece.id,
         });
       }
     } else {
@@ -397,6 +401,7 @@ function derivePartsForPiece(
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
             stripPosition: edgeKey,
+            parentPieceId: piece.id,
           });
         }
       } else {
@@ -420,6 +425,7 @@ function derivePartsForPiece(
             thicknessMm: 20,
             slab: findSlabForStrip(piece.id, edgeKey, placements),
             stripPosition: edgeKey,
+            parentPieceId: piece.id,
           });
         }
       }
@@ -505,6 +511,102 @@ function derivePartsForPiece(
   return parts;
 }
 
+// ─── Constants ──────────────────────────────────────────────────────────────
+
+const STRIP_WIDTH_DEFAULT = 60; // mm — standard/waterfall
+const STRIP_WIDTH_MITRE = 40;   // mm — mitre edges
+
+function getDefaultStripWidth(stripPosition: string): number {
+  const pos = stripPosition.toLowerCase();
+  if (pos.includes('mitre')) return STRIP_WIDTH_MITRE;
+  return STRIP_WIDTH_DEFAULT;
+}
+
+// ─── Strip Width Pill ───────────────────────────────────────────────────────
+
+function StripWidthPill({
+  stripPosition,
+  overrides,
+  onSave,
+  onReset,
+}: {
+  parentPieceId: number;
+  stripPosition: string;
+  currentWidthMm: number;
+  overrides: Record<string, number> | null | undefined;
+  onSave: (newWidthMm: number) => void;
+  onReset: () => void;
+}) {
+  const defaultWidth = getDefaultStripWidth(stripPosition);
+  const overrideValue = overrides?.[stripPosition];
+  const displayWidth = overrideValue ?? defaultWidth;
+  const isOverridden = overrideValue != null && overrideValue !== defaultWidth;
+
+  const [editing, setEditing] = useState(false);
+  const [inputValue, setInputValue] = useState(String(displayWidth));
+
+  // Sync when overrides change externally
+  useEffect(() => {
+    setInputValue(String(overrideValue ?? defaultWidth));
+  }, [overrideValue, defaultWidth]);
+
+  const handleSave = () => {
+    setEditing(false);
+    const parsed = parseInt(inputValue);
+    if (isNaN(parsed) || parsed <= 0) {
+      setInputValue(String(displayWidth));
+      return;
+    }
+    if (parsed !== displayWidth) {
+      onSave(parsed);
+    }
+  };
+
+  if (editing) {
+    return (
+      <input
+        type="number"
+        min="1"
+        autoFocus
+        value={inputValue}
+        onChange={(e) => setInputValue(e.target.value)}
+        onBlur={handleSave}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') handleSave();
+          if (e.key === 'Escape') { setEditing(false); setInputValue(String(displayWidth)); }
+        }}
+        onClick={(e) => e.stopPropagation()}
+        className="w-14 px-1 py-0.5 text-[10px] border border-blue-400 rounded text-center focus:ring-1 focus:ring-blue-500 focus:outline-none"
+      />
+    );
+  }
+
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      <button
+        onClick={(e) => { e.stopPropagation(); setEditing(true); }}
+        className={`px-1.5 py-0.5 rounded text-[10px] font-medium cursor-pointer transition-colors ${
+          isOverridden
+            ? 'bg-amber-100 text-amber-700 hover:bg-amber-200'
+            : 'bg-gray-100 text-gray-500 hover:bg-gray-200'
+        }`}
+        title={`Strip width: ${displayWidth}mm (click to edit)`}
+      >
+        w{displayWidth}
+      </button>
+      {isOverridden && (
+        <button
+          onClick={(e) => { e.stopPropagation(); onReset(); }}
+          className="text-amber-500 hover:text-amber-700 text-[10px] leading-none"
+          title="Reset to default"
+        >
+          ↺
+        </button>
+      )}
+    </span>
+  );
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function PartsSection({
@@ -513,6 +615,7 @@ export default function PartsSection({
   calcBreakdown,
   optimiserRefreshKey = 0,
   externalRelationships,
+  onStripWidthChange,
 }: PartsSectionProps) {
   const [expandedRooms, setExpandedRooms] = useState<Set<number>>(new Set());
   const [optimizerResult, setOptimizerResult] = useState<OptimizerData | null>(null);
@@ -583,6 +686,60 @@ export default function PartsSection({
       return next;
     });
   };
+
+  // ── Strip width overrides cache ─────────────────────────────────────────
+  // Tracks per-piece overrides locally so pills render correctly before re-fetch
+  const [pieceOverrides, setPieceOverrides] = useState<Record<number, Record<string, number> | null>>({});
+
+  // Fetch current strip width overrides for all pieces on mount / refresh
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchOverrides() {
+      try {
+        const res = await fetch(`/api/quotes/${quoteId}/pieces`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const map: Record<number, Record<string, number> | null> = {};
+          for (const p of data) {
+            map[p.id] = p.stripWidthOverrides ?? null;
+          }
+          setPieceOverrides(map);
+        }
+      } catch { /* non-critical */ }
+    }
+    fetchOverrides();
+    return () => { cancelled = true; };
+  }, [quoteId, optimiserRefreshKey]);
+
+  const patchStripWidth = useCallback(async (
+    parentPieceId: number,
+    stripPosition: string,
+    newWidthMm: number | null, // null = reset
+  ) => {
+    const existing = pieceOverrides[parentPieceId] ?? {};
+    let updated: Record<string, number> | null;
+    if (newWidthMm === null) {
+      const { [stripPosition]: _, ...rest } = existing;
+      updated = Object.keys(rest).length ? rest : null;
+    } else {
+      updated = { ...existing, [stripPosition]: newWidthMm };
+    }
+    // Optimistic update
+    setPieceOverrides(prev => ({ ...prev, [parentPieceId]: updated }));
+
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces/${parentPieceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripWidthOverrides: updated }),
+      });
+      if (!res.ok) throw new Error('PATCH failed');
+      onStripWidthChange?.();
+    } catch {
+      // Revert on failure
+      setPieceOverrides(prev => ({ ...prev, [parentPieceId]: existing }));
+    }
+  }, [quoteId, pieceOverrides, onStripWidthChange]);
 
   return (
     <div className="card overflow-hidden">
@@ -691,7 +848,21 @@ export default function PartsSection({
                                 {part.isCutout
                                   ? '—'
                                   : part.type === 'LAMINATION_STRIP'
-                                    ? `${Math.max(part.lengthMm, part.widthMm)}mm × ${Math.min(part.lengthMm, part.widthMm)}mm × ${part.thicknessMm}mm`
+                                    ? (
+                                      <span className="inline-flex items-center gap-1.5">
+                                        <span>{Math.max(part.lengthMm, part.widthMm)}mm × {Math.min(part.lengthMm, part.widthMm)}mm × {part.thicknessMm}mm</span>
+                                        {part.parentPieceId != null && part.stripPosition && (
+                                          <StripWidthPill
+                                            parentPieceId={part.parentPieceId}
+                                            stripPosition={part.stripPosition}
+                                            currentWidthMm={Math.min(part.lengthMm, part.widthMm)}
+                                            overrides={pieceOverrides[part.parentPieceId]}
+                                            onSave={(val) => patchStripWidth(part.parentPieceId!, part.stripPosition!, val)}
+                                            onReset={() => patchStripWidth(part.parentPieceId!, part.stripPosition!, null)}
+                                          />
+                                        )}
+                                      </span>
+                                    )
                                     : `${part.lengthMm}mm × ${part.widthMm}mm × ${part.thicknessMm}mm`}
                               </td>
                               <td className="py-2 pr-3 text-xs text-gray-600">

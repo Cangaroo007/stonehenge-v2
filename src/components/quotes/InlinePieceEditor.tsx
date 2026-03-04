@@ -60,7 +60,7 @@ export interface InlinePieceData {
   quote_rooms: { id: number; name: string };
   shapeConfig?: Record<string, unknown> | null;
   overrideMaterialCost?: number | null;
-  stripWidthOverrideMm?: number | null;
+  stripWidthOverrides?: Record<string, number> | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -84,6 +84,10 @@ export interface InlinePieceEditorProps {
   grainMatchingSurchargePercent?: number;
   /** Called after a new material is created via the quick-add modal */
   onMaterialCreated?: () => void;
+  /** Quote ID needed for strip width PATCH calls */
+  quoteId?: number | string;
+  /** Callback after strip width override changes — parent triggers re-optimise */
+  onStripWidthChange?: () => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -184,6 +188,221 @@ function generateShapeName(shapeType: ShapeType, room: string): string {
   }
 }
 
+// ── Strip Width Constants ────────────────────────────────────────────────────
+
+const STRIP_WIDTH_DEFAULT = 60; // mm — standard/waterfall
+const STRIP_WIDTH_MITRE = 40;   // mm — mitre edges
+
+function getDefaultStripWidthForEdge(edgeName: string): number {
+  if (edgeName.toLowerCase().includes('mitre')) return STRIP_WIDTH_MITRE;
+  return STRIP_WIDTH_DEFAULT;
+}
+
+/** Derive which edges produce strips based on shape type and edge selections */
+function getStripEdges(
+  shapeType: ShapeType,
+  edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null },
+): string[] {
+  if (shapeType === 'RECTANGLE') {
+    const edges: string[] = [];
+    if (edgeSelections.edgeTop) edges.push('top');
+    if (edgeSelections.edgeBottom) edges.push('bottom');
+    if (edgeSelections.edgeLeft) edges.push('left');
+    if (edgeSelections.edgeRight) edges.push('right');
+    return edges;
+  }
+  if (shapeType === 'L_SHAPE') {
+    // L-shape: 6 possible edges
+    return ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
+  }
+  if (shapeType === 'U_SHAPE') {
+    // U-shape: 8 possible edges
+    return ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
+  }
+  // For other shapes, only include edges that have an edge profile
+  const edges: string[] = [];
+  if (edgeSelections.edgeTop) edges.push('top');
+  if (edgeSelections.edgeBottom) edges.push('bottom');
+  if (edgeSelections.edgeLeft) edges.push('left');
+  if (edgeSelections.edgeRight) edges.push('right');
+  return edges;
+}
+
+function humaniseEdgeName(edge: string): string {
+  return edge.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Per-Edge Strip Width Table ──────────────────────────────────────────────
+
+function PerEdgeStripWidthTable({
+  piece,
+  edgeSelections,
+  shapeType,
+  stripWidthOverrides,
+  setStripWidthOverrides,
+  quoteId,
+  onStripWidthChange,
+}: {
+  piece: InlinePieceData;
+  edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
+  shapeType: ShapeType;
+  stripWidthOverrides: Record<string, number>;
+  setStripWidthOverrides: (v: Record<string, number>) => void;
+  quoteId?: number | string;
+  onStripWidthChange?: () => void;
+}) {
+  const edges = getStripEdges(shapeType, edgeSelections);
+  const [applyingAll, setApplyingAll] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
+
+  if (edges.length === 0) return null;
+
+  const handleEdgeSave = async (edge: string, value: string) => {
+    const parsed = parseInt(value);
+    if (isNaN(parsed) || parsed <= 0) return;
+
+    const defaultWidth = getDefaultStripWidthForEdge(edge);
+    let updated: Record<string, number>;
+    if (parsed === defaultWidth) {
+      // Remove override if value matches default
+      const { [edge]: _, ...rest } = stripWidthOverrides;
+      updated = rest;
+    } else {
+      updated = { ...stripWidthOverrides, [edge]: parsed };
+    }
+    setStripWidthOverrides(updated);
+
+    if (quoteId && piece.id) {
+      try {
+        const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripWidthOverrides: Object.keys(updated).length > 0 ? updated : null }),
+        });
+        if (res.ok) onStripWidthChange?.();
+      } catch { /* non-critical */ }
+    }
+  };
+
+  const handleReset = async (edge: string) => {
+    const { [edge]: _, ...rest } = stripWidthOverrides;
+    setStripWidthOverrides(rest);
+
+    if (quoteId && piece.id) {
+      try {
+        const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripWidthOverrides: Object.keys(rest).length > 0 ? rest : null }),
+        });
+        if (res.ok) onStripWidthChange?.();
+      } catch { /* non-critical */ }
+    }
+  };
+
+  const handleApplyToAll = async () => {
+    if (!quoteId) return;
+    setApplyingAll(true);
+    setApplyMessage(null);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces`);
+      if (!res.ok) throw new Error('Failed to fetch pieces');
+      const allPieces: Array<{ id: number; thicknessMm: number }> = await res.json();
+      const targets = allPieces.filter(p => p.thicknessMm >= 40 && p.id !== piece.id);
+      const overridePayload = Object.keys(stripWidthOverrides).length > 0 ? stripWidthOverrides : null;
+
+      // Sequential PATCHes to avoid rate limiting
+      for (const target of targets) {
+        await fetch(`/api/quotes/${quoteId}/pieces/${target.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripWidthOverrides: overridePayload }),
+        });
+      }
+
+      // Single re-optimise after all PATCHes
+      onStripWidthChange?.();
+      setApplyMessage(`Applied strip widths to ${targets.length} piece${targets.length !== 1 ? 's' : ''}`);
+      setTimeout(() => setApplyMessage(null), 4000);
+    } catch {
+      setApplyMessage('Failed to apply strip widths');
+      setTimeout(() => setApplyMessage(null), 4000);
+    } finally {
+      setApplyingAll(false);
+    }
+  };
+
+  return (
+    <div className="mt-3">
+      <label className="block text-xs font-medium text-gray-600 mb-1.5">
+        Strip Widths
+        <span className="ml-1 text-gray-400 font-normal">(per edge — overrides tenant defaults)</span>
+      </label>
+      <table className="w-full text-xs border border-gray-200 rounded-lg overflow-hidden">
+        <thead>
+          <tr className="bg-gray-50 text-gray-500 uppercase tracking-wider">
+            <th className="text-left py-1.5 px-2 font-medium">Edge</th>
+            <th className="text-left py-1.5 px-2 font-medium">Width (mm)</th>
+            <th className="text-left py-1.5 px-2 font-medium w-12">Action</th>
+          </tr>
+        </thead>
+        <tbody>
+          {edges.map((edge) => {
+            const defaultWidth = getDefaultStripWidthForEdge(edge);
+            const overrideValue = stripWidthOverrides[edge];
+            const displayValue = overrideValue ?? defaultWidth;
+            const isOverridden = overrideValue != null && overrideValue !== defaultWidth;
+
+            return (
+              <tr key={edge} className="border-t border-gray-100">
+                <td className="py-1.5 px-2 text-gray-700">{humaniseEdgeName(edge)}</td>
+                <td className="py-1 px-2">
+                  <input
+                    type="number"
+                    min="1"
+                    defaultValue={displayValue}
+                    onBlur={(e) => handleEdgeSave(edge, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`w-16 px-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${
+                      isOverridden
+                        ? 'border-amber-400 bg-amber-50 text-amber-700'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                </td>
+                <td className="py-1 px-2">
+                  {isOverridden && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleReset(edge); }}
+                      className="text-amber-500 hover:text-amber-700 text-sm"
+                      title="Reset to default"
+                    >
+                      ↺
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      {quoteId && (
+        <button
+          onClick={(e) => { e.stopPropagation(); handleApplyToAll(); }}
+          disabled={applyingAll}
+          className="mt-2 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 font-medium"
+        >
+          {applyingAll ? 'Applying...' : 'Apply to all 40mm pieces'}
+        </button>
+      )}
+      {applyMessage && (
+        <p className="text-xs text-green-600 mt-1">{applyMessage}</p>
+      )}
+    </div>
+  );
+}
+
 // ── Component ───────────────────────────────────────────────────────────────
 
 export default function InlinePieceEditor({
@@ -201,6 +420,8 @@ export default function InlinePieceEditor({
   roomSuggestions = [],
   grainMatchingSurchargePercent = 15,
   onMaterialCreated,
+  quoteId,
+  onStripWidthChange,
 }: InlinePieceEditorProps) {
   // ── Local form state ────────────────────────────────────────────────────
   const [pieceName, setPieceName] = useState(piece.name || '');
@@ -221,8 +442,8 @@ export default function InlinePieceEditor({
   const [overrideMaterialCost, setOverrideMaterialCost] = useState<string>(
     piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
   );
-  const [stripWidthOverrideMm, setStripWidthOverrideMm] = useState<string>(
-    piece.stripWidthOverrideMm != null ? String(piece.stripWidthOverrideMm) : ''
+  const [stripWidthOverrides, setStripWidthOverrides] = useState<Record<string, number>>(
+    (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
   );
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
@@ -304,8 +525,8 @@ export default function InlinePieceEditor({
     setOverrideMaterialCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
     );
-    setStripWidthOverrideMm(
-      piece.stripWidthOverrideMm != null ? String(piece.stripWidthOverrideMm) : ''
+    setStripWidthOverrides(
+      (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
     );
     setRoomName(piece.quote_rooms?.name || 'Kitchen');
     setEdgeSelections({
@@ -556,8 +777,8 @@ export default function InlinePieceEditor({
       overrideMaterialCost: overrideMaterialCost !== ''
         ? parseFloat(overrideMaterialCost)
         : null,
-      stripWidthOverrideMm: stripWidthOverrideMm !== ''
-        ? parseInt(stripWidthOverrideMm)
+      stripWidthOverrides: Object.keys(stripWidthOverrides).length > 0
+        ? stripWidthOverrides
         : null,
       cutouts,
     };
@@ -892,35 +1113,15 @@ export default function InlinePieceEditor({
               )}
             </div>
             {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
-              <div className="mt-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Strip Width Override
-                  <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="1"
-                    value={stripWidthOverrideMm}
-                    onChange={(e) => setStripWidthOverrideMm(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    placeholder="Leave blank to use default"
-                    className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                      stripWidthOverrideMm !== ''
-                        ? 'border-amber-400 bg-amber-50'
-                        : 'border-gray-300'
-                    }`}
-                  />
-                  {stripWidthOverrideMm !== '' && (
-                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
-                  )}
-                </div>
-                {stripWidthOverrideMm !== '' && (
-                  <p className="text-xs text-amber-600 mt-1">
-                    ⚠ Strip width overridden — admin default not used for this piece.
-                  </p>
-                )}
-              </div>
+              <PerEdgeStripWidthTable
+                piece={piece}
+                edgeSelections={edgeSelections}
+                shapeType={shapeType}
+                stripWidthOverrides={stripWidthOverrides}
+                setStripWidthOverrides={setStripWidthOverrides}
+                quoteId={quoteId}
+                onStripWidthChange={onStripWidthChange}
+              />
             )}
           </div>
         </div>
@@ -1027,35 +1228,15 @@ export default function InlinePieceEditor({
                 )}
               </div>
               {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Strip Width Override
-                    <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      value={stripWidthOverrideMm}
-                      onChange={(e) => setStripWidthOverrideMm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Leave blank to use default"
-                      className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                        stripWidthOverrideMm !== ''
-                          ? 'border-amber-400 bg-amber-50'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    {stripWidthOverrideMm !== '' && (
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
-                    )}
-                  </div>
-                  {stripWidthOverrideMm !== '' && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      ⚠ Strip width overridden — admin default not used for this piece.
-                    </p>
-                  )}
-                </div>
+                <PerEdgeStripWidthTable
+                  piece={piece}
+                  edgeSelections={edgeSelections}
+                  shapeType={shapeType}
+                  stripWidthOverrides={stripWidthOverrides}
+                  setStripWidthOverrides={setStripWidthOverrides}
+                  quoteId={quoteId}
+                  onStripWidthChange={onStripWidthChange}
+                />
               )}
             </div>
           </div>
@@ -1175,35 +1356,15 @@ export default function InlinePieceEditor({
                 )}
               </div>
               {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Strip Width Override
-                    <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
-                  </label>
-                  <div className="relative">
-                    <input
-                      type="number"
-                      min="1"
-                      value={stripWidthOverrideMm}
-                      onChange={(e) => setStripWidthOverrideMm(e.target.value)}
-                      onClick={(e) => e.stopPropagation()}
-                      placeholder="Leave blank to use default"
-                      className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                        stripWidthOverrideMm !== ''
-                          ? 'border-amber-400 bg-amber-50'
-                          : 'border-gray-300'
-                      }`}
-                    />
-                    {stripWidthOverrideMm !== '' && (
-                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
-                    )}
-                  </div>
-                  {stripWidthOverrideMm !== '' && (
-                    <p className="text-xs text-amber-600 mt-1">
-                      ⚠ Strip width overridden — admin default not used for this piece.
-                    </p>
-                  )}
-                </div>
+                <PerEdgeStripWidthTable
+                  piece={piece}
+                  edgeSelections={edgeSelections}
+                  shapeType={shapeType}
+                  stripWidthOverrides={stripWidthOverrides}
+                  setStripWidthOverrides={setStripWidthOverrides}
+                  quoteId={quoteId}
+                  onStripWidthChange={onStripWidthChange}
+                />
               )}
             </div>
           </div>

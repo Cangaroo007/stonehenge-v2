@@ -168,6 +168,8 @@ interface PieceRowProps {
     sourceSide: string,
     sourceRoomId: number
   ) => void;
+  /** Callback after strip width override changes — triggers re-optimise */
+  onStripWidthChange?: () => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -840,6 +842,7 @@ export default function PieceRow({
   allPiecesForRelationships,
   quoteIdStr,
   onRelationshipChange,
+  onStripWidthChange,
 }: PieceRowProps) {
   const [l1Expanded, setL1Expanded] = useState(false);
   const [showGrainWarning, setShowGrainWarning] = useState(false);
@@ -1059,6 +1062,8 @@ export default function PieceRow({
             saving={savingPiece}
             pieceSuggestions={editData.pieceSuggestions}
             roomSuggestions={editData.roomSuggestions}
+            quoteId={quoteIdStr}
+            onStripWidthChange={onStripWidthChange}
           />
         </div>
       )}

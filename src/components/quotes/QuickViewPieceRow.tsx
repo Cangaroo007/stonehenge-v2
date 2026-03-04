@@ -141,6 +141,178 @@ export interface QuickViewPieceRowProps {
     sourceSide: string,
     sourceRoomId: number
   ) => void;
+  /** Callback after strip width override changes — triggers re-optimise */
+  onStripWidthChange?: () => void;
+}
+
+// ── Strip Width Constants ───────────────────────────────────────────────────
+
+const STRIP_WIDTH_DEFAULT = 60;
+const STRIP_WIDTH_MITRE = 40;
+
+function getDefaultStripWidthForEdge(edgeName: string): number {
+  if (edgeName.toLowerCase().includes('mitre')) return STRIP_WIDTH_MITRE;
+  return STRIP_WIDTH_DEFAULT;
+}
+
+function humaniseEdgeName(edge: string): string {
+  return edge.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+// ── Accordion Strip Width Table ─────────────────────────────────────────────
+
+function AccordionStripWidths({
+  piece,
+  quoteId,
+  edgeSelections,
+  shapeType,
+  onStripWidthChange,
+}: {
+  piece: InlinePieceData;
+  quoteId: string;
+  edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
+  shapeType: 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE';
+  onStripWidthChange?: () => void;
+}) {
+  // Derive which edges generate strips
+  const edges: string[] = [];
+  if (shapeType === 'RECTANGLE') {
+    if (edgeSelections.edgeTop) edges.push('top');
+    if (edgeSelections.edgeBottom) edges.push('bottom');
+    if (edgeSelections.edgeLeft) edges.push('left');
+    if (edgeSelections.edgeRight) edges.push('right');
+  } else if (shapeType === 'L_SHAPE') {
+    edges.push('top', 'left', 'r_top', 'inner', 'r_btm', 'bottom');
+  } else if (shapeType === 'U_SHAPE') {
+    edges.push('top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right');
+  }
+
+  const [overrides, setOverrides] = useState<Record<string, number>>(
+    (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
+  );
+  const [applyingAll, setApplyingAll] = useState(false);
+  const [applyMessage, setApplyMessage] = useState<string | null>(null);
+
+  if (edges.length === 0) return null;
+
+  const patchOverrides = async (updated: Record<string, number>) => {
+    setOverrides(updated);
+    const payload = Object.keys(updated).length > 0 ? updated : null;
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stripWidthOverrides: payload }),
+      });
+      if (res.ok) onStripWidthChange?.();
+    } catch { /* non-critical */ }
+  };
+
+  const handleEdgeSave = (edge: string, value: string) => {
+    const parsed = parseInt(value);
+    if (isNaN(parsed) || parsed <= 0) return;
+    const defaultWidth = getDefaultStripWidthForEdge(edge);
+    if (parsed === defaultWidth) {
+      const { [edge]: _, ...rest } = overrides;
+      patchOverrides(rest);
+    } else {
+      patchOverrides({ ...overrides, [edge]: parsed });
+    }
+  };
+
+  const handleReset = (edge: string) => {
+    const { [edge]: _, ...rest } = overrides;
+    patchOverrides(rest);
+  };
+
+  const handleApplyToAll = async () => {
+    setApplyingAll(true);
+    setApplyMessage(null);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces`);
+      if (!res.ok) throw new Error('Failed to fetch pieces');
+      const allPieces: Array<{ id: number; thicknessMm: number }> = await res.json();
+      const targets = allPieces.filter(p => p.thicknessMm >= 40 && p.id !== piece.id);
+      const overridePayload = Object.keys(overrides).length > 0 ? overrides : null;
+      for (const target of targets) {
+        await fetch(`/api/quotes/${quoteId}/pieces/${target.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ stripWidthOverrides: overridePayload }),
+        });
+      }
+      onStripWidthChange?.();
+      setApplyMessage(`Applied strip widths to ${targets.length} piece${targets.length !== 1 ? 's' : ''}`);
+      setTimeout(() => setApplyMessage(null), 4000);
+    } catch {
+      setApplyMessage('Failed to apply strip widths');
+      setTimeout(() => setApplyMessage(null), 4000);
+    } finally {
+      setApplyingAll(false);
+    }
+  };
+
+  return (
+    <div className="px-4 pb-3 pt-3 border-b border-gray-100">
+      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Strip Widths</p>
+      <table className="w-full text-xs border border-gray-200 rounded overflow-hidden">
+        <thead>
+          <tr className="bg-gray-50 text-gray-500 uppercase tracking-wider text-[10px]">
+            <th className="text-left py-1 px-2 font-medium">Edge</th>
+            <th className="text-left py-1 px-2 font-medium">Width (mm)</th>
+            <th className="text-left py-1 px-2 font-medium w-10"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {edges.map((edge) => {
+            const defaultWidth = getDefaultStripWidthForEdge(edge);
+            const overrideValue = overrides[edge];
+            const displayValue = overrideValue ?? defaultWidth;
+            const isOverridden = overrideValue != null && overrideValue !== defaultWidth;
+            return (
+              <tr key={edge} className="border-t border-gray-100">
+                <td className="py-1 px-2 text-gray-700">{humaniseEdgeName(edge)}</td>
+                <td className="py-0.5 px-2">
+                  <input
+                    type="number"
+                    min="1"
+                    defaultValue={displayValue}
+                    onBlur={(e) => handleEdgeSave(edge, e.target.value)}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    onClick={(e) => e.stopPropagation()}
+                    className={`w-16 px-2 py-0.5 text-xs border rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500 ${
+                      isOverridden ? 'border-amber-400 bg-amber-50 text-amber-700' : 'border-gray-300'
+                    }`}
+                  />
+                </td>
+                <td className="py-0.5 px-2">
+                  {isOverridden && (
+                    <button
+                      onClick={(e) => { e.stopPropagation(); handleReset(edge); }}
+                      className="text-amber-500 hover:text-amber-700 text-sm"
+                      title="Reset to default"
+                    >
+                      ↺
+                    </button>
+                  )}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+      <button
+        onClick={(e) => { e.stopPropagation(); handleApplyToAll(); }}
+        disabled={applyingAll}
+        className="mt-1.5 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 font-medium"
+      >
+        {applyingAll ? 'Applying...' : 'Apply to all 40mm pieces'}
+      </button>
+      {applyMessage && (
+        <p className="text-xs text-green-600 mt-0.5">{applyMessage}</p>
+      )}
+    </div>
+  );
 }
 
 // ── Mini SVG Constants ──────────────────────────────────────────────────────
@@ -271,6 +443,7 @@ export default function QuickViewPieceRow({
   allPiecesForRelationships,
   quoteIdStr,
   onRelationshipChange,
+  onStripWidthChange,
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -1071,6 +1244,22 @@ export default function QuickViewPieceRow({
                 onRelationshipChange={onRelationshipChange}
               />
             </div>
+          )}
+
+          {/* Per-edge strip width overrides (edit mode, 40mm+ pieces only) */}
+          {mode === 'edit' && quoteIdStr && fullPiece && (fullPiece.thicknessMm >= 40) && (
+            <AccordionStripWidths
+              piece={fullPiece}
+              quoteId={quoteIdStr}
+              edgeSelections={{
+                edgeTop: fullPiece.edgeTop,
+                edgeBottom: fullPiece.edgeBottom,
+                edgeLeft: fullPiece.edgeLeft,
+                edgeRight: fullPiece.edgeRight,
+              }}
+              shapeType={(piece.shapeType ?? 'RECTANGLE') as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE'}
+              onStripWidthChange={onStripWidthChange}
+            />
           )}
 
           {/* Cost breakdown — fabrication first, then material, then installation */}
