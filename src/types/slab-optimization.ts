@@ -36,6 +36,8 @@ export interface Placement {
   // Machine/cutting info
   machineName?: string;
   kerfWidthMm?: number;
+  // Curved shape pricing — actual stone area (less than bounding box)
+  trueArea_m2?: number; // set for curved shapes, undefined for rectangles
 }
 
 export interface SlabResult {
