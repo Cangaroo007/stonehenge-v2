@@ -635,6 +635,10 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
 
   const stripConfigs = await loadStripConfigs(input.companyId);
 
+  // Exclude zero-dimension pieces before packing.
+  // These should be filtered upstream, but this is defence-in-depth.
+  const validPieces = pieces.filter(p => p.width > 0 && p.height > 0);
+
   // Usable dimensions after subtracting edge allowance from both sides
   const usableWidth = slabWidth - (edgeAllowanceMm * 2);
   const usableHeight = slabHeight - (edgeAllowanceMm * 2);
