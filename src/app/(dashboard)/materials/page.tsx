@@ -216,6 +216,8 @@ function MaterialsTab() {
                     <th className="table-header">Name</th>
                     <th className="table-header">Supplier</th>
                     <th className="table-header">Fabrication</th>
+                    <th className="table-header">Dimensions</th>
+                    <th className="table-header">Grain</th>
                     <th className="table-header">Cost / Slab</th>
                     <th className="table-header">Customer Price / m&sup2;</th>
                     <th className="table-header">Status</th>
@@ -247,6 +249,16 @@ function MaterialsTab() {
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700">
                           {FABRICATION_CATEGORY_LABELS[material.fabrication_category] || material.fabrication_category}
                         </span>
+                      </td>
+                      <td className="table-cell text-sm text-gray-600">
+                        {material.slabLengthMm && material.slabWidthMm
+                          ? `${material.slabLengthMm} × ${material.slabWidthMm}mm`
+                          : <span className="text-gray-400">&mdash;</span>}
+                      </td>
+                      <td className="table-cell">
+                        {material.requires_grain_match
+                          ? <span className="text-xs font-medium text-amber-600">Grain</span>
+                          : <span className="text-gray-400">&mdash;</span>}
                       </td>
                       <td className="table-cell">
                         {material.price_per_slab
