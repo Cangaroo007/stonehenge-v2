@@ -563,6 +563,41 @@ export default function InlinePieceEditor({
       // Bounding box in existing fields for backward compat
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
+    } else if (shapeType === 'RADIUS_END') {
+      const config: RadiusEndConfig = {
+        shape: 'RADIUS_END',
+        length_mm: parseInt(radiusEndLength) || 0,
+        width_mm: parseInt(radiusEndWidth) || 0,
+        radius_mm: parseInt(radiusEndRadius) || 0,
+        curved_ends: radiusEndCurvedEnds,
+      };
+      payload.shapeType = 'RADIUS_END';
+      payload.shapeConfig = config;
+      payload.lengthMm = parseInt(radiusEndLength) || 0;
+      payload.widthMm = parseInt(radiusEndWidth) || 0;
+    } else if (shapeType === 'FULL_CIRCLE') {
+      const config: FullCircleConfig = {
+        shape: 'FULL_CIRCLE',
+        diameter_mm: parseInt(circleDiameter) || 0,
+      };
+      payload.shapeType = 'FULL_CIRCLE';
+      payload.shapeConfig = config;
+      // Bounding box for optimizer: diameter × diameter
+      payload.lengthMm = parseInt(circleDiameter) || 0;
+      payload.widthMm = parseInt(circleDiameter) || 0;
+    } else if (shapeType === 'CONCAVE_ARC') {
+      const config: ConcaveArcConfig = {
+        shape: 'CONCAVE_ARC',
+        inner_radius_mm: parseInt(arcInnerRadius) || 0,
+        depth_mm: parseInt(arcDepth) || 0,
+        sweep_deg: arcSweepDeg,
+        curved_ends: arcCurvedEnds,
+      };
+      payload.shapeType = 'CONCAVE_ARC';
+      payload.shapeConfig = config;
+      // Bounding box: use inner_radius_mm as both dimensions (conservative)
+      payload.lengthMm = parseInt(arcInnerRadius) * 2 || 0;
+      payload.widthMm = parseInt(arcDepth) || 0;
     }
 
     // Grain matching: only relevant for L/U shapes, always false for rectangles
