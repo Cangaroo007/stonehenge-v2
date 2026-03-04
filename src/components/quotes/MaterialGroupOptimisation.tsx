@@ -6,6 +6,13 @@ import { SlabCanvas } from '@/components/slab-optimizer/SlabCanvas';
 import { PIECE_COLORS } from '@/components/slab-optimizer/SlabResults';
 import { OversizePieceIndicator } from './OversizePieceIndicator';
 
+function getShapeWasteM2(placement: { width: number; height: number; trueArea_m2?: number }): number {
+  if (!placement.trueArea_m2) return 0;
+  const boundingM2 = (placement.width * placement.height) / 1_000_000;
+  const waste = boundingM2 - placement.trueArea_m2;
+  return waste > 0 ? waste : 0;
+}
+
 // ── Per-material section ─────────────────────────────────────────────────────
 
 interface MaterialGroupSectionProps {
@@ -94,6 +101,16 @@ function MaterialGroupSection({ group, defaultExpanded = false, pieceCutouts }: 
                 <span className="text-xs text-gray-500">
                   {slab.placements.length} pieces &middot; {slab.wastePercent.toFixed(1)}% waste
                 </span>
+                {(() => {
+                  const slabShapeWaste = slab.placements.reduce(
+                    (sum: number, p: any) => sum + getShapeWasteM2(p), 0
+                  );
+                  return slabShapeWaste > 0.001 ? (
+                    <span className="text-xs text-purple-600">
+                      + {slabShapeWaste.toFixed(3)} m² shape waste
+                    </span>
+                  ) : null;
+                })()}
               </div>
 
               <SlabCanvas
@@ -231,6 +248,17 @@ export function MultiMaterialOptimisationDisplay({
               Avg waste: {multiMaterialResult.overallWastePercentage.toFixed(1)}%
             </span>
           </div>
+          {(() => {
+            const totalShapeWaste = multiMaterialResult.materialGroups
+              .flatMap((g: any) => g.slabLayouts.flatMap((s: any) => s.placements))
+              .reduce((sum: number, p: any) => sum + getShapeWasteM2(p), 0);
+            return totalShapeWaste > 0.001 ? (
+              <div className="text-xs text-purple-600 mt-1 px-1">
+                Shape waste: {totalShapeWaste.toFixed(3)} m²
+                <span className="text-gray-400 ml-1">(unavoidable arc cutout)</span>
+              </div>
+            ) : null;
+          })()}
         </div>
       )}
 

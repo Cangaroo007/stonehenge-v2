@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-04
-> **Last Updated By:** claude/c5-curved-optimizer-8N0ck — C5: Curved shape bounding rect pre-processing in optimizer
+> **Last Updated By:** claude/curved-waste-reporting-G0Nrk — C9: Curved shape waste display in optimizer results
 
 ---
 
@@ -656,6 +656,12 @@ VersionDiffView, VersionHistoryTab
 #### QuoteDetailClient.tsx (PROMPT-11 updates)
 - `fullPiece` now includes `shapeConfig: p.shapeConfig ?? null` — prevents silent overwrite of L/U shape geometry on edge save
 - `handleShapeEdgeChange` already wired internally in QuickViewPieceRow and PieceRow via `onSavePiece` chain
+
+#### MaterialGroupOptimisation.tsx (C9 updates)
+- `getShapeWasteM2()` helper added — calculates bounding box area minus trueArea_m2 for curved shapes
+- Per-slab: purple "+ X.XXX m² shape waste" shown when shape waste > 0.001 m²
+- Group summary: total shape waste with "unavoidable arc cutout" note
+- Only fires when placement.trueArea_m2 is defined (curved shapes only — RADIUS_END, FULL_CIRCLE, CONCAVE_ARC)
 
 #### PieceVisualEditor.tsx (PROMPT-11 + PROMPT-12 updates)
 - Null guards at L-shape layout (~line 638): `if (!cfg.leg1 || !cfg.leg2) return null`
