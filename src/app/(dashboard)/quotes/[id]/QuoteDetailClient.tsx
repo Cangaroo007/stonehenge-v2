@@ -3519,6 +3519,7 @@ export default function QuoteDetailClient({
                 pieceSuggestions={pieceSuggestions}
                 roomSuggestions={roomSuggestions}
                 grainMatchingSurchargePercent={serverData.grainMatchingSurchargePercent}
+                onMaterialCreated={fetchMaterials}
               />
             </div>
           )}
