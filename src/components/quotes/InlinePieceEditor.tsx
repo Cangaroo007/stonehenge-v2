@@ -80,6 +80,8 @@ export interface InlinePieceEditorProps {
   roomSuggestions?: string[];
   /** Grain matching surcharge percentage from tenant config (e.g. 15 for 15%) */
   grainMatchingSurchargePercent?: number;
+  /** Called after a new material is created via the quick-add modal */
+  onMaterialCreated?: () => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -154,6 +156,7 @@ export default function InlinePieceEditor({
   pieceSuggestions = [],
   roomSuggestions = [],
   grainMatchingSurchargePercent = 15,
+  onMaterialCreated,
 }: InlinePieceEditorProps) {
   // ── Local form state ────────────────────────────────────────────────────
   const [pieceName, setPieceName] = useState(piece.name || '');
@@ -182,6 +185,19 @@ export default function InlinePieceEditor({
     Array.isArray(piece.cutouts) ? piece.cutouts : []
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // ── Quick-add material modal state ─────────────────────────────────────
+  const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
+  const [newMat, setNewMat] = useState({
+    name: '',
+    fabricationCategory: 'ENGINEERED',
+    slabLengthMm: '',
+    slabWidthMm: '',
+    pricePerSlab: '',
+    collection: '',
+  });
+  const [newMatSaving, setNewMatSaving] = useState(false);
+  const [newMatError, setNewMatError] = useState<string | null>(null);
 
   // ── Shape state (K2: L/U shape wizard) ─────────────────────────────────
   const [shapeType, setShapeType] = useState<ShapeType>('RECTANGLE');
@@ -385,6 +401,45 @@ export default function InlinePieceEditor({
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSaveNewMaterial = async () => {
+    if (!newMat.name.trim()) {
+      setNewMatError('Name is required');
+      return;
+    }
+    setNewMatSaving(true);
+    setNewMatError(null);
+    try {
+      const res = await fetch('/api/materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMat.name.trim(),
+          collection: newMat.collection.trim() || null,
+          fabricationCategory: newMat.fabricationCategory,
+          slabLengthMm: newMat.slabLengthMm ? parseInt(newMat.slabLengthMm) : null,
+          slabWidthMm: newMat.slabWidthMm ? parseInt(newMat.slabWidthMm) : null,
+          pricePerSlab: newMat.pricePerSlab ? parseFloat(newMat.pricePerSlab) : null,
+          pricePerSqm: 0,
+          isActive: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setNewMatError(err.error || 'Failed to create material');
+        return;
+      }
+      const created = await res.json();
+      setMaterialId(created.id);
+      setShowNewMaterialModal(false);
+      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '' });
+      onMaterialCreated?.();
+    } catch {
+      setNewMatError('Failed to create material');
+    } finally {
+      setNewMatSaving(false);
+    }
   };
 
   const handleSave = () => {
@@ -642,20 +697,30 @@ export default function InlinePieceEditor({
             <label className="block text-xs font-medium text-gray-600 mb-1">
               Material
             </label>
-            <select
-              value={materialId || ''}
-              onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-            >
-              <option value="">Select material (optional)</option>
-              {materials.map((material) => (
-                <option key={material.id} value={material.id}>
-                  {material.name}
-                  {material.collection ? ` - ${material.collection}` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center gap-1">
+              <select
+                value={materialId || ''}
+                onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)}
+                onClick={(e) => e.stopPropagation()}
+                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+              >
+                <option value="">Select material (optional)</option>
+                {materials.map((material) => (
+                  <option key={material.id} value={material.id}>
+                    {material.name}
+                    {material.collection ? ` - ${material.collection}` : ''}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }}
+                className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors"
+                title="Add new material"
+              >
+                + New
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -725,10 +790,13 @@ export default function InlinePieceEditor({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
-              <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                <option value="">Select material (optional)</option>
-                {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="">Select material (optional)</option>
+                  {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
+                </select>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
+              </div>
             </div>
           </div>
         </div>
@@ -811,10 +879,13 @@ export default function InlinePieceEditor({
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
-              <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
-                <option value="">Select material (optional)</option>
-                {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
-              </select>
+              <div className="flex items-center gap-1">
+                <select value={materialId || ''} onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)} onClick={(e) => e.stopPropagation()} className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500">
+                  <option value="">Select material (optional)</option>
+                  {materials.map((material) => (<option key={material.id} value={material.id}>{material.name}{material.collection ? ` - ${material.collection}` : ''}</option>))}
+                </select>
+                <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
+              </div>
             </div>
           </div>
         </div>
@@ -933,6 +1004,116 @@ export default function InlinePieceEditor({
           </button>
         </div>
       </div>
+
+      {/* Quick-add material modal */}
+      {showNewMaterialModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+          onClick={() => setShowNewMaterialModal(false)}
+        >
+          <div
+            className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <h3 className="text-base font-semibold text-gray-900 mb-4">New Material</h3>
+            <div className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">
+                  Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={newMat.name}
+                  onChange={(e) => setNewMat(p => ({ ...p, name: e.target.value }))}
+                  placeholder="e.g. Calacatta Gold"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                  autoFocus
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Collection</label>
+                <input
+                  type="text"
+                  value={newMat.collection}
+                  onChange={(e) => setNewMat(p => ({ ...p, collection: e.target.value }))}
+                  placeholder="e.g. Premium Range"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Fabrication Category</label>
+                <select
+                  value={newMat.fabricationCategory}
+                  onChange={(e) => setNewMat(p => ({ ...p, fabricationCategory: e.target.value }))}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                >
+                  <option value="ENGINEERED">Engineered Quartz</option>
+                  <option value="NATURAL_HARD">Natural Granite</option>
+                  <option value="NATURAL_SOFT">Natural Marble</option>
+                  <option value="NATURAL_PREMIUM">Natural Premium</option>
+                  <option value="SINTERED">Porcelain / Sintered</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Slab Length (mm)</label>
+                  <input
+                    type="number"
+                    value={newMat.slabLengthMm}
+                    onChange={(e) => setNewMat(p => ({ ...p, slabLengthMm: e.target.value }))}
+                    placeholder="3200"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 mb-1">Slab Width (mm)</label>
+                  <input
+                    type="number"
+                    value={newMat.slabWidthMm}
+                    onChange={(e) => setNewMat(p => ({ ...p, slabWidthMm: e.target.value }))}
+                    placeholder="1600"
+                    className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Cost per Slab (ex GST)</label>
+                <div className="relative">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={newMat.pricePerSlab}
+                    onChange={(e) => setNewMat(p => ({ ...p, pricePerSlab: e.target.value }))}
+                    placeholder="0.00"
+                    className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                  />
+                </div>
+              </div>
+              {newMatError && (
+                <p className="text-xs text-red-600">{newMatError}</p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 mt-5">
+              <button
+                type="button"
+                onClick={() => setShowNewMaterialModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveNewMaterial}
+                disabled={newMatSaving || !newMat.name.trim()}
+                className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {newMatSaving ? 'Saving...' : 'Save Material'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
