@@ -170,6 +170,9 @@ export async function GET(
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
+      overrideMaterialCost: piece.override_material_cost
+        ? Number(piece.override_material_cost)
+        : null,
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
@@ -245,6 +248,7 @@ export async function PATCH(
       cutouts,
       laminationMethod,
       requiresGrainMatch,
+      overrideMaterialCost,
       shapeConfig,
       noStripEdges,
     } = data;
@@ -379,6 +383,9 @@ export async function PATCH(
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
         requiresGrainMatch: requiresGrainMatch !== undefined ? requiresGrainMatch : currentPiece.requiresGrainMatch,
+        override_material_cost: overrideMaterialCost !== undefined
+          ? overrideMaterialCost
+          : undefined,
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // no_strip_edges: wall edges that don't need lamination strips
@@ -449,6 +456,9 @@ export async function PATCH(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
+      overrideMaterialCost: updatedPiece.override_material_cost
+        ? Number(updatedPiece.override_material_cost)
+        : null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
