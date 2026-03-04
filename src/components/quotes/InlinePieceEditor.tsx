@@ -5,7 +5,7 @@ import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/Cut
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
-import type { ShapeType, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -138,6 +138,9 @@ function generateShapeName(shapeType: ShapeType, room: string): string {
   switch (shapeType) {
     case 'L_SHAPE': return `L-Shaped ${roomLabel} Benchtop`;
     case 'U_SHAPE': return `U-Shaped ${roomLabel} Benchtop`;
+    case 'RADIUS_END': return `Radius End ${roomLabel} Benchtop`;
+    case 'FULL_CIRCLE': return `Circular ${roomLabel} Piece`;
+    case 'CONCAVE_ARC': return `Curved ${roomLabel} Benchtop`;
     default: return '';
   }
 }
@@ -323,8 +326,35 @@ export default function InlinePieceEditor({
       };
       return getShapeGeometry('U_SHAPE', config, 0, 0);
     }
+    if (shapeType === 'RADIUS_END') {
+      const config: RadiusEndConfig = {
+        shape: 'RADIUS_END',
+        length_mm: parseInt(radiusEndLength) || 0,
+        width_mm: parseInt(radiusEndWidth) || 0,
+        radius_mm: parseInt(radiusEndRadius) || 0,
+        curved_ends: radiusEndCurvedEnds,
+      };
+      return getShapeGeometry('RADIUS_END', config, 0, 0);
+    }
+    if (shapeType === 'FULL_CIRCLE') {
+      const config: FullCircleConfig = {
+        shape: 'FULL_CIRCLE',
+        diameter_mm: parseInt(circleDiameter) || 0,
+      };
+      return getShapeGeometry('FULL_CIRCLE', config, 0, 0);
+    }
+    if (shapeType === 'CONCAVE_ARC') {
+      const config: ConcaveArcConfig = {
+        shape: 'CONCAVE_ARC',
+        inner_radius_mm: parseInt(arcInnerRadius) || 0,
+        depth_mm: parseInt(arcDepth) || 0,
+        sweep_deg: arcSweepDeg,
+        curved_ends: arcCurvedEnds,
+      };
+      return getShapeGeometry('CONCAVE_ARC', config, 0, 0);
+    }
     return null;
-  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth]);
+  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth, radiusEndLength, radiusEndWidth, radiusEndRadius, radiusEndCurvedEnds, circleDiameter, arcInnerRadius, arcDepth, arcSweepDeg, arcCurvedEnds]);
 
   // Current shape config for SVG rendering (mirrors the save payload config)
   const currentShapeConfig = useMemo(() => {
