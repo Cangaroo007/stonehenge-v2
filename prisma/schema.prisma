@@ -968,6 +968,10 @@ enum ServiceType {
   TEMPLATING
   DELIVERY
   JOIN
+  CURVED_CUTTING
+  CURVED_POLISHING
+  RADIUS_SETUP
+  CURVED_MIN_LM
 }
 
 enum ServiceUnit {
