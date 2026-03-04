@@ -4,7 +4,10 @@ import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
 import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
-import type { ShapeType, ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import type {
+  ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
+  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig,
+} from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -26,7 +29,9 @@ export type EdgeSide = 'top' | 'right' | 'bottom' | 'left';
 export type ShapeEdgeSide =
   | EdgeSide
   | 'r_top' | 'r_btm' | 'inner'  // L-shape
-  | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner';  // U-shape
+  | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner'  // U-shape
+  | 'arc_end' | 'arc_body'  // RADIUS_END / FULL_CIRCLE
+  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer';  // CONCAVE_ARC
 type EdgeEditMode = 'select' | 'quickEdge';
 
 /** Edge segment definition for shape rendering */
@@ -641,6 +646,9 @@ export default function PieceVisualEditor({
   const effectiveShapeType: ShapeType = useMemo(() => {
     if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
     if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
+    if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
+    if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
+    if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
     return 'RECTANGLE';
   }, [shapeType, shapeConfig]);
 
@@ -827,6 +835,165 @@ export default function PieceVisualEditor({
           labelX: p7.x - lo, labelY: (p7.y + p0.y) / 2,
           lengthMm: ll, label: 'LEFT',
         },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    if (effectiveShapeType === 'RADIUS_END') {
+      const cfg = shapeConfig as RadiusEndConfig;
+      const W = cfg.length_mm ?? lengthMm;
+      const H = cfg.width_mm ?? widthMm;
+      const R = Math.min(cfg.radius_mm ?? H / 2, H / 2);
+      const bothEnds = cfg.curved_ends === 'BOTH';
+
+      const scale = Math.min(
+        (500 - SVG_PADDING * 2) / W,
+        (300 - SVG_PADDING * 2) / H
+      );
+      const sW = W * scale;
+      const sH = H * scale;
+      const sR = R * scale;
+      const ox = SVG_PADDING;
+      const oy = SVG_PADDING;
+      const svgW = sW + SVG_PADDING * 2;
+      const svgH = sH + SVG_PADDING * 2;
+
+      // Path: rectangle with arc on right end (and optionally left end)
+      let path: string;
+      if (bothEnds) {
+        path = [
+          `M ${ox + sR},${oy}`,
+          `L ${ox + sW - sR},${oy}`,
+          `A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}`,
+          `L ${ox + sR},${oy + sH}`,
+          `A ${sR},${sR} 0 0 1 ${ox + sR},${oy}`,
+          'Z',
+        ].join(' ');
+      } else {
+        path = [
+          `M ${ox},${oy}`,
+          `L ${ox + sW - sR},${oy}`,
+          `A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}`,
+          `L ${ox},${oy + sH}`,
+          'Z',
+        ].join(' ');
+      }
+
+      const arcLengthMm = Math.PI * R;
+      const edges: ShapeEdgeDef[] = [
+        { side: 'top', x1: ox, y1: oy, x2: ox + sW - sR, y2: oy,
+          labelX: ox + (sW - sR) / 2, labelY: oy - 12,
+          lengthMm: W - R, label: 'Top' },
+        { side: 'bottom', x1: ox, y1: oy + sH, x2: ox + sW - sR, y2: oy + sH,
+          labelX: ox + (sW - sR) / 2, labelY: oy + sH + 16,
+          lengthMm: W - R, label: 'Bottom' },
+        { side: 'left', x1: ox, y1: oy, x2: ox, y2: oy + sH,
+          labelX: ox - 16, labelY: oy + sH / 2,
+          lengthMm: H, label: 'Left' },
+        { side: 'arc_end', x1: ox + sW - sR, y1: oy, x2: ox + sW - sR, y2: oy + sH,
+          labelX: ox + sW + 8, labelY: oy + sH / 2,
+          lengthMm: arcLengthMm, label: 'Arc' },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    if (effectiveShapeType === 'FULL_CIRCLE') {
+      const cfg = shapeConfig as FullCircleConfig;
+      const D = cfg.diameter_mm ?? 900;
+      const R = D / 2;
+
+      const scale = (400 - SVG_PADDING * 2) / D;
+      const sR = R * scale;
+      const cx = SVG_PADDING + sR;
+      const cy = SVG_PADDING + sR;
+      const svgW = D * scale + SVG_PADDING * 2;
+      const svgH = D * scale + SVG_PADDING * 2;
+
+      // Two 180° arcs — SVG cannot render a full 360° arc in one command
+      const path = [
+        `M ${cx - sR},${cy}`,
+        `A ${sR},${sR} 0 1 1 ${cx + sR},${cy}`,
+        `A ${sR},${sR} 0 1 1 ${cx - sR},${cy}`,
+        'Z',
+      ].join(' ');
+
+      const edges: ShapeEdgeDef[] = [
+        { side: 'arc_body', x1: cx, y1: cy - sR, x2: cx, y2: cy + sR,
+          labelX: cx + sR + 12, labelY: cy,
+          lengthMm: Math.PI * D, label: 'Circumference' },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    if (effectiveShapeType === 'CONCAVE_ARC') {
+      const cfg = shapeConfig as ConcaveArcConfig;
+      const innerR = cfg.inner_radius_mm ?? 1200;
+      const depth = cfg.depth_mm ?? 600;
+      const sweepDeg = cfg.sweep_deg ?? 90;
+      const sweepRad = (sweepDeg * Math.PI) / 180;
+      const halfSweep = sweepRad / 2;
+      const outerR = innerR + depth;
+
+      // Chord width at outer radius
+      const chordW = 2 * outerR * Math.sin(halfSweep);
+      const chordH = outerR - outerR * Math.cos(halfSweep);
+
+      const scale = Math.min(
+        (500 - SVG_PADDING * 2) / chordW,
+        (400 - SVG_PADDING * 2) / chordH
+      );
+      const svgW = chordW * scale + SVG_PADDING * 2;
+      const svgH = chordH * scale + SVG_PADDING * 2;
+      const ox = SVG_PADDING;
+      const oy = SVG_PADDING;
+
+      const sInnerR = innerR * scale;
+      const sOuterR = outerR * scale;
+      const cx = svgW / 2;
+      const arcCY = oy + sOuterR; // arc centre below top of SVG
+
+      // Outer arc endpoints
+      const oxL = cx - sOuterR * Math.sin(halfSweep);
+      const oyL = arcCY - sOuterR * Math.cos(halfSweep);
+      const oxR = cx + sOuterR * Math.sin(halfSweep);
+      const oyR = arcCY - sOuterR * Math.cos(halfSweep);
+
+      // Inner arc endpoints
+      const ixL = cx - sInnerR * Math.sin(halfSweep);
+      const iyL = arcCY - sInnerR * Math.cos(halfSweep);
+      const ixR = cx + sInnerR * Math.sin(halfSweep);
+      const iyR = arcCY - sInnerR * Math.cos(halfSweep);
+
+      const largeArc = sweepDeg > 180 ? 1 : 0;
+
+      const path = [
+        `M ${oxL},${oyL}`,
+        `A ${sOuterR},${sOuterR} 0 ${largeArc} 1 ${oxR},${oyR}`,
+        `L ${ixR},${iyR}`,
+        `A ${sInnerR},${sInnerR} 0 ${largeArc} 0 ${ixL},${iyL}`,
+        'Z',
+      ].join(' ');
+
+      const innerArcLengthMm = innerR * sweepRad;
+      const outerArcLengthMm = outerR * sweepRad;
+      const sideHeightMm = depth;
+
+      const edges: ShapeEdgeDef[] = [
+        { side: 'arc_outer', x1: oxL, y1: oyL, x2: oxR, y2: oyR,
+          labelX: cx, labelY: oy - 12,
+          lengthMm: outerArcLengthMm, label: 'Outer arc' },
+        { side: 'arc_inner', x1: ixL, y1: iyL, x2: ixR, y2: iyR,
+          labelX: cx, labelY: arcCY - sInnerR + 12,
+          lengthMm: innerArcLengthMm, label: 'Inner arc' },
+        { side: 'arc_left', x1: oxL, y1: oyL, x2: ixL, y2: iyL,
+          labelX: oxL - 20, labelY: (oyL + iyL) / 2,
+          lengthMm: sideHeightMm, label: 'Left' },
+        { side: 'arc_right', x1: oxR, y1: oyR, x2: ixR, y2: iyR,
+          labelX: oxR + 8, labelY: (oyR + iyR) / 2,
+          lengthMm: sideHeightMm, label: 'Right' },
       ];
 
       return { path, edges, svgW, svgH };
