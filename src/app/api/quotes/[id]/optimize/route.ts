@@ -320,7 +320,7 @@ export async function POST(
       shape_config: unknown;
       requiresGrainMatch: boolean | null;
       no_strip_edges: unknown;
-      strip_width_override_mm: number | null;
+      strip_width_overrides: unknown;
       materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
     };
 
@@ -361,7 +361,7 @@ export async function POST(
         },
         shapeConfigEdges,
         noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
-        stripWidthOverrideMm: piece.strip_width_override_mm ?? null,
+        stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
         materialId: piece.material_id?.toString() ?? null,
         // Shape data for L/U decomposition in the optimizer
         shapeType: piece.shape_type ?? undefined,

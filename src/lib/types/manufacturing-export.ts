@@ -48,7 +48,7 @@ export interface ManufacturingPieceExport {
     lengthMm: number;
     type: 'MITRE' | 'STANDARD';
   }>;
-  stripWidthOverrideMm: number | null;
+  stripWidthOverrides: Record<string, number> | null;
 }
 
 export interface ManufacturingExport {

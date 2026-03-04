@@ -166,7 +166,7 @@ export async function generateManufacturingExport(
       const pieceStrips = buildLaminationStrips(
         piece.id.toString(),
         laminationSummary,
-        (piece as unknown as { strip_width_override_mm: number | null }).strip_width_override_mm
+        (piece as unknown as { strip_width_overrides: Record<string, number> | null }).strip_width_overrides
       );
 
       const exportPiece: ManufacturingPieceExport = {
@@ -238,7 +238,7 @@ export async function generateManufacturingExport(
               }
             : null,
         strips: pieceStrips,
-        stripWidthOverrideMm: (piece as unknown as { strip_width_override_mm: number | null }).strip_width_override_mm ?? null,
+        stripWidthOverrides: (piece as unknown as { strip_width_overrides: Record<string, number> | null }).strip_width_overrides ?? null,
       };
 
       pieces.push(exportPiece);
@@ -315,7 +315,7 @@ function parseCutouts(
 function buildLaminationStrips(
   pieceId: string,
   summary: LaminationSummary | null,
-  stripWidthOverrideMm?: number | null
+  stripWidthOverrides?: Record<string, number> | null
 ): ManufacturingPieceExport['strips'] {
   if (!summary?.stripsByParent) return [];
 
@@ -324,14 +324,21 @@ function buildLaminationStrips(
   );
   if (!parentEntry) return [];
 
-  return parentEntry.strips.map((s) => ({
-    // Strip width: per-piece override → optimizer resolved → default
-    widthMm: stripWidthOverrideMm
+  return parentEntry.strips.map((s) => {
+    // Per-edge override lookup: use strip's position (edge name) if available
+    const edgeOverride = stripWidthOverrides && s.position && stripWidthOverrides[s.position] != null
+      ? stripWidthOverrides[s.position]
+      : undefined;
+    // Strip width: per-edge override → optimizer resolved → default
+    const widthMm = edgeOverride
       ?? s.widthMm
-      ?? STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm,
-    lengthMm: s.lengthMm,
-    type: (stripWidthOverrideMm ?? s.widthMm) <= 40 ? ('MITRE' as const) : ('STANDARD' as const),
-  }));
+      ?? STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm;
+    return {
+      widthMm,
+      lengthMm: s.lengthMm,
+      type: widthMm <= 40 ? ('MITRE' as const) : ('STANDARD' as const),
+    };
+  });
 }
 
 /** Round a number to a given number of decimal places. */

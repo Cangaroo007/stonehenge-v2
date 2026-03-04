@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-04
-> **Last Updated By:** claude/curved-waste-reporting-G0Nrk — C9: Curved shape waste display in optimizer results
+> **Last Updated By:** claude/per-edge-strip-widths-COpEr — SW-1: Per-edge strip width overrides (schema + API + optimizer)
 
 ---
 
@@ -62,6 +62,7 @@
 | shape_type | String? | Default "RECTANGLE" — values: RECTANGLE, L_SHAPE, U_SHAPE |
 | shape_config | Json? | L/U shape dimensions and edges (see Shape System §6) |
 | no_strip_edges | Json? | Default "[]" — edge keys marked as wall edges (no lamination strip) |
+| strip_width_overrides | Json? | Per-edge strip width overrides: `{ top?: number, bottom?: number, left?: number, right?: number, ... }`. Replaces old `strip_width_override_mm Int?`. SW-1. |
 
 #### quotes
 | Field | Type | Notes |
@@ -546,7 +547,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 ### slab-optimizer.ts
 | Function | Line | Purpose |
 |----------|------|---------|
-| `getStripWidthForEdge` | 59 | Calculates lamination strip width for an edge type |
+| `getStripWidthForEdge` | 104 | Calculates lamination strip width for an edge type. Accepts `pieceOverrides?: Record<string, number>` — per-edge width overrides keyed by edgeTypeName (SW-1). |
 | `generateLaminationStrips` | 79 | Generates lamination strips for all 4 rectangle edges minus noStripEdges |
 | `preprocessOversizeStrips` | 202 | PROMPT-19c: Splits lamination strips exceeding usable slab width. Now accepts optional segmentWidthMap param. When parent piece is in map, strip cuts match parent segment widths exactly (e.g. 3160mm + 1781mm, not even split). Fallback to even split when no parent map entry. IDs use '-part-' (not '-seg-'). parentPieceId = original piece ID. Applied to both rectangle and L/U shape strips. |
 | `generateShapeStrips` | 186 | Generates strips for all L/U finishable edges minus noStripEdges |

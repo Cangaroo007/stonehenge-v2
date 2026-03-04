@@ -53,6 +53,7 @@
 | P1a | Default Arris on all new pieces. 3 piece creation paths (quotes/route.ts, pieces/route.ts, import-pieces/route.ts) now default all 4 edges to Arris (cmlar3etm0002znat72h7jnx0) when no edge is specified. Previously: null or inconsistent defaults. | claude/default-arris-new-pieces-KaHjI |
 | C5 | C5 complete — curved shape bounding rect pre-processing in slab-optimizer.ts. RADIUS_END, FULL_CIRCLE, CONCAVE_ARC pieces transformed to bounding rectangles before FFD sort via getOptimizerRects(). trueArea_m2 tracked on Placement for accurate material cost in C6. FFD algorithm unchanged. L/U decomposition unchanged. | claude/c5-curved-optimizer-8N0ck |
 | C9 | C9 complete — curved shape waste reporting. Per-slab and group summary shape waste display (purple) in MaterialGroupOptimisation.tsx. getShapeWasteM2() helper uses trueArea_m2 from C5. Only fires for curved shapes. | claude/curved-waste-reporting-G0Nrk |
+| SW-1 | Per-edge strip width override schema (strip_width_overrides Json?) + API + optimizer. Replaces single strip_width_override_mm Int? with per-edge JSON overrides. getStripWidthForEdge() looks up overrides[edgeTypeName]. All API routes, manufacturing export, and types updated. InlinePieceEditor UI update deferred to SW-2. | claude/per-edge-strip-widths-COpEr | Mar 4 |
 
 ---
 
@@ -86,6 +87,7 @@
 | P1a default Arris on new pieces | claude/default-arris-new-pieces-KaHjI | Mar 3 | ✅ Complete |
 | C9 curved shape waste reporting | claude/curved-waste-reporting-G0Nrk | Mar 4 | ✅ Complete |
 | C5 curved shape optimizer integration | claude/c5-curved-optimizer-8N0ck | Mar 4 | ✅ Complete |
+| SW-1 per-edge strip width overrides | claude/per-edge-strip-widths-COpEr | Mar 4 | ✅ Complete |
 | C1 curved shape types | claude/add-curved-shape-types-rNjWw | Mar 2 | ✅ Complete |
 | PROMPT-26 enforce 200mm minimum segment length | claude/enforce-segment-length-Ci7r6 | Mar 2 | ✅ Complete |
 | PROMPT-25 fix Unknown parentLabel in generateLaminationSummary | claude/fix-lamination-summary-QIESa | Mar 2 | ✅ Complete |
