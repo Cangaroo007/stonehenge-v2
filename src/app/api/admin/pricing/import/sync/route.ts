@@ -39,7 +39,6 @@ export async function POST(request: NextRequest) {
     const body = await request.json() as {
       proposal: Proposal;
       supplierId: string;
-      fabricationCategory?: string;
     };
 
     if (!body.proposal || !body.supplierId) {
@@ -56,14 +55,6 @@ export async function POST(request: NextRequest) {
     if (!supplier) {
       return NextResponse.json({ error: 'Supplier not found' }, { status: 404 });
     }
-
-    const fabricationCategory =
-      (body.fabricationCategory as
-        | 'ENGINEERED'
-        | 'NATURAL_HARD'
-        | 'NATURAL_SOFT'
-        | 'NATURAL_PREMIUM'
-        | 'SINTERED') ?? 'ENGINEERED';
 
     const toProcess = body.proposal.extractedData.filter(
       (m): m is ProposedMaterial => m.action !== 'skip',
@@ -107,7 +98,7 @@ export async function POST(request: NextRequest) {
             slab_length_mm: m.slabLengthMm,
             slab_width_mm: m.slabWidthMm,
             is_discontinued: m.isDiscontinued,
-            fabrication_category: fabricationCategory,
+            fabrication_category: m.fabricationCategory ?? 'ENGINEERED',
             is_active: !m.isDiscontinued,
             requires_grain_match: m.requiresGrainMatch ?? false,
             updated_at: new Date(),
@@ -132,6 +123,7 @@ export async function POST(request: NextRequest) {
             slab_width_mm: m.slabWidthMm,
             is_discontinued: m.isDiscontinued,
             discontinued_at: m.isDiscontinued ? new Date() : null,
+            fabrication_category: m.fabricationCategory ?? undefined,
             is_active: !m.isDiscontinued,
             requires_grain_match: m.requiresGrainMatch ?? false,
             updated_at: new Date(),
