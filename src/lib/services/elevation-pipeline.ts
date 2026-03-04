@@ -16,10 +16,10 @@ import { optimizeSlabs } from './slab-optimizer';
  * 3. Run the slab optimizer
  * 4. Package results for pricing
  */
-export function runElevationPipeline(
+export async function runElevationPipeline(
   analysis: ElevationAnalysis,
   config: SlabFitConfig
-): SlabFitResult {
+): Promise<SlabFitResult> {
   // Step 1: Calculate deductions
   const deductions = calculateElevationDeductions(analysis);
 
@@ -31,7 +31,7 @@ export function runElevationPipeline(
   );
 
   // Step 3: Run the existing slab optimizer
-  const optimizerResult = optimizeSlabs(optimizerInput);
+  const optimizerResult = await optimizeSlabs(optimizerInput);
 
   // Step 4: Package result for pricing
   return {

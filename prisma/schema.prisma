@@ -544,6 +544,10 @@ model quote_pieces {
   joinLengthMm         Int?
   requiresGrainMatch   Boolean          @default(false)
   override_material_cost Decimal?       @db.Decimal(10, 2)
+  /// Per-piece strip width override in mm.
+  /// Overrides the tenant strip_configurations default for this piece.
+  /// Only applies to LAMINATED/MITRED pieces (thickness >= 40mm).
+  strip_width_override_mm Int?
   waterfall_height_mm  Int?
   shape_type           String?          @default("RECTANGLE")
   shape_config         Json?

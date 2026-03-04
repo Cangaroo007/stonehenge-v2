@@ -68,9 +68,9 @@ export interface MultiMaterialOptimizationInput {
  * Groups pieces by material and runs separate FFD optimisation per group.
  * Returns combined results with per-material slab counts and waste.
  */
-export function optimizeMultiMaterial(
+export async function optimizeMultiMaterial(
   input: MultiMaterialOptimizationInput
-): MultiMaterialOptimisationResult {
+): Promise<MultiMaterialOptimisationResult> {
   const {
     pieces,
     materials,
@@ -159,7 +159,7 @@ export function optimizeMultiMaterial(
     };
 
     // Run the existing FFD algorithm
-    const result = optimizeSlabs(optimInput);
+    const result = await optimizeSlabs(optimInput);
 
     // Detect oversize pieces from warnings
     const oversizePieces = detectOversizePieces(

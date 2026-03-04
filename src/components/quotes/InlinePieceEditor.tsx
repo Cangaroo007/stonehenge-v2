@@ -60,6 +60,7 @@ export interface InlinePieceData {
   quote_rooms: { id: number; name: string };
   shapeConfig?: Record<string, unknown> | null;
   overrideMaterialCost?: number | null;
+  stripWidthOverrideMm?: number | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -178,6 +179,9 @@ export default function InlinePieceEditor({
   const [overrideMaterialCost, setOverrideMaterialCost] = useState<string>(
     piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
   );
+  const [stripWidthOverrideMm, setStripWidthOverrideMm] = useState<string>(
+    piece.stripWidthOverrideMm != null ? String(piece.stripWidthOverrideMm) : ''
+  );
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
@@ -243,6 +247,9 @@ export default function InlinePieceEditor({
     setMaterialId(piece.materialId);
     setOverrideMaterialCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+    );
+    setStripWidthOverrideMm(
+      piece.stripWidthOverrideMm != null ? String(piece.stripWidthOverrideMm) : ''
     );
     setRoomName(piece.quote_rooms?.name || 'Kitchen');
     setEdgeSelections({
@@ -466,6 +473,9 @@ export default function InlinePieceEditor({
       overrideMaterialCost: overrideMaterialCost !== ''
         ? parseFloat(overrideMaterialCost)
         : null,
+      stripWidthOverrideMm: stripWidthOverrideMm !== ''
+        ? parseInt(stripWidthOverrideMm)
+        : null,
       cutouts,
     };
 
@@ -530,6 +540,7 @@ export default function InlinePieceEditor({
 
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
+  const laminationMethod: string = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
 
   // Dimension input helper — reused across shapes
   const dimInput = (
@@ -759,6 +770,37 @@ export default function InlinePieceEditor({
                 </p>
               )}
             </div>
+            {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Strip Width Override
+                  <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
+                </label>
+                <div className="relative">
+                  <input
+                    type="number"
+                    min="1"
+                    value={stripWidthOverrideMm}
+                    onChange={(e) => setStripWidthOverrideMm(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Leave blank to use default"
+                    className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                      stripWidthOverrideMm !== ''
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-gray-300'
+                    }`}
+                  />
+                  {stripWidthOverrideMm !== '' && (
+                    <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                  )}
+                </div>
+                {stripWidthOverrideMm !== '' && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    ⚠ Strip width overridden — admin default not used for this piece.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -863,6 +905,37 @@ export default function InlinePieceEditor({
                   </p>
                 )}
               </div>
+              {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Strip Width Override
+                    <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      value={stripWidthOverrideMm}
+                      onChange={(e) => setStripWidthOverrideMm(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Leave blank to use default"
+                      className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                        stripWidthOverrideMm !== ''
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-gray-300'
+                      }`}
+                    />
+                    {stripWidthOverrideMm !== '' && (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                    )}
+                  </div>
+                  {stripWidthOverrideMm !== '' && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠ Strip width overridden — admin default not used for this piece.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>
@@ -980,6 +1053,37 @@ export default function InlinePieceEditor({
                   </p>
                 )}
               </div>
+              {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Strip Width Override
+                    <span className="ml-1 text-gray-400 font-normal">(mm — overrides tenant default)</span>
+                  </label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      min="1"
+                      value={stripWidthOverrideMm}
+                      onChange={(e) => setStripWidthOverrideMm(e.target.value)}
+                      onClick={(e) => e.stopPropagation()}
+                      placeholder="Leave blank to use default"
+                      className={`w-full px-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
+                        stripWidthOverrideMm !== ''
+                          ? 'border-amber-400 bg-amber-50'
+                          : 'border-gray-300'
+                      }`}
+                    />
+                    {stripWidthOverrideMm !== '' && (
+                      <span className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-gray-400">mm</span>
+                    )}
+                  </div>
+                  {stripWidthOverrideMm !== '' && (
+                    <p className="text-xs text-amber-600 mt-1">
+                      ⚠ Strip width overridden — admin default not used for this piece.
+                    </p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         </div>

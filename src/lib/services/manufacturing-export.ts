@@ -9,6 +9,7 @@
  */
 
 import prisma from '@/lib/db';
+import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import type {
   ManufacturingExport,
   ManufacturingPieceExport,
@@ -164,7 +165,8 @@ export async function generateManufacturingExport(
       // Build lamination strips for this piece from optimisation data
       const pieceStrips = buildLaminationStrips(
         piece.id.toString(),
-        laminationSummary
+        laminationSummary,
+        (piece as unknown as { strip_width_override_mm: number | null }).strip_width_override_mm
       );
 
       const exportPiece: ManufacturingPieceExport = {
@@ -235,7 +237,8 @@ export async function generateManufacturingExport(
                 joinLengthMm: piece.joinLengthMm ?? 0,
               }
             : null,
-        laminationStrips: pieceStrips,
+        strips: pieceStrips,
+        stripWidthOverrideMm: (piece as unknown as { strip_width_override_mm: number | null }).strip_width_override_mm ?? null,
       };
 
       pieces.push(exportPiece);
@@ -311,8 +314,9 @@ function parseCutouts(
  */
 function buildLaminationStrips(
   pieceId: string,
-  summary: LaminationSummary | null
-): ManufacturingPieceExport['laminationStrips'] {
+  summary: LaminationSummary | null,
+  stripWidthOverrideMm?: number | null
+): ManufacturingPieceExport['strips'] {
   if (!summary?.stripsByParent) return [];
 
   const parentEntry = summary.stripsByParent.find(
@@ -321,9 +325,12 @@ function buildLaminationStrips(
   if (!parentEntry) return [];
 
   return parentEntry.strips.map((s) => ({
-    widthMm: s.widthMm,
+    // Strip width: per-piece override → optimizer resolved → default
+    widthMm: stripWidthOverrideMm
+      ?? s.widthMm
+      ?? STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm,
     lengthMm: s.lengthMm,
-    type: s.widthMm <= 40 ? ('MITRE' as const) : ('STANDARD' as const),
+    type: (stripWidthOverrideMm ?? s.widthMm) <= 40 ? ('MITRE' as const) : ('STANDARD' as const),
   }));
 }
 

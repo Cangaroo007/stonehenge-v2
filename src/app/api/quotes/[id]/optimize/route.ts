@@ -320,6 +320,7 @@ export async function POST(
       shape_config: unknown;
       requiresGrainMatch: boolean | null;
       no_strip_edges: unknown;
+      strip_width_override_mm: number | null;
       materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
     };
 
@@ -360,6 +361,7 @@ export async function POST(
         },
         shapeConfigEdges,
         noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
+        stripWidthOverrideMm: piece.strip_width_override_mm ?? null,
         materialId: piece.material_id?.toString() ?? null,
         // Shape data for L/U decomposition in the optimizer
         shapeType: piece.shape_type ?? undefined,
@@ -429,7 +431,7 @@ export async function POST(
         ? Array.from(materialRecords.entries()).find(([, mat]) => mat?.name === primaryMaterial.name)?.[0] ?? null
         : null;
 
-      const multiResult = optimizeMultiMaterial({
+      const multiResult = await optimizeMultiMaterial({
         pieces: multiMaterialPieces,
         materials: materialsInfo,
         primaryMaterialId,
@@ -550,7 +552,7 @@ export async function POST(
 
     // ── Single-material optimisation path (existing, backward compatible) ──
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
-    const result = optimizeSlabs({
+    const result = await optimizeSlabs({
       pieces,
       slabWidth,
       slabHeight,
@@ -558,6 +560,7 @@ export async function POST(
       allowRotation,
       edgeAllowanceMm,
       mitreKerfWidth: mitreKerf,
+      companyId: auth.user.companyId,
     });
 
     // Piece count validation at the API level

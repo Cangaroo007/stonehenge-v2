@@ -43,11 +43,12 @@ export interface ManufacturingPieceExport {
     joinCount: number;
     joinLengthMm: number;
   } | null;
-  laminationStrips: Array<{
+  strips: Array<{
     widthMm: number;
     lengthMm: number;
     type: 'MITRE' | 'STANDARD';
   }>;
+  stripWidthOverrideMm: number | null;
 }
 
 export interface ManufacturingExport {

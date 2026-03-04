@@ -227,7 +227,7 @@ export default function OptimizePage() {
   };
 
   // Run optimization
-  const runOptimization = () => {
+  const runOptimization = async () => {
     setError(null);
     setIsOptimizing(true);
     setMultiMaterialResult(null);
@@ -267,7 +267,7 @@ export default function OptimizePage() {
 
       if (hasMultipleMaterials && quoteMaterials.length > 0) {
         // Multi-material optimisation
-        const multiResult = optimizeMultiMaterial({
+        const multiResult = await optimizeMultiMaterial({
           pieces: validPieces,
           materials: quoteMaterials,
           kerfWidth: kerf,
@@ -299,7 +299,7 @@ export default function OptimizePage() {
           allowRotation,
         };
 
-        const optimizationResult = optimizeSlabs(input);
+        const optimizationResult = await optimizeSlabs(input);
         setResult(optimizationResult);
       }
     } catch (err) {
