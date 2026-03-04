@@ -131,6 +131,45 @@ function UShapeIcon({ selected }: { selected: boolean }) {
   );
 }
 
+function RadiusEndIcon({ selected }: { selected: boolean }) {
+  return (
+    <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
+      <path
+        d="M2 2 L20 2 Q30 2 30 10 Q30 18 20 18 L2 18 Z"
+        stroke={selected ? '#4f46e5' : '#9ca3af'}
+        strokeWidth="1.5"
+        fill={selected ? '#eef2ff' : 'none'}
+      />
+    </svg>
+  );
+}
+
+function FullCircleIcon({ selected }: { selected: boolean }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+      <circle
+        cx="12" cy="12" r="10"
+        stroke={selected ? '#4f46e5' : '#9ca3af'}
+        strokeWidth="1.5"
+        fill={selected ? '#eef2ff' : 'none'}
+      />
+    </svg>
+  );
+}
+
+function ConcaveArcIcon({ selected }: { selected: boolean }) {
+  return (
+    <svg width="32" height="24" viewBox="0 0 32 24" fill="none">
+      <path
+        d="M2 2 L30 2 L30 22 Q16 10 2 22 Z"
+        stroke={selected ? '#4f46e5' : '#9ca3af'}
+        strokeWidth="1.5"
+        fill={selected ? '#eef2ff' : 'none'}
+      />
+    </svg>
+  );
+}
+
 // ── Name generation helpers ──────────────────────────────────────────────────
 
 function generateShapeName(shapeType: ShapeType, room: string): string {
@@ -654,6 +693,9 @@ export default function InlinePieceEditor({
               { type: 'RECTANGLE' as ShapeType, label: 'Rectangle', Icon: RectangleIcon },
               { type: 'L_SHAPE' as ShapeType, label: 'L-Shape', Icon: LShapeIcon },
               { type: 'U_SHAPE' as ShapeType, label: 'U-Shape', Icon: UShapeIcon },
+              { type: 'RADIUS_END' as ShapeType, label: 'Radius End', Icon: RadiusEndIcon },
+              { type: 'FULL_CIRCLE' as ShapeType, label: 'Circle', Icon: FullCircleIcon },
+              { type: 'CONCAVE_ARC' as ShapeType, label: 'Curved Arc', Icon: ConcaveArcIcon },
             ]).map(({ type, label, Icon }) => (
               <button
                 key={type}
@@ -1165,6 +1207,141 @@ export default function InlinePieceEditor({
               )}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── RADIUS_END dimensions ──────────────────────────────────── */}
+      {shapeType === 'RADIUS_END' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            A rectangular piece with one or both short ends replaced by a curved arc.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Length (mm)</label>
+              <input type="number" min="1" value={radiusEndLength}
+                onChange={(e) => setRadiusEndLength(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Width (mm)</label>
+              <input type="number" min="1" value={radiusEndWidth}
+                onChange={(e) => setRadiusEndWidth(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Arc Radius (mm)</label>
+              <input type="number" min="1" value={radiusEndRadius}
+                onChange={(e) => setRadiusEndRadius(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              <p className="text-xs text-gray-400 mt-0.5">Usually = half the width</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Curved Ends</label>
+              <div className="flex gap-2 mt-1">
+                {(['ONE', 'BOTH'] as const).map((opt) => (
+                  <button key={opt} type="button"
+                    onClick={(e) => { e.stopPropagation(); setRadiusEndCurvedEnds(opt); }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                      radiusEndCurvedEnds === opt
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}>
+                    {opt === 'ONE' ? 'One End' : 'Both Ends'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+          {shapeGeometry && (
+            <p className="text-xs text-gray-500">
+              Area: <strong>{shapeGeometry.totalAreaSqm.toFixed(3)} m²</strong>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── FULL_CIRCLE dimensions ─────────────────────────────────── */}
+      {shapeType === 'FULL_CIRCLE' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            A complete circular piece. Enter the diameter.
+          </p>
+          <div className="max-w-xs">
+            <label className="block text-xs font-medium text-gray-600 mb-1">Diameter (mm)</label>
+            <input type="number" min="1" value={circleDiameter}
+              onChange={(e) => setCircleDiameter(e.target.value)}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+          </div>
+          {shapeGeometry && (
+            <p className="text-xs text-gray-500">
+              Area: <strong>{shapeGeometry.totalAreaSqm.toFixed(3)} m²</strong>
+              <span className="ml-2 text-gray-400">(π × r²)</span>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── CONCAVE_ARC dimensions ─────────────────────────────────── */}
+      {shapeType === 'CONCAVE_ARC' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            A piece with a concave inner arc — e.g. curved breakfast bar or bay window benchtop.
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Inner Radius (mm)</label>
+              <input type="number" min="1" value={arcInnerRadius}
+                onChange={(e) => setArcInnerRadius(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Depth (mm)</label>
+              <input type="number" min="1" value={arcDepth}
+                onChange={(e) => setArcDepth(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" />
+              <p className="text-xs text-gray-400 mt-0.5">Front to back at deepest point</p>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Arc Sweep</label>
+              <div className="flex gap-2 mt-1">
+                {([90, 120, 180] as const).map((deg) => (
+                  <button key={deg} type="button"
+                    onClick={(e) => { e.stopPropagation(); setArcSweepDeg(deg); }}
+                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                      arcSweepDeg === deg
+                        ? 'border-primary-600 bg-primary-50 text-primary-700'
+                        : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                    }`}>
+                    {deg}°
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Curved Ends</label>
+              <button type="button"
+                onClick={(e) => { e.stopPropagation(); setArcCurvedEnds(!arcCurvedEnds); }}
+                className={`mt-1 px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
+                  arcCurvedEnds
+                    ? 'border-primary-600 bg-primary-50 text-primary-700'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300'
+                }`}>
+                {arcCurvedEnds ? 'Yes — ends are curved' : 'No — ends are straight'}
+              </button>
+            </div>
+          </div>
+          {shapeGeometry && (
+            <p className="text-xs text-gray-500">
+              Area: <strong>{shapeGeometry.totalAreaSqm.toFixed(3)} m²</strong>
+            </p>
+          )}
         </div>
       )}
 
