@@ -145,6 +145,17 @@ export default function ImportPage() {
     }
   }, [toast]);
 
+  // Warn before navigating away if a proposal is loaded
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (!proposal) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [proposal]);
+
   // ── Derived state ──────────────────────────────────────────────────────────
 
   const criticalOpen = proposal?.uncertainties.filter(
