@@ -5,7 +5,7 @@ import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/Cut
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
-import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig } from '@/lib/types/shapes';
+import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -174,6 +174,18 @@ function ConcaveArcIcon({ selected }: { selected: boolean }) {
   );
 }
 
+function RoundedRectIcon({ selected }: { selected: boolean }) {
+  return (
+    <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
+      <rect x="1" y="1" width="30" height="18" rx="4" ry="4"
+        stroke={selected ? '#4f46e5' : '#9ca3af'}
+        strokeWidth="1.5"
+        fill={selected ? '#eef2ff' : 'none'}
+      />
+    </svg>
+  );
+}
+
 // ── Name generation helpers ──────────────────────────────────────────────────
 
 function generateShapeName(shapeType: ShapeType, room: string): string {
@@ -184,6 +196,7 @@ function generateShapeName(shapeType: ShapeType, room: string): string {
     case 'RADIUS_END': return `Radius End ${roomLabel} Benchtop`;
     case 'FULL_CIRCLE': return `Circular ${roomLabel} Piece`;
     case 'CONCAVE_ARC': return `Curved ${roomLabel} Benchtop`;
+    case 'ROUNDED_RECT': return `Rounded Rectangle ${roomLabel}`;
     default: return '';
   }
 }
@@ -504,6 +517,15 @@ export default function InlinePieceEditor({
   const [arcDepth, setArcDepth] = useState('600');
   const [arcSweepDeg, setArcSweepDeg] = useState<90 | 120 | 180>(90);
   const [arcCurvedEnds, setArcCurvedEnds] = useState(false);
+  // ROUNDED_RECT state
+  const [rrLength, setRrLength]         = useState(2400);
+  const [rrWidth, setRrWidth]           = useState(900);
+  const [rrCornerRadius, setRrCornerRadius] = useState(100);
+  const [rrIndividual, setRrIndividual] = useState(false);
+  const [rrCornerTL, setRrCornerTL]     = useState(100);
+  const [rrCornerTR, setRrCornerTR]     = useState(100);
+  const [rrCornerBR, setRrCornerBR]     = useState(100);
+  const [rrCornerBL, setRrCornerBL]     = useState(100);
 
   // ── Reset form when piece changes ───────────────────────────────────────
   useEffect(() => {
@@ -613,8 +635,22 @@ export default function InlinePieceEditor({
       };
       return getShapeGeometry('CONCAVE_ARC', config, 0, 0);
     }
+    if (shapeType === 'ROUNDED_RECT') {
+      const config: RoundedRectConfig = {
+        shape: 'ROUNDED_RECT',
+        length_mm: rrLength,
+        width_mm: rrWidth,
+        corner_radius_mm: rrCornerRadius,
+        individual_corners: rrIndividual,
+        corner_tl_mm: rrIndividual ? rrCornerTL : rrCornerRadius,
+        corner_tr_mm: rrIndividual ? rrCornerTR : rrCornerRadius,
+        corner_br_mm: rrIndividual ? rrCornerBR : rrCornerRadius,
+        corner_bl_mm: rrIndividual ? rrCornerBL : rrCornerRadius,
+      };
+      return getShapeGeometry('ROUNDED_RECT', config, 0, 0);
+    }
     return null;
-  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth, radiusEndLength, radiusEndWidth, radiusEndRadius, radiusEndCurvedEnds, circleDiameter, arcInnerRadius, arcDepth, arcSweepDeg, arcCurvedEnds]);
+  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth, radiusEndLength, radiusEndWidth, radiusEndRadius, radiusEndCurvedEnds, circleDiameter, arcInnerRadius, arcDepth, arcSweepDeg, arcCurvedEnds, rrLength, rrWidth, rrCornerRadius, rrIndividual, rrCornerTL, rrCornerTR, rrCornerBR, rrCornerBL]);
 
   // Current shape config for SVG rendering (mirrors the save payload config)
   const currentShapeConfig = useMemo(() => {
@@ -858,6 +894,22 @@ export default function InlinePieceEditor({
       // Bounding box: use inner_radius_mm as both dimensions (conservative)
       payload.lengthMm = parseInt(arcInnerRadius) * 2 || 0;
       payload.widthMm = parseInt(arcDepth) || 0;
+    } else if (shapeType === 'ROUNDED_RECT') {
+      const rrConfig: RoundedRectConfig = {
+        shape: 'ROUNDED_RECT',
+        length_mm: rrLength,
+        width_mm: rrWidth,
+        corner_radius_mm: rrCornerRadius,
+        individual_corners: rrIndividual,
+        corner_tl_mm: rrIndividual ? rrCornerTL : rrCornerRadius,
+        corner_tr_mm: rrIndividual ? rrCornerTR : rrCornerRadius,
+        corner_br_mm: rrIndividual ? rrCornerBR : rrCornerRadius,
+        corner_bl_mm: rrIndividual ? rrCornerBL : rrCornerRadius,
+      };
+      payload.shapeConfig = rrConfig as unknown as Record<string, unknown>;
+      payload.shapeType   = 'ROUNDED_RECT';
+      payload.lengthMm    = rrLength;
+      payload.widthMm     = rrWidth;
     }
 
     // Grain matching: only relevant for L/U shapes, always false for rectangles
@@ -917,6 +969,7 @@ export default function InlinePieceEditor({
               { type: 'RADIUS_END' as ShapeType, label: 'Radius End', Icon: RadiusEndIcon },
               { type: 'FULL_CIRCLE' as ShapeType, label: 'Circle', Icon: FullCircleIcon },
               { type: 'CONCAVE_ARC' as ShapeType, label: 'Curved Arc', Icon: ConcaveArcIcon },
+              { type: 'ROUNDED_RECT' as ShapeType, label: 'Rounded Rect', Icon: RoundedRectIcon },
             ]).map(({ type, label, Icon }) => (
               <button
                 key={type}
@@ -1501,6 +1554,105 @@ export default function InlinePieceEditor({
           {shapeGeometry && (
             <p className="text-xs text-gray-500">
               Area: <strong>{shapeGeometry.totalAreaSqm.toFixed(3)} m²</strong>
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* ── ROUNDED_RECT dimensions ─────────────────────────────────── */}
+      {shapeType === 'ROUNDED_RECT' && (
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500">
+            Rectangle with softened corners — island benchtops, vanity tops.
+          </p>
+
+          {/* Length + Width */}
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Length (mm)</label>
+              <input type="number" value={rrLength}
+                onChange={e => setRrLength(Number(e.target.value))}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={200} step={10} />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Width (mm)</label>
+              <input type="number" value={rrWidth}
+                onChange={e => setRrWidth(Number(e.target.value))}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={100} step={10} />
+            </div>
+          </div>
+
+          {/* Global corner radius — hidden when individual mode is on */}
+          {!rrIndividual && (
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Corner Radius (mm)</label>
+              <input type="number" value={rrCornerRadius}
+                onChange={e => {
+                  const v = Number(e.target.value);
+                  setRrCornerRadius(v);
+                  setRrCornerTL(v); setRrCornerTR(v);
+                  setRrCornerBR(v); setRrCornerBL(v);
+                }}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={0} step={5} />
+            </div>
+          )}
+
+          {/* Individual corners toggle */}
+          <div className="flex items-center gap-2">
+            <input type="checkbox" id="rrIndividual"
+              checked={rrIndividual}
+              onChange={e => setRrIndividual(e.target.checked)}
+              onClick={(e) => e.stopPropagation()}
+              className="rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+            <label htmlFor="rrIndividual" className="text-xs text-gray-600">
+              Set corners individually
+            </label>
+          </div>
+
+          {/* Per-corner inputs — only when individual mode is on */}
+          {rrIndividual && (
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Top-Left (mm)</label>
+                <input type="number" value={rrCornerTL}
+                  onChange={e => setRrCornerTL(Number(e.target.value))}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={0} step={5} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Top-Right (mm)</label>
+                <input type="number" value={rrCornerTR}
+                  onChange={e => setRrCornerTR(Number(e.target.value))}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={0} step={5} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Bottom-Left (mm)</label>
+                <input type="number" value={rrCornerBL}
+                  onChange={e => setRrCornerBL(Number(e.target.value))}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={0} step={5} />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Bottom-Right (mm)</label>
+                <input type="number" value={rrCornerBR}
+                  onChange={e => setRrCornerBR(Number(e.target.value))}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-full px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500" min={0} step={5} />
+              </div>
+            </div>
+          )}
+
+          {shapeGeometry && (
+            <p className="text-xs text-gray-500">
+              Area: <strong>{shapeGeometry.totalAreaSqm.toFixed(3)} m²</strong>
+              {rrIndividual
+                ? <span className="ml-2 text-gray-400">({rrLength}×{rrWidth}mm corners: {rrCornerTL}/{rrCornerTR}/{rrCornerBR}/{rrCornerBL})</span>
+                : <span className="ml-2 text-gray-400">({rrLength}×{rrWidth}mm r{rrCornerRadius})</span>
+              }
             </p>
           )}
         </div>
