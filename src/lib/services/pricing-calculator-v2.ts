@@ -696,6 +696,9 @@ export async function calculateQuotePrice(
   // Flatten all pieces
   const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
+  // Track missing rates instead of crashing
+  const missingRates: MissingRate[] = [];
+
   // Pre-compute shape geometry for each piece (L/U shapes use getShapeGeometry).
   // RECTANGLE returns identical values to the old length×width formula.
   const pieceGeometries = allPieces.map((piece: any) => {
@@ -831,11 +834,10 @@ export async function calculateQuotePrice(
       (piece.materials as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? null;
 
     // Get JOIN rate for cut plan cost estimation
-    let joinRateForCutPlan = 0;
-    try {
-      const { rate: jr } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-      joinRateForCutPlan = jr;
-    } catch { /* JOIN rate not configured — use 0 for estimation */ }
+    const { rate: joinRateForCutPlan } = getServiceRateSafe(
+      serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory,
+      missingRates, piece.id, piece.name || piece.description || '',
+    );
 
     // For L/U shapes, decompose into individual legs and calculate cut plan per leg.
     // This prevents the bounding box from triggering false oversize splits.
@@ -1156,11 +1158,11 @@ export async function calculateQuotePrice(
         ?.fabrication_category ?? 'ENGINEERED';
 
     // Look up JOIN rate (same rate used for oversize joins)
-    let joinRate = 0;
-    try {
-      const { rate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-      joinRate = rate;
-    } catch { continue; } // No JOIN rate configured — skip corner join pricing
+    const { rate: joinRate } = getServiceRateSafe(
+      serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory,
+      missingRates, piece.id, piece.name || piece.description || `Piece ${piece.id}`,
+    );
+    if (joinRate === 0) continue; // No JOIN rate — skip corner join pricing
 
     // Calculate total corner join length in metres
     let totalJoinLengthLm = 0;
@@ -1394,11 +1396,10 @@ export async function calculateQuotePrice(
         }
 
         if (cornerJoinLengthLm > 0) {
-          let cornerJoinRate = 0;
-          try {
-            const { rate } = getServiceRate(serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory);
-            cornerJoinRate = rate;
-          } catch { /* No JOIN rate — skip */ }
+          const { rate: cornerJoinRate } = getServiceRateSafe(
+            serviceRates, 'JOIN', piece.thickness_mm, pieceFabCategory,
+            missingRates, piece.id, piece.name || piece.description || `Piece ${piece.id}`,
+          );
 
           const cornerJoinCost = cornerJoinLengthLm * cornerJoinRate;
           // Grain matching surcharge only applied when explicitly opted-in
@@ -1807,6 +1808,7 @@ export async function calculateQuotePrice(
     calculated_at: new Date(),
     pricingContext,
     marginInfo: materialBreakdown.marginResolution,
+    missingRates: missingRates.length > 0 ? missingRates : undefined,
   };
 }
 
@@ -1847,6 +1849,35 @@ function getServiceRate(
     ? rateRecord.rate40mm.toNumber()
     : rateRecord.rate20mm.toNumber();
   return { rate, rateRecord };
+}
+
+/**
+ * Safe wrapper around getServiceRate that catches missing rates
+ * instead of throwing. Records the missing rate and returns 0.
+ */
+function getServiceRateSafe(
+  rates: ServiceRateRecord[],
+  serviceType: string,
+  thickness: number,
+  fabricationCategory: string | undefined,
+  missingRates: MissingRate[],
+  pieceId: string | number,
+  pieceName: string,
+): { rate: number; rateRecord: ServiceRateRecord | null } {
+  try {
+    return getServiceRate(rates, serviceType, thickness, fabricationCategory);
+  } catch {
+    missingRates.push({
+      code: serviceType,
+      pieceId: String(pieceId),
+      pieceName: pieceName || `Piece ${pieceId}`,
+      description: `No ${serviceType} rate found for ${fabricationCategory ?? 'default'} category at ${thickness}mm thickness`,
+    });
+    return {
+      rate: 0,
+      rateRecord: null,
+    };
+  }
 }
 
 /**
