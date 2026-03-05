@@ -1546,6 +1546,31 @@ model drawing_corrections {
   @@index([created_at])
 }
 
+model drawing_learning_rules {
+  id               Int      @id @default(autoincrement())
+  company_id       Int      // tenant isolation
+
+  // What condition triggers this rule
+  drawing_type     String?  // 'job_sheet' | 'hand_drawn' | 'cad_professional' | null = all types
+  field_name       String   // e.g. 'edges.BACK.finish', 'thickness_mm', 'room'
+  condition        String?  // optional context, e.g. 'when adjacent to wall label'
+
+  // What the rule says
+  correct_value    String   // the value that should be used
+  description      String   // human-readable rule description shown in admin
+
+  // Metadata
+  correction_count Int      @default(0)  // how many corrections backed this rule
+  confidence       Float    @default(0)  // 0.0–1.0, calculated from correction data
+  is_active        Boolean  @default(true)
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+  approved_by      String?  // user ID who approved this rule
+
+  @@index([company_id])
+  @@index([drawing_type, field_name])
+}
+
 model strip_configurations {
   id              String   @id @default(cuid())
   company_id      Int
