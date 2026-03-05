@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/laughing-ritchie-fs4ui — MRG-1: Material margin engine with hierarchical resolution
+> **Last Updated By:** claude/material-margin-ui-KGJad — MRG-2: Material margin UI with selector, warnings, and pricing breakdown
 
 ---
 
@@ -595,7 +595,11 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 - `quote_options.material_margin_adjust_percent` stacks ON TOP of resolved margin
 - Calculator returns `marginInfo` with source, effective %, available options, warning
 - `price_per_slab` is COST price — client sees cost × (1 + margin%)
-- MRG-2 (pending): UI margin selector + warning banners in quote builder
+- UI: MarginSelector in quote builder material section (above MaterialCostSection)
+- UI: PricingSummary shows before/after margin breakdown
+- UI: Amber warning banner when marginSource === 'none'
+- UI: Radio selector for tier/supplier/material/custom margins
+- UI: Per-quote editable override with Apply/Cancel
 
 ### auth.ts
 | Function | Line | Purpose |
