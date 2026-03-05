@@ -41,6 +41,7 @@ export async function GET(request: NextRequest) {
         cutoutThicknessMultiplier: '1.00',
         waterfallPricingMethod: 'FIXED_PER_END',
         slabEdgeAllowanceMm: null,
+        defaultEdgeTypeId: null,
         organisationId
       });
     }
@@ -61,6 +62,7 @@ export async function GET(request: NextRequest) {
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
+      defaultEdgeTypeId: settings.default_edge_type_id ?? null,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -204,6 +206,9 @@ export async function PUT(request: NextRequest) {
           slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined
             ? (body.slabEdgeAllowanceMm === null ? null : parseInt(String(body.slabEdgeAllowanceMm), 10))
             : undefined,
+          default_edge_type_id: body.defaultEdgeTypeId !== undefined
+            ? (body.defaultEdgeTypeId || null)
+            : undefined,
           updated_at: new Date(),
         }
       });
@@ -227,6 +232,7 @@ export async function PUT(request: NextRequest) {
           slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined && body.slabEdgeAllowanceMm !== null
             ? parseInt(String(body.slabEdgeAllowanceMm), 10)
             : null,
+          default_edge_type_id: body.defaultEdgeTypeId || null,
           updated_at: new Date(),
         }
       });
@@ -248,6 +254,7 @@ export async function PUT(request: NextRequest) {
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
+      defaultEdgeTypeId: settings.default_edge_type_id ?? null,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };

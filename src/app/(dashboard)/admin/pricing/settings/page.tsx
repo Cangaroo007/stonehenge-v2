@@ -17,6 +17,14 @@ interface PricingSettings {
   gstRate: string;
   waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
   slabEdgeAllowanceMm: number | null;
+  defaultEdgeTypeId: string | null;
+}
+
+interface EdgeType {
+  id: string;
+  name: string;
+  isActive: boolean;
+  sortOrder: number;
 }
 
 export default function PricingSettingsPage() {
@@ -33,13 +41,16 @@ export default function PricingSettingsPage() {
     gstRate: '0.1000',
     waterfallPricingMethod: 'FIXED_PER_END',
     slabEdgeAllowanceMm: null,
+    defaultEdgeTypeId: null,
   });
+  const [edgeTypes, setEdgeTypes] = useState<EdgeType[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
 
   useEffect(() => {
     fetchSettings();
+    fetchEdgeTypes();
   }, []);
 
   useEffect(() => {
@@ -60,6 +71,17 @@ export default function PricingSettingsPage() {
       setToast({ message: 'Failed to load settings', type: 'error' });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const fetchEdgeTypes = async () => {
+    try {
+      const res = await fetch('/api/admin/pricing/edge-types');
+      if (!res.ok) throw new Error('Failed to fetch edge types');
+      const data = await res.json();
+      setEdgeTypes(data.filter((et: EdgeType) => et.isActive));
+    } catch (error) {
+      console.error('Error fetching edge types:', error);
     }
   };
 
@@ -493,6 +515,34 @@ export default function PricingSettingsPage() {
               </p>
             )}
           </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Default Edge Profile */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Default Edge Profile on New Pieces</h3>
+          <p className="text-xs text-gray-500">
+            When set, new pieces created in the quote builder will have this edge applied to all 4 sides
+            by default. Users can change individual edges after creation.
+          </p>
+          <select
+            value={settings.defaultEdgeTypeId ?? ''}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                defaultEdgeTypeId: e.target.value || null,
+              })
+            }
+            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          >
+            <option value="">None (Raw)</option>
+            {edgeTypes.map((et) => (
+              <option key={et.id} value={et.id}>
+                {et.name}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Save Button */}
