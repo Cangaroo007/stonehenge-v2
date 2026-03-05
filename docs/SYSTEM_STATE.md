@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-04
-> **Last Updated By:** claude/per-edge-strip-width-ui-7jcgJ — SW-2: Per-edge strip width UI (Parts List + Piece Editor)
+> **Last Updated:** 2026-03-05
+> **Last Updated By:** claude/laughing-ritchie-fs4ui — MRG-1: Material margin engine with hierarchical resolution
 
 ---
 
@@ -587,6 +587,15 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 - `extractFabricationDiscount()`: defined but unused — `discount_matrix` empty on all tiers. Reserved for future simpler discount path.
 - Return object includes: `rulesDiscount`, `rulesAdjustedSubtotal`, per-rule `discountAmount`
 - Manual quote discount (discountType/discountValue) applied FIRST, then pricing rules applied SECOND
+
+### Material Margin (MRG-1 + MRG-2)
+- Schema: `quotes.material_margin_percent Decimal?`, `quotes.material_margin_source String?`
+- Schema: `client_tiers.material_margin_percent Decimal?`
+- Resolution: quote override → client tier → material → supplier → 0% (warning)
+- `quote_options.material_margin_adjust_percent` stacks ON TOP of resolved margin
+- Calculator returns `marginInfo` with source, effective %, available options, warning
+- `price_per_slab` is COST price — client sees cost × (1 + margin%)
+- MRG-2 (pending): UI margin selector + warning banners in quote builder
 
 ### auth.ts
 | Function | Line | Purpose |
