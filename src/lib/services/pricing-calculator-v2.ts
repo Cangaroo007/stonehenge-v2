@@ -897,6 +897,14 @@ export async function calculateQuotePrice(
       : (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
     const engineCutouts: EngineCutout[] = cutoutsArray.map((c: any) => {
       const ct = cutoutTypes.find((t: any) => t.id === c.cutoutTypeId || t.id === c.typeId || t.name === c.type);
+      if (!ct && (c.cutoutTypeId || c.typeId || c.type)) {
+        missingRates.push({
+          code: 'CUTOUT',
+          pieceId: String(piece.id),
+          pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+          description: `Cutout type "${c.cutoutTypeId || c.typeId || c.type}" is deactivated or missing — cutout rate will be $0`,
+        });
+      }
       return { cutoutType: ct?.name ?? c.type ?? c.typeId ?? 'Cutout', quantity: c.quantity || 1 };
     });
 
@@ -908,6 +916,24 @@ export async function calculateQuotePrice(
     const shapeType = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
     const shapeConfig = piece.shape_config as unknown as ShapeConfig;
     const edgeLengths = getShapeEdgeLengths(shapeType, shapeConfig, piece.length_mm, piece.width_mm);
+
+    // Detect deactivated edge types — piece has edge assigned but type not in active list
+    const edgeAssignments: Array<{ position: string; edgeTypeId: string | null }> = [
+      { position: 'TOP', edgeTypeId: piece.edge_top },
+      { position: 'BOTTOM', edgeTypeId: piece.edge_bottom },
+      { position: 'LEFT', edgeTypeId: piece.edge_left },
+      { position: 'RIGHT', edgeTypeId: piece.edge_right },
+    ];
+    for (const ea of edgeAssignments) {
+      if (ea.edgeTypeId && !edgeTypeIdMap.has(ea.edgeTypeId)) {
+        missingRates.push({
+          code: 'EDGE_PROFILE',
+          pieceId: String(piece.id),
+          pieceName: piece.name || piece.description || `Piece ${piece.id}`,
+          description: `Edge type "${ea.edgeTypeId}" on ${ea.position} edge is deactivated or missing — edge profile rate will be $0`,
+        });
+      }
+    }
 
     const edges: EnginePiece['edges'] = [
       { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm },
@@ -1013,7 +1039,85 @@ export async function calculateQuotePrice(
     pieces: enginePieces,
   };
 
-  const engineResult = calculateEngineQuote(engineInput);
+  let engineResult: ReturnType<typeof calculateEngineQuote>;
+  try {
+    engineResult = calculateEngineQuote(engineInput);
+  } catch (engineError) {
+    // Engine threw on a missing service rate for the fabrication category.
+    // Record the error and build a zeroed-out result so the calculator continues.
+    const errMsg = engineError instanceof Error ? engineError.message : String(engineError);
+    missingRates.push({
+      code: 'ENGINE_RATE',
+      pieceId: 'all',
+      pieceName: 'All pieces',
+      description: errMsg,
+    });
+    // Build zeroed-out engine result so downstream code can continue
+    engineResult = {
+      pieces: enginePieces.map(ep => ({
+        id: ep.id,
+        name: ep.name,
+        cutting: { lm: 0, ratePerLm: 0, cost: 0 },
+        polishing: { lm: 0, ratePerLm: 0, cost: 0 },
+        edgeProfiles: { lm: 0, cost: 0, items: [] },
+        lamination: null,
+        cutouts: { cost: 0, items: [] },
+        join: null,
+        grainSurcharge: null,
+        installation: { area_sqm: 0, ratePerSqm: 0, cost: 0 },
+        subtotal: 0,
+      })),
+      material: { slabCount: 0, pricePerSlab: 0, cost: 0 },
+      fabricationSubtotal: 0,
+      installationSubtotal: 0,
+      deliveryCost: 0,
+      templatingCost: 0,
+      subtotalExGst: 0,
+      gstRate: pricingContext.gstRate,
+      gstAmount: 0,
+      totalIncGst: 0,
+    };
+  }
+
+  // ─── Detect post-engine silent $0 rates for edges and cutouts ──────────────
+
+  for (let i = 0; i < engineResult.pieces.length; i++) {
+    const ep = engineResult.pieces[i];
+    const piece = allPieces[i];
+    if (!piece) continue;
+    const pieceName = piece.name || piece.description || `Piece ${piece.id}`;
+    const pieceFab: string =
+      (piece.materials as unknown as { fabrication_category?: string } | null)
+        ?.fabrication_category ?? 'ENGINEERED';
+
+    // Detect edge profiles with $0 rate where an edge category rate should exist
+    for (const item of ep.edgeProfiles.items) {
+      if (item.rate === 0 && item.lm > 0) {
+        const dbEdgeType = edgeTypeReverseMap.get(item.edgeTypeId);
+        // Only flag if the edge type is active (deactivated types are caught above)
+        if (dbEdgeType) {
+          missingRates.push({
+            code: 'EDGE_CATEGORY_RATE',
+            pieceId: String(piece.id),
+            pieceName,
+            description: `No edge category rate for "${dbEdgeType.name}" on ${pieceFab} — edge profile surcharge is $0`,
+          });
+        }
+      }
+    }
+
+    // Detect cutouts with $0 rate
+    for (const item of ep.cutouts.items) {
+      if (item.rate === 0 && item.qty > 0) {
+        missingRates.push({
+          code: 'CUTOUT_CATEGORY_RATE',
+          pieceId: String(piece.id),
+          pieceName,
+          description: `No cutout category rate for "${item.type}" on ${pieceFab} — cutout charge is $0`,
+        });
+      }
+    }
+  }
 
   // ─── Map engine results to existing result shapes ──────────────────────────
 
@@ -1081,6 +1185,17 @@ export async function calculateQuotePrice(
     const waterfallRateRecord = serviceRates.find(r =>
       r.serviceType === 'WATERFALL_END' && r.fabricationCategory === primaryFabricationCategory
     ) ?? serviceRates.find(r => r.serviceType === 'WATERFALL_END');
+    if (!waterfallRateRecord) {
+      // Waterfall pieces exist but no rate configured — record missing rate
+      for (const wfPiece of waterfallPieces) {
+        missingRates.push({
+          code: 'WATERFALL_END',
+          pieceId: String((wfPiece as any).id),
+          pieceName: (wfPiece as any).name || (wfPiece as any).description || `Piece ${(wfPiece as any).id}`,
+          description: `No WATERFALL_END rate found for ${primaryFabricationCategory} category`,
+        });
+      }
+    }
     if (waterfallRateRecord) {
       const waterfallMethod = pricingContext.waterfallPricingMethod ?? 'FIXED_PER_END';
       const waterfallRateVal = avgThickness > 20
