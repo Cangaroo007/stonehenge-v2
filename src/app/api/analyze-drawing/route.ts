@@ -180,6 +180,7 @@ export async function POST(request: NextRequest) {
     if ('error' in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
+    const { companyId } = auth.user;
 
     const formData = await request.formData();
     const file = formData.get('file') as File;
@@ -269,7 +270,7 @@ export async function POST(request: NextRequest) {
     // Load catalogue from DB — exact field names confirmed from schema
     const [rawMaterials, rawEdgeTypes, rawCutoutTypes] = await Promise.all([
       prisma.materials.findMany({
-        where: { is_active: true },
+        where: { is_active: true, company_id: companyId },
         select: { id: true, name: true, collection: true },
         orderBy: { name: 'asc' },
         take: 50,
