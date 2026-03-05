@@ -41,6 +41,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'unitTypeCode is required' }, { status: 400 });
     }
 
+    // Load tenant default edge type (if configured)
+    const pricingSettings = await prisma.pricing_settings.findFirst();
+
     const adapterOptions: AdapterOptions = {
       unitTypeCode: unitTypeCode.trim(),
       name: name.trim(),
@@ -48,6 +51,7 @@ export async function POST(request: NextRequest) {
       projectId: projectId ? parseInt(projectId, 10) : undefined,
       analysisId: analysisId ? parseInt(analysisId, 10) : undefined,
       skipLowConfidence: true,
+      defaultEdgeTypeId: pricingSettings?.default_edge_type_id ?? null,
     };
 
     let result;

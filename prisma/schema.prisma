@@ -481,6 +481,9 @@ model pricing_settings {
   waterfall_pricing_method         WaterfallPricingMethod @default(FIXED_PER_END)
   slab_edge_allowance_mm           Int?
   strip_to_piece_threshold_mm      Int                    @default(300)
+  default_edge_type_id             String?                @db.VarChar(255)
+  // NULL = Raw (no default). When set, new pieces use this edge on all 4 sides.
+  // References edge_types.id (not enforced as FK to avoid migration complexity)
   created_at                       DateTime               @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]

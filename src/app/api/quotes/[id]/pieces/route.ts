@@ -142,6 +142,11 @@ export async function POST(
     }
 
     const data = await request.json();
+
+    // Load tenant default edge type (if configured)
+    const pricingSettingsForDefault = await prisma.pricing_settings.findFirst();
+    const tenantDefaultEdge = pricingSettingsForDefault?.default_edge_type_id ?? null;
+
     const {
       name,
       description,
@@ -151,10 +156,10 @@ export async function POST(
       materialId,
       materialName,
       roomName = 'Kitchen',
-      edgeTop,
-      edgeBottom,
-      edgeLeft,
-      edgeRight,
+      edgeTop = tenantDefaultEdge,
+      edgeBottom = tenantDefaultEdge,
+      edgeLeft = tenantDefaultEdge,
+      edgeRight = tenantDefaultEdge,
       laminationMethod = 'NONE',
       shapeType = 'RECTANGLE',
       shapeConfig = null,

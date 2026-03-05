@@ -41,6 +41,8 @@ export interface AdapterOptions {
   analysisId?: number;
   /** Skip pieces with LOW confidence on critical dimensions (default: true) */
   skipLowConfidence?: boolean;
+  /** Tenant-configurable default edge type ID. NULL = Raw (no default edge). */
+  defaultEdgeTypeId?: string | null;
 }
 
 export interface AdapterResult {
@@ -153,9 +155,10 @@ export function convertAnalysisToTemplate(
 
       // Convert edges — prefer edge detection results, fall back to extracted edges
       const detectedEdges = edgeResultsMap.get(piece.id);
+      const fallbackFinish = getDefaultEdgeFinish(options);
       const edges = detectedEdges
-        ? convertDetectedEdges(detectedEdges, pieceName, warnings)
-        : convertExtractedEdges(piece.edges, pieceName, warnings);
+        ? convertDetectedEdges(detectedEdges, pieceName, warnings, fallbackFinish)
+        : convertExtractedEdges(piece.edges, pieceName, warnings, fallbackFinish);
 
       // Convert cutouts
       const cutouts = convertCutouts(piece.cutouts);
@@ -240,12 +243,13 @@ export function convertSimplifiedToTemplate(
 
       const pieceName = piece.name || `Piece ${piecesConverted + 1}`;
 
-      // Map edges from simplified format — default to ARRIS (Northcoast default)
+      // Map edges from simplified format — use tenant-configured default edge
+      const simplifiedFallback = getDefaultEdgeFinish(options);
       const edgeMap: Record<string, TemplateEdge> = {
-        top: { finish: 'ARRIS' },
-        bottom: { finish: 'ARRIS' },
-        left: { finish: 'ARRIS' },
-        right: { finish: 'ARRIS' },
+        top: { finish: simplifiedFallback },
+        bottom: { finish: simplifiedFallback },
+        left: { finish: simplifiedFallback },
+        right: { finish: simplifiedFallback },
       };
 
       if (piece.edges && Array.isArray(piece.edges)) {
@@ -358,6 +362,17 @@ export function assignMaterialRole(
   return 'PRIMARY_BENCHTOP';
 }
 
+// ──── Default Edge Helper ────
+
+/**
+ * Determine the default template edge finish based on tenant configuration.
+ * When defaultEdgeTypeId is set, use ARRIS (the most common non-raw edge).
+ * When null, use RAW (no edge profile — matches piece POST handler behaviour).
+ */
+function getDefaultEdgeFinish(options: AdapterOptions): TemplateEdge['finish'] {
+  return options.defaultEdgeTypeId ? 'ARRIS' : 'RAW';
+}
+
 // ──── Edge Conversion ────
 
 /**
@@ -367,13 +382,14 @@ export function assignMaterialRole(
 function convertDetectedEdges(
   detectedEdges: DetectedEdge[],
   pieceName: string,
-  warnings: string[]
+  warnings: string[],
+  fallbackFinish: TemplateEdge['finish'] = 'ARRIS'
 ): TemplatePiece['edges'] {
   const edges: TemplatePiece['edges'] = {
-    top: { finish: 'ARRIS' },
-    bottom: { finish: 'ARRIS' },
-    left: { finish: 'ARRIS' },
-    right: { finish: 'ARRIS' },
+    top: { finish: fallbackFinish },
+    bottom: { finish: fallbackFinish },
+    left: { finish: fallbackFinish },
+    right: { finish: fallbackFinish },
   };
 
   for (const edge of detectedEdges) {
@@ -385,7 +401,7 @@ function convertDetectedEdges(
     } else if (edge.finish === 'ARRIS') {
       edges[side] = { finish: 'ARRIS' };
     } else if (edge.finish === 'UNKNOWN') {
-      edges[side] = { finish: 'ARRIS' };
+      edges[side] = { finish: fallbackFinish };
     } else {
       edges[side] = mapDetectedEdgeToTemplate(edge);
     }
@@ -407,13 +423,14 @@ function convertDetectedEdges(
 function convertExtractedEdges(
   extractedEdges: ExtractedEdge[],
   pieceName: string,
-  warnings: string[]
+  warnings: string[],
+  fallbackFinish: TemplateEdge['finish'] = 'ARRIS'
 ): TemplatePiece['edges'] {
   const edges: TemplatePiece['edges'] = {
-    top: { finish: 'ARRIS' },
-    bottom: { finish: 'ARRIS' },
-    left: { finish: 'ARRIS' },
-    right: { finish: 'ARRIS' },
+    top: { finish: fallbackFinish },
+    bottom: { finish: fallbackFinish },
+    left: { finish: fallbackFinish },
+    right: { finish: fallbackFinish },
   };
 
   for (const edge of extractedEdges) {
@@ -425,7 +442,7 @@ function convertExtractedEdges(
     } else if (edge.finish === 'ARRIS') {
       edges[side] = { finish: 'ARRIS' };
     } else if (edge.finish === 'UNKNOWN') {
-      edges[side] = { finish: 'ARRIS' };
+      edges[side] = { finish: fallbackFinish };
     } else {
       edges[side] = mapEdgeFinishToTemplate(edge.finish);
     }
