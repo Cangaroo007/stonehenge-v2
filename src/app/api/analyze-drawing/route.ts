@@ -337,6 +337,7 @@ export async function POST(request: NextRequest) {
       requiresReview: (analysis.clarificationQuestions ?? []).some(
         (q: { priority: string }) => q.priority === 'CRITICAL'
       ),
+      catalogue: { materials: rawMaterials, edgeTypes: rawEdgeTypes, cutoutTypes: rawCutoutTypes },
       tokensUsed: {
         input: response.usage.input_tokens,
         output: response.usage.output_tokens,

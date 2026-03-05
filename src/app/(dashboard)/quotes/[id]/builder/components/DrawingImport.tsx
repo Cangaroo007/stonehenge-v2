@@ -4,7 +4,9 @@ import { useState, useCallback, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import { ClarificationPanel } from '@/components/drawing-analysis/ClarificationPanel';
+import { DrawingReviewStage } from '@/components/drawing-analysis/DrawingReviewStage';
 import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
+import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logger } from '@/lib/logger';
 
 interface EdgeType {
@@ -48,6 +50,7 @@ interface ExtractedPiece {
   id: string;
   pieceNumber: number;
   name: string;
+  shape?: string;
   length: number;
   width: number;
   thickness: number;
@@ -140,6 +143,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
   const [clarificationDrawingId, setClarificationDrawingId] = useState<string | undefined>();
   const [clarificationAnalysisId, setClarificationAnalysisId] = useState<number | undefined>();
+  const [catalogue, setCatalogue] = useState<DrawingCatalogue>({ materials: [], edgeTypes: [], cutoutTypes: [] });
 
   // Save as Template state
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -341,6 +345,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         : undefined
       );
 
+      // Store catalogue from DR-1 route response
+      if (data.catalogue) {
+        setCatalogue(data.catalogue as DrawingCatalogue);
+      }
+
       // Transform analysis results to ExtractedPiece format
       const pieces: ExtractedPiece[] = [];
       let pieceIndex = 0;
@@ -352,6 +361,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             id,
             pieceNumber: piece.pieceNumber || pieceIndex,
             name: piece.name || `Piece ${pieceIndex}`,
+            shape: piece.shape || undefined,
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
@@ -495,9 +505,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     );
   }, []);
 
-  // Import selected pieces
-  const handleImport = useCallback(async () => {
-    const selectedPieces = extractedPieces.filter(p => selectedIds.has(p.id));
+  // Import selected pieces — accepts optional direct pieces array (used by DrawingReviewStage)
+  const handleImport = useCallback(async (directPieces?: ExtractedPiece[]) => {
+    const selectedPieces = directPieces
+      ? directPieces
+      : extractedPieces.filter(p => selectedIds.has(p.id));
 
     if (selectedPieces.length === 0) {
       setError('Please select at least one piece to import.');
@@ -1168,7 +1180,23 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             />
           </div>
         )}
-        {step === 'review' && renderReviewStep()}
+        {step === 'review' && extractedPieces.length > 0 && (
+          <DrawingReviewStage
+            pieces={extractedPieces}
+            catalogue={catalogue}
+            onConfirm={(confirmedPieces) => {
+              // Update extractedPieces state with edits made in review
+              setExtractedPieces(confirmedPieces);
+              setSelectedIds(new Set(confirmedPieces.map(p => p.id)));
+              // Pass confirmed pieces directly to avoid stale state
+              handleImport(confirmedPieces);
+            }}
+            onBack={() => setStep('clarification')}
+            quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
+            drawingId={clarificationDrawingId}
+            analysisId={clarificationAnalysisId}
+          />
+        )}
       </div>
     </div>
   );
