@@ -106,21 +106,6 @@ export async function PATCH(
     const skippedReasons: string[] = [];
 
     for (const piece of pieces) {
-      // Check mitred constraint
-      if (piece.lamination_method === 'MITRED') {
-        const nonPencilEdge = edgeTypeIds.find((etId) => {
-          const name = edgeTypesMap.get(etId) || '';
-          return !name.toLowerCase().includes('pencil') && !name.toLowerCase().includes('raw');
-        });
-        if (nonPencilEdge) {
-          skipped++;
-          skippedReasons.push(
-            `Skipped ${piece.name} (#${piece.id}) — mitred edges only support Pencil Round`
-          );
-          continue;
-        }
-      }
-
       // Check material-edge compatibility
       if (piece.materials) {
         const fabCat = piece.materials.fabrication_category;

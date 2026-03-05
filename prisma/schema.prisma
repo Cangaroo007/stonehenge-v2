@@ -480,6 +480,7 @@ model pricing_settings {
   cutout_thickness_multiplier      Decimal                @default(1.0) @db.Decimal(5, 2)
   waterfall_pricing_method         WaterfallPricingMethod @default(FIXED_PER_END)
   slab_edge_allowance_mm           Int?
+  strip_to_piece_threshold_mm      Int                    @default(300)
   created_at                       DateTime               @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
@@ -553,6 +554,7 @@ model quote_pieces {
   shape_type           String?          @default("RECTANGLE")
   shape_config         Json?
   no_strip_edges       Json?            @default("[]")
+  mitred_corner_treatment String?      @default("RAW")
   piece_features      piece_features[]
   materials           materials?           @relation(fields: [material_id], references: [id])
   quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)

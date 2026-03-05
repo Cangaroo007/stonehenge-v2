@@ -281,36 +281,6 @@ export async function PATCH(
       }
     }
 
-    // Mitred constraint
-    const effectiveLamination = laminationMethod ?? currentPiece.lamination_method;
-    if (effectiveLamination === 'MITRED') {
-      const effectiveEdges = [
-        edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
-        edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
-        edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
-        edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
-      ].filter(Boolean);
-
-      if (effectiveEdges.length > 0) {
-        const edgeTypes = await prisma.edge_types.findMany({
-          where: { id: { in: effectiveEdges } },
-          select: { id: true, name: true },
-        });
-        for (const et of edgeTypes) {
-          const nameLower = et.name.toLowerCase();
-          if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
-            return NextResponse.json(
-              {
-                error: `Mitred edges only support Pencil Round profile. Found "${et.name}".`,
-                code: 'MITRED_PROFILE_CONSTRAINT',
-              },
-              { status: 400 }
-            );
-          }
-        }
-      }
-    }
-
     // Handle room change if needed
     let roomId = currentPiece.room_id;
     if (roomName && roomName !== currentPiece.quote_rooms.name) {
@@ -543,36 +513,6 @@ export async function PUT(
           { error: `Invalid laminationMethod. Must be one of: ${validLaminationMethods.join(', ')}` },
           { status: 400 }
         );
-      }
-    }
-
-    // Mitred constraint: only Pencil Round edge profiles allowed
-    const effectiveLamination = laminationMethod ?? currentPiece.lamination_method;
-    if (effectiveLamination === 'MITRED') {
-      const effectiveEdges = [
-        edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
-        edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
-        edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
-        edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
-      ].filter(Boolean);
-
-      if (effectiveEdges.length > 0) {
-        const edgeTypes = await prisma.edge_types.findMany({
-          where: { id: { in: effectiveEdges } },
-          select: { id: true, name: true },
-        });
-        for (const et of edgeTypes) {
-          const nameLower = et.name.toLowerCase();
-          if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
-            return NextResponse.json(
-              {
-                error: `Mitred edges only support Pencil Round profile. Found "${et.name}". Change to Pencil Round or switch to Laminated.`,
-                code: 'MITRED_PROFILE_CONSTRAINT',
-              },
-              { status: 400 }
-            );
-          }
-        }
       }
     }
 
