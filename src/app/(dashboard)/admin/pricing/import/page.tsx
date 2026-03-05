@@ -260,6 +260,14 @@ export default function ImportPage() {
             setProposal(proposal);
             setPhase('staging');
 
+            // Auto-select supplier if AI detected a name and user hadn't picked one
+            if (!selectedSupplierId && proposal.supplierName) {
+              const match = suppliers.find(
+                (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
+              );
+              if (match) setSelectedSupplierId(match.id);
+            }
+
             const critCount = proposal.uncertainties.filter(
               (u: Uncertainty) => u.severity === 'critical',
             ).length;
@@ -342,7 +350,7 @@ export default function ImportPage() {
 
   async function handleSync() {
     if (!proposal || !selectedSupplierId) {
-      showToast('Please select a supplier before syncing', 'error');
+      showToast('Select the supplier for these materials before syncing. The AI could not detect one automatically.', 'error');
       return;
     }
     setPhase('syncing');
@@ -400,25 +408,20 @@ export default function ImportPage() {
           </Link>
         </div>
 
-        {/* Supplier required warning */}
+        {/* Hint: AI detect mode */}
         {!selectedSupplierId && (
-          <div className="w-full max-w-sm rounded-lg bg-amber-50 border border-amber-200 px-4 py-2 text-sm text-amber-700 flex items-center gap-2">
-            <AlertTriangle className="h-4 w-4 flex-shrink-0" />
-            Select a supplier before uploading a price list.
+          <div className="w-full max-w-sm rounded-lg bg-blue-50 border border-blue-200 px-4 py-2 text-sm text-blue-700 flex items-center gap-2">
+            <Info className="h-4 w-4 flex-shrink-0" />
+            AI will attempt to detect the supplier from the uploaded document.
           </div>
         )}
 
         {/* Drop zone */}
         <div
-          onDragOver={(e) => { e.preventDefault(); if (!selectedSupplierId) e.dataTransfer.dropEffect = 'none'; }}
-          onDrop={(e) => { if (!selectedSupplierId) { e.preventDefault(); return; } onDropFile(e); }}
-          onClick={() => { if (!selectedSupplierId) return; fileInputRef.current?.click(); }}
-          className={cn(
-            'w-full max-w-sm rounded-2xl border-2 border-dashed p-10 text-center transition',
-            selectedSupplierId
-              ? 'cursor-pointer border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-primary-50'
-              : 'opacity-50 cursor-not-allowed border-gray-200 bg-gray-100'
-          )}
+          onDragOver={(e) => { e.preventDefault(); }}
+          onDrop={onDropFile}
+          onClick={() => { fileInputRef.current?.click(); }}
+          className="w-full max-w-sm rounded-2xl border-2 border-dashed p-10 text-center transition cursor-pointer border-gray-300 bg-gray-50 hover:border-primary-400 hover:bg-primary-50"
         >
           <Upload className="mx-auto h-8 w-8 text-gray-400 mb-3" />
           <p className="text-sm font-medium text-gray-700">Click or drag & drop a PDF</p>
