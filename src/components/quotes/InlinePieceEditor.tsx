@@ -58,6 +58,7 @@ export interface InlinePieceData {
   edgeRight: string | null;
   cutouts: PieceCutout[];
   quote_rooms: { id: number; name: string };
+  shapeType?: string | null;
   shapeConfig?: Record<string, unknown> | null;
   overrideMaterialCost?: number | null;
   stripWidthOverrides?: Record<string, number> | null;
@@ -559,11 +560,53 @@ export default function InlinePieceEditor({
     });
     setCutouts(Array.isArray(piece.cutouts) ? piece.cutouts : []);
     setErrors({});
-    // Reset shape state for new pieces
-    setShapeType('RECTANGLE');
+    // Recover shape type from piece data — covers GET list (shapeType) and shapeConfig.shape fallback
+    const recoveredShape = (piece.shapeType || ((piece.shapeConfig as Record<string, unknown>)?.shape as string) || 'RECTANGLE') as ShapeType;
+    setShapeType(recoveredShape);
     setSameWidth(true);
     setNameManuallyEdited(false);
     setGrainMatched(false);
+  }, [piece]);
+
+  // ── Initialise L/U shape dimensions from saved shapeConfig on edit ──────
+  useEffect(() => {
+    if (!piece?.shapeConfig) return;
+    const cfg = piece.shapeConfig as Record<string, unknown>;
+    if (cfg.shape === 'L_SHAPE') {
+      const leg1 = cfg.leg1 as { length_mm: number; width_mm: number } | undefined;
+      const leg2 = cfg.leg2 as { length_mm: number; width_mm: number } | undefined;
+      if (leg1) {
+        setLeg1Length(String(leg1.length_mm));
+        setLeg1Width(String(leg1.width_mm));
+      }
+      if (leg2) {
+        setLeg2Length(String(leg2.length_mm));
+        setLeg2Width(String(leg2.width_mm));
+      }
+      if (leg1 && leg2 && leg1.width_mm !== leg2.width_mm) {
+        setSameWidth(false);
+      }
+    }
+    if (cfg.shape === 'U_SHAPE') {
+      const left = cfg.leftLeg as { length_mm: number; width_mm: number } | undefined;
+      const back = cfg.back as { length_mm: number; width_mm: number } | undefined;
+      const right = cfg.rightLeg as { length_mm: number; width_mm: number } | undefined;
+      if (left) {
+        setLeftLegLength(String(left.length_mm));
+        setLeftLegWidth(String(left.width_mm));
+      }
+      if (back) {
+        setBackLength(String(back.length_mm));
+        setBackWidth(String(back.width_mm));
+      }
+      if (right) {
+        setRightLegLength(String(right.length_mm));
+        setRightLegWidth(String(right.width_mm));
+      }
+      if (left && back && right && !(left.width_mm === back.width_mm && back.width_mm === right.width_mm)) {
+        setSameWidth(false);
+      }
+    }
   }, [piece]);
 
   // ── Same-width sync: when checked, copy lead width to other legs ───────
@@ -955,39 +998,37 @@ export default function InlinePieceEditor({
 
   return (
     <div className="space-y-4">
-      {/* Shape selector (new piece only) — K2: L/U shape wizard */}
-      {isNew && (
-        <div>
-          <label className="block text-xs font-medium text-gray-600 mb-1.5">
-            Shape
-          </label>
-          <div className="flex gap-2">
-            {([
-              { type: 'RECTANGLE' as ShapeType, label: 'Rectangle', Icon: RectangleIcon },
-              { type: 'L_SHAPE' as ShapeType, label: 'L-Shape', Icon: LShapeIcon },
-              { type: 'U_SHAPE' as ShapeType, label: 'U-Shape', Icon: UShapeIcon },
-              { type: 'RADIUS_END' as ShapeType, label: 'Radius End', Icon: RadiusEndIcon },
-              { type: 'FULL_CIRCLE' as ShapeType, label: 'Circle', Icon: FullCircleIcon },
-              { type: 'CONCAVE_ARC' as ShapeType, label: 'Curved Arc', Icon: ConcaveArcIcon },
-              { type: 'ROUNDED_RECT' as ShapeType, label: 'Rounded Rect', Icon: RoundedRectIcon },
-            ]).map(({ type, label, Icon }) => (
-              <button
-                key={type}
-                type="button"
-                onClick={(e) => { e.stopPropagation(); setShapeType(type); }}
-                className={`flex flex-col items-center gap-1 px-4 py-2.5 rounded-lg border-2 transition-all ${
-                  shapeType === type
-                    ? 'border-primary-600 bg-primary-50 text-primary-700'
-                    : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
-                }`}
-              >
-                <Icon selected={shapeType === type} />
-                <span className="text-xs font-medium">{label}</span>
-              </button>
-            ))}
-          </div>
+      {/* Shape selector — K2: L/U shape wizard (new and edit mode) */}
+      <div>
+        <label className="block text-xs font-medium text-gray-600 mb-1.5">
+          Shape
+        </label>
+        <div className="flex gap-2">
+          {([
+            { type: 'RECTANGLE' as ShapeType, label: 'Rectangle', Icon: RectangleIcon },
+            { type: 'L_SHAPE' as ShapeType, label: 'L-Shape', Icon: LShapeIcon },
+            { type: 'U_SHAPE' as ShapeType, label: 'U-Shape', Icon: UShapeIcon },
+            { type: 'RADIUS_END' as ShapeType, label: 'Radius End', Icon: RadiusEndIcon },
+            { type: 'FULL_CIRCLE' as ShapeType, label: 'Circle', Icon: FullCircleIcon },
+            { type: 'CONCAVE_ARC' as ShapeType, label: 'Curved Arc', Icon: ConcaveArcIcon },
+            { type: 'ROUNDED_RECT' as ShapeType, label: 'Rounded Rect', Icon: RoundedRectIcon },
+          ]).map(({ type, label, Icon }) => (
+            <button
+              key={type}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setShapeType(type); }}
+              className={`flex flex-col items-center gap-1 px-4 py-2.5 rounded-lg border-2 transition-all ${
+                shapeType === type
+                  ? 'border-primary-600 bg-primary-50 text-primary-700'
+                  : 'border-gray-200 bg-white text-gray-600 hover:border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <Icon selected={shapeType === type} />
+              <span className="text-xs font-medium">{label}</span>
+            </button>
+          ))}
         </div>
-      )}
+      </div>
 
       {/* Name field (new piece only) */}
       {isNew && (
@@ -1185,18 +1226,18 @@ export default function InlinePieceEditor({
         <div className="space-y-3">
           <div className="rounded-lg border border-blue-100 bg-blue-50/30 p-3 space-y-3">
             <p className="text-xs font-semibold text-blue-800">L-Shape Dimensions</p>
-            {/* Leg 1 (long run) */}
+            {/* Back (long run) */}
             <div>
-              <p className="text-xs font-medium text-gray-600 mb-1">Leg 1 (long run)</p>
+              <p className="text-xs font-medium text-gray-600 mb-1">Back</p>
               <div className="flex items-center gap-2">
                 {dimInput('Length (mm)', leg1Length, setLeg1Length, 'leg1Length')}
                 <span className="text-gray-400 text-sm mt-4">&times;</span>
                 {dimInput('Width (mm)', leg1Width, (v) => { setLeg1Width(v); if (sameWidth) setLeg2Width(v); }, 'leg1Width')}
               </div>
             </div>
-            {/* Leg 2 (return) */}
+            {/* Return */}
             <div>
-              <p className="text-xs font-medium text-gray-600 mb-1">Leg 2 (return)</p>
+              <p className="text-xs font-medium text-gray-600 mb-1">Return</p>
               <div className="flex items-center gap-2">
                 {dimInput('Length (mm)', leg2Length, setLeg2Length, 'leg2Length')}
                 <span className="text-gray-400 text-sm mt-4">&times;</span>

@@ -3304,6 +3304,7 @@ export default function QuoteDetailClient({
               edgeRight: p.edgeRight,
               cutouts: p.cutouts || [],
               quote_rooms: p.quote_rooms,
+              shapeType: p.shapeType || (p.shapeConfig?.shape as string) || 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
               stripWidthOverrides: p.stripWidthOverrides ?? null,
             }}
