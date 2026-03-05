@@ -3,6 +3,8 @@
 import { useState, useCallback, useRef } from 'react';
 import imageCompression from 'browser-image-compression';
 import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
+import { ClarificationPanel } from '@/components/drawing-analysis/ClarificationPanel';
+import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
 import { logger } from '@/lib/logger';
 
 interface EdgeType {
@@ -84,7 +86,7 @@ interface AnalysisResult {
   questionsForUser: string[];
 }
 
-type Step = 'upload' | 'analyzing' | 'review';
+type Step = 'upload' | 'analyzing' | 'clarification' | 'review';
 
 const STANDARD_ROOMS = [
   'Kitchen',
@@ -133,6 +135,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const [analysisSteps, setAnalysisSteps] = useState<{ label: string; done: boolean }[]>([]);
   const [warnings, setWarnings] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Clarification state
+  const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
+  const [clarificationDrawingId, setClarificationDrawingId] = useState<string | undefined>();
+  const [clarificationAnalysisId, setClarificationAnalysisId] = useState<number | undefined>();
 
   // Save as Template state
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -323,6 +330,17 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       // Notify parent that drawings have been saved
       onDrawingsSaved?.();
 
+      // Store clarification data from DR-1 response
+      const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
+      const requiresReview = data.requiresReview === true && cQuestions.length > 0;
+      setClarificationQuestions(cQuestions);
+      setClarificationDrawingId(data.analysis?.drawingId ?? data.analysis?.id ?? undefined);
+      setClarificationAnalysisId(
+        typeof data.analysis?.analysisId === 'number' ? data.analysis.analysisId
+        : typeof data.analysis?.id === 'number' ? data.analysis.id
+        : undefined
+      );
+
       // Transform analysis results to ExtractedPiece format
       const pieces: ExtractedPiece[] = [];
       let pieceIndex = 0;
@@ -360,7 +378,12 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       );
       setSelectedIds(highConfidenceIds);
 
-      setStep('review');
+      // Gate: show clarification step if requiresReview, otherwise straight to review
+      if (requiresReview) {
+        setStep('clarification');
+      } else {
+        setStep('review');
+      }
 
     } catch (err) {
       logger.error('[DrawingImport] handleFile error:', err);
@@ -1111,11 +1134,40 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     </div>
   );
 
+  // Handle clarification answers — merge into analysis and advance to review
+  const handleClarificationSubmit = useCallback((answers: Record<string, string>) => {
+    logger.info('[DrawingImport] Clarification answers received:', Object.keys(answers).length);
+    // Answers are already logged to corrections by ClarificationPanel.
+    // Advance to review step — answers could be used to refine pieces in future.
+    setStep('review');
+  }, []);
+
+  const handleClarificationSkip = useCallback(() => {
+    logger.info('[DrawingImport] Clarification skipped');
+    setStep('review');
+  }, []);
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
         {step === 'upload' && renderUploadStep()}
         {step === 'analyzing' && renderAnalyzingStep()}
+        {step === 'clarification' && (
+          <div className="p-6">
+            <h2 className="text-lg font-semibold mb-4">Quick Questions</h2>
+            <p className="text-sm text-zinc-600 mb-4">
+              We need a few details to ensure accurate quoting. Tap to answer.
+            </p>
+            <ClarificationPanel
+              questions={clarificationQuestions}
+              onAnswersSubmit={handleClarificationSubmit}
+              onSkip={handleClarificationSkip}
+              drawingId={clarificationDrawingId}
+              analysisId={clarificationAnalysisId}
+              quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
+            />
+          </div>
+        )}
         {step === 'review' && renderReviewStep()}
       </div>
     </div>
