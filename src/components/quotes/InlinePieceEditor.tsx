@@ -459,6 +459,8 @@ export default function InlinePieceEditor({
   const [stripWidthOverrides, setStripWidthOverrides] = useState<Record<string, number>>(
     (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
   );
+  const [mitredCornerTreatment, setMitredCornerTreatment] =
+    useState<'RAW' | 'SQUARE_TOP' | 'ROUND_TOP'>('RAW');
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
@@ -550,6 +552,9 @@ export default function InlinePieceEditor({
     );
     setStripWidthOverrides(
       (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
+    );
+    setMitredCornerTreatment(
+      ((piece as unknown as Record<string, unknown>).mitredCornerTreatment as 'RAW' | 'SQUARE_TOP' | 'ROUND_TOP') ?? 'RAW'
     );
     setRoomName(piece.quote_rooms?.name || 'Kitchen');
     setEdgeSelections({
@@ -844,13 +849,10 @@ export default function InlinePieceEditor({
 
     const selectedMaterial = materials.find(m => m.id === materialId);
 
-    // Auto-set lamination method based on thickness
-    const laminationMethod = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
-
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
       thicknessMm,
-      laminationMethod,
+      mitredCornerTreatment,
       materialId,
       materialName: selectedMaterial?.name || null,
       overrideMaterialCost: overrideMaterialCost !== ''
@@ -974,7 +976,7 @@ export default function InlinePieceEditor({
 
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
-  const laminationMethod: string = thicknessMm > 20 ? 'LAMINATED' : 'NONE';
+  const laminationMethod: string = (piece as unknown as Record<string, unknown>)?.laminationMethod as string ?? (thicknessMm > 20 ? 'LAMINATED' : 'NONE');
 
   // Dimension input helper — reused across shapes
   const dimInput = (
@@ -1217,6 +1219,33 @@ export default function InlinePieceEditor({
                 onStripWidthChange={onStripWidthChange}
               />
             )}
+            {laminationMethod === 'MITRED' && (
+              <div className="mt-3">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Mitre Corner Treatment
+                </label>
+                <p className="text-xs text-gray-500 mb-2">
+                  How the top corner of the 45° mitre is finished.
+                </p>
+                <div className="flex gap-2">
+                  {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (
+                    <button
+                      key={treatment}
+                      onClick={(e) => { e.stopPropagation(); setMitredCornerTreatment(treatment); }}
+                      className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                        mitredCornerTreatment === treatment
+                          ? 'bg-stone-800 text-white border-stone-800'
+                          : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                      }`}
+                    >
+                      {treatment === 'RAW' ? 'Raw'
+                        : treatment === 'SQUARE_TOP' ? 'Square Top'
+                        : 'Round Top'}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -1331,6 +1360,33 @@ export default function InlinePieceEditor({
                   quoteId={quoteId}
                   onStripWidthChange={onStripWidthChange}
                 />
+              )}
+              {laminationMethod === 'MITRED' && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Mitre Corner Treatment
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    How the top corner of the 45° mitre is finished.
+                  </p>
+                  <div className="flex gap-2">
+                    {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (
+                      <button
+                        key={treatment}
+                        onClick={(e) => { e.stopPropagation(); setMitredCornerTreatment(treatment); }}
+                        className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                          mitredCornerTreatment === treatment
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {treatment === 'RAW' ? 'Raw'
+                          : treatment === 'SQUARE_TOP' ? 'Square Top'
+                          : 'Round Top'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1459,6 +1515,33 @@ export default function InlinePieceEditor({
                   quoteId={quoteId}
                   onStripWidthChange={onStripWidthChange}
                 />
+              )}
+              {laminationMethod === 'MITRED' && (
+                <div className="mt-3">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Mitre Corner Treatment
+                  </label>
+                  <p className="text-xs text-gray-500 mb-2">
+                    How the top corner of the 45° mitre is finished.
+                  </p>
+                  <div className="flex gap-2">
+                    {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (
+                      <button
+                        key={treatment}
+                        onClick={(e) => { e.stopPropagation(); setMitredCornerTreatment(treatment); }}
+                        className={`px-3 py-1.5 text-xs rounded border transition-colors ${
+                          mitredCornerTreatment === treatment
+                            ? 'bg-stone-800 text-white border-stone-800'
+                            : 'bg-white text-gray-700 border-gray-300 hover:border-gray-400'
+                        }`}
+                      >
+                        {treatment === 'RAW' ? 'Raw'
+                          : treatment === 'SQUARE_TOP' ? 'Square Top'
+                          : 'Round Top'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
               )}
             </div>
           </div>
@@ -1715,6 +1798,7 @@ export default function InlinePieceEditor({
             edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
             cutouts={[]}
             isEditMode={true}
+            isMitred={laminationMethod === 'MITRED'}
             onEdgeChange={(side, profileId) => {
               const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
               if (side in keyMap) {

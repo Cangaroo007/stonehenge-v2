@@ -175,6 +175,7 @@ export async function GET(
         : null,
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+      mitredCornerTreatment: p.mitred_corner_treatment ?? 'RAW',
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
@@ -254,6 +255,7 @@ export async function PATCH(
       noStripEdges,
       stripWidthOverrides,
     } = data;
+    const mitredCornerTreatment = data.mitredCornerTreatment as string | undefined;
 
     // Get the current piece
     const currentPiece = await prisma.quote_pieces.findUnique({
@@ -329,6 +331,28 @@ export async function PATCH(
       }
     }
 
+    // Collect the 4 final edge IDs (new value if being updated, else current value)
+    const finalEdgeIds = [
+      edgeTop     !== undefined ? edgeTop     : currentPiece.edge_top,
+      edgeBottom  !== undefined ? edgeBottom  : currentPiece.edge_bottom,
+      edgeLeft    !== undefined ? edgeLeft    : currentPiece.edge_left,
+      edgeRight   !== undefined ? edgeRight   : currentPiece.edge_right,
+    ].filter((id): id is string => Boolean(id));
+
+    // Derive lamination method from edge types
+    let derivedLaminationMethod: string | undefined;
+    if (finalEdgeIds.length > 0) {
+      const assignedEdgeTypes = await prisma.edge_types.findMany({
+        where: { id: { in: finalEdgeIds } },
+        select: { isMitred: true },
+      });
+      const hasMitredEdge = assignedEdgeTypes.some(et => et.isMitred);
+      const effectiveThickness = (thicknessMm as number | undefined) ?? currentPiece.thickness_mm ?? 20;
+      derivedLaminationMethod = hasMitredEdge
+        ? 'MITRED'
+        : effectiveThickness >= 40 ? 'LAMINATED' : 'NONE';
+    }
+
     // Update the piece
     const updatedPiece = await prisma.quote_pieces.update({
       where: { id: pieceIdNum },
@@ -353,7 +377,10 @@ export async function PATCH(
         edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
         edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
-        lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
+        lamination_method: derivedLaminationMethod ?? (laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method),
+        ...(mitredCornerTreatment !== undefined && {
+          mitred_corner_treatment: mitredCornerTreatment,
+        }),
         requiresGrainMatch: requiresGrainMatch !== undefined ? requiresGrainMatch : currentPiece.requiresGrainMatch,
         override_material_cost: overrideMaterialCost !== undefined
           ? overrideMaterialCost
@@ -436,6 +463,7 @@ export async function PATCH(
         : null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (updatedPiece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+      mitredCornerTreatment: pu.mitred_corner_treatment ?? 'RAW',
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
