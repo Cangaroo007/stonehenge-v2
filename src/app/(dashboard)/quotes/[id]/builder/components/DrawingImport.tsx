@@ -786,7 +786,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-lg font-semibold">Review Extracted Pieces</h2>
         <button
-          onClick={handleImport}
+          onClick={() => handleImport()}
           disabled={isImporting || selectedIds.size === 0}
           className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
         >
@@ -1135,7 +1135,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             Cancel
           </button>
           <button
-            onClick={handleImport}
+            onClick={() => handleImport()}
             disabled={isImporting || selectedIds.size === 0}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
