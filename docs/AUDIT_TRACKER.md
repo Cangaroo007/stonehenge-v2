@@ -55,6 +55,7 @@
 | C9 | C9 complete — curved shape waste reporting. Per-slab and group summary shape waste display (purple) in MaterialGroupOptimisation.tsx. getShapeWasteM2() helper uses trueArea_m2 from C5. Only fires for curved shapes. | claude/curved-waste-reporting-G0Nrk |
 | SW-1 | Per-edge strip width override schema (strip_width_overrides Json?) + API + optimizer. Replaces single strip_width_override_mm Int? with per-edge JSON overrides. getStripWidthForEdge() looks up overrides[edgeTypeName]. All API routes, manufacturing export, and types updated. InlinePieceEditor UI update deferred to SW-2. | claude/per-edge-strip-widths-COpEr | Mar 4 |
 | SW-2 | Per-edge strip width UI. Parts List shows width pill on every strip row (grey=default, amber=overridden, ↺ reset). Inline editable — click to change, auto re-optimises via optimiserRefreshKey. Piece Editor has per-edge table replacing old single stripWidthOverrideMm input. "Apply to all 40mm pieces" button batch-applies overrides. All stripWidthOverrideMm references removed from InlinePieceEditor. | claude/per-edge-strip-width-ui-7jcgJ |
+| R-46 | A-01: Wired pricing_rules_engine into calculator subtotal. Rules with adjustmentType=percentage now apply to the appropriate cost bucket (materials, edges, or all). rulesDiscount and rulesAdjustedSubtotal added to return object. appliedRules now includes discountAmount per rule. extractFabricationDiscount() left in place for future use (discount_matrix empty on all tiers). | claude/wire-tier-discounts-AJObr |
 
 ---
 
@@ -85,6 +86,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| A-01 wire tier discounts into calculator | claude/wire-tier-discounts-AJObr | Mar 5 | ✅ Complete |
 | P1a default Arris on new pieces | claude/default-arris-new-pieces-KaHjI | Mar 3 | ✅ Complete |
 | C9 curved shape waste reporting | claude/curved-waste-reporting-G0Nrk | Mar 4 | ✅ Complete |
 | C5 curved shape optimizer integration | claude/c5-curved-optimizer-8N0ck | Mar 4 | ✅ Complete |

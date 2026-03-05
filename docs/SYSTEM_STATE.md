@@ -528,7 +528,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `mapEdgeBreakdownFromEngine` | 1667 | Maps engine edge results to breakdown format |
 | `mapCutoutBreakdownFromEngine` | 1703 | Maps engine cutout results to breakdown format |
 | `zeroedPieceBreakdown` | 1734 | Returns zeroed breakdown (error fallback) |
-| `extractFabricationDiscount` | 1761 | Extracts discount from client tier — **never called (dead code, A-01)** |
+| `extractFabricationDiscount` | 1761 | Extracts discount from client tier — **unused, reserved for future simpler discount_matrix approach (A-01)** |
 | `checkGrainMatchFeasibility` | 1772 | Checks if grain matching is possible for piece dims |
 | `roundToTwo` | 1811 | Rounds to 2 decimal places |
 
@@ -580,6 +580,13 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `ruleGrainSurcharge` | 267 | Calculates grain matching surcharge |
 | `ruleInstallation` | 279 | Calculates installation cost |
 | `calculateQuote` | 296 | **Main entry point** — runs all rules for a quote |
+
+### Tier Discounts & Pricing Rules (A-01)
+- `pricing_rules_engine` table: 6 active rules (Tier 1 materials -15%, Tier 1 edges -10%, Tier 2 materials -10%, Cabinet Maker -5%, Builder -5%, Volume >$10k -3%)
+- Calculator: rules fetched via `getApplicableRules()`, now applied to subtotal based on `appliesTo` category
+- `extractFabricationDiscount()`: defined but unused — `discount_matrix` empty on all tiers. Reserved for future simpler discount path.
+- Return object includes: `rulesDiscount`, `rulesAdjustedSubtotal`, per-rule `discountAmount`
+- Manual quote discount (discountType/discountValue) applied FIRST, then pricing rules applied SECOND
 
 ### auth.ts
 | Function | Line | Purpose |
