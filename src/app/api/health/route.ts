@@ -8,12 +8,21 @@ export async function GET() {
     // Quick DB ping
     await prisma.$queryRaw`SELECT 1`;
     
-    return NextResponse.json({ 
-      status: 'ok',
-      timestamp: new Date().toISOString(),
-      database: 'connected',
-      environment: process.env.NODE_ENV || 'development'
-    });
+    return NextResponse.json(
+      {
+        status: 'ok',
+        buildId: process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev',
+        timestamp: new Date().toISOString(),
+        database: 'connected',
+        environment: process.env.NODE_ENV || 'development'
+      },
+      {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'X-Build-Id': process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev',
+        },
+      }
+    );
   } catch (error) {
     console.error('[Health Check] Database connection failed:', error);
     return NextResponse.json(
