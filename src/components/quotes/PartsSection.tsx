@@ -22,6 +22,7 @@ interface QuotePiece {
   thickness_mm: number;
   shape_type?: string | null;
   shape_config?: unknown;
+  material_id?: number | null;
   no_strip_edges?: unknown;
   edge_top: string | null;
   edge_bottom: string | null;
@@ -83,6 +84,8 @@ interface PartsSectionProps {
   }>;
   /** Callback after strip width is changed — parent should trigger re-optimise */
   onStripWidthChange?: () => void;
+  /** Callback after a strip is promoted to a piece — parent should refresh data */
+  onRefresh?: () => void;
 }
 
 // ─── Leg-to-Edge Maps (for grouping strips under parent legs) ────────────────
@@ -616,9 +619,12 @@ export default function PartsSection({
   optimiserRefreshKey = 0,
   externalRelationships,
   onStripWidthChange,
+  onRefresh,
 }: PartsSectionProps) {
   const [expandedRooms, setExpandedRooms] = useState<Set<number>>(new Set());
   const [optimizerResult, setOptimizerResult] = useState<OptimizerData | null>(null);
+  const [promotionThresholdMm, setPromotionThresholdMm] = useState(300);
+  const [promotingStripKey, setPromotingStripKey] = useState<string | null>(null);
 
   // Fetch optimizer data (Rule 23: data fetch at component level, not inside conditional UI)
   useEffect(() => {
@@ -639,6 +645,26 @@ export default function PartsSection({
     fetchOptimizer();
     return () => { cancelled = true; };
   }, [quoteId, optimiserRefreshKey]);
+
+  // Fetch strip-to-piece promotion threshold from pricing settings
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchThreshold() {
+      try {
+        const res = await fetch('/api/admin/pricing/settings');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data?.stripToPieceThresholdMm != null) {
+            setPromotionThresholdMm(data.stripToPieceThresholdMm);
+          }
+        }
+      } catch {
+        // Keep default 300mm
+      }
+    }
+    fetchThreshold();
+    return () => { cancelled = true; };
+  }, []);
 
   const hasOptimizer = !!(
     optimizerResult?.placements?.items && optimizerResult.placements.items.length > 0
@@ -740,6 +766,38 @@ export default function PartsSection({
       setPieceOverrides(prev => ({ ...prev, [parentPieceId]: existing }));
     }
   }, [quoteId, pieceOverrides, onStripWidthChange]);
+
+  // ── Strip-to-piece promotion handler ──────────────────────────────────────
+  async function handlePromoteStrip(part: Part, parentPiece: QuotePiece, stripKey: string) {
+    if (promotingStripKey !== stripKey) {
+      // First click — show confirm state
+      setPromotingStripKey(stripKey);
+      return;
+    }
+    // Second click — confirmed, proceed
+    setPromotingStripKey(null);
+    try {
+      const roomName = rooms.find(r => r.quote_pieces.some(p => p.id === parentPiece.id))?.name ?? 'Kitchen';
+      const res = await fetch(`/api/quotes/${quoteId}/pieces`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: `${parentPiece.name} — Strip (promoted)`,
+          lengthMm: part.lengthMm,
+          widthMm: part.widthMm,
+          thicknessMm: parentPiece.thickness_mm,
+          materialId: parentPiece.material_id,
+          roomName,
+          shapeType: 'RECTANGLE',
+          description: `Promoted from lamination strip (parent: ${parentPiece.name})`,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      onRefresh?.();
+    } catch (err) {
+      console.error('Promote strip failed:', err);
+    }
+  }
 
   return (
     <div className="card overflow-hidden">
@@ -861,6 +919,41 @@ export default function PartsSection({
                                             onReset={() => patchStripWidth(part.parentPieceId!, part.stripPosition!, null)}
                                           />
                                         )}
+                                        {(() => {
+                                          const stripWidth = Math.min(part.lengthMm, part.widthMm);
+                                          const stripKey = `${piece.id}-${partIdx}`;
+                                          if (promotingStripKey === stripKey) {
+                                            return (
+                                              <span className="inline-flex items-center gap-1">
+                                                <span className="text-xs text-amber-700">Promote?</span>
+                                                <button
+                                                  onClick={() => handlePromoteStrip(part, piece, stripKey)}
+                                                  className="text-xs px-2 py-0.5 rounded bg-amber-500 text-white hover:bg-amber-600"
+                                                >
+                                                  Yes
+                                                </button>
+                                                <button
+                                                  onClick={() => setPromotingStripKey(null)}
+                                                  className="text-xs px-2 py-0.5 rounded border border-gray-300 hover:bg-gray-50"
+                                                >
+                                                  No
+                                                </button>
+                                              </span>
+                                            );
+                                          }
+                                          if (stripWidth >= promotionThresholdMm) {
+                                            return (
+                                              <button
+                                                onClick={() => setPromotingStripKey(stripKey)}
+                                                className="text-xs px-2 py-0.5 rounded border border-amber-400 text-amber-700 bg-amber-50 hover:bg-amber-100 transition-colors"
+                                                title={`Strip is ${stripWidth}mm — wider than ${promotionThresholdMm}mm threshold. Promote to piece for cutting charges.`}
+                                              >
+                                                Promote to Piece
+                                              </button>
+                                            );
+                                          }
+                                          return null;
+                                        })()}
                                       </span>
                                     )
                                     : `${part.lengthMm}mm × ${part.widthMm}mm × ${part.thicknessMm}mm`}
