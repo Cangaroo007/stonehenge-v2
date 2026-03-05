@@ -39,6 +39,7 @@ import PieceRow from '@/components/quotes/PieceRow';
 import QuickViewPieceRow from '@/components/quotes/QuickViewPieceRow';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
+import MarginSelector from '@/components/quotes/MarginSelector';
 import PartsSection from '@/components/quotes/PartsSection';
 import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
@@ -813,7 +814,7 @@ export default function QuoteDetailClient({
 
     calculate();
     return () => { cancelled = true; };
-  }, [mode, quoteIdStr]);
+  }, [mode, quoteIdStr, refreshTrigger]);
 
   // ── Customer dropdown: close on click outside ────────────────────────────
   useEffect(() => {
@@ -3046,6 +3047,13 @@ export default function QuoteDetailClient({
             <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-1">
               Material
             </h3>
+            {viewCalculation.marginInfo && (
+              <MarginSelector
+                quoteId={quoteId}
+                marginInfo={viewCalculation.marginInfo}
+                onMarginChange={triggerRecalculate}
+              />
+            )}
             <MaterialCostSection
               materials={viewCalculation.breakdown.materials}
               pieceCount={serverData.quote_rooms.reduce((sum, r) => sum + r.quote_pieces.length, 0)}
@@ -3821,6 +3829,13 @@ export default function QuoteDetailClient({
             onApply={handleBulkMaterialApply}
             quoteTotal={calculation?.total ?? null}
           />
+          {calculation?.marginInfo && (
+            <MarginSelector
+              quoteId={quoteId}
+              marginInfo={calculation.marginInfo}
+              onMarginChange={triggerRecalculate}
+            />
+          )}
           {calculation?.breakdown?.materials ? (
             <MaterialCostSection
               materials={calculation.breakdown.materials}

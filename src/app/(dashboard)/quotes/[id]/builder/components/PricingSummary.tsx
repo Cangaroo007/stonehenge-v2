@@ -356,6 +356,37 @@ export default function PricingSummary({
                   <span>Total:</span>
                   <span>{formatCurrency(calculation.breakdown.materials.total)}</span>
                 </div>
+
+                {/* ── Material Margin Lines ── */}
+                {calculation.marginInfo && calculation.marginInfo.marginSource !== 'none' && (
+                  <>
+                    <div className="flex justify-between text-gray-500 pt-1 border-t border-dashed border-gray-200 mt-1">
+                      <span>Material Cost (before margin):</span>
+                      <span>{formatCurrency(calculation.marginInfo.materialCostBeforeMargin)}</span>
+                    </div>
+                    <div className="flex justify-between text-blue-600">
+                      <span>
+                        Material Margin ({calculation.marginInfo.effectiveMarginPercent}% —{' '}
+                        {calculation.marginInfo.marginSource === 'quote_override' && 'Quote override'}
+                        {calculation.marginInfo.marginSource === 'client_tier' && (calculation.marginInfo.availableMargins?.tierName ? `Tier: ${calculation.marginInfo.availableMargins.tierName}` : 'Client tier')}
+                        {calculation.marginInfo.marginSource === 'supplier' && (calculation.marginInfo.availableMargins?.supplierName ? `Supplier: ${calculation.marginInfo.availableMargins.supplierName}` : 'Supplier')}
+                        {calculation.marginInfo.marginSource === 'material' && 'Material default'}
+                        ):
+                      </span>
+                      <span>+{formatCurrency(calculation.marginInfo.materialCostAfterMargin - calculation.marginInfo.materialCostBeforeMargin)}</span>
+                    </div>
+                    <div className="flex justify-between font-medium">
+                      <span>Material Cost (to client):</span>
+                      <span>{formatCurrency(calculation.marginInfo.materialCostAfterMargin)}</span>
+                    </div>
+                  </>
+                )}
+                {calculation.marginInfo && calculation.marginInfo.marginSource === 'none' && (
+                  <div className="flex justify-between text-amber-600 pt-1 border-t border-dashed border-gray-200 mt-1">
+                    <span>⚠️ No margin — billing at cost</span>
+                    <span>{formatCurrency(calculation.marginInfo.materialCostBeforeMargin)}</span>
+                  </div>
+                )}
               </div>
             </div>
           )}
