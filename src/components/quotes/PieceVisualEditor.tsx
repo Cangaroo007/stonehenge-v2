@@ -6,7 +6,7 @@ import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type {
   ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
-  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig,
+  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig,
 } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -649,6 +649,7 @@ export default function PieceVisualEditor({
     if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
     if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
     if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
+    if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') return 'ROUNDED_RECT';
     return 'RECTANGLE';
   }, [shapeType, shapeConfig]);
 
@@ -994,6 +995,67 @@ export default function PieceVisualEditor({
         { side: 'arc_right', x1: oxR, y1: oyR, x2: ixR, y2: iyR,
           labelX: oxR + 8, labelY: (oyR + iyR) / 2,
           lengthMm: sideHeightMm, label: 'Right' },
+      ];
+
+      return { path, edges, svgW, svgH };
+    }
+
+    if (effectiveShapeType === 'ROUNDED_RECT') {
+      const cfg = shapeConfig as RoundedRectConfig;
+      const W = cfg.length_mm ?? lengthMm;
+      const H = cfg.width_mm ?? widthMm;
+
+      const scale = Math.min(
+        (500 - SVG_PADDING * 2) / W,
+        (300 - SVG_PADDING * 2) / H
+      );
+      const sW = W * scale;
+      const sH = H * scale;
+      const ox = SVG_PADDING;
+      const oy = SVG_PADDING;
+      const svgW = sW + SVG_PADDING * 2;
+      const svgH = sH + SVG_PADDING * 2;
+
+      // Resolve per-corner radii, capped to half the smallest dimension
+      const maxR = Math.min(W / 2, H / 2);
+      const tlMm = Math.min(cfg.individual_corners ? cfg.corner_tl_mm : cfg.corner_radius_mm, maxR);
+      const trMm = Math.min(cfg.individual_corners ? cfg.corner_tr_mm : cfg.corner_radius_mm, maxR);
+      const brMm = Math.min(cfg.individual_corners ? cfg.corner_br_mm : cfg.corner_radius_mm, maxR);
+      const blMm = Math.min(cfg.individual_corners ? cfg.corner_bl_mm : cfg.corner_radius_mm, maxR);
+
+      const tl = tlMm * scale;
+      const tr = trMm * scale;
+      const br = brMm * scale;
+      const bl = blMm * scale;
+
+      // SVG path: start top-left after corner, go clockwise
+      const path = [
+        `M ${ox + tl} ${oy}`,
+        `L ${ox + sW - tr} ${oy}`,
+        `A ${tr} ${tr} 0 0 1 ${ox + sW} ${oy + tr}`,
+        `L ${ox + sW} ${oy + sH - br}`,
+        `A ${br} ${br} 0 0 1 ${ox + sW - br} ${oy + sH}`,
+        `L ${ox + bl} ${oy + sH}`,
+        `A ${bl} ${bl} 0 0 1 ${ox} ${oy + sH - bl}`,
+        `L ${ox} ${oy + tl}`,
+        `A ${tl} ${tl} 0 0 1 ${ox + tl} ${oy}`,
+        'Z',
+      ].join(' ');
+
+      // 4 straight edge segments — each length subtracts corner radii at each end
+      const edges: ShapeEdgeDef[] = [
+        { side: 'top', x1: ox + tl, y1: oy, x2: ox + sW - tr, y2: oy,
+          labelX: ox + sW / 2, labelY: oy - 12,
+          lengthMm: W - tlMm - trMm, label: 'Top' },
+        { side: 'right', x1: ox + sW, y1: oy + tr, x2: ox + sW, y2: oy + sH - br,
+          labelX: ox + sW + 16, labelY: oy + sH / 2,
+          lengthMm: H - trMm - brMm, label: 'Right' },
+        { side: 'bottom', x1: ox + sW - br, y1: oy + sH, x2: ox + bl, y2: oy + sH,
+          labelX: ox + sW / 2, labelY: oy + sH + 16,
+          lengthMm: W - blMm - brMm, label: 'Bottom' },
+        { side: 'left', x1: ox, y1: oy + sH - bl, x2: ox, y2: oy + tl,
+          labelX: ox - 16, labelY: oy + sH / 2,
+          lengthMm: H - tlMm - blMm, label: 'Left' },
       ];
 
       return { path, edges, svgW, svgH };

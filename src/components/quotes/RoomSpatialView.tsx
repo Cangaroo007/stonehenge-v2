@@ -38,6 +38,8 @@ interface QuotePiece {
   piece_features?: Array<{ id: number; name: string; quantity: number }>;
   cutouts?: unknown;
   materialName?: string | null;
+  lamination_method?: string | null;
+  mitred_corner_treatment?: string | null;
 }
 
 interface EdgeProfileOption {
@@ -842,6 +844,8 @@ export default function RoomSpatialView({
                   type: f.name,
                   quantity: f.quantity,
                 })),
+                laminationMethod: piece.lamination_method,
+                mitredCornerTreatment: piece.mitred_corner_treatment,
               }}
               position={pos}
               scale={layout.scale}
