@@ -5,6 +5,7 @@ import { formatCurrency } from '@/lib/utils';
 import { useUnits } from '@/lib/contexts/UnitContext';
 import { formatAreaFromSqm } from '@/lib/utils/units';
 import { debounce } from '@/lib/utils/debounce';
+import { AlertTriangle } from 'lucide-react';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 
 // Default GST rate for Australia — overridden by calculator's pricingContext.gstRate when available
@@ -233,6 +234,30 @@ export default function PricingSummary({
               >
                 Retry
               </button>
+            </div>
+          )}
+
+          {/* Missing rates banner */}
+          {calculation?.missingRates && calculation.missingRates.length > 0 && (
+            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
+              <div className="flex items-start gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">
+                    Missing service rates — some costs are showing as $0
+                  </p>
+                  <ul className="mt-1 text-xs text-amber-700 space-y-1">
+                    {calculation.missingRates.map((mr, i) => (
+                      <li key={i}>
+                        <span className="font-medium">{mr.pieceName}:</span> {mr.description}
+                      </li>
+                    ))}
+                  </ul>
+                  <p className="mt-2 text-xs text-amber-600">
+                    Configure missing rates in Pricing Admin → Service Rates
+                  </p>
+                </div>
+              </div>
             </div>
           )}
 

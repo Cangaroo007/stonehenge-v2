@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/material-margin-ui-KGJad — MRG-2: Material margin UI with selector, warnings, and pricing breakdown
+> **Last Updated By:** claude/missing-rate-detection-banner-gTk82 — PX-1: Missing rate detection with safe wrapper and inline banner
 
 ---
 
@@ -600,6 +600,13 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 - UI: Amber warning banner when marginSource === 'none'
 - UI: Radio selector for tier/supplier/material/custom margins
 - UI: Per-quote editable override with Apply/Cancel
+
+### Missing Rate Detection (PX-1)
+- `getServiceRateSafe()` wraps `getServiceRate()` — catches throws, records missing rates, returns rate=0
+- `missingRates: MissingRate[]` populated during calculation, returned in EnhancedCalculationResult
+- PricingSummary shows amber banner when missingRates is non-empty
+- Each missing rate shows: piece name, service type, fabrication category, thickness
+- Original `getServiceRate()` unchanged — still throws for callers that want strict behaviour
 
 ### auth.ts
 | Function | Line | Purpose |

@@ -205,6 +205,12 @@ export interface CalculationResult {
     };
     warning: string | null;
   };
+  missingRates?: Array<{
+    code: string;
+    pieceId: string;
+    pieceName: string;
+    description: string;
+  }>;
 }
 
 // ============================================
