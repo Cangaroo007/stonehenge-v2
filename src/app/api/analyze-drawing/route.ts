@@ -52,7 +52,15 @@ function isPdfFile(mimeType: string): boolean {
   return mimeType === 'application/pdf';
 }
 
-function buildSystemPrompt(catalogue: DrawingCatalogue): string {
+interface LearningRule {
+  field_name: string;
+  correct_value: string;
+  drawing_type: string | null;
+  condition: string | null;
+  correction_count: number;
+}
+
+function buildSystemPrompt(catalogue: DrawingCatalogue, learningRules: LearningRule[] = []): string {
   const materialList = catalogue.materials
     .map(m => `- ${m.name}${m.collection ? ` (${m.collection})` : ''}`)
     .join('\n');
@@ -171,7 +179,16 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
     }
   ],
   "warnings": []
-}`;
+}` + (learningRules.length > 0 ? `
+
+## LEARNED CORRECTIONS (apply these rules — they come from real user feedback)
+
+${learningRules.map(r =>
+  `- ${r.field_name}: always use "${r.correct_value}"` +
+  (r.drawing_type ? ` (for ${r.drawing_type} drawings)` : '') +
+  (r.condition ? ` when ${r.condition}` : '') +
+  ` [based on ${r.correction_count} corrections]`
+).join('\n')}` : '');
 }
 
 export async function POST(request: NextRequest) {
@@ -293,13 +310,27 @@ export async function POST(request: NextRequest) {
       cutoutTypes: rawCutoutTypes,
     };
 
+    // Load active learning rules for this company
+    const learningRules = await prisma.drawing_learning_rules.findMany({
+      where: { company_id: companyId, is_active: true },
+      orderBy: { correction_count: 'desc' },
+      take: 20,
+      select: {
+        field_name: true,
+        correct_value: true,
+        drawing_type: true,
+        condition: true,
+        correction_count: true,
+      },
+    });
+
     // Call Claude API
     const anthropic = getAnthropicClient();
     logger.info('[Analyze] Calling Claude API...');
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: buildSystemPrompt(catalogue),
+      system: buildSystemPrompt(catalogue, learningRules),
       messages: [
         {
           role: 'user',
