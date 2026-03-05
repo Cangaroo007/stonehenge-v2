@@ -178,29 +178,6 @@ export async function POST(
       );
     }
 
-    // Mitred constraint: only Pencil Round edge profiles allowed
-    if (laminationMethod === 'MITRED') {
-      const edgeIds = [edgeTop, edgeBottom, edgeLeft, edgeRight].filter(Boolean);
-      if (edgeIds.length > 0) {
-        const edgeTypes = await prisma.edge_types.findMany({
-          where: { id: { in: edgeIds } },
-          select: { id: true, name: true },
-        });
-        for (const et of edgeTypes) {
-          const nameLower = et.name.toLowerCase();
-          if (!nameLower.includes('pencil') && !nameLower.includes('raw')) {
-            return NextResponse.json(
-              {
-                error: `Mitred edges only support Pencil Round profile. Found "${et.name}". Change to Pencil Round or switch to Laminated.`,
-                code: 'MITRED_PROFILE_CONSTRAINT',
-              },
-              { status: 400 }
-            );
-          }
-        }
-      }
-    }
-
     // Material → Edge compatibility check
     const edgeCompatibilityWarnings: string[] = [];
     if (materialId) {

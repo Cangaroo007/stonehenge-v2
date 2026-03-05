@@ -292,7 +292,7 @@ All calculation logic must match the Pricing Bible specification:
 - Polishing applies ONLY to finished (exposed) edges — NEVER to join faces on L/U shapes
 - Edge profiles are ADDITIONAL cost on top of base polishing
 - 40mm = 20mm slab + lamination edge strips (mandatory, not optional)
-- Mitred edges → Pencil Round profile ONLY
+- Mitred edges have no traditional edge profile — the 45° mitre joint IS the finished edge. The only option is the top corner tip treatment: Raw (default), Square Top, or Round Top
 - All rates are tenant-configurable via Pricing Admin
 - Service units (Lm vs m²) are selectable per tenant
 - Cutout rates and edge surcharges are fabrication-category-aware
