@@ -87,6 +87,9 @@ interface QuoteUpdateData {
   discount_type?: string | null;
   discount_value?: number | null;
   discount_applies_to?: string | null;
+  // Material margin
+  material_margin_percent?: number | null;
+  material_margin_source?: string | null;
 }
 
 export async function GET(
@@ -273,6 +276,9 @@ export async function PUT(
       if (data.discount_type !== undefined) updateFields.discount_type = data.discount_type;
       if (data.discount_value !== undefined) updateFields.discount_value = data.discount_value;
       if (data.discount_applies_to !== undefined) updateFields.discount_applies_to = data.discount_applies_to;
+      // Material margin fields
+      if (data.material_margin_percent !== undefined) updateFields.material_margin_percent = data.material_margin_percent;
+      if (data.material_margin_source !== undefined) updateFields.material_margin_source = data.material_margin_source;
 
       if (Object.keys(updateFields).length === 0) {
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
@@ -457,6 +463,9 @@ function transformQuoteForClient(quote: any) {
       sortOrder: room.sort_order,
       pieces: (room.quote_pieces || []).map((piece: any) => transformPieceForClient(piece)),
     })),
+    // Material margin
+    materialMarginPercent: quote.material_margin_percent != null ? Number(quote.material_margin_percent) : null,
+    materialMarginSource: quote.material_margin_source ?? null,
     // Custom charges and discount
     customCharges: (quote.custom_charges || []).map((c: any) => ({
       id: c.id,

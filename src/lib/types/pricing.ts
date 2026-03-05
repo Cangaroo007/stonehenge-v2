@@ -187,6 +187,24 @@ export interface CalculationResult {
   discounts: DiscountBreakdown[];
   price_books: { id: string; name: string } | null;
   calculated_at: Date;
+  marginInfo?: {
+    effectiveMarginPercent: number;
+    marginSource: 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none';
+    marginAdjustPercent: number;
+    finalMarginPercent: number;
+    marginMultiplier: number;
+    materialCostBeforeMargin: number;
+    materialCostAfterMargin: number;
+    availableMargins: {
+      quoteOverride: number | null;
+      clientTier: number | null;
+      tierName: string | null;
+      material: number | null;
+      supplier: number | null;
+      supplierName: string | null;
+    };
+    warning: string | null;
+  };
 }
 
 // ============================================

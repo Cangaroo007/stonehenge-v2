@@ -48,6 +48,26 @@ import type {
   GrainMatchResult,
 } from '@/lib/types/pricing';
 
+/** Margin resolution result — tracks which source provided the margin */
+export interface MarginResolution {
+  effectiveMarginPercent: number;
+  marginSource: 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none';
+  marginAdjustPercent: number;
+  finalMarginPercent: number;
+  marginMultiplier: number;
+  materialCostBeforeMargin: number;
+  materialCostAfterMargin: number;
+  availableMargins: {
+    quoteOverride: number | null;
+    clientTier: number | null;
+    tierName: string | null;
+    material: number | null;
+    supplier: number | null;
+    supplierName: string | null;
+  };
+  warning: string | null;
+}
+
 // Hardcoded delivery zones matching seed data (shared with /api/distance/calculate)
 const DELIVERY_ZONES = [
   { id: '1', name: 'Local', maxDistanceKm: 30, baseCharge: 50.0, ratePerKm: 2.5, isActive: true },
@@ -259,8 +279,10 @@ export function calculateMaterialCost(
   wasteFactorPercent?: number,
   slabCountFromOptimiser?: boolean,
   materialMarginAdjustPercent: number = 0,
-  pieceAreaOverrides?: number[]
-): MaterialBreakdown {
+  pieceAreaOverrides?: number[],
+  /** Pre-resolved margin from quote or tier level (takes priority over material/supplier) */
+  resolvedMarginOverride?: { quoteMarginOverride: number | null; tierMarginPercent: number | null; tierName: string | null } | null,
+): MaterialBreakdown & { marginResolution: MarginResolution } {
   let totalAreaM2 = 0;
   let overriddenCost = 0;
   let calculatedCost = 0;
@@ -314,13 +336,41 @@ export function calculateMaterialCost(
     }
   }
 
-  // Resolve margin from material hierarchy:
-  // material.margin_override_percent → supplier.default_margin_percent → 0
+  // Margin resolution hierarchy:
+  // 1. Quote-level override (user explicitly set margin for this quote)
+  // 2. Client tier margin (customer's tier has a default material margin)
+  // 3. Material-level override (per-material margin)
+  // 4. Supplier default margin
+  // 5. 0% (with warning flag)
   const firstMat = pieces.find(p => p.materials)?.materials;
-  const baseMarginPercent =
-    firstMat?.margin_override_percent?.toNumber()
-    ?? firstMat?.supplier?.default_margin_percent?.toNumber()
-    ?? 0;
+
+  const quoteMarginOverride = resolvedMarginOverride?.quoteMarginOverride ?? null;
+  const tierMarginPercent = resolvedMarginOverride?.tierMarginPercent ?? null;
+  const materialMarginPercent = firstMat?.margin_override_percent?.toNumber() ?? null;
+  const supplierMarginPercent = firstMat?.supplier?.default_margin_percent?.toNumber() ?? null;
+
+  // Resolve with priority
+  let baseMarginPercent: number;
+  let marginSource: MarginResolution['marginSource'];
+
+  if (quoteMarginOverride != null) {
+    baseMarginPercent = quoteMarginOverride;
+    marginSource = 'quote_override';
+  } else if (tierMarginPercent != null) {
+    baseMarginPercent = tierMarginPercent;
+    marginSource = 'client_tier';
+  } else if (materialMarginPercent != null) {
+    baseMarginPercent = materialMarginPercent;
+    marginSource = 'material';
+  } else if (supplierMarginPercent != null) {
+    baseMarginPercent = supplierMarginPercent;
+    marginSource = 'supplier';
+  } else {
+    baseMarginPercent = 0;
+    marginSource = 'none';
+  }
+
+  // Apply the quote_options adjustment on top of base margin
   const effectiveMarginPercent = baseMarginPercent + materialMarginAdjustPercent;
   const marginMultiplier = 1 + effectiveMarginPercent / 100;
 
@@ -365,7 +415,7 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides);
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides, resolvedMarginOverride);
 
   // For multi-material quotes, the single-material calculation above
   // (slabCount × firstSlabPrice) is wrong — it uses one material's price for all slabs.
@@ -408,6 +458,26 @@ export function calculateMaterialCost(
     slabWidthMm: slabWidthMm ?? undefined,
     slabCountFromOptimiser: slabCountFromOptimiser ?? false,
     byMaterial: byMaterial.length > 1 ? byMaterial : undefined,
+    marginResolution: {
+      effectiveMarginPercent: roundToTwo(baseMarginPercent),
+      marginSource,
+      marginAdjustPercent: roundToTwo(materialMarginAdjustPercent),
+      finalMarginPercent: roundToTwo(effectiveMarginPercent),
+      marginMultiplier: roundToTwo(marginMultiplier * 100) / 100,
+      materialCostBeforeMargin: roundToTwo(costBeforeMargin),
+      materialCostAfterMargin: roundToTwo(marginalizedCost),
+      availableMargins: {
+        quoteOverride: quoteMarginOverride,
+        clientTier: tierMarginPercent,
+        tierName: resolvedMarginOverride?.tierName ?? null,
+        material: materialMarginPercent,
+        supplier: supplierMarginPercent,
+        supplierName: (firstMat?.supplier as unknown as { name?: string } | null)?.name ?? null,
+      },
+      warning: marginSource === 'none'
+        ? 'No material margin is set. Client is being billed at cost price. Set a margin on the supplier, material, client tier, or this quote.'
+        : null,
+    },
   };
 }
 
@@ -425,6 +495,7 @@ function buildMaterialGroupings(
   defaultSlabWidthMm: number | null | undefined,
   materialMarginAdjustPercent: number = 0,
   pieceAreaOverrides?: number[],
+  resolvedMarginOverride?: { quoteMarginOverride: number | null; tierMarginPercent: number | null; tierName: string | null } | null,
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -450,9 +521,12 @@ function buildMaterialGroupings(
     const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
     const areaSqm = pieceAreaOverrides?.[idx] ?? (piece.length_mm * piece.width_mm) / 1_000_000;
 
-    // Resolve per-material margin: override → supplier default → 0
+    // Resolve margin with same hierarchy as main calculator
+    // Quote override and tier override take priority over per-material values
     const matBaseMargin =
-      mat.margin_override_percent?.toNumber()
+      resolvedMarginOverride?.quoteMarginOverride
+      ?? resolvedMarginOverride?.tierMarginPercent
+      ?? mat.margin_override_percent?.toNumber()
       ?? mat.supplier?.default_margin_percent?.toNumber()
       ?? 0;
 
@@ -672,6 +746,19 @@ export async function calculateQuotePrice(
     ...piece,
     overrideMaterialCost: piece.override_material_cost,
   }));
+
+  // Resolve quote-level and tier-level margin data for the hierarchy
+  const quoteAnyForMargin = quote as any;
+  const resolvedMarginOverride = {
+    quoteMarginOverride: quoteAnyForMargin.material_margin_percent != null
+      ? Number(quoteAnyForMargin.material_margin_percent)
+      : null,
+    tierMarginPercent: (quote.customers?.client_tiers as any)?.material_margin_percent != null
+      ? Number((quote.customers?.client_tiers as any).material_margin_percent)
+      : null,
+    tierName: (quote.customers?.client_tiers as any)?.name ?? null,
+  };
+
   const materialBreakdown = calculateMaterialCost(
     piecesWithOverride,
     pricingContext.materialPricingBasis,
@@ -679,7 +766,8 @@ export async function calculateQuotePrice(
     pricingContext.wasteFactorPercent,
     slabCountFromOptimiser,
     options?.materialMarginAdjustPercent ?? 0,
-    pieceAreaValues
+    pieceAreaValues,
+    resolvedMarginOverride,
   );
 
   // Determine primary fabrication category for the quote
@@ -1718,6 +1806,7 @@ export async function calculateQuotePrice(
     price_books: priceBookInfo,
     calculated_at: new Date(),
     pricingContext,
+    marginInfo: materialBreakdown.marginResolution,
   };
 }
 

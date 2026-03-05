@@ -37,6 +37,7 @@ model client_tiers {
   updatedAt            DateTime
   discount_matrix      Json?
   custom_price_list    Json?
+  material_margin_percent    Decimal?   @db.Decimal(5, 2)  // Default material margin for this tier
   customers            customers[]
   pricing_rules_engine pricing_rules_engine[]
 }
@@ -679,6 +680,10 @@ model quotes {
   discount_type       String?
   discount_value      Decimal?  @db.Decimal(10, 2)
   discount_applies_to String?   @default("ALL")
+
+  // Material margin — resolved from tier/supplier, overridable per-quote
+  material_margin_percent    Decimal?   @db.Decimal(5, 2)  // The active margin % applied to this quote
+  material_margin_source     String?    // 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none'
 
   // Optimizer tracking
   optimizer_slab_count Int?
