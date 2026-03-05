@@ -7,6 +7,7 @@ import { ClarificationPanel } from '@/components/drawing-analysis/ClarificationP
 import { DrawingReviewStage } from '@/components/drawing-analysis/DrawingReviewStage';
 import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
+import { VerbalTakeoffInput } from '@/components/drawing-analysis/VerbalTakeoffInput';
 import { logger } from '@/lib/logger';
 
 interface EdgeType {
@@ -144,6 +145,13 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const [clarificationDrawingId, setClarificationDrawingId] = useState<string | undefined>();
   const [clarificationAnalysisId, setClarificationAnalysisId] = useState<number | undefined>();
   const [catalogue, setCatalogue] = useState<DrawingCatalogue>({ materials: [], edgeTypes: [], cutoutTypes: [] });
+
+  // Rough drawing state
+  const [isRoughDrawing, setIsRoughDrawing] = useState(false);
+  const [roughDrawingMessage, setRoughDrawingMessage] = useState<string | null>(null);
+
+  // Upload tab state (upload step only)
+  const [uploadTab, setUploadTab] = useState<'upload' | 'verbal'>('upload');
 
   // Save as Template state
   const [showTemplateForm, setShowTemplateForm] = useState(false);
@@ -333,6 +341,12 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
       // Notify parent that drawings have been saved
       onDrawingsSaved?.();
+
+      // Store rough drawing flag from DR-5 response
+      if (data.isRoughDrawing) {
+        setIsRoughDrawing(true);
+        setRoughDrawingMessage(data.roughDrawingMessage ?? null);
+      }
 
       // Store clarification data from DR-1 response
       const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
@@ -641,9 +655,39 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   };
 
   // Render upload step
+  const handleVerbalPiecesExtracted = useCallback((pieces: ExtractedPiece[]) => {
+    setExtractedPieces(pieces);
+    setSelectedIds(new Set(pieces.map(p => p.id)));
+    setStep('review');
+  }, []);
+
   const renderUploadStep = () => (
     <div className="p-6">
       <h2 className="text-lg font-semibold mb-4">Import from Drawing</h2>
+
+      {/* Tab toggle */}
+      <div className="flex rounded-lg border border-gray-200 mb-4 overflow-hidden">
+        <button
+          onClick={() => setUploadTab('upload')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            uploadTab === 'upload'
+              ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-600'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          📎 Upload Drawing
+        </button>
+        <button
+          onClick={() => setUploadTab('verbal')}
+          className={`flex-1 px-4 py-2 text-sm font-medium transition-colors ${
+            uploadTab === 'verbal'
+              ? 'bg-primary-50 text-primary-700 border-b-2 border-primary-600'
+              : 'text-gray-600 hover:bg-gray-50'
+          }`}
+        >
+          ✏️ Describe Job
+        </button>
+      </div>
 
       {error && (
         <div className="mb-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg">
@@ -651,49 +695,59 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
         </div>
       )}
 
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-          dragActive
-            ? 'border-primary-500 bg-primary-50'
-            : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
-        }`}
-        onDragEnter={handleDrag}
-        onDragLeave={handleDrag}
-        onDragOver={handleDrag}
-        onDrop={handleDrop}
-        onClick={() => fileInputRef.current?.click()}
-      >
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".pdf,.png,.jpg,.jpeg"
-          onChange={handleFileChange}
-          className="hidden"
+      {uploadTab === 'upload' ? (
+        <>
+          <div
+            className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
+              dragActive
+                ? 'border-primary-500 bg-primary-50'
+                : 'border-gray-300 hover:border-primary-400 hover:bg-gray-50'
+            }`}
+            onDragEnter={handleDrag}
+            onDragLeave={handleDrag}
+            onDragOver={handleDrag}
+            onDrop={handleDrop}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.png,.jpg,.jpeg"
+              onChange={handleFileChange}
+              className="hidden"
+            />
+
+            <svg
+              className="mx-auto h-12 w-12 text-gray-400 mb-4"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={1.5}
+                d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+              />
+            </svg>
+
+            <p className="text-gray-600 mb-2">
+              Drop drawing here or <span className="text-primary-600 font-medium">click to upload</span>
+            </p>
+            <p className="text-sm text-gray-500">PDF, PNG, JPG (max 10MB, images auto-compressed)</p>
+          </div>
+
+          <p className="mt-4 text-sm text-gray-500">
+            Supported: CAD drawings, FileMaker job sheets, hand-drawn sketches with measurements
+          </p>
+        </>
+      ) : (
+        <VerbalTakeoffInput
+          catalogue={catalogue}
+          onPiecesExtracted={handleVerbalPiecesExtracted}
+          onCancel={() => setUploadTab('upload')}
         />
-
-        <svg
-          className="mx-auto h-12 w-12 text-gray-400 mb-4"
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={1.5}
-            d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
-          />
-        </svg>
-
-        <p className="text-gray-600 mb-2">
-          Drop drawing here or <span className="text-primary-600 font-medium">click to upload</span>
-        </p>
-        <p className="text-sm text-gray-500">PDF, PNG, JPG (max 10MB, images auto-compressed)</p>
-      </div>
-
-      <p className="mt-4 text-sm text-gray-500">
-        Supported: CAD drawings, FileMaker job sheets, hand-drawn sketches with measurements
-      </p>
+      )}
 
       <div className="mt-6 flex justify-end">
         <button onClick={onClose} className="btn-secondary">
@@ -1170,6 +1224,20 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             <p className="text-sm text-zinc-600 mb-4">
               We need a few details to ensure accurate quoting. Tap to answer.
             </p>
+            {isRoughDrawing && roughDrawingMessage && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 flex items-start justify-between gap-2">
+                <p className="text-sm text-amber-800">
+                  ✏️ {roughDrawingMessage}
+                </p>
+                <button
+                  onClick={() => setRoughDrawingMessage(null)}
+                  className="text-amber-400 hover:text-amber-600 flex-shrink-0 text-lg leading-none"
+                  aria-label="Dismiss"
+                >
+                  ×
+                </button>
+              </div>
+            )}
             <ClarificationPanel
               questions={clarificationQuestions}
               onAnswersSubmit={handleClarificationSubmit}

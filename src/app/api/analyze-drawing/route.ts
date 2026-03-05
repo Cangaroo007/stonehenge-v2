@@ -5,6 +5,8 @@ import { logger } from '@/lib/logger';
 import { requireAuth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
+import { buildRoughDrawingSystemPrompt } from '@/lib/prompts/extraction-rough-drawing';
+import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
 
 function getAnthropicClient(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -361,6 +363,66 @@ export async function POST(request: NextRequest) {
 
     const analysis = JSON.parse(jsonStr);
 
+    // Rough drawing detection — drawingType is the sole trigger
+    const isRoughDrawing = analysis.drawingType === 'hand_drawn';
+    let roughDrawingMessage: string | null = null;
+
+    if (isRoughDrawing) {
+      logger.info('[Analyze] Rough drawing detected — running second pass for aggressive questioning');
+      try {
+        const roughResponse = await anthropic.messages.create({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1000,
+          system: buildRoughDrawingSystemPrompt(catalogue),
+          messages: [
+            {
+              role: 'user',
+              content: [
+                fileContentBlock,
+                {
+                  type: 'text',
+                  text: `The initial extraction produced these pieces: ${JSON.stringify(analysis.rooms ?? analysis.pieces)}.
+Generate clarification questions for EVERY dimension on EVERY piece.
+Return ONLY a JSON object with "roughDrawingMessage" and "clarificationQuestions" array. No other text.`,
+                },
+              ],
+            },
+          ],
+        });
+
+        // Parse rough drawing response
+        const roughTextContent = roughResponse.content.find(c => c.type === 'text');
+        if (roughTextContent && roughTextContent.type === 'text') {
+          let roughJsonStr = roughTextContent.text;
+          if (roughJsonStr.includes('```json')) {
+            roughJsonStr = roughJsonStr.split('```json')[1].split('```')[0].trim();
+          } else if (roughJsonStr.includes('```')) {
+            roughJsonStr = roughJsonStr.split('```')[1].split('```')[0].trim();
+          }
+
+          const roughParsed = JSON.parse(roughJsonStr);
+          const roughQuestions: ClarificationQuestion[] = Array.isArray(roughParsed.clarificationQuestions)
+            ? roughParsed.clarificationQuestions
+            : Array.isArray(roughParsed) ? roughParsed : [];
+
+          if (roughQuestions.length > 0) {
+            analysis.clarificationQuestions = roughQuestions;
+          }
+
+          if (typeof roughParsed.roughDrawingMessage === 'string' && roughParsed.roughDrawingMessage.length > 0) {
+            roughDrawingMessage = roughParsed.roughDrawingMessage;
+          }
+        }
+      } catch (roughErr) {
+        logger.error('[Analyze] Rough drawing second pass failed (non-fatal):', roughErr);
+      }
+
+      // Default message if parsing didn't produce one
+      if (!roughDrawingMessage) {
+        roughDrawingMessage = "This looks like a hand sketch — I'll ask a few quick questions to make sure the measurements are right.";
+      }
+    }
+
     return NextResponse.json({
       success: true,
       analysis,
@@ -368,6 +430,8 @@ export async function POST(request: NextRequest) {
       requiresReview: (analysis.clarificationQuestions ?? []).some(
         (q: { priority: string }) => q.priority === 'CRITICAL'
       ),
+      isRoughDrawing,
+      roughDrawingMessage,
       catalogue: { materials: rawMaterials, edgeTypes: rawEdgeTypes, cutoutTypes: rawCutoutTypes },
       tokensUsed: {
         input: response.usage.input_tokens,
