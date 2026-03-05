@@ -1119,8 +1119,15 @@ export default function PieceVisualEditor({
       className="relative w-full"
       onClick={(e) => e.stopPropagation()}
     >
+      {/* ── Mitred edge read-only label ──────────────────────────────── */}
+      {isMitred && isEditMode && (
+        <p className="text-xs text-gray-500 italic px-3 py-2">
+          Mitred edge — corner treatment set in piece editor.
+        </p>
+      )}
+
       {/* ── Edit Mode Toolbar ──────────────────────────────────────────── */}
-      {isEditMode && onEdgeChange && (
+      {isEditMode && onEdgeChange && !isMitred && (
         <div className="flex items-center gap-1 mb-2 px-1 flex-wrap">
           {/* Mode buttons — Quick Edge first (default mode) */}
           <div className="flex rounded-md border border-gray-200 overflow-hidden">
@@ -1260,7 +1267,7 @@ export default function PieceVisualEditor({
       )}
 
       {/* ── Recents Strip (Quick Edge mode, above SVG) ─────────────── */}
-      {isEditMode && editMode === 'quickEdge' && recentProfiles.length > 0 && (
+      {isEditMode && !isMitred && editMode === 'quickEdge' && recentProfiles.length > 0 && (
         <div className="flex items-center gap-1 mb-1 px-1">
           <span className="text-[9px] text-gray-400 mr-0.5">Recent:</span>
           {recentProfiles.map((profileId) => {
