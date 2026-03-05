@@ -61,6 +61,7 @@
 | R-49 | A-23: Fixed AI Price List uploader supplier validation. Upload now proceeds with "let AI detect" option — no longer blocks on supplier selection. Dropzone always enabled. After AI parse, auto-selects matching supplier from dropdown if detected name matches. Sync step still requires a supplier ID with clearer error message. Warning replaced with blue info hint. | claude/fix-supplier-validation-bREwA |
 | R-50 | PX-1: Missing rate detection. getServiceRateSafe() wrapper catches missing rate throws, records in missingRates[], continues with $0. Calculator no longer crashes on missing rates. PricingSummary shows amber banner listing each missing rate with piece name and description. Link to Pricing Admin for resolution. | claude/missing-rate-detection-banner-gTk82 |
 | R-51 | PX-2: Extended missing rate detection to edge profiles, cutout rates, edge category rates, cutout category rates, waterfall rates, and engine-level rate throws. All rate lookups now push to missingRates[] instead of silently returning $0 or crashing. Calculator never crashes on any missing rate. 7 detection points total (up from 1 in PX-1). | claude/px2-missing-rate-coverage-xO73i |
+| R-52 | PX-3: Pricing Admin Gaps tab. API endpoint scans all rate combinations (service × category, edge × category, cutout × category) and returns missing rates. GapsTab page shows coverage bars, gap tables with "Configure →" links, red badge count on tab. First tab in Pricing Management. | claude/add-pricing-gaps-tab-dgIGl |
 
 ---
 
@@ -92,6 +93,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PX-3 pricing admin gaps tab | claude/add-pricing-gaps-tab-dgIGl | Mar 5 | ✅ Complete |
 | A-23 fix supplier validation on AI import | claude/fix-supplier-validation-bREwA | Mar 5 | ✅ Complete |
 | A-01 wire tier discounts into calculator | claude/wire-tier-discounts-AJObr | Mar 5 | ✅ Complete |
 | P1a default Arris on new pieces | claude/default-arris-new-pieces-KaHjI | Mar 3 | ✅ Complete |
@@ -122,4 +124,4 @@
 
 ---
 
-*Last Updated: Mar 5 2026 — PX-2: Extended missing rate detection to edges, cutouts, and all category rates.*
+*Last Updated: Mar 5 2026 — PX-3: Pricing Admin Gaps tab with coverage dashboard and missing rate tables.*

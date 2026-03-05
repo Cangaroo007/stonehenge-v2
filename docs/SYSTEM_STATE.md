@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/missing-rate-detection-banner-gTk82 — PX-1: Missing rate detection with safe wrapper and inline banner
+> **Last Updated By:** claude/add-pricing-gaps-tab-dgIGl — PX-3: Pricing Admin Gaps tab with coverage dashboard and missing rate tables
 
 ---
 
@@ -289,6 +289,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 - `src/app/api/admin/pricing/cutout-types/[id]/route.ts`
 - `src/app/api/admin/pricing/cutout-types/route.ts`
 - `src/app/api/admin/pricing/edge-types/[id]/route.ts`
+- `src/app/api/admin/pricing/gaps/route.ts` — PX-3: Scans all rate combinations and returns missing rates with coverage stats
 - `src/app/api/admin/pricing/edge-types/route.ts`
 - `src/app/api/admin/pricing/interpret-price-list/route.ts`
 - `src/app/api/admin/pricing/machine-defaults/route.ts`
@@ -490,6 +491,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `/(dashboard)/templates/[id]/edit/page.tsx` | Template edit |
 | `/(dashboard)/optimize/page.tsx` | Slab optimizer |
 | `/(dashboard)/admin/pricing/page.tsx` | Admin pricing dashboard |
+| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Gaps tab — coverage bars, missing rate tables, configure links |
 | `/(dashboard)/admin/pricing/edges/page.tsx` | Edge type admin |
 | `/(dashboard)/admin/pricing/cutouts/page.tsx` | Cutout type admin |
 | `/(dashboard)/admin/pricing/services/page.tsx` | Service rates admin |
