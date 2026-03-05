@@ -75,10 +75,15 @@ export interface ExtractedPiece {
 export interface ClarificationQuestion {
   id: string;
   pieceId?: string;
-  category: 'DIMENSION' | 'CUTOUT' | 'EDGE' | 'MATERIAL' | 'QUANTITY';
+  fieldPath?: string;              // e.g. "dimensions.length", "material"
+  category: 'DIMENSION' | 'CUTOUT' | 'EDGE' | 'MATERIAL' | 'QUANTITY' | 'ROOM';
   priority: 'CRITICAL' | 'IMPORTANT' | 'NICE_TO_KNOW';
   question: string;
-  options?: string[];      // For multiple choice
+  aiSuggestion?: string;           // AI's best guess if confidence >= 0.5
+  aiSuggestionConfidence?: number; // 0.0–1.0
+  options?: string[];              // For multiple choice
+  allowFreeText?: boolean;         // true for dimension inputs
+  unit?: string;                   // 'mm' for dimensions
   defaultValue?: string;
 }
 

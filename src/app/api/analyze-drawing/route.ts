@@ -3,6 +3,8 @@ import Anthropic from '@anthropic-ai/sdk';
 import sharp from 'sharp';
 import { logger } from '@/lib/logger';
 import { requireAuth } from '@/lib/auth';
+import prisma from '@/lib/db';
+import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 
 function getAnthropicClient(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -50,44 +52,77 @@ function isPdfFile(mimeType: string): boolean {
   return mimeType === 'application/pdf';
 }
 
-const SYSTEM_PROMPT = `You are an expert stone benchtop fabricator analyzing drawings to extract piece specifications for quoting.
+function buildSystemPrompt(catalogue: DrawingCatalogue): string {
+  const materialList = catalogue.materials
+    .map(m => `- ${m.name}${m.collection ? ` (${m.collection})` : ''}`)
+    .join('\n');
 
-DRAWING TYPES YOU MAY RECEIVE:
-1. Professional CAD Drawings - Clean technical drawings with precise dimension lines
-2. FileMaker Job Sheets - Form-style pages with CAD drawings, site photos, and metadata fields (Job No., Thickness, etc.)
-3. Hand-Drawn Sketches - Rough sketches with handwritten measurements
-4. Architectural Plans - Building floor plans with stone areas marked
+  const edgeTypeList = catalogue.edgeTypes
+    .map(e => `- ${e.name}${e.code ? ` (code: ${e.code})` : ''}`)
+    .join('\n');
 
-WHAT TO EXTRACT:
+  const cutoutTypeList = catalogue.cutoutTypes
+    .map(c => `- ${c.name}`)
+    .join('\n');
 
-Job Metadata (if visible):
+  return `You are an expert stone benchtop fabricator analysing drawings to extract piece specifications for quoting.
+
+## CORE PRINCIPLE — NEVER FABRICATE DATA
+If you cannot clearly read a dimension, set it to null. Never guess a dimension. "I couldn't read this" is infinitely better than a wrong number.
+
+## TENANT CATALOGUE
+Use ONLY these values when generating clarification question options. Do not invent options not in this list.
+
+### Available Materials:
+${materialList || '- No materials configured yet'}
+
+### Available Edge Types:
+${edgeTypeList || '- No edge types configured yet'}
+
+### Available Cutout Types:
+${cutoutTypeList || '- No cutout types configured yet'}
+
+## WHAT TO EXTRACT
+
+### Job Metadata (if visible):
 - Job Number
 - Default Thickness (usually 20mm or 40mm)
-- Default Overhang (usually 10mm)
-- Material/Color if specified
 
-For Each Stone Piece:
-- Piece number if marked (circled numbers like 1, 2, 3)
-- Room/area label (Kitchen, Bathroom, Pantry, Laundry, TV Unit, Island, etc.)
-- Length in millimeters (typically 1500-4000mm for benchtops)
-- Width in millimeters (typically 400-900mm for benchtops)
-- Shape: rectangular, L-shaped, U-shaped, or irregular
-- Cutouts if marked: HP/hotplate, UMS/undermount sink, SR/drop-in sink, tap holes
+### For Each Stone Piece:
+- Piece number if marked
+- Room/area label
+- Length in millimetres (null if unreadable)
+- Width in millimetres (null if unreadable)
+- Shape: RECTANGLE, L_SHAPE, U_SHAPE, or IRREGULAR
+- Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 
-CONFIDENCE SCORING:
-- 0.9-1.0: Clear CAD with measurement lines
-- 0.7-0.89: Visible but some ambiguity
-- 0.5-0.69: Estimated from context
-- Below 0.5: Flag for manual verification
+### Confidence Scoring:
+- 0.9–1.0: Clear dimension line, no ambiguity
+- 0.7–0.89: Visible but some ambiguity
+- 0.5–0.69: Inferred from context
+- Below 0.5: Cannot determine — set dimension to null
 
-OUTPUT FORMAT - Return ONLY valid JSON:
+## CLARIFICATION QUESTIONS
+
+Generate a clarificationQuestions array for ANY value with confidence below 0.85.
+
+Rules for questions:
+- CRITICAL priority: missing or null dimensions (length, width), piece count
+  uncertainty
+- IMPORTANT priority: cutout type ambiguity, edge finish uncertainty,
+  thickness unknown
+- NICE_TO_KNOW priority: room assignment, material if not specified
+
+For each question, populate options from the TENANT CATALOGUE above — never hardcode generic options. For dimension questions, set allowFreeText: true and omit options (user types a number).
+
+## OUTPUT FORMAT — Return ONLY valid JSON:
+
 {
   "success": true,
-  "drawingType": "cad_professional" or "job_sheet" or "hand_drawn" or "architectural",
+  "drawingType": "cad_professional" | "job_sheet" | "hand_drawn" | "architectural",
   "metadata": {
     "jobNumber": "string or null",
-    "defaultThickness": 20,
-    "defaultOverhang": 10
+    "defaultThickness": 20
   },
   "rooms": [
     {
@@ -96,21 +131,48 @@ OUTPUT FORMAT - Return ONLY valid JSON:
         {
           "pieceNumber": 1,
           "name": "Island Bench",
-          "pieceType": "benchtop",
-          "shape": "rectangular",
+          "shape": "RECTANGLE",
           "length": 3600,
           "width": 900,
           "thickness": 20,
-          "cutouts": [{"type": "hotplate"}, {"type": "sink"}],
-          "notes": "any observations",
-          "confidence": 0.85
+          "cutouts": [{"type": "COOKTOP", "quantity": 1}],
+          "confidence": 0.9,
+          "notes": "meaningful notes only — nothing generic"
         }
       ]
     }
   ],
-  "warnings": ["list any issues"],
-  "questionsForUser": ["questions needing clarification"]
+  "clarificationQuestions": [
+    {
+      "id": "piece-1-width",
+      "pieceId": "piece-1",
+      "fieldPath": "width",
+      "category": "DIMENSION",
+      "priority": "CRITICAL",
+      "question": "What is the width of the Island Bench?",
+      "aiSuggestion": null,
+      "aiSuggestionConfidence": null,
+      "options": null,
+      "allowFreeText": true,
+      "unit": "mm"
+    },
+    {
+      "id": "piece-1-material",
+      "pieceId": "piece-1",
+      "fieldPath": "material",
+      "category": "MATERIAL",
+      "priority": "IMPORTANT",
+      "question": "What material is the Island Bench?",
+      "aiSuggestion": "Caesarstone Calacatta Nuvo",
+      "aiSuggestionConfidence": 0.6,
+      "options": ["list from tenant catalogue only"],
+      "allowFreeText": false,
+      "unit": null
+    }
+  ],
+  "warnings": []
 }`;
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -204,13 +266,39 @@ export async function POST(request: NextRequest) {
       };
     }
 
+    // Load catalogue from DB — exact field names confirmed from schema
+    const [rawMaterials, rawEdgeTypes, rawCutoutTypes] = await Promise.all([
+      prisma.materials.findMany({
+        where: { is_active: true },
+        select: { id: true, name: true, collection: true },
+        orderBy: { name: 'asc' },
+        take: 50,
+      }),
+      prisma.edge_types.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true, code: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.cutout_types.findMany({
+        where: { isActive: true },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+      }),
+    ]);
+
+    const catalogue: DrawingCatalogue = {
+      materials: rawMaterials,
+      edgeTypes: rawEdgeTypes,
+      cutoutTypes: rawCutoutTypes,
+    };
+
     // Call Claude API
     const anthropic = getAnthropicClient();
     logger.info('[Analyze] Calling Claude API...');
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: SYSTEM_PROMPT,
+      system: buildSystemPrompt(catalogue),
       messages: [
         {
           role: 'user',
@@ -244,6 +332,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       analysis,
+      clarificationQuestions: analysis.clarificationQuestions ?? [],
+      requiresReview: (analysis.clarificationQuestions ?? []).some(
+        (q: { priority: string }) => q.priority === 'CRITICAL'
+      ),
       tokensUsed: {
         input: response.usage.input_tokens,
         output: response.usage.output_tokens,
