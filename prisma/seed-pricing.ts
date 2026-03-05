@@ -76,9 +76,9 @@ async function seedPricingEntities() {
 
   // Client Tiers
   const clientTiers = [
-    { name: 'Tier 1', description: 'Premium partners - best pricing', priority: 100, sortOrder: 1 },
-    { name: 'Tier 2', description: 'Regular clients - standard discounts', priority: 50, sortOrder: 2 },
-    { name: 'Tier 3', description: 'New clients - standard pricing', priority: 0, isDefault: true, sortOrder: 3 },
+    { name: 'Tier 1', description: 'Premium partners - best pricing', priority: 100, sortOrder: 1, material_margin_percent: 30.00 },
+    { name: 'Tier 2', description: 'Regular clients - standard discounts', priority: 50, sortOrder: 2, material_margin_percent: 20.00 },
+    { name: 'Tier 3', description: 'New clients - standard pricing', priority: 0, isDefault: true, sortOrder: 3, material_margin_percent: 15.00 },
   ]
 
   for (const tier of clientTiers) {
