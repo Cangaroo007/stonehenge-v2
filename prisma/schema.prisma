@@ -560,6 +560,10 @@ model quote_pieces {
   shape_config         Json?
   no_strip_edges       Json?            @default("[]")
   mitred_corner_treatment String?      @default("RAW")
+  /// When this piece was promoted from a lamination strip, references the parent piece ID.
+  promoted_from_piece_id  Int?
+  /// The edge position on the parent piece that this strip was promoted from (e.g. "top", "left").
+  promoted_edge_position  String?
   piece_features      piece_features[]
   materials           materials?           @relation(fields: [material_id], references: [id])
   quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)

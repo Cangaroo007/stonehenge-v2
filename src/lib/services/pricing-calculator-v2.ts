@@ -237,6 +237,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
       waterfallPricingMethod: settings.waterfall_pricing_method,
+      stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
     };
   }
 
@@ -696,6 +697,19 @@ export async function calculateQuotePrice(
   // Flatten all pieces
   const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
+  // Task C safeguard: build a map of promoted edge positions per parent piece ID.
+  // Even if no_strip_edges wasn't patched correctly, this prevents double-charging
+  // lamination on edges that have been promoted to standalone pieces.
+  const promotedEdgesByParent = new Map<number, string[]>();
+  for (const p of allPieces) {
+    const pp = p as unknown as { promoted_from_piece_id?: number | null; promoted_edge_position?: string | null };
+    if (pp.promoted_from_piece_id && pp.promoted_edge_position) {
+      const existing = promotedEdgesByParent.get(pp.promoted_from_piece_id) ?? [];
+      existing.push(pp.promoted_edge_position);
+      promotedEdgesByParent.set(pp.promoted_from_piece_id, existing);
+    }
+  }
+
   // Track missing rates instead of crashing
   const missingRates: MissingRate[] = [];
 
@@ -942,8 +956,11 @@ export async function calculateQuotePrice(
       { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
     ];
 
-    // Get no_strip_edges for this piece (wall edges that don't need lamination strips)
-    const noStripEdges = (piece.no_strip_edges as unknown as string[]) ?? [];
+    // Get no_strip_edges for this piece (wall edges + promoted edges that don't need lamination strips)
+    const storedNoStrip = (piece.no_strip_edges as unknown as string[]) ?? [];
+    const promotedEdges = promotedEdgesByParent.get(piece.id) ?? [];
+    // Merge and deduplicate: wall edges + promoted edges
+    const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges]));
 
     // Compute finished edge length in Lm for polishing (edges with profiles assigned).
     // Compute strip length in Lm for lamination (ALL edges minus wall edges).

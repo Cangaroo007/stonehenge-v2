@@ -176,6 +176,8 @@ export async function GET(
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
       mitredCornerTreatment: p.mitred_corner_treatment ?? 'RAW',
+      promotedFromPieceId: p.promoted_from_piece_id ?? null,
+      promotedEdgePosition: p.promoted_edge_position ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(p.total_cost || 0),
@@ -772,6 +774,23 @@ export async function DELETE(
     }
 
     const roomId = piece.room_id;
+
+    // If this is a promoted strip, restore the parent piece's edge
+    // by removing this edge from the parent's no_strip_edges array
+    if (piece.promoted_from_piece_id && piece.promoted_edge_position) {
+      const parentPiece = await prisma.quote_pieces.findUnique({
+        where: { id: piece.promoted_from_piece_id },
+        select: { no_strip_edges: true },
+      });
+      if (parentPiece) {
+        const currentNoStrip = (parentPiece.no_strip_edges as unknown as string[]) ?? [];
+        const restored = currentNoStrip.filter(e => e !== piece.promoted_edge_position);
+        await prisma.quote_pieces.update({
+          where: { id: piece.promoted_from_piece_id },
+          data: { no_strip_edges: restored as unknown as Prisma.InputJsonValue },
+        });
+      }
+    }
 
     // Delete the piece
     await prisma.quote_pieces.delete({

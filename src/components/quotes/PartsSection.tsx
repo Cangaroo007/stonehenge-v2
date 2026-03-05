@@ -28,6 +28,8 @@ interface QuotePiece {
   edge_bottom: string | null;
   edge_left: string | null;
   edge_right: string | null;
+  promoted_from_piece_id?: number | null;
+  promoted_edge_position?: string | null;
   sourceRelationships: Array<{
     id: number;
     source_piece_id: number;
@@ -681,6 +683,21 @@ export default function PartsSection({
     return map;
   }, [calcBreakdown]);
 
+  // Build a set of already-promoted edges per piece ID — hide "Promote to Piece" for these
+  const promotedEdgesMap = useMemo(() => {
+    const map = new Map<number, Set<string>>();
+    for (const room of rooms) {
+      for (const p of room.quote_pieces) {
+        if (p.promoted_from_piece_id && p.promoted_edge_position) {
+          const existing = map.get(p.promoted_from_piece_id) ?? new Set<string>();
+          existing.add(p.promoted_edge_position);
+          map.set(p.promoted_from_piece_id, existing);
+        }
+      }
+    }
+    return map;
+  }, [rooms]);
+
   // Build parts per room
   const roomPartsData = useMemo(() => {
     const allPieces = rooms.flatMap((r) => r.quote_pieces);
@@ -789,7 +806,9 @@ export default function PartsSection({
           materialId: parentPiece.material_id,
           roomName,
           shapeType: 'RECTANGLE',
-          description: `Promoted from lamination strip (parent: ${parentPiece.name})`,
+          description: `Promoted from lamination strip (parent: ${parentPiece.name}, edge: ${part.stripPosition ?? 'unknown'})`,
+          promotedFromPieceId: parentPiece.id,
+          promotedEdgePosition: part.stripPosition ?? null,
         }),
       });
       if (!res.ok) throw new Error(await res.text());
@@ -878,6 +897,11 @@ export default function PartsSection({
                                   {isFirstPartOfPiece && (
                                     <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
                                       {piece.name || 'Unnamed piece'}
+                                      {piece.promoted_from_piece_id && (
+                                        <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-[9px] font-semibold uppercase tracking-wide">
+                                          Promoted strip
+                                        </span>
+                                      )}
                                     </span>
                                   )}
                                   <span
@@ -938,6 +962,14 @@ export default function PartsSection({
                                                 >
                                                   No
                                                 </button>
+                                              </span>
+                                            );
+                                          }
+                                          const alreadyPromoted = part.stripPosition && promotedEdgesMap.get(piece.id)?.has(part.stripPosition);
+                                          if (alreadyPromoted) {
+                                            return (
+                                              <span className="text-[10px] text-violet-500 italic">
+                                                Already promoted
                                               </span>
                                             );
                                           }

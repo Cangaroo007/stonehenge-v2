@@ -28,6 +28,7 @@ export interface PricingContext {
   grainMatchingSurchargePercent: number;
   cutoutThicknessMultiplier: number;
   waterfallPricingMethod: WaterfallPricingMethod;
+  stripToPieceThresholdMm: number;
 }
 
 export interface DiscountBreakdown {

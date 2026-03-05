@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/add-pricing-gaps-tab-dgIGl — PX-3: Pricing Admin Gaps tab with coverage dashboard and missing rate tables
+> **Last Updated By:** claude/promoted-strip-calculator-ttPTD — ME-4: Promoted strip calculator with parent edge exclusion and double-charge safeguard
 
 ---
 
@@ -63,6 +63,9 @@
 | shape_config | Json? | L/U shape dimensions and edges (see Shape System §6) |
 | no_strip_edges | Json? | Default "[]" — edge keys marked as wall edges (no lamination strip) |
 | strip_width_overrides | Json? | Per-edge strip width overrides: `{ top?: number, bottom?: number, left?: number, right?: number, ... }`. Replaces old `strip_width_override_mm Int?`. SW-1. |
+| mitred_corner_treatment | String? | Default "RAW" — RAW/SQUARE/ROUND. ME-1. |
+| promoted_from_piece_id | Int? | When promoted from a lamination strip, references the parent piece. ME-4. |
+| promoted_edge_position | String? | The edge position on the parent (e.g. "top", "left") that was promoted. ME-4. |
 
 #### quotes
 | Field | Type | Notes |
