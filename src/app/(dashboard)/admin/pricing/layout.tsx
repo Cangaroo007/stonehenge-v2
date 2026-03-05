@@ -1,10 +1,12 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const tabs = [
+  { name: 'Gaps', href: '/admin/pricing/gaps' },
   { name: 'Settings', href: '/admin/pricing/settings' },
   { name: 'Service Rates', href: '/admin/pricing/services' },
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
@@ -20,6 +22,20 @@ export default function PricingLayout({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [gapCount, setGapCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch('/api/admin/pricing/gaps')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summary?.totalGaps !== undefined) {
+          setGapCount(data.summary.totalGaps);
+        }
+      })
+      .catch(() => {
+        // Silently fail — badge just won't show
+      });
+  }, [pathname]);
 
   return (
     <div className="space-y-6">
@@ -32,6 +48,8 @@ export default function PricingLayout({
         <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
+            const isGapsTab = tab.name === 'Gaps';
+
             return (
               <Link
                 key={tab.name}
@@ -44,6 +62,14 @@ export default function PricingLayout({
                 )}
               >
                 {tab.name}
+                {isGapsTab && gapCount !== null && gapCount > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white bg-red-500 rounded-full">
+                    {gapCount}
+                  </span>
+                )}
+                {isGapsTab && gapCount !== null && gapCount === 0 && (
+                  <span className="ml-1 text-green-500">{'\u2713'}</span>
+                )}
               </Link>
             );
           })}
