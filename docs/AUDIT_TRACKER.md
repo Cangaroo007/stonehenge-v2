@@ -1,6 +1,6 @@
 # Stone Henge — Audit Tracker
 
-> **Updated:** March 2, 2026
+> **Updated:** March 5, 2026
 > **Status:** ACTIVE
 
 ---
@@ -64,6 +64,7 @@
 | R-52 | PX-3: Pricing Admin Gaps tab. API endpoint scans all rate combinations (service × category, edge × category, cutout × category) and returns missing rates. GapsTab page shows coverage bars, gap tables with "Configure →" links, red badge count on tab. First tab in Pricing Management. | claude/add-pricing-gaps-tab-dgIGl |
 | ME-1 | Removed wrong MITRED_PROFILE_CONSTRAINT validation from 4 API routes (calculate, pieces, pieces/[pieceId] ×2, bulk-edges). Constraint was factually incorrect — mitred edges have no traditional profile, the 45° mitre IS the edge. Added mitred_corner_treatment (RAW/SQUARE/ROUND, default RAW) to quote_pieces. Added strip_to_piece_threshold_mm (default 300) to pricing_settings. Updated Pricing Bible to correct constraint matrix. | claude/pricing-schema-correction-WASuU |
 | QF-1 | Tenant-configurable default edge profile. Added default_edge_type_id (String?) to pricing_settings. Piece POST handler reads setting and applies to all 4 edges when not explicitly provided. Drawing adapter updated to accept defaultEdgeTypeId param (no longer references hardcoded ARRIS). Pricing Admin dropdown added. Raw remains fallback when setting is null. | claude/qf1-default-edge-profile-ywF7t |
+| ME-4 | Promoted strip calculator. Schema: promoted_from_piece_id + promoted_edge_position on quote_pieces. On promote: POST creates new piece, atomically adds edge to parent's no_strip_edges (Task A). On delete: restores parent edge. stripToPieceThresholdMm added to loadPricingContext (Task B). Secondary safeguard in calculator: promotedEdgesByParent map merges promoted edges into noStripEdges even if DB field not patched (Task C). UI: "Promoted strip" badge on promoted pieces, "Already promoted" label replaces promote button for promoted edges. | claude/promoted-strip-calculator-ttPTD |
 
 ---
 
@@ -97,6 +98,7 @@
 |---------|--------|------|--------|
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
 | QF-1 tenant-configurable default edge profile | claude/qf1-default-edge-profile-ywF7t | Mar 5 | ✅ Complete |
+| ME-4 promoted strip calculator | claude/promoted-strip-calculator-ttPTD | Mar 5 | ✅ Complete |
 | PX-3 pricing admin gaps tab | claude/add-pricing-gaps-tab-dgIGl | Mar 5 | ✅ Complete |
 | A-23 fix supplier validation on AI import | claude/fix-supplier-validation-bREwA | Mar 5 | ✅ Complete |
 | A-01 wire tier discounts into calculator | claude/wire-tier-discounts-AJObr | Mar 5 | ✅ Complete |

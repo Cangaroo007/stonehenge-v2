@@ -164,6 +164,8 @@ export async function POST(
       shapeType = 'RECTANGLE',
       shapeConfig = null,
       requiresGrainMatch,
+      promotedFromPieceId,
+      promotedEdgePosition,
     } = data;
 
     // Validate required fields
@@ -319,12 +321,34 @@ export async function POST(
         shape_type: shapeType || 'RECTANGLE',
         shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
         requiresGrainMatch: requiresGrainMatch ?? false,
+        promoted_from_piece_id: promotedFromPieceId ? parseInt(String(promotedFromPieceId), 10) : null,
+        promoted_edge_position: promotedEdgePosition || null,
       },
       include: {
         materials: true,
         quote_rooms: true,
       },
     });
+
+    // If this is a promoted strip, add the edge to the parent piece's no_strip_edges
+    // so the calculator/optimizer no longer charges lamination or generates a strip for it
+    if (promotedFromPieceId && promotedEdgePosition) {
+      const parentPiece = await prisma.quote_pieces.findUnique({
+        where: { id: parseInt(String(promotedFromPieceId), 10) },
+        select: { no_strip_edges: true },
+      });
+      if (parentPiece) {
+        const currentNoStrip = (parentPiece.no_strip_edges as unknown as string[]) ?? [];
+        if (!currentNoStrip.includes(promotedEdgePosition)) {
+          await prisma.quote_pieces.update({
+            where: { id: parseInt(String(promotedFromPieceId), 10) },
+            data: {
+              no_strip_edges: [...currentNoStrip, promotedEdgePosition] as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+      }
+    }
 
     // Invalidate stale optimizer results — piece data has changed
     await prisma.slab_optimizations.deleteMany({
@@ -357,6 +381,8 @@ export async function POST(
       areaSqm: Number(pieceAny.area_sqm || 0),
       materialCost: Number(pieceAny.material_cost || 0),
       featuresCost: Number(pieceAny.features_cost || 0),
+      promotedFromPieceId: pieceAny.promoted_from_piece_id ?? null,
+      promotedEdgePosition: pieceAny.promoted_edge_position ?? null,
       ...(edgeCompatibilityWarnings.length > 0 && { edgeCompatibilityWarnings }),
     });
   } catch (error) {
