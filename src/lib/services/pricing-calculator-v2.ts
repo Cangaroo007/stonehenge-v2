@@ -141,6 +141,8 @@ export interface EnhancedCalculationResult extends CalculationResult {
   discountValue?: number;
   discountAppliesTo?: string;
   discountAmount?: number;
+  rulesDiscount?: number;
+  rulesAdjustedSubtotal?: number;
   breakdown: CalculationResult['breakdown'] & {
     services?: {
       items: ServiceBreakdown[];
@@ -1576,17 +1578,72 @@ export async function calculateQuotePrice(
   );
 
   // Apply rules (simplified - focusing on the new structure)
-  const appliedRules: AppliedRule[] = rules.map(rule => ({
-    ruleId: rule.id,
-    ruleName: rule.name,
-    priority: rule.priority,
-    effect: `${rule.adjustmentType} ${rule.adjustmentValue}% on ${rule.appliesTo}`,
-  }));
+  const materialCostTotal = materialBreakdown.subtotal;
+  const edgeProfileCostTotal = edgeData.subtotal;
+
+  const appliedRules: AppliedRule[] = rules.map(rule => {
+    const pct = Math.abs(Number(rule.adjustmentValue)) / 100;
+    let discountAmount = 0;
+
+    if (rule.isActive && rule.adjustmentType === 'percentage') {
+      switch (rule.appliesTo) {
+        case 'materials':
+          discountAmount = roundToTwo(materialCostTotal * pct);
+          break;
+        case 'edges':
+          discountAmount = roundToTwo(edgeProfileCostTotal * pct);
+          break;
+        case 'all':
+          discountAmount = roundToTwo(subtotal * pct);
+          break;
+      }
+    }
+
+    return {
+      ruleId: rule.id,
+      ruleName: rule.name,
+      priority: rule.priority,
+      effect: `${rule.adjustmentType} ${rule.adjustmentValue}% on ${rule.appliesTo}`,
+      discountAmount: roundToTwo(discountAmount),
+      appliesTo: rule.appliesTo,
+      adjustmentValue: Number(rule.adjustmentValue),
+    };
+  });
+
+  // Apply pricing rule adjustments to subtotal
+  let rulesDiscountTotal = 0;
+
+  for (const rule of rules) {
+    if (!rule.isActive) continue;
+    if (rule.adjustmentType !== 'percentage') continue;
+
+    const pct = Math.abs(Number(rule.adjustmentValue)) / 100;
+    let ruleDiscount = 0;
+
+    switch (rule.appliesTo) {
+      case 'materials':
+        ruleDiscount = roundToTwo(materialCostTotal * pct);
+        break;
+      case 'edges':
+        ruleDiscount = roundToTwo(edgeProfileCostTotal * pct);
+        break;
+      case 'all':
+        ruleDiscount = roundToTwo(subtotal * pct);
+        break;
+      default:
+        break;
+    }
+
+    rulesDiscountTotal += ruleDiscount;
+  }
+
+  rulesDiscountTotal = roundToTwo(rulesDiscountTotal);
 
   // Check for quote-level overrides (planned fields, not yet in schema)
+  const rulesAdjustedSubtotal = Math.max(0, roundToTwo(subtotal - rulesDiscountTotal));
   const finalSubtotal = quoteAny.overrideSubtotal
     ? Number(quoteAny.overrideSubtotal)
-    : subtotal;
+    : rulesAdjustedSubtotal;
 
   const finalTotal = quoteAny.overrideTotal
     ? Number(quoteAny.overrideTotal)
@@ -1615,6 +1672,8 @@ export async function calculateQuotePrice(
     subtotal: roundToTwo(subtotal),
     baseSubtotal: roundToTwo(baseSubtotal),
     totalDiscount: roundToTwo(discountAmount),
+    rulesDiscount: rulesDiscountTotal,
+    rulesAdjustedSubtotal,
     total: roundToTwo(finalTotal),
     gstRate,
     gstAmount,
@@ -1853,7 +1912,9 @@ function zeroedPieceBreakdown(
 
 /**
  * Extract fabrication discount percentage from a client tier's discount matrix.
- * The discountMatrix JSON is expected to contain a fabricationDiscount field (as a percentage, e.g. 10 for 10%).
+ * NOTE: Currently unused — tier discounts are applied via pricing_rules_engine instead.
+ * This function exists for future use if tenants prefer the simpler discount_matrix approach.
+ * See A-01 (March 2026) for context.
  */
 function extractFabricationDiscount(client_tiers: { discount_matrix: unknown } | null | undefined): number {
   if (!client_tiers?.discount_matrix) return 0;

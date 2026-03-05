@@ -72,6 +72,9 @@ export interface AppliedRule {
   ruleName: string;
   priority: number;
   effect: string;
+  discountAmount?: number;
+  appliesTo?: string;
+  adjustmentValue?: number;
 }
 
 export interface MaterialBreakdown {
