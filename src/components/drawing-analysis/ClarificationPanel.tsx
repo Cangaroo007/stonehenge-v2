@@ -1,197 +1,323 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
 
 interface ClarificationPanelProps {
   questions: ClarificationQuestion[];
   onAnswersSubmit: (answers: Record<string, string>) => void;
   onSkip?: () => void;
+  drawingId?: string;
+  analysisId?: number;
+  quoteId?: number;
 }
 
-export function ClarificationPanel({ 
-  questions, 
+const categoryToType: Record<string, CorrectionPayload['correctionType']> = {
+  DIMENSION: 'DIMENSION',
+  MATERIAL: 'MATERIAL',
+  EDGE: 'EDGE_PROFILE',
+  CUTOUT: 'CUTOUT_TYPE',
+  ROOM: 'ROOM_ASSIGNMENT',
+  QUANTITY: 'CUTOUT_QUANTITY',
+};
+
+function mapConfidence(conf: number | undefined): 'HIGH' | 'MEDIUM' | 'LOW' | undefined {
+  if (conf === undefined) return undefined;
+  if (conf >= 0.85) return 'HIGH';
+  if (conf >= 0.50) return 'MEDIUM';
+  return 'LOW';
+}
+
+export function ClarificationPanel({
+  questions,
   onAnswersSubmit,
-  onSkip 
+  onSkip,
+  drawingId,
+  analysisId,
+  quoteId,
 }: ClarificationPanelProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  
-  const criticalCount = questions.filter(q => q.priority === 'CRITICAL').length;
-  const importantCount = questions.filter(q => q.priority === 'IMPORTANT').length;
-  
-  function handleAnswerChange(questionId: string, value: string) {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
+
+  const criticalQuestions = questions.filter(q => q.priority === 'CRITICAL');
+  const answeredCount = Object.keys(answers).length;
+  const criticalAnswered = criticalQuestions.filter(q => answers[q.id] !== undefined).length;
+  const allCriticalAnswered = criticalAnswered === criticalQuestions.length;
+
+  const fireCorrection = useCallback((question: ClarificationQuestion, value: string) => {
+    try {
+      logCorrection({
+        drawingId,
+        analysisId,
+        quoteId,
+        pieceId: question.pieceId ? parseInt(question.pieceId, 10) || undefined : undefined,
+        correctionType: categoryToType[question.category] || 'DIMENSION',
+        fieldName: question.fieldPath || question.category.toLowerCase(),
+        originalValue: question.aiSuggestion,
+        correctedValue: value,
+        aiConfidence: mapConfidence(question.aiSuggestionConfidence),
+      });
+    } catch {
+      // Never block UI for correction logging
+    }
+  }, [drawingId, analysisId, quoteId]);
+
+  function handleAnswer(question: ClarificationQuestion, value: string) {
+    setAnswers(prev => ({ ...prev, [question.id]: value }));
+    fireCorrection(question, value);
   }
-  
+
   function handleSubmit() {
     onAnswersSubmit(answers);
   }
-  
-  function getPriorityStyles(priority: ClarificationQuestion['priority']) {
-    switch (priority) {
-      case 'CRITICAL':
-        return {
-          border: 'border-red-300 bg-red-50',
-          icon: (
-            <svg className="w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01" />
-            </svg>
-          ),
-          badge: 'bg-red-100 text-red-800',
-        };
-      case 'IMPORTANT':
-        return {
-          border: 'border-amber-300 bg-amber-50',
-          icon: (
-            <svg className="w-5 h-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-          ),
-          badge: 'bg-amber-100 text-amber-800',
-        };
-      case 'NICE_TO_KNOW':
-        return {
-          border: 'border-blue-300 bg-blue-50',
-          icon: (
-            <svg className="w-5 h-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-          ),
-          badge: 'bg-blue-100 text-blue-800',
-        };
-    }
-  }
-  
+
   if (questions.length === 0) {
     return (
-      <Card className="border-green-300 bg-green-50">
-        <CardContent className="py-6">
-          <div className="flex items-center gap-3">
-            <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <p className="text-green-800 font-medium">
-              All information extracted successfully. No clarification needed.
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+      <div className="rounded-md border border-green-300 bg-green-50 p-6">
+        <div className="flex items-center gap-3">
+          <svg className="w-6 h-6 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-green-800 font-medium">
+            All information extracted successfully. No clarification needed.
+          </p>
+        </div>
+      </div>
     );
   }
-  
+
+  const progressPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+
   return (
     <div className="space-y-4">
-      {/* Summary Header */}
-      <Card>
-        <CardHeader className="py-4">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <circle cx="12" cy="12" r="10" strokeWidth="2" />
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01" />
-            </svg>
-            Clarification Needed
-          </CardTitle>
-          <p className="text-sm text-zinc-600">
-            We found some areas that need your input to ensure accurate quoting.
-          </p>
-        </CardHeader>
-        <CardContent className="py-2">
-          <div className="flex gap-4 text-sm">
-            {criticalCount > 0 && (
-              <span className="px-2 py-1 rounded bg-red-100 text-red-800">
-                {criticalCount} critical
+      {/* Progress bar */}
+      <div className="rounded-md border border-zinc-200 bg-white p-4">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-sm font-medium text-zinc-700">
+            {answeredCount} of {questions.length} questions answered
+          </span>
+          <div className="flex gap-2 text-xs">
+            {criticalQuestions.length > 0 && (
+              <span className="px-2 py-0.5 rounded bg-red-100 text-red-800">
+                {criticalQuestions.length} critical
               </span>
             )}
-            {importantCount > 0 && (
-              <span className="px-2 py-1 rounded bg-amber-100 text-amber-800">
-                {importantCount} important
+            {questions.filter(q => q.priority === 'IMPORTANT').length > 0 && (
+              <span className="px-2 py-0.5 rounded bg-amber-100 text-amber-800">
+                {questions.filter(q => q.priority === 'IMPORTANT').length} important
               </span>
             )}
           </div>
-        </CardContent>
-      </Card>
-      
-      {/* Questions */}
-      <div className="space-y-3">
-        {questions.map((question) => {
-          const styles = getPriorityStyles(question.priority);
-          const isAnswered = !!answers[question.id];
-          
-          return (
-            <Card 
-              key={question.id} 
-              className={`${styles.border} ${isAnswered ? 'opacity-75' : ''}`}
-            >
-              <CardContent className="py-4">
-                <div className="flex items-start gap-3">
-                  {styles.icon}
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs px-2 py-0.5 rounded ${styles.badge}`}>
-                        {question.priority.replace(/_/g, ' ')}
-                      </span>
-                      <span className="text-xs text-zinc-500">
-                        {question.category}
-                      </span>
-                    </div>
-                    
-                    <Label className="text-sm font-medium">
-                      {question.question}
-                    </Label>
-                    
-                    {question.options ? (
-                      <RadioGroup
-                        value={answers[question.id] || question.defaultValue || ''}
-                        onValueChange={(value) => handleAnswerChange(question.id, value)}
-                      >
-                        {question.options.map((option) => (
-                          <div key={option} className="flex items-center space-x-2">
-                            <RadioGroupItem value={option} id={`${question.id}-${option}`} />
-                            <Label 
-                              htmlFor={`${question.id}-${option}`}
-                              className="text-sm font-normal cursor-pointer"
-                            >
-                              {option}
-                            </Label>
-                          </div>
-                        ))}
-                      </RadioGroup>
-                    ) : (
-                      <Input
-                        placeholder="Enter value..."
-                        value={answers[question.id] || ''}
-                        onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                      />
-                    )}
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
+        </div>
+        <div className="h-2 bg-zinc-100 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-green-500 rounded-full transition-all duration-300"
+            style={{ width: `${progressPercent}%` }}
+          />
+        </div>
       </div>
-      
-      {/* Actions */}
-      <div className="flex justify-between pt-4">
+
+      {/* Question cards */}
+      <div className="space-y-3">
+        {questions.map((question) => (
+          <QuestionCard
+            key={question.id}
+            question={question}
+            answer={answers[question.id]}
+            onAnswer={(value) => handleAnswer(question, value)}
+          />
+        ))}
+      </div>
+
+      {/* Continue button — sticky on mobile */}
+      <div className="sticky bottom-0 bg-white border-t border-zinc-200 p-4 -mx-4 sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:static flex items-center justify-between">
         {onSkip && (
-          <Button variant="outline" onClick={onSkip}>
-            Skip for now
-          </Button>
+          <button
+            onClick={onSkip}
+            className="text-sm text-zinc-500 hover:text-zinc-700"
+          >
+            Skip all
+          </button>
         )}
-        <Button 
+        <button
           onClick={handleSubmit}
-          disabled={criticalCount > 0 && Object.keys(answers).length < criticalCount}
+          disabled={!allCriticalAnswered}
+          className="ml-auto px-6 py-2.5 rounded-lg text-sm font-medium text-white bg-zinc-800 hover:bg-zinc-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
-          Continue with {Object.keys(answers).length} answers
-        </Button>
+          {allCriticalAnswered
+            ? 'Continue \u2192'
+            : `Continue (${answeredCount} of ${questions.length} answered)`
+          }
+        </button>
       </div>
     </div>
+  );
+}
+
+// ── Individual question card ──
+
+interface QuestionCardProps {
+  question: ClarificationQuestion;
+  answer?: string;
+  onAnswer: (value: string) => void;
+}
+
+const borderByPriority: Record<string, string> = {
+  CRITICAL: 'border-l-4 border-l-red-500',
+  IMPORTANT: 'border-l-4 border-l-amber-400',
+  NICE_TO_KNOW: 'border-l-4 border-l-blue-300',
+};
+
+function QuestionCard({ question, answer, onAnswer }: QuestionCardProps) {
+  const isAnswered = answer !== undefined;
+  const borderClass = borderByPriority[question.priority] || '';
+
+  return (
+    <div className={`rounded-md border border-zinc-200 bg-white ${borderClass} ${isAnswered ? 'opacity-75' : ''}`}>
+      <div className="p-4 space-y-3">
+        {/* Question text */}
+        <p className="font-semibold text-zinc-900 text-sm">{question.question}</p>
+
+        {/* Piece context */}
+        {question.pieceId && (
+          <p className="text-xs text-zinc-400">
+            {question.fieldPath ? `${question.pieceId} \u00b7 ${question.fieldPath}` : question.pieceId}
+          </p>
+        )}
+
+        {/* Answer input */}
+        {question.allowFreeText ? (
+          <DimensionInput
+            question={question}
+            value={answer || ''}
+            onChange={onAnswer}
+          />
+        ) : question.options && question.options.length > 0 ? (
+          <ChipSelector
+            options={question.options}
+            aiSuggestion={question.aiSuggestion}
+            selected={answer}
+            onSelect={onAnswer}
+          />
+        ) : (
+          <FallbackTextInput
+            value={answer || ''}
+            onChange={onAnswer}
+            placeholder={question.aiSuggestion ? `e.g. ${question.aiSuggestion}` : 'Enter value...'}
+          />
+        )}
+
+        {/* Skip link — only for non-CRITICAL */}
+        {question.priority !== 'CRITICAL' && !isAnswered && (
+          <button
+            onClick={() => onAnswer('__skipped__')}
+            className="text-xs text-zinc-400 hover:text-zinc-600"
+          >
+            Skip
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ── Dimension number input ──
+
+function DimensionInput({
+  question,
+  value,
+  onChange,
+}: {
+  question: ClarificationQuestion;
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  return (
+    <div className="flex items-center gap-2">
+      <input
+        type="number"
+        min="0"
+        max="9999"
+        value={value}
+        onChange={(e) => {
+          if (e.target.value) onChange(e.target.value);
+        }}
+        onBlur={(e) => {
+          if (e.target.value) onChange(e.target.value);
+        }}
+        placeholder={question.aiSuggestion ? `e.g. ${question.aiSuggestion}` : ''}
+        className="w-32 px-3 py-2 text-lg border border-zinc-300 rounded-lg focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400 outline-none"
+      />
+      {question.unit && (
+        <span className="text-sm text-zinc-500 font-medium">{question.unit}</span>
+      )}
+    </div>
+  );
+}
+
+// ── Chip selector for options ──
+
+function ChipSelector({
+  options,
+  aiSuggestion,
+  selected,
+  onSelect,
+}: {
+  options: string[];
+  aiSuggestion?: string;
+  selected: string | undefined;
+  onSelect: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map((option) => {
+        const isSelected = selected === option;
+        const isAiPick = aiSuggestion !== undefined && option === aiSuggestion;
+
+        return (
+          <button
+            key={option}
+            onClick={() => onSelect(option)}
+            className={`relative px-4 py-2 rounded-full text-sm font-medium border transition-colors ${
+              isSelected
+                ? 'bg-zinc-800 text-white border-zinc-800'
+                : 'bg-white text-zinc-700 border-zinc-300 hover:border-zinc-400'
+            }`}
+          >
+            {option}
+            {isAiPick && (
+              <span className="absolute -top-2 -right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-indigo-100 text-indigo-700 text-[10px] font-semibold leading-none">
+                <svg className="w-2.5 h-2.5" viewBox="0 0 16 16" fill="currentColor">
+                  <path d="M8 0l2.1 5.3L16 6.2l-4.2 3.5L13.2 16 8 12.5 2.8 16l1.4-6.3L0 6.2l5.9-.9z" />
+                </svg>
+                AI
+              </span>
+            )}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Fallback text input ──
+
+function FallbackTextInput({
+  value,
+  onChange,
+  placeholder,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+}) {
+  return (
+    <input
+      type="text"
+      value={value}
+      onChange={(e) => onChange(e.target.value)}
+      placeholder={placeholder}
+      className="w-full px-3 py-2 border border-zinc-300 rounded-lg text-sm focus:ring-2 focus:ring-zinc-400 focus:border-zinc-400 outline-none"
+    />
   );
 }
