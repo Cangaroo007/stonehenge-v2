@@ -1,4 +1,4 @@
-export type ShapeType = 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | 'RADIUS_END' | 'FULL_CIRCLE' | 'CONCAVE_ARC';
+export type ShapeType = 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | 'RADIUS_END' | 'FULL_CIRCLE' | 'CONCAVE_ARC' | 'ROUNDED_RECT';
 
 export interface LShapeConfig {
   shape: 'L_SHAPE';
@@ -34,7 +34,21 @@ export interface ConcaveArcConfig {
   curved_ends: boolean;     // whether the straight ends also have arcs
 }
 
-export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | null;
+export interface RoundedRectConfig {
+  shape: 'ROUNDED_RECT';
+  length_mm: number;
+  width_mm: number;
+  /** Applied to all 4 corners when individual_corners is false */
+  corner_radius_mm: number;
+  /** When true, use the four per-corner values instead */
+  individual_corners: boolean;
+  corner_tl_mm: number;
+  corner_tr_mm: number;
+  corner_br_mm: number;
+  corner_bl_mm: number;
+}
+
+export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | RoundedRectConfig | null;
 
 // Derived geometry — calculated from shape config
 export interface ShapeGeometry {
@@ -522,6 +536,20 @@ export function getOptimizerRects(
       width_mm: bb.width_mm,
       height_mm: bb.height_mm,
       trueArea_m2: computeConcaveArcArea(shapeConfig) / 1_000_000,
+    }];
+  }
+
+  if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') {
+    const cfg = shapeConfig;
+    const tl = cfg.individual_corners ? cfg.corner_tl_mm : cfg.corner_radius_mm;
+    const tr = cfg.individual_corners ? cfg.corner_tr_mm : cfg.corner_radius_mm;
+    const br = cfg.individual_corners ? cfg.corner_br_mm : cfg.corner_radius_mm;
+    const bl = cfg.individual_corners ? cfg.corner_bl_mm : cfg.corner_radius_mm;
+    const cornerArea = (Math.PI / 4) * (tl ** 2 + tr ** 2 + br ** 2 + bl ** 2);
+    return [{
+      width_mm:    cfg.length_mm,
+      height_mm:   cfg.width_mm,
+      trueArea_m2: (cfg.length_mm * cfg.width_mm - cornerArea) / 1_000_000,
     }];
   }
 
