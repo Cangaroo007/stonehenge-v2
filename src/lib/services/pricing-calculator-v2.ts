@@ -2146,19 +2146,6 @@ function zeroedPieceBreakdown(
 }
 
 /**
- * Extract fabrication discount percentage from a client tier's discount matrix.
- * NOTE: Currently unused — tier discounts are applied via pricing_rules_engine instead.
- * This function exists for future use if tenants prefer the simpler discount_matrix approach.
- * See A-01 (March 2026) for context.
- */
-function extractFabricationDiscount(client_tiers: { discount_matrix: unknown } | null | undefined): number {
-  if (!client_tiers?.discount_matrix) return 0;
-  const matrix = client_tiers.discount_matrix as unknown as Record<string, unknown>;
-  const discount = matrix.fabricationDiscount ?? matrix.fabrication_discount ?? matrix.discount ?? 0;
-  return typeof discount === 'number' ? discount : 0;
-}
-
-/**
  * Check whether a grain-matched piece can feasibly fit on a single slab.
  * Returns a warning if the bounding box exceeds slab dimensions or area is >90% of slab.
  */
