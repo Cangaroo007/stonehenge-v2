@@ -18,6 +18,7 @@ interface PricingSettings {
   waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
   slabEdgeAllowanceMm: number | null;
   defaultEdgeTypeId: string | null;
+  stripToPieceThresholdMm: number;
 }
 
 interface EdgeType {
@@ -42,6 +43,7 @@ export default function PricingSettingsPage() {
     waterfallPricingMethod: 'FIXED_PER_END',
     slabEdgeAllowanceMm: null,
     defaultEdgeTypeId: null,
+    stripToPieceThresholdMm: 300,
   });
   const [edgeTypes, setEdgeTypes] = useState<EdgeType[]>([]);
   const [loading, setLoading] = useState(true);
@@ -382,6 +384,40 @@ export default function PricingSettingsPage() {
                 className="w-24 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
               />
               <span className="text-sm text-gray-500">%</span>
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Strip Promotion Threshold */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Lamination Strip Promotion</h3>
+          <div className="space-y-2">
+            <label htmlFor="stripToPieceThresholdMm" className="block text-sm font-medium text-gray-700">
+              Strip Promotion Threshold (mm)
+            </label>
+            <p className="text-xs text-gray-500">
+              Lamination strips at or above this width show a &ldquo;Promote to Piece&rdquo; option
+              in the Parts List, enabling cutting charges to be applied.
+            </p>
+            <div className="flex items-center gap-3">
+              <input
+                type="number"
+                id="stripToPieceThresholdMm"
+                name="stripToPieceThresholdMm"
+                min={100}
+                step={10}
+                value={settings.stripToPieceThresholdMm ?? 300}
+                onChange={(e) =>
+                  setSettings({
+                    ...settings,
+                    stripToPieceThresholdMm: Number(e.target.value),
+                  })
+                }
+                className="w-24 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+              <span className="text-sm text-gray-500">mm</span>
             </div>
           </div>
         </div>
