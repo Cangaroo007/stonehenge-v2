@@ -15,17 +15,28 @@ const JWT_SECRET = new TextEncoder().encode(
 
 const COOKIE_NAME = 'stonehenge-token';
 
+function addCacheHeaders(response: NextResponse) {
+  response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+  response.headers.set('Pragma', 'no-cache');
+  response.headers.set('Expires', '0');
+  response.headers.set('Surrogate-Control', 'no-store');
+  response.headers.set('X-Build-Id', process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev');
+  return response;
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Only protect /api/* routes
+  // For non-API routes, add cache-busting headers and pass through
   if (!pathname.startsWith('/api/')) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return addCacheHeaders(response);
   }
 
-  // Allow public API routes
+  // Allow public API routes (with cache headers)
   if (PUBLIC_API_ROUTES.some(route => pathname.startsWith(route))) {
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return addCacheHeaders(response);
   }
 
   // Check for auth token
@@ -40,7 +51,8 @@ export async function middleware(request: NextRequest) {
 
   try {
     await jwtVerify(token, JWT_SECRET);
-    return NextResponse.next();
+    const response = NextResponse.next();
+    return addCacheHeaders(response);
   } catch {
     return NextResponse.json(
       { error: 'Unauthorized: Invalid token' },
@@ -50,5 +62,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: '/api/:path*',
+  // Match all routes except static files and images
+  matcher: [
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js)$).*)',
+  ],
 };
