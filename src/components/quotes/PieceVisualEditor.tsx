@@ -34,6 +34,48 @@ export type ShapeEdgeSide =
   | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer';  // CONCAVE_ARC
 type EdgeEditMode = 'select' | 'quickEdge';
 
+// ─── Edge Layout Presets ─────────────────────────────────────────────────────
+
+interface EdgePreset {
+  id: string;
+  label: string;
+  /** Which sides get the selected profile. Others get null. */
+  sides: Array<'top' | 'bottom' | 'left' | 'right'>;
+  /** If true, always sets all edges to null regardless of selected profile */
+  allRaw?: boolean;
+}
+
+const EDGE_PRESETS: EdgePreset[] = [
+  { id: 'all-raw',              label: 'All Raw',              sides: [],                              allRaw: true },
+  { id: 'front-only',           label: 'Front Only',           sides: ['bottom'] },
+  { id: 'front-return-right',   label: 'Front + Return',       sides: ['bottom', 'right'] },
+  { id: 'front-return-left',    label: 'Front + Left Return',  sides: ['bottom', 'left'] },
+  { id: 'front-both-returns',   label: 'Front + Both Returns', sides: ['bottom', 'left', 'right'] },
+  { id: 'front-back',           label: 'Front + Back',         sides: ['bottom', 'top'] },
+  { id: 'island',               label: 'Island',               sides: ['top', 'bottom', 'left', 'right'] },
+];
+
+function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'left' | 'right'> }) {
+  const active = 'stroke-stone-700';
+  const inactive = 'stroke-gray-200';
+  return (
+    <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
+      {/* top */}
+      <line x1="2" y1="2"  x2="30" y2="2"
+        className={sides.includes('top')    ? active : inactive} strokeWidth="2.5" />
+      {/* bottom */}
+      <line x1="2" y1="18" x2="30" y2="18"
+        className={sides.includes('bottom') ? active : inactive} strokeWidth="2.5" />
+      {/* left */}
+      <line x1="2" y1="2"  x2="2"  y2="18"
+        className={sides.includes('left')   ? active : inactive} strokeWidth="2.5" />
+      {/* right */}
+      <line x1="30" y1="2" x2="30" y2="18"
+        className={sides.includes('right')  ? active : inactive} strokeWidth="2.5" />
+    </svg>
+  );
+}
+
 /** Edge segment definition for shape rendering */
 interface ShapeEdgeDef {
   side: ShapeEdgeSide;
@@ -221,6 +263,9 @@ export default function PieceVisualEditor({
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templatesFetched, setTemplatesFetched] = useState(false);
+
+  // ── Preset state ─────────────────────────────────────────────────────
+  const [presetMessage, setPresetMessage] = useState<string | null>(null);
 
   // ── Bulk apply state ──────────────────────────────────────────────────
   const [bulkApplyInfo, setBulkApplyInfo] = useState<{
@@ -539,6 +584,24 @@ export default function PieceVisualEditor({
     },
     [onEdgesChange, onEdgeChange, onBulkApply]
   );
+
+  const handlePresetApply = useCallback((preset: EdgePreset) => {
+    if (!onEdgesChange) return;
+
+    if (!preset.allRaw && !quickEdgeProfile) {
+      setPresetMessage('Select an edge profile first');
+      setTimeout(() => setPresetMessage(null), 2000);
+      return;
+    }
+
+    const profileId = preset.allRaw ? null : quickEdgeProfile;
+    onEdgesChange({
+      top:    preset.sides.includes('top')    ? profileId : null,
+      bottom: preset.sides.includes('bottom') ? profileId : null,
+      left:   preset.sides.includes('left')   ? profileId : null,
+      right:  preset.sides.includes('right')  ? profileId : null,
+    });
+  }, [onEdgesChange, quickEdgeProfile]);
 
   const handleBulkApply = useCallback(
     (scope: 'room' | 'quote') => {
@@ -1325,6 +1388,31 @@ export default function PieceVisualEditor({
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {/* ── Edge Layout Presets (Rectangle only) ────────────────────── */}
+      {isEditMode && onEdgesChange && effectiveShapeType === 'RECTANGLE' && (
+        <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
+          <p className="text-xs font-medium text-gray-500 mr-1">Layout Presets</p>
+          {EDGE_PRESETS.map(preset => (
+            <button
+              key={preset.id}
+              onClick={() => handlePresetApply(preset)}
+              title={preset.label}
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded border
+                         border-gray-200 hover:border-stone-400 hover:bg-stone-50
+                         transition-colors text-center"
+            >
+              <PresetThumbnail sides={preset.sides} />
+              <span className="text-[10px] text-gray-500 leading-tight whitespace-nowrap">
+                {preset.label}
+              </span>
+            </button>
+          ))}
+          {presetMessage && (
+            <p className="text-xs text-amber-600 ml-1">{presetMessage}</p>
+          )}
         </div>
       )}
 
