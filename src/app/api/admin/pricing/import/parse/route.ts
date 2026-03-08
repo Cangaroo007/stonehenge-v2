@@ -76,6 +76,7 @@ export async function POST(request: NextRequest) {
         controller.close();
       } catch (error) {
         clearInterval(heartbeatInterval);
+        console.error('[AI Import Error]', error);
         const message =
           error instanceof Error ? error.message : 'Failed to parse price list';
         controller.enqueue(encoder.encode(sseEvent('error', { error: message })));
