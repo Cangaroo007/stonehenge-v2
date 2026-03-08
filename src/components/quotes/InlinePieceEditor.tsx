@@ -482,9 +482,19 @@ export default function InlinePieceEditor({
     slabWidthMm: '',
     pricePerSlab: '',
     collection: '',
+    pricePerSqm: 0,
   });
   const [newMatSaving, setNewMatSaving] = useState(false);
   const [newMatError, setNewMatError] = useState<string | null>(null);
+
+  const calculatedPricePerSqm = useMemo(() => {
+    const price = parseFloat(newMat.pricePerSlab);
+    const length = parseInt(newMat.slabLengthMm);
+    const width = parseInt(newMat.slabWidthMm);
+    if (!price || !length || !width || price <= 0 || length <= 0 || width <= 0) return null;
+    const slabAreaSqm = (length * width) / 1_000_000;
+    return Math.round((price / slabAreaSqm) * 100) / 100;
+  }, [newMat.pricePerSlab, newMat.slabLengthMm, newMat.slabWidthMm]);
 
   // ── Shape state (K2: L/U shape wizard) ─────────────────────────────────
   const [shapeType, setShapeType] = useState<ShapeType>('RECTANGLE');
@@ -823,7 +833,7 @@ export default function InlinePieceEditor({
           slabLengthMm: newMat.slabLengthMm ? parseInt(newMat.slabLengthMm) : null,
           slabWidthMm: newMat.slabWidthMm ? parseInt(newMat.slabWidthMm) : null,
           pricePerSlab: newMat.pricePerSlab ? parseFloat(newMat.pricePerSlab) : null,
-          pricePerSqm: 0,
+          pricePerSqm: calculatedPricePerSqm ?? 0,
           isActive: true,
         }),
       });
@@ -835,7 +845,7 @@ export default function InlinePieceEditor({
       const created = await res.json();
       setMaterialId(created.id);
       setShowNewMaterialModal(false);
-      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '' });
+      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '', pricePerSqm: 0 });
       onMaterialCreated?.();
     } catch {
       setNewMatError('Failed to create material');
@@ -1981,6 +1991,16 @@ export default function InlinePieceEditor({
                     className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+                {calculatedPricePerSqm !== null && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ≈ <span className="font-medium text-gray-700">${calculatedPricePerSqm.toFixed(2)}/m²</span> based on slab dimensions
+                  </p>
+                )}
+                {newMat.pricePerSlab && !calculatedPricePerSqm && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Enter slab dimensions to calculate m² rate
+                  </p>
+                )}
               </div>
               {newMatError && (
                 <p className="text-xs text-red-600">{newMatError}</p>

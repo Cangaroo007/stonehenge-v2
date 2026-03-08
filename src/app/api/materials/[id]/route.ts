@@ -70,6 +70,7 @@ export async function PUT(
       collection: data.collection || null,
       description: data.description || null,
       price_per_sqm: data.pricePerSqm,
+      price_per_square_metre: data.pricePerSqm,
       is_active: data.isActive ?? true,
     };
     if (data.fabricationCategory) {

@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
         collection: data.collection || null,
         description: data.description || null,
         price_per_sqm: data.pricePerSqm,
+        price_per_square_metre: data.pricePerSqm,
         is_active: data.isActive ?? true,
         fabrication_category: data.fabricationCategory || 'ENGINEERED',
         slab_length_mm: data.slabLengthMm != null ? parseInt(String(data.slabLengthMm)) : null,
