@@ -1,3 +1,5 @@
+export const maxDuration = 300;
+
 import { NextRequest } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { ingestPriceList } from '@/lib/services/material-ingestor';
