@@ -11,6 +11,11 @@ export async function GET() {
 
     const cutoutTypes = await prisma.cutout_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: {
+        cutout_category_rates: {
+          select: { fabrication_category: true, rate: true },
+        },
+      },
     });
 
     // Properly serialize Decimal fields to numbers and ensure boolean fields are set
@@ -21,6 +26,10 @@ export async function GET() {
       baseRate: Number(ct.baseRate),
       isActive: ct.isActive ?? true, // Default to true if null/undefined
       sortOrder: ct.sortOrder,
+      // Include fabrication categories that have configured rates (non-zero)
+      configuredCategories: ct.cutout_category_rates
+        .filter((r: { rate: unknown }) => Number(r.rate) > 0)
+        .map((r: { fabrication_category: string }) => r.fabrication_category),
     }));
 
     return NextResponse.json(serialized);
