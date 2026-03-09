@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/promoted-strip-calculator-ttPTD — ME-4: Promoted strip calculator with parent edge exclusion and double-charge safeguard
+> **Last Updated:** 2026-03-09
+> **Last Updated By:** claude/fix-ai-parsing-logic-LFUEK — AI-IMPORT-FIX 1-4: Hardened AI price list parser (price column detection, fabricationCategory enum, grain matching fields, surfaceFinish enum)
 
 ---
 

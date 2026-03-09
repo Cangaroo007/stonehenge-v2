@@ -66,6 +66,10 @@
 | QF-1 | Tenant-configurable default edge profile. Added default_edge_type_id (String?) to pricing_settings. Piece POST handler reads setting and applies to all 4 edges when not explicitly provided. Drawing adapter updated to accept defaultEdgeTypeId param (no longer references hardcoded ARRIS). Pricing Admin dropdown added. Raw remains fallback when setting is null. | claude/qf1-default-edge-profile-ywF7t |
 | ME-4 | Promoted strip calculator. Schema: promoted_from_piece_id + promoted_edge_position on quote_pieces. On promote: POST creates new piece, atomically adds edge to parent's no_strip_edges (Task A). On delete: restores parent edge. stripToPieceThresholdMm added to loadPricingContext (Task B). Secondary safeguard in calculator: promotedEdgesByParent map merges promoted edges into noStripEdges even if DB field not patched (Task C). UI: "Promoted strip" badge on promoted pieces, "Already promoted" label replaces promote button for promoted edges. | claude/promoted-strip-calculator-ttPTD |
 | PRICING-FIX-1 | Templating guard (cost $0 when templatingRequired=false), waterfall modal, zero-rate warnings, category filtering on edge/cutout admin routes. Verified via full recalculate: Q-00051 $7,028.70, Q-00055 $12,067.85, Q-00058 $11,736.33. Old anchors were stale — deltas reflect accumulated engine improvements since ME-4, A-01, PX-1/2, MRG-1 (not PRICING-FIX-1 regressions). Note: service_rates table has NOT NULL updated_at — all INSERTs must include updated_at or they fail. | claude/verify-pricing-deployment-gQ96n |
+| AI-IMPORT-FIX-1 | Price column detection rules for AI price list parser. Per-m² reference column detection (header match, ratio check 4.0–7.0), genuine dual price (Wholesale+VIP headers), single price with discount, single price fallback. Prevents AI treating per-m² column as a second price. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-2 | fabricationCategory strict enum added to ParsedMaterial interface and extraction prompt. 5-value enum (ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED) with material-type mapping rules. surfaceFinish explicitly excluded from category determination. Default ENGINEERED. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-3 | Grain matching fields added to ParsedMaterial: requiresGrainMatch (boolean) + grainDirection (VEINED/UNIFORM/null). Keyword-based detection only — category alone never triggers grain matching. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-4 | surfaceFinish strict enum: 'Polished' \| 'Matte' \| 'Textured' \| 'Honed' \| 'Brushed'. Document value mappings (Matt→Matte, Structured→Textured, Leathered→Brushed). Default Polished. | claude/fix-ai-parsing-logic-LFUEK |
 
 ---
 
@@ -118,6 +122,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |
 | PRICING-FIX-1 verify pricing deployment + anchor update | claude/verify-pricing-deployment-gQ96n | Mar 9 | ✅ Complete |
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
 | QF-1 tenant-configurable default edge profile | claude/qf1-default-edge-profile-ywF7t | Mar 5 | ✅ Complete |
@@ -153,4 +158,4 @@
 
 ---
 
-*Last Updated: Mar 9 2026 — PRICING-FIX-1: Verified deployment. Anchors updated: Q-00051 $7,028.70, Q-00055 $12,067.85, Q-00058 $11,736.33.*
+*Last Updated: Mar 9 2026 — AI-IMPORT-FIX 1-4: Hardened AI price list parser (price column detection, fabricationCategory enum, grain matching, surfaceFinish enum).*
