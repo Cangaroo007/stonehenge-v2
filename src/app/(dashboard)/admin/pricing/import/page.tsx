@@ -209,78 +209,26 @@ export default function ImportPage() {
         body: fd,
       });
 
-      // Handle non-streaming error responses (auth failures, validation errors)
-      // These return JSON directly with a non-event-stream content type.
-      const ct = res.headers.get('content-type') ?? '';
-      if (!ct.includes('text/event-stream')) {
-        // Fell through to a fast-path JSON error response
-        const data = await res.json() as { error?: string };
+      const data = await res.json() as { error?: string } & Partial<Proposal>;
+      if (!res.ok || data.error) {
         throw new Error(data.error ?? `Server error (HTTP ${res.status})`);
       }
 
-      if (!res.body) throw new Error('No response body from server');
+      const proposal = data as Proposal;
+      setProposal(proposal);
+      setPhase('staging');
 
-      // Read the SSE stream until we get a 'result' or 'error' event
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE events are separated by double newlines
-        const events = buffer.split('\n\n');
-        // Keep the last incomplete chunk in the buffer
-        buffer = events.pop() ?? '';
-
-        for (const eventBlock of events) {
-          if (!eventBlock.trim()) continue;
-
-          const lines = eventBlock.split('\n');
-          const eventType = lines.find(l => l.startsWith('event:'))?.slice(7).trim();
-          const dataLine = lines.find(l => l.startsWith('data:'))?.slice(5).trim();
-
-          if (!eventType || !dataLine) continue;
-
-          if (eventType === 'heartbeat') {
-            // Keep-alive ping — ignore, spinner is already showing
-            continue;
-          }
-
-          if (eventType === 'error') {
-            const { error } = JSON.parse(dataLine) as { error: string };
-            throw new Error(error ?? 'Failed to parse price list');
-          }
-
-          if (eventType === 'result') {
-            const proposal = JSON.parse(dataLine) as Proposal;
-            setProposal(proposal);
-            setPhase('staging');
-
-            // Auto-select supplier if AI detected a name and user hadn't picked one
-            if (!selectedSupplierId && proposal.supplierName) {
-              const match = suppliers.find(
-                (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
-              );
-              if (match) setSelectedSupplierId(match.id);
-            }
-
-            const critCount = proposal.uncertainties.filter(
-              (u: Uncertainty) => u.severity === 'critical',
-            ).length;
-            if (critCount > 0) setDrawerOpen(true);
-
-            reader.cancel(); // Clean up the stream
-            return;
-          }
-        }
+      if (!selectedSupplierId && proposal.supplierName) {
+        const match = suppliers.find(
+          (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
+        );
+        if (match) setSelectedSupplierId(match.id);
       }
 
-      // If we exit the loop without a result, something went wrong
-      throw new Error('Connection closed before result was received');
+      const critCount = proposal.uncertainties.filter(
+        (u: Uncertainty) => u.severity === 'critical',
+      ).length;
+      if (critCount > 0) setDrawerOpen(true);
 
     } catch (err) {
       setPhase('upload');
