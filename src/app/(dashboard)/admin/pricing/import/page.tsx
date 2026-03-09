@@ -330,7 +330,7 @@ export default function ImportPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 ring-1 ring-primary-100">
             <Sparkles className="h-8 w-8 text-primary-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">AI Price List Import</h2>
+          <h2 className="text-xl font-semibold text-gray-900">AI Material Import</h2>
           <p className="mt-1 text-sm text-gray-500">
             Drop a supplier PDF and let the AI discover and stage all materials for you.
           </p>
