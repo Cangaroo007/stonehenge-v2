@@ -7,6 +7,7 @@ export interface ParsedMaterial {
   productCode: string | null;
   name: string;
   surfaceFinish: string;
+  fabricationCategory: 'ENGINEERED' | 'NATURAL_HARD' | 'NATURAL_SOFT' | 'NATURAL_PREMIUM' | 'SINTERED';
   range: string;
   wholesalePrice: number;
   costPrice: number;
@@ -35,6 +36,7 @@ For EACH material, extract:
 - productCode: The supplier's product code/number (e.g. "5131", "CM 1453"). Null if no code exists.
 - name: The product/colour name (e.g. "Calacatta Nuvo", "Arctic White")
 - surfaceFinish: "Polished", "Matte", or "Textured"
+- fabricationCategory: One of ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED (see FABRICATION CATEGORY RULES below)
 - range: The range/tier name (e.g. "Builder Range", "Premium Plus", "M2 20 CSF")
 - wholesalePrice: The standard/wholesale price per slab in AUD (before any customer discount)
 - costPrice: Northcoast Stone's actual price per slab (after discount). If only one price shown, use it for both.
@@ -69,6 +71,18 @@ IMPORTANT RULES:
 5. Include ALL products, even discontinued ones (mark isDiscontinued: true)
 6. The supplier name should be extracted from the PDF header/logo
 7. Look for an effective date in the document
+8. FABRICATION CATEGORY RULES — MANDATORY:
+   Valid values ONLY: ENGINEERED | NATURAL_HARD | NATURAL_SOFT | NATURAL_PREMIUM | SINTERED
+   Any value not in this list is FORBIDDEN. Never invent a new category.
+   MAPPING:
+   - Engineered quartz, engineered stone, recycled surfaces, "Quantum Zero", "Zenith", "Caesarstone" → ENGINEERED
+   - Granite, quartzite, travertine, slate → NATURAL_HARD
+   - Marble, limestone, onyx → NATURAL_SOFT
+   - Premium/rare natural stone → NATURAL_PREMIUM
+   - Sintered stone, porcelain, Dekton, Neolith, Lapitec → SINTERED
+   The surfaceFinish field (Polished, Matt, Matte, Textured, Honed, Brushed) is NEVER used to determine fabricationCategory. These are completely separate fields.
+   If fabricationCategory cannot be determined with confidence → default to ENGINEERED.
+   Do NOT invent a value. Do NOT use "Natural Marble" or any other value outside the valid enum above.
 
 Also extract:
 - supplierName: The supplier company name
@@ -86,6 +100,7 @@ Respond with ONLY valid JSON, no markdown backticks, no explanation. Format:
       "productCode": "..." or null,
       "name": "...",
       "surfaceFinish": "...",
+      "fabricationCategory": "ENGINEERED",
       "range": "...",
       "wholesalePrice": 0.00,
       "costPrice": 0.00,
