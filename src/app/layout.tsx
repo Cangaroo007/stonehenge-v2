@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
 import { Toaster } from 'react-hot-toast';
-import { VersionCheck } from '@/components/VersionCheck';
+// import { VersionCheck } from '@/components/VersionCheck';
 import './globals.css';
 
 const inter = localFont({
@@ -23,7 +23,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
-        <VersionCheck />
+        {/* <VersionCheck /> */}
         {children}
         <Toaster position="top-right" />
       </body>
