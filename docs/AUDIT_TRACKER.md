@@ -1,6 +1,6 @@
 # Stone Henge — Audit Tracker
 
-> **Updated:** March 5, 2026
+> **Updated:** March 9, 2026
 > **Status:** ACTIVE
 
 ---
@@ -65,6 +65,28 @@
 | ME-1 | Removed wrong MITRED_PROFILE_CONSTRAINT validation from 4 API routes (calculate, pieces, pieces/[pieceId] ×2, bulk-edges). Constraint was factually incorrect — mitred edges have no traditional profile, the 45° mitre IS the edge. Added mitred_corner_treatment (RAW/SQUARE/ROUND, default RAW) to quote_pieces. Added strip_to_piece_threshold_mm (default 300) to pricing_settings. Updated Pricing Bible to correct constraint matrix. | claude/pricing-schema-correction-WASuU |
 | QF-1 | Tenant-configurable default edge profile. Added default_edge_type_id (String?) to pricing_settings. Piece POST handler reads setting and applies to all 4 edges when not explicitly provided. Drawing adapter updated to accept defaultEdgeTypeId param (no longer references hardcoded ARRIS). Pricing Admin dropdown added. Raw remains fallback when setting is null. | claude/qf1-default-edge-profile-ywF7t |
 | ME-4 | Promoted strip calculator. Schema: promoted_from_piece_id + promoted_edge_position on quote_pieces. On promote: POST creates new piece, atomically adds edge to parent's no_strip_edges (Task A). On delete: restores parent edge. stripToPieceThresholdMm added to loadPricingContext (Task B). Secondary safeguard in calculator: promotedEdgesByParent map merges promoted edges into noStripEdges even if DB field not patched (Task C). UI: "Promoted strip" badge on promoted pieces, "Already promoted" label replaces promote button for promoted edges. | claude/promoted-strip-calculator-ttPTD |
+| PRICING-FIX-1 | Templating guard (cost $0 when templatingRequired=false), waterfall modal, zero-rate warnings, category filtering on edge/cutout admin routes. Verified via full recalculate: Q-00051 $7,028.70, Q-00055 $12,067.85, Q-00058 $11,736.33. Old anchors were stale — deltas reflect accumulated engine improvements since ME-4, A-01, PX-1/2, MRG-1 (not PRICING-FIX-1 regressions). Note: service_rates table has NOT NULL updated_at — all INSERTs must include updated_at or they fail. | claude/verify-pricing-deployment-gQ96n |
+
+---
+
+## Pricing Anchors
+
+> **Source of truth for expected quote totals.** Updated after verified full recalculation on 2026-03-09.
+> Old anchors were stale — recalculation reflects accumulated engine improvements since ME-4, A-01, PX-1/2, MRG-1.
+
+| Quote | Subtotal (ex GST) | Last Verified |
+|-------|-------------------|---------------|
+| Q-00051 | $7,028.70 | 2026-03-09 |
+| Q-00055 | $12,067.85 | 2026-03-09 |
+| Q-00058 | $11,736.33 | 2026-03-09 |
+
+---
+
+## Known Schema Gotchas
+
+| Table | Gotcha | Detail |
+|-------|--------|--------|
+| service_rates | `updated_at` is NOT NULL with no default | All INSERTs must explicitly include `updated_at: new Date()` or the query fails. Bake into all future seed/migration prompts. |
 
 ---
 
@@ -96,6 +118,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PRICING-FIX-1 verify pricing deployment + anchor update | claude/verify-pricing-deployment-gQ96n | Mar 9 | ✅ Complete |
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
 | QF-1 tenant-configurable default edge profile | claude/qf1-default-edge-profile-ywF7t | Mar 5 | ✅ Complete |
 | ME-4 promoted strip calculator | claude/promoted-strip-calculator-ttPTD | Mar 5 | ✅ Complete |
@@ -130,4 +153,4 @@
 
 ---
 
-*Last Updated: Mar 5 2026 — QF-1: Tenant-configurable default edge profile on new pieces.*
+*Last Updated: Mar 9 2026 — PRICING-FIX-1: Verified deployment. Anchors updated: Q-00051 $7,028.70, Q-00055 $12,067.85, Q-00058 $11,736.33.*
