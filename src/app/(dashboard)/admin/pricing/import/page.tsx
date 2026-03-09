@@ -435,6 +435,9 @@ export default function ImportPage() {
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                 Fabrication
               </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                Surface Finish
+              </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Conf.
               </th>
@@ -559,6 +562,36 @@ export default function ImportPage() {
                     <option value="NATURAL_SOFT">Natural Marble</option>
                     <option value="NATURAL_PREMIUM">Natural Premium</option>
                     <option value="SINTERED">Porcelain / Sintered</option>
+                  </select>
+                </td>
+                {/* Surface Finish */}
+                <td className="px-3 py-2">
+                  <select
+                    value={m.surfaceFinish ?? ''}
+                    onChange={(e) => {
+                      if (!proposal) return;
+                      setProposal({
+                        ...proposal,
+                        extractedData: proposal.extractedData.map((row) =>
+                          row._id === m._id
+                            ? { ...row, surfaceFinish: (e.target.value || null) }
+                            : row,
+                        ),
+                      });
+                    }}
+                    className={cn(
+                      'text-xs rounded border px-1.5 py-0.5',
+                      !m.surfaceFinish
+                        ? 'border-amber-400 bg-amber-50 text-amber-700'
+                        : 'border-gray-200 bg-white text-gray-700',
+                    )}
+                  >
+                    <option value="">Select...</option>
+                    <option value="Polished">Polished</option>
+                    <option value="Matte">Matte</option>
+                    <option value="Honed">Honed</option>
+                    <option value="Brushed">Brushed</option>
+                    <option value="Textured">Textured</option>
                   </select>
                 </td>
                 {/* Confidence */}
