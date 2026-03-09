@@ -46,8 +46,25 @@ For EACH material, extract:
 
 IMPORTANT RULES:
 1. Prices are ALWAYS ex-GST (this is standard in the Australian stone industry)
-2. If the PDF shows TWO prices (wholesale + discounted), extract BOTH. The discounted price is costPrice.
-3. If only ONE price is shown with "Discount Applied" text, that IS the costPrice. Estimate wholesale if a discount % is shown.
+2. PRICE COLUMN DETECTION RULES — MANDATORY:
+   a) PER-M² REFERENCE COLUMN (not a real price):
+      A numeric column is a per-m² reference figure — NOT a separate price — when ANY of:
+      - The column header contains "m²", "sqm", "per m", "per square", "m2"
+      - The value ≈ the slab price ÷ slab area in m² (within 5% tolerance)
+      - The ratio slab_price ÷ this_value falls between 4.0 and 7.0 (typical slab area range)
+      When detected: store slab price as wholesalePrice. Derive price per m² by dividing
+      wholesalePrice by slab area. Do NOT treat the per-m² column as costPrice or a second price.
+      Do NOT raise a clarification question about it. Use the slab price for BOTH wholesalePrice and costPrice.
+   b) GENUINE DUAL PRICE (both real prices):
+      Two real prices exist only when column headers explicitly say:
+      - "Wholesale" / "Wholesale Price" AND "VIP" / "Your Price" / "Net" / "Your VIP Price"
+      In this case: wholesalePrice = the higher figure, costPrice = the lower figure.
+   c) SINGLE PRICE WITH DISCOUNT:
+      When a document shows a wholesale price, a discount %, and a resulting net price:
+      wholesalePrice = the pre-discount figure, costPrice = the post-discount figure.
+   d) SINGLE PRICE, NO DISCOUNT:
+      If only one price is shown with no discount information, use it for both wholesalePrice and costPrice.
+3. NEVER raise a clarification question about a per-m² reference column. It is not a second price.
 4. Slab dimensions: ALWAYS put the longer dimension as slabLengthMm and shorter as slabWidthMm, regardless of how the PDF lists them (some list Width×Length).
 5. Include ALL products, even discontinued ones (mark isDiscontinued: true)
 6. The supplier name should be extracted from the PDF header/logo
