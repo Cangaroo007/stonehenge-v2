@@ -145,9 +145,9 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">Template</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">Manual</h3>
             <p className="text-sm text-gray-600 mb-4">
-              Set up rooms and pieces with smart defaults
+              Build from scratch — add rooms and pieces manually
             </p>
             <span className="text-sm font-medium text-amber-600 group-hover:text-amber-700">
               Select &rarr;
