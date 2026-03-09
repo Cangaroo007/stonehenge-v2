@@ -6,7 +6,7 @@ const MODEL = 'claude-sonnet-4-20250514';
 export interface ParsedMaterial {
   productCode: string | null;
   name: string;
-  surfaceFinish: string;
+  surfaceFinish: 'Polished' | 'Matte' | 'Textured' | 'Honed' | 'Brushed';
   fabricationCategory: 'ENGINEERED' | 'NATURAL_HARD' | 'NATURAL_SOFT' | 'NATURAL_PREMIUM' | 'SINTERED';
   range: string;
   wholesalePrice: number;
@@ -37,7 +37,7 @@ Extract EVERY material/product from this price list into a structured JSON forma
 For EACH material, extract:
 - productCode: The supplier's product code/number (e.g. "5131", "CM 1453"). Null if no code exists.
 - name: The product/colour name (e.g. "Calacatta Nuvo", "Arctic White")
-- surfaceFinish: "Polished", "Matte", or "Textured"
+- surfaceFinish: One of "Polished", "Matte", "Textured", "Honed", "Brushed". Map document values: "Matt"/"Matte"/"Matte Finish" → "Matte", "Textured"/"Texture"/"Structured" → "Textured", "Brushed"/"Leathered" → "Brushed", "Honed" → "Honed", "Polished" → "Polished". Default to "Polished" if not specified.
 - fabricationCategory: One of ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED (see FABRICATION CATEGORY RULES below)
 - range: The range/tier name (e.g. "Builder Range", "Premium Plus", "M2 20 CSF")
 - wholesalePrice: The standard/wholesale price per slab in AUD (before any customer discount)
@@ -116,7 +116,7 @@ Respond with ONLY valid JSON, no markdown backticks, no explanation. Format:
     {
       "productCode": "..." or null,
       "name": "...",
-      "surfaceFinish": "...",
+      "surfaceFinish": "Polished",
       "fabricationCategory": "ENGINEERED",
       "range": "...",
       "wholesalePrice": 0.00,
