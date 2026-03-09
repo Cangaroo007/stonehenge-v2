@@ -82,6 +82,8 @@ function ActionBadge({ action }: { action: ProposedMaterial['action'] }) {
 
 function ConfidenceDots({ level }: { level: ProposedMaterial['confidence'] }) {
   const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+  const filledColor =
+    level === 'high' ? 'bg-emerald-500' : level === 'medium' ? 'bg-amber-500' : 'bg-red-500';
   return (
     <span className="inline-flex gap-0.5" title={`Confidence: ${level}`}>
       {[1, 2, 3].map((i) => (
@@ -89,7 +91,7 @@ function ConfidenceDots({ level }: { level: ProposedMaterial['confidence'] }) {
           key={i}
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            i <= filled ? 'bg-gray-600' : 'bg-gray-200',
+            i <= filled ? filledColor : 'bg-gray-200',
           )}
         />
       ))}
