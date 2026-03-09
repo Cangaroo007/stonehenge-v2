@@ -27,9 +27,9 @@ export async function GET() {
       isActive: ct.isActive ?? true, // Default to true if null/undefined
       sortOrder: ct.sortOrder,
       // Include fabrication categories that have configured rates (non-zero)
-      configuredCategories: ct.cutout_category_rates
+      configuredCategories: ct.categoryRates
         .filter((r: { rate: unknown }) => Number(r.rate) > 0)
-        .map((r: { fabrication_category: string }) => r.fabrication_category),
+        .map((r: { fabricationCategory: string }) => r.fabricationCategory),
     }));
 
     return NextResponse.json(serialized);
