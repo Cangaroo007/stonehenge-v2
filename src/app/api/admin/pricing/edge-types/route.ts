@@ -12,7 +12,7 @@ export async function GET() {
     const edgeTypes = await prisma.edge_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        edge_type_category_rates: {
+        categoryRates: {
           select: { fabrication_category: true, rate20mm: true, rate40mm: true },
         },
       },
@@ -28,7 +28,7 @@ export async function GET() {
       isActive: et.isActive ?? true, // Default to true if null/undefined
       sortOrder: et.sortOrder,
       // Include fabrication categories that have configured rates (non-zero)
-      configuredCategories: et.edge_type_category_rates
+      configuredCategories: et.categoryRates
         .filter((r: { rate20mm: unknown; rate40mm: unknown }) => Number(r.rate20mm) > 0 || Number(r.rate40mm) > 0)
         .map((r: { fabrication_category: string }) => r.fabrication_category),
     }));
