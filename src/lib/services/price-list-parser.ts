@@ -16,6 +16,8 @@ export interface ParsedMaterial {
   thicknessMm: number;
   isDiscontinued: boolean;
   notes: string | null;
+  requiresGrainMatch: boolean;
+  grainDirection: 'VEINED' | 'UNIFORM' | null;
 }
 
 export interface PriceListParseResult {
@@ -45,6 +47,8 @@ For EACH material, extract:
 - thicknessMm: Slab thickness in mm (typically 12 or 20)
 - isDiscontinued: true if marked as discontinued, false otherwise
 - notes: Any special notes (e.g. "Book-Match available", "New", "Back to back order only")
+- requiresGrainMatch: true if the material has visible veining/grain that requires matching between slabs (see GRAIN MATCHING RULES below)
+- grainDirection: "VEINED" if material has directional veining, "UNIFORM" if no directional pattern, null if unknown
 
 IMPORTANT RULES:
 1. Prices are ALWAYS ex-GST (this is standard in the Australian stone industry)
@@ -83,6 +87,19 @@ IMPORTANT RULES:
    The surfaceFinish field (Polished, Matt, Matte, Textured, Honed, Brushed) is NEVER used to determine fabricationCategory. These are completely separate fields.
    If fabricationCategory cannot be determined with confidence → default to ENGINEERED.
    Do NOT invent a value. Do NOT use "Natural Marble" or any other value outside the valid enum above.
+9. GRAIN MATCHING RULES — MANDATORY:
+   requiresGrainMatch and grainDirection are determined ONLY by keywords in the material name,
+   description, or supplier notes — NEVER by fabricationCategory alone.
+   KEYWORD DETECTION (case-insensitive):
+   requiresGrainMatch = true ONLY when the material name, description, or supplier notes
+   contain ANY of: "vein", "veined", "veining", "bookmatch", "book match", "book-match",
+   "flow", "flowing", "directional", "matched", "matching" (in context of grain/pattern).
+   If none of these keywords are present, requiresGrainMatch = false — regardless of category.
+   Category alone (e.g. marble, natural stone) NEVER triggers grain matching.
+   grainDirection values: "VEINED" | "UNIFORM" | null
+   - VEINED: Any of the above keywords are present
+   - UNIFORM: The document explicitly indicates a consistent/uniform surface
+   - null: Direction cannot be determined from the price list — this is the safe default
 
 Also extract:
 - supplierName: The supplier company name
@@ -108,7 +125,9 @@ Respond with ONLY valid JSON, no markdown backticks, no explanation. Format:
       "slabWidthMm": 0,
       "thicknessMm": 20,
       "isDiscontinued": false,
-      "notes": null
+      "notes": null,
+      "requiresGrainMatch": false,
+      "grainDirection": null
     }
   ]
 }`;
