@@ -12,8 +12,8 @@ export async function GET() {
     const cutoutTypes = await prisma.cutout_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
-        cutout_category_rates: {
-          select: { fabrication_category: true, rate: true },
+        categoryRates: {
+          select: { fabricationCategory: true, rate: true },
         },
       },
     });
