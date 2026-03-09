@@ -25,7 +25,8 @@ export function VersionCheck() {
         if (serverBuildId && serverBuildId !== currentBuildId.current && serverBuildId !== 'dev') {
           console.log(`[VersionCheck] New version detected: ${serverBuildId} (was ${currentBuildId.current})`);
           // Hard reload — bypasses all caches
-          window.location.reload();
+          // window.location.reload(); // Disabled — Railway restarts cause false positives
+          console.warn('[VersionCheck] Version mismatch detected but reload disabled');
         }
       } catch {
         // Silently ignore — network errors shouldn't break the app
