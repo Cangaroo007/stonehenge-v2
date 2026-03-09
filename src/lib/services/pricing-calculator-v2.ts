@@ -1712,15 +1712,18 @@ export async function calculateQuotePrice(
       : (calculatedDeliveryCost ?? 0),
   };
 
-  // Calculate templating cost
+  // Calculate templating cost — guard: if templatingRequired is false, cost is always $0
+  const templatingRequired = quoteAny.templatingRequired === true;
   const templatingBreakdown = {
-    required: quoteAny.templatingRequired,
+    required: templatingRequired,
     distanceKm: quoteAny.templatingDistanceKm ? Number(quoteAny.templatingDistanceKm) : deliveryDistanceKm,
     calculatedCost: calculatedTemplatingCost,
     overrideCost: quoteAny.overrideTemplatingCost ? Number(quoteAny.overrideTemplatingCost) : null,
-    finalCost: quoteAny.overrideTemplatingCost
-      ? Number(quoteAny.overrideTemplatingCost)
-      : (calculatedTemplatingCost ?? 0),
+    finalCost: templatingRequired
+      ? (quoteAny.overrideTemplatingCost
+          ? Number(quoteAny.overrideTemplatingCost)
+          : (calculatedTemplatingCost ?? 0))
+      : 0,
   };
 
   // Calculate initial subtotal from aggregate values.

@@ -18,6 +18,8 @@ export interface CutoutType {
   baseRate: number;
   isActive: boolean;
   sortOrder: number;
+  /** Fabrication categories with configured (non-zero) rates */
+  configuredCategories?: string[];
 }
 
 interface CutoutSelectorProps {

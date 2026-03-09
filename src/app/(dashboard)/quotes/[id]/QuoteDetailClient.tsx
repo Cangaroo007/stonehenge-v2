@@ -71,6 +71,11 @@ import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 import ContactPicker from '@/components/quotes/ContactPicker';
 import QuoteReadinessChecker from '@/components/quotes/QuoteReadinessChecker';
+import WaterfallSplashbackModal, {
+  isWaterfallOrSplashback,
+  getRelationshipEdgeName,
+  MITERED_EDGE_ID,
+} from '@/components/quotes/WaterfallSplashbackModal';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
@@ -115,6 +120,8 @@ interface QuotePiece {
   sortOrder: number;
   totalCost: number;
   machineProfileId: string | null;
+  /** Fabrication category from the assigned material (e.g. ENGINEERED, NATURAL_HARD) */
+  fabricationCategory?: string;
   quote_rooms: {
     id: number;
     name: string;
@@ -179,6 +186,7 @@ interface Material {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  fabricationCategory?: string;
 }
 
 interface EdgeType {
@@ -189,6 +197,8 @@ interface EdgeType {
   baseRate: number;
   isActive: boolean;
   sortOrder: number;
+  /** Fabrication categories with configured (non-zero) rates */
+  configuredCategories?: string[];
 }
 
 interface ThicknessOption {
@@ -398,6 +408,12 @@ export default function QuoteDetailClient({
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showReadinessCheck, setShowReadinessCheck] = useState(false);
+  const [waterfallModal, setWaterfallModal] = useState<{
+    isOpen: boolean;
+    edgeTypeName: 'Waterfall' | 'Splashback';
+    side: string;
+    sourcePieceId: string;
+  }>({ isOpen: false, edgeTypeName: 'Waterfall', side: '', sourcePieceId: '' });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -526,6 +542,8 @@ export default function QuoteDetailClient({
       room.pieces.map(piece => ({
         ...piece,
         quote_rooms: { id: room.id, name: room.name },
+        fabricationCategory: (piece as unknown as { materials?: { fabrication_category?: string } })
+          .materials?.fabrication_category ?? undefined,
       }))
     ).sort((a, b) => a.sortOrder - b.sortOrder);
   }, []);
@@ -1384,6 +1402,19 @@ export default function QuoteDetailClient({
       },
       piece.quote_rooms?.name || 'Kitchen'
     );
+
+    // Show Waterfall/Splashback modal when those edge types are selected
+    if (profileId && isWaterfallOrSplashback(profileId)) {
+      const edgeName = getRelationshipEdgeName(profileId);
+      if (edgeName) {
+        setWaterfallModal({
+          isOpen: true,
+          edgeTypeName: edgeName,
+          side,
+          sourcePieceId: pieceId,
+        });
+      }
+    }
   }, [pieces, handleInlineSavePiece]);
 
   // Cutout add from RoomSpatialView (Rule 21: cutout management reachable in 2 clicks)
@@ -3580,6 +3611,7 @@ export default function QuoteDetailClient({
                           name: c.cutoutTypeId,
                           quantity: c.quantity,
                         })),
+                        fabricationCategory: p.fabricationCategory,
                       };
                     });
                     const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
@@ -3677,7 +3709,7 @@ export default function QuoteDetailClient({
                             selectedPieceIds={selectedPieceIds}
                             onPieceMultiSelect={handlePieceMultiSelect}
                             onContextMenu={handleContextMenu}
-                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories }))}
                             onPieceEdgeChange={handlePieceEdgeChange}
                             cutoutTypes={cutoutTypes}
                             onPieceCutoutAdd={handlePieceCutoutAdd}
@@ -4290,6 +4322,41 @@ export default function QuoteDetailClient({
           onSave={handleSaveQuote}
         />
       )}
+
+      {/* Waterfall / Splashback connected piece modal */}
+      <WaterfallSplashbackModal
+        isOpen={waterfallModal.isOpen}
+        edgeTypeName={waterfallModal.edgeTypeName}
+        side={waterfallModal.side}
+        otherPieces={effectivePieces
+          .filter(p => String(p.id) !== waterfallModal.sourcePieceId)
+          .map(p => ({ id: String(p.id), name: p.name || p.description || `Piece ${p.id}` }))}
+        onAdjoinPiece={async (targetPieceId) => {
+          // Set the joining edge of the selected piece to Mitred
+          const target = effectivePieces.find(p => String(p.id) === targetPieceId);
+          if (target) {
+            // Determine which edge on the target should be Mitred (opposite of source side)
+            const oppositeMap: Record<string, string> = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' };
+            const joinSide = oppositeMap[waterfallModal.side] || 'top';
+            await handlePieceEdgeChange(targetPieceId, joinSide, MITERED_EDGE_ID);
+          }
+          setWaterfallModal(prev => ({ ...prev, isOpen: false }));
+        }}
+        onCreatePiece={() => {
+          setWaterfallModal(prev => ({ ...prev, isOpen: false }));
+          // Open the add piece flow — the joining edge will need to be set to Mitred
+          // after creation. Use handleAddPiece if available.
+          handleAddPiece();
+          toast('Set the joining edge to Mitred on the new piece', { icon: 'i' });
+        }}
+        onCreateStrip={() => {
+          setWaterfallModal(prev => ({ ...prev, isOpen: false }));
+          // Create a strip piece — a narrow piece linked to the source
+          handleAddPiece();
+          toast('Set the joining edge to Mitred on the new strip piece', { icon: 'i' });
+        }}
+        onClose={() => setWaterfallModal(prev => ({ ...prev, isOpen: false }))}
+      />
     </>
   );
 }

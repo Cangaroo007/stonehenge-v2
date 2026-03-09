@@ -40,11 +40,15 @@ interface QuotePiece {
   materialName?: string | null;
   lamination_method?: string | null;
   mitred_corner_treatment?: string | null;
+  /** Fabrication category from the assigned material */
+  fabricationCategory?: string;
 }
 
 interface EdgeProfileOption {
   id: string;
   name: string;
+  /** Fabrication categories with configured (non-zero) rates */
+  configuredCategories?: string[];
 }
 
 interface MaterialOption {
@@ -82,7 +86,7 @@ interface RoomSpatialViewProps {
   /** Available materials for accordion */
   materials?: MaterialOption[];
   /** Available cutout types for accordion */
-  cutoutTypes?: Array<{ id: string; name: string; baseRate: number }>;
+  cutoutTypes?: Array<{ id: string; name: string; baseRate: number; configuredCategories?: string[] }>;
   /** Context menu handler — called on right-click with piece data */
   onContextMenu?: (pieceId: string, position: { x: number; y: number }) => void;
   // ── Room management props (edit mode) ──
@@ -1101,7 +1105,12 @@ export default function RoomSpatialView({
                   )}
 
                   {/* Cutouts */}
-                  {(cutoutCount > 0 || (onPieceCutoutAdd && cutoutTypes.length > 0)) && (
+                  {(() => {
+                    const pieceFab = piece.fabricationCategory;
+                    const filteredCutoutTypes = pieceFab
+                      ? cutoutTypes.filter(ct => !ct.configuredCategories || ct.configuredCategories.length === 0 || ct.configuredCategories.includes(pieceFab))
+                      : cutoutTypes;
+                    return (cutoutCount > 0 || (onPieceCutoutAdd && filteredCutoutTypes.length > 0)) ? (
                     <div className="flex items-center gap-2">
                       <span className="text-gray-400 w-4 text-center">&#x1F52A;</span>
                       <span className="text-gray-600">
@@ -1111,7 +1120,7 @@ export default function RoomSpatialView({
                             }`
                           : 'No cutouts'}
                       </span>
-                      {onPieceCutoutAdd && cutoutTypes.length > 0 && (
+                      {onPieceCutoutAdd && filteredCutoutTypes.length > 0 && (
                         <select
                           value=""
                           onChange={e => {
@@ -1121,13 +1130,17 @@ export default function RoomSpatialView({
                           className="px-1 py-0.5 text-[10px] border border-gray-200 rounded bg-white text-blue-600 hover:border-gray-300 cursor-pointer"
                         >
                           <option value="">+ Add</option>
-                          {cutoutTypes.map(ct => (
+                          {filteredCutoutTypes.map(ct => (
                             <option key={ct.id} value={ct.id}>{ct.name}</option>
                           ))}
                         </select>
                       )}
+                      {!pieceFab && (
+                        <span className="text-[9px] text-amber-500" title="No fabrication category set — showing all cutout types">⚠️</span>
+                      )}
                     </div>
-                  )}
+                  ) : null;
+                  })()}
 
                   {/* Relationships */}
                   {pieceRelationships.length > 0 && (
