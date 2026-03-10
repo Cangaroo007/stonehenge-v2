@@ -36,7 +36,7 @@ type EdgeEditMode = 'select' | 'quickEdge';
 
 // ─── Edge Layout Presets ─────────────────────────────────────────────────────
 
-interface EdgePreset {
+export interface EdgePreset {
   id: string;
   label: string;
   /** Which sides get the selected profile. Others get null. */
@@ -45,7 +45,7 @@ interface EdgePreset {
   allRaw?: boolean;
 }
 
-const EDGE_PRESETS: EdgePreset[] = [
+export const EDGE_PRESETS: EdgePreset[] = [
   { id: 'all-raw',              label: 'All Raw',              sides: [],                              allRaw: true },
   { id: 'front-only',           label: 'Front Only',           sides: ['bottom'] },
   { id: 'front-return-right',   label: 'Front + Return',       sides: ['bottom', 'right'] },
@@ -55,7 +55,7 @@ const EDGE_PRESETS: EdgePreset[] = [
   { id: 'island',               label: 'Island',               sides: ['top', 'bottom', 'left', 'right'] },
 ];
 
-function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'left' | 'right'> }) {
+export function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'left' | 'right'> }) {
   const active = 'stroke-stone-700';
   const inactive = 'stroke-gray-200';
   return (
