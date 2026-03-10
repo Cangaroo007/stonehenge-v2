@@ -479,9 +479,6 @@ export default function ImportPage() {
                 Code
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Wholesale
-              </th>
-              <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Cost
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
@@ -548,10 +545,6 @@ export default function ImportPage() {
                   {m.productCode ?? (
                     <span className="text-amber-500 text-[10px]">auto-slug</span>
                   )}
-                </td>
-                {/* Wholesale */}
-                <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                  {m.wholesalePrice != null ? `$${m.wholesalePrice.toFixed(2)}` : '—'}
                 </td>
                 {/* Cost */}
                 <td className="px-3 py-2 text-right tabular-nums text-gray-900 font-medium">
