@@ -710,6 +710,9 @@ model quotes {
   material_margin_percent Decimal? @db.Decimal(5, 2) // The active margin % applied to this quote
   material_margin_source  String? // 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none'
 
+  // Per-quote slab dimension overrides (keyed by material ID)
+  slab_dimension_overrides Json? @db.JsonB
+
   // Optimizer tracking
   optimizer_slab_count Int?
   optimizer_run_at     DateTime?
