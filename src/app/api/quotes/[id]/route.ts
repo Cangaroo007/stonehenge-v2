@@ -442,6 +442,7 @@ function transformPieceForClient(piece: any) {
     edgeRight: piece.edge_right,
     shapeType: piece.shape_type || 'RECTANGLE',
     shapeConfig: piece.shape_config as Record<string, unknown> | null,
+    pieceType: piece.piece_type ?? 'BENCHTOP',
     requiresGrainMatch: piece.requiresGrainMatch ?? false,
     noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
     stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,

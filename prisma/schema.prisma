@@ -26,20 +26,20 @@ model audit_logs {
 
 /// This model or at least one of its fields has comments in the database, and requires an additional setup for migrations: Read more: https://pris.ly/d/database-comments
 model client_tiers {
-  id                   String                 @id
-  name                 String                 @unique
-  description          String?
-  priority             Int                    @default(0)
-  isDefault            Boolean                @default(false)
-  isActive             Boolean                @default(true)
-  sortOrder            Int                    @default(0)
-  createdAt            DateTime               @default(now())
-  updatedAt            DateTime
-  discount_matrix      Json?
-  custom_price_list    Json?
-  material_margin_percent    Decimal?   @db.Decimal(5, 2)  // Default material margin for this tier
-  customers            customers[]
-  pricing_rules_engine pricing_rules_engine[]
+  id                      String                 @id
+  name                    String                 @unique
+  description             String?
+  priority                Int                    @default(0)
+  isDefault               Boolean                @default(false)
+  isActive                Boolean                @default(true)
+  sortOrder               Int                    @default(0)
+  createdAt               DateTime               @default(now())
+  updatedAt               DateTime
+  discount_matrix         Json?
+  custom_price_list       Json?
+  material_margin_percent Decimal?               @db.Decimal(5, 2) // Default material margin for this tier
+  customers               customers[]
+  pricing_rules_engine    pricing_rules_engine[]
 }
 
 model client_types {
@@ -55,35 +55,35 @@ model client_types {
 }
 
 model companies {
-  id                  Int       @id @default(autoincrement())
-  name                String
-  created_at          DateTime? @default(now()) @db.Timestamp(6)
-  updated_at          DateTime? @default(now()) @db.Timestamp(6)
-  website             String?
-  logo_storage_key    String?
-  primary_color       String?   @default("#1e40af")
-  quote_intro_text_1  String?
-  quote_intro_text_2  String?
-  quote_intro_text_3  String?
-  quote_please_note   String?
-  quote_terms_text_1  String?
-  quote_terms_text_2  String?
-  quote_terms_text_3  String?
-  quote_terms_text_4  String?
-  quote_validity_days Int?      @default(30)
-  deposit_percent     Int?      @default(50)
-  terms_url           String?
-  signature_name      String?
-  signature_title     String?
-  default_unit_system String?   @default("METRIC")
-  user                user[]
-  suppliers           suppliers[]
-  quoteTemplates      quote_templates[]
-  quotes              quotes[]
-  customers           customers[]
-  materials           materials[]
-  unitBlockProjects   unit_block_projects[]
-  customRoomPresets   custom_room_presets[]
+  id                   Int                      @id @default(autoincrement())
+  name                 String
+  created_at           DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?                @default(now()) @db.Timestamp(6)
+  website              String?
+  logo_storage_key     String?
+  primary_color        String?                  @default("#1e40af")
+  quote_intro_text_1   String?
+  quote_intro_text_2   String?
+  quote_intro_text_3   String?
+  quote_please_note    String?
+  quote_terms_text_1   String?
+  quote_terms_text_2   String?
+  quote_terms_text_3   String?
+  quote_terms_text_4   String?
+  quote_validity_days  Int?                     @default(30)
+  deposit_percent      Int?                     @default(50)
+  terms_url            String?
+  signature_name       String?
+  signature_title      String?
+  default_unit_system  String?                  @default("METRIC")
+  user                 user[]
+  suppliers            suppliers[]
+  quoteTemplates       quote_templates[]
+  quotes               quotes[]
+  customers            customers[]
+  materials            materials[]
+  unitBlockProjects    unit_block_projects[]
+  customRoomPresets    custom_room_presets[]
   drawingLearningRules drawing_learning_rules[]
 }
 
@@ -117,34 +117,34 @@ model customers {
 }
 
 model customer_contacts {
-  id                Int         @id @default(autoincrement())
-  customer_id       Int
-  first_name        String
-  last_name         String
-  email             String?
-  phone             String?
-  mobile            String?
-  role              ContactRole @default(PRIMARY)
-  role_title        String?
-  is_primary        Boolean     @default(false)
-  notes             String?
+  id          Int         @id @default(autoincrement())
+  customer_id Int
+  first_name  String
+  last_name   String
+  email       String?
+  phone       String?
+  mobile      String?
+  role        ContactRole @default(PRIMARY)
+  role_title  String?
+  is_primary  Boolean     @default(false)
+  notes       String?
 
-  has_portal_access Boolean     @default(false)
-  portal_user_id    Int?        @unique
+  has_portal_access Boolean @default(false)
+  portal_user_id    Int?    @unique
 
-  created_at        DateTime    @default(now())
-  updated_at        DateTime    @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  customer          customers   @relation(fields: [customer_id], references: [id], onDelete: Cascade)
-  portal_user       user?       @relation("ContactPortalUser", fields: [portal_user_id], references: [id])
-  quotes            quotes[]    @relation("QuoteContact")
+  customer    customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  portal_user user?     @relation("ContactPortalUser", fields: [portal_user_id], references: [id])
+  quotes      quotes[]  @relation("QuoteContact")
 
   @@index([customer_id])
   @@map("customer_contacts")
 }
 
 model customer_locations {
-  id            Int      @id @default(autoincrement())
+  id            Int     @id @default(autoincrement())
   customer_id   Int
   label         String?
   address_line1 String
@@ -152,14 +152,14 @@ model customer_locations {
   suburb        String
   state         String
   postcode      String
-  country       String   @default("Australia")
-  is_default    Boolean  @default(false)
+  country       String  @default("Australia")
+  is_default    Boolean @default(false)
   notes         String?
 
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  customer      customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
+  customer customers @relation(fields: [customer_id], references: [id], onDelete: Cascade)
 
   @@index([customer_id])
   @@map("customer_locations")
@@ -181,13 +181,13 @@ model cutout_rates {
 }
 
 model cutout_types {
-  id                   String                      @id
-  name                 String                      @unique
+  id                   String                  @id
+  name                 String                  @unique
   description          String?
-  baseRate             Decimal                     @db.Decimal(10, 2)
-  isActive             Boolean                     @default(true)
-  sortOrder            Int                         @default(0)
-  createdAt            DateTime                    @default(now())
+  baseRate             Decimal                 @db.Decimal(10, 2)
+  isActive             Boolean                 @default(true)
+  sortOrder            Int                     @default(0)
+  createdAt            DateTime                @default(now())
   updatedAt            DateTime
   pricing_rule_cutouts pricing_rule_cutouts[]
   categoryRates        cutout_category_rates[]
@@ -235,20 +235,20 @@ model material_edge_compatibility {
 }
 
 model drawings {
-  id           String    @id
+  id           String                @id
   filename     String
   storageKey   String
   mimeType     String
   fileSize     Int
-  uploadedAt   DateTime  @default(now())
+  uploadedAt   DateTime              @default(now())
   quoteId      Int
   customerId   Int
   analysisData Json?
-  isPrimary    Boolean   @default(false)
+  isPrimary    Boolean               @default(false)
   notes        String?
   thumbnailKey String?
-  customers    customers @relation(fields: [customerId], references: [id], onDelete: Cascade)
-  quotes       quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  customers    customers             @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  quotes       quotes                @relation(fields: [quoteId], references: [id], onDelete: Cascade)
   corrections  drawing_corrections[]
 
   @@index([customerId])
@@ -256,22 +256,22 @@ model drawings {
 }
 
 model edge_types {
-  id                 String               @id
-  name               String               @unique
+  id                 String                        @id
+  name               String                        @unique
   description        String?
-  category           String               @default("polish")
-  baseRate           Decimal              @db.Decimal(10, 2)
-  isActive           Boolean              @default(true)
-  sortOrder          Int                  @default(0)
-  createdAt          DateTime             @default(now())
+  category           String                        @default("polish")
+  baseRate           Decimal                       @db.Decimal(10, 2)
+  isActive           Boolean                       @default(true)
+  sortOrder          Int                           @default(0)
+  createdAt          DateTime                      @default(now())
   updatedAt          DateTime
-  code               String?              @unique
-  rate20mm           Decimal?             @db.Decimal(10, 2)
-  rate40mm           Decimal?             @db.Decimal(10, 2)
-  minimumCharge      Decimal?             @db.Decimal(10, 2)
-  minimumLength      Decimal?             @db.Decimal(10, 2)
-  isCurved           Boolean              @default(false)
-  isMitred           Boolean              @default(false)
+  code               String?                       @unique
+  rate20mm           Decimal?                      @db.Decimal(10, 2)
+  rate40mm           Decimal?                      @db.Decimal(10, 2)
+  minimumCharge      Decimal?                      @db.Decimal(10, 2)
+  minimumLength      Decimal?                      @db.Decimal(10, 2)
+  isCurved           Boolean                       @default(false)
+  isMitred           Boolean                       @default(false)
   pricing_rule_edges pricing_rule_edges[]
   categoryRates      edge_type_category_rates[]
   compatibility      material_edge_compatibility[] @relation("EdgeCompatibility")
@@ -301,46 +301,46 @@ model machine_operation_defaults {
 }
 
 model materials {
-  id                     Int                      @id @default(autoincrement())
+  id                     Int                 @id @default(autoincrement())
   name                   String
   collection             String?
   description            String?
-  price_per_sqm          Decimal                  @db.Decimal(10, 2)
-  is_active              Boolean                  @default(true)
-  created_at             DateTime                 @default(now())
+  price_per_sqm          Decimal             @db.Decimal(10, 2)
+  is_active              Boolean             @default(true)
+  created_at             DateTime            @default(now())
   updated_at             DateTime
-  price_per_slab         Decimal?                 @db.Decimal(10, 2)
-  price_per_square_metre Decimal?                 @db.Decimal(10, 2)
+  price_per_slab         Decimal?            @db.Decimal(10, 2)
+  price_per_square_metre Decimal?            @db.Decimal(10, 2)
   slab_length_mm         Int?
   slab_width_mm          Int?
-  fabrication_category   FabricationCategory      @default(ENGINEERED)
+  fabrication_category   FabricationCategory @default(ENGINEERED)
 
   // Tenant isolation
-  company_id             Int
-  tenant                 companies                @relation(fields: [company_id], references: [id])
+  company_id Int
+  tenant     companies @relation(fields: [company_id], references: [id])
 
   // Supplier link
-  supplier_id            String?
-  supplier               suppliers?               @relation(fields: [supplier_id], references: [id])
+  supplier_id String?
+  supplier    suppliers? @relation(fields: [supplier_id], references: [id])
 
   // Pricing — wholesale is supplier's list price; price_per_slab serves as cost price
-  wholesale_price        Decimal?                 @db.Decimal(10, 2)
+  wholesale_price Decimal? @db.Decimal(10, 2)
 
   // Product identification
-  product_code           String?
-  supplier_range         String?
-  surface_finish         String?
+  product_code   String?
+  supplier_range String?
+  surface_finish String?
 
   // Margin override (null = use supplier default)
-  margin_override_percent Decimal?                @db.Decimal(5, 2)
+  margin_override_percent Decimal? @db.Decimal(5, 2)
 
   // Discontinuation tracking
-  is_discontinued        Boolean                  @default(false)
-  discontinued_at        DateTime?
+  is_discontinued Boolean   @default(false)
+  discontinued_at DateTime?
 
   // Grain matching metadata
-  requires_grain_match   Boolean                  @default(false)
-  grain_direction        String?
+  requires_grain_match Boolean @default(false)
+  grain_direction      String?
 
   pricing_rule_materials pricing_rule_materials[]
   quote_pieces           quote_pieces[]
@@ -466,27 +466,29 @@ model pricing_rules_engine {
 }
 
 model pricing_settings {
-  id                               String                 @id
-  organisation_id                  String                 @unique
-  material_pricing_basis           MaterialPricingBasis   @default(PER_SLAB)
-  cutting_unit                     ServiceUnit            @default(LINEAR_METRE)
-  polishing_unit                   ServiceUnit            @default(LINEAR_METRE)
-  installation_unit                ServiceUnit            @default(SQUARE_METRE)
-  unit_system                      UnitSystem             @default(METRIC)
-  currency                         String                 @default("AUD")
-  gst_rate                         Decimal                @default(0.10) @db.Decimal(5, 4)
-  laminated_multiplier             Decimal                @default(1.30) @db.Decimal(5, 2)
-  mitred_multiplier                Decimal                @default(1.50) @db.Decimal(5, 2)
-  waste_factor_percent             Decimal                @default(15.0) @db.Decimal(5, 2)
-  grain_matching_surcharge_percent Decimal                @default(15.0) @db.Decimal(5, 2)
-  cutout_thickness_multiplier      Decimal                @default(1.0) @db.Decimal(5, 2)
-  waterfall_pricing_method         WaterfallPricingMethod @default(FIXED_PER_END)
+  id                               String                        @id
+  organisation_id                  String                        @unique
+  material_pricing_basis           MaterialPricingBasis          @default(PER_SLAB)
+  cutting_unit                     ServiceUnit                   @default(LINEAR_METRE)
+  polishing_unit                   ServiceUnit                   @default(LINEAR_METRE)
+  installation_unit                ServiceUnit                   @default(SQUARE_METRE)
+  unit_system                      UnitSystem                    @default(METRIC)
+  currency                         String                        @default("AUD")
+  gst_rate                         Decimal                       @default(0.10) @db.Decimal(5, 4)
+  laminated_multiplier             Decimal                       @default(1.30) @db.Decimal(5, 2)
+  mitred_multiplier                Decimal                       @default(1.50) @db.Decimal(5, 2)
+  waste_factor_percent             Decimal                       @default(15.0) @db.Decimal(5, 2)
+  grain_matching_surcharge_percent Decimal                       @default(15.0) @db.Decimal(5, 2)
+  cutout_thickness_multiplier      Decimal                       @default(1.0) @db.Decimal(5, 2)
+  waterfall_pricing_method         WaterfallPricingMethod        @default(FIXED_PER_END)
   slab_edge_allowance_mm           Int?
-  strip_to_piece_threshold_mm      Int                    @default(300)
-  default_edge_type_id             String?                @db.VarChar(255)
+  strip_to_piece_threshold_mm      Int                           @default(300)
+  default_edge_type_id             String?                       @db.VarChar(255)
   // NULL = Raw (no default). When set, new pieces use this edge on all 4 sides.
   // References edge_types.id (not enforced as FK to avoid migration complexity)
-  created_at                       DateTime               @default(now())
+  splashback_top_edge_id           String?                       @db.VarChar(255)
+  // Default edge type applied to splashback top edge. References edge_types.id.
+  created_at                       DateTime                      @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
   cutoutCategoryRates              cutout_category_rates[]
@@ -496,15 +498,15 @@ model pricing_settings {
 }
 
 model quote_drawing_analyses {
-  id              Int      @id @default(autoincrement())
-  quote_id        Int      @unique
+  id              Int                   @id @default(autoincrement())
+  quote_id        Int                   @unique
   filename        String
-  analyzed_at     DateTime @default(now())
+  analyzed_at     DateTime              @default(now())
   drawing_type    String
   raw_results     Json
   metadata        Json?
   imported_pieces String[]
-  quotes          quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quotes          quotes                @relation(fields: [quote_id], references: [id], onDelete: Cascade)
   corrections     drawing_corrections[]
 }
 
@@ -522,44 +524,44 @@ model quote_files {
 }
 
 model quote_pieces {
-  id                Int              @id @default(autoincrement())
-  room_id           Int
-  material_id       Int?
-  material_name     String?
-  description       String?
-  length_mm         Int
-  width_mm          Int
-  thickness_mm      Int
-  area_sqm          Decimal          @default(0) @db.Decimal(10, 4)
+  id                      Int                   @id @default(autoincrement())
+  room_id                 Int
+  material_id             Int?
+  material_name           String?
+  description             String?
+  length_mm               Int
+  width_mm                Int
+  thickness_mm            Int
+  area_sqm                Decimal               @default(0) @db.Decimal(10, 4)
   /// @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing.
   /// Do not read for display. Kept for data preservation only.
-  material_cost     Decimal          @default(0) @db.Decimal(10, 2)
-  features_cost     Decimal          @default(0) @db.Decimal(10, 2)
+  material_cost           Decimal               @default(0) @db.Decimal(10, 2)
+  features_cost           Decimal               @default(0) @db.Decimal(10, 2)
   /// @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing.
   /// Do not read for display. Kept for data preservation only.
-  total_cost        Decimal          @default(0) @db.Decimal(10, 2)
-  sort_order        Int              @default(0)
-  cutouts           Json             @default("[]")
-  edge_bottom       String?
-  edge_left         String?
-  edge_right        String?
-  edge_top          String?
-  name              String           @default("Piece")
-  lamination_method LaminationMethod @default(NONE)
-  isOversize           Boolean          @default(false)
-  joinCount            Int              @default(0)
-  joinLengthMm         Int?
-  requiresGrainMatch   Boolean          @default(false)
-  override_material_cost Decimal?       @db.Decimal(10, 2)
+  total_cost              Decimal               @default(0) @db.Decimal(10, 2)
+  sort_order              Int                   @default(0)
+  cutouts                 Json                  @default("[]")
+  edge_bottom             String?
+  edge_left               String?
+  edge_right              String?
+  edge_top                String?
+  name                    String                @default("Piece")
+  lamination_method       LaminationMethod      @default(NONE)
+  isOversize              Boolean               @default(false)
+  joinCount               Int                   @default(0)
+  joinLengthMm            Int?
+  requiresGrainMatch      Boolean               @default(false)
+  override_material_cost  Decimal?              @db.Decimal(10, 2)
   /// Per-edge strip width overrides as JSON: { top?: number, bottom?: number, left?: number, right?: number, ... }
   /// Overrides the tenant strip_configurations default for this piece per edge.
   /// Only applies to LAMINATED/MITRED pieces (thickness >= 40mm).
-  strip_width_overrides  Json?
-  waterfall_height_mm  Int?
-  shape_type           String?          @default("RECTANGLE")
-  shape_config         Json?
-  no_strip_edges       Json?            @default("[]")
-  mitred_corner_treatment String?      @default("RAW")
+  strip_width_overrides   Json?
+  waterfall_height_mm     Int?
+  shape_type              String?               @default("RECTANGLE")
+  shape_config            Json?
+  no_strip_edges          Json?                 @default("[]")
+  mitred_corner_treatment String?               @default("RAW")
   /// When this piece was promoted from a lamination strip, references the parent piece ID.
   promoted_from_piece_id  Int?
   /// The edge position on the parent piece that this strip was promoted from (e.g. "top", "left").
@@ -568,13 +570,17 @@ model quote_pieces {
   apron_parent_id         Int?
   /// Position of this apron on the parent piece: 'front' | 'back' | 'left' | 'right'
   apron_position          String?
-  piece_features      piece_features[]
-  materials           materials?           @relation(fields: [material_id], references: [id])
-  quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
-  sourceRelationships piece_relationships[] @relation("source_relationships")
-  targetRelationships piece_relationships[] @relation("target_relationships")
-  apronParent         quote_pieces?        @relation("apron_pieces", fields: [apron_parent_id], references: [id], onDelete: Cascade)
-  apronChildren       quote_pieces[]       @relation("apron_pieces")
+  /// Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER
+  piece_type              String?               @default("BENCHTOP")
+  /// Join method for multi-piece assemblies (e.g. MITRE, BUTT, NONE)
+  join_method             String?
+  piece_features          piece_features[]
+  materials               materials?            @relation(fields: [material_id], references: [id])
+  quote_rooms             quote_rooms           @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sourceRelationships     piece_relationships[] @relation("source_relationships")
+  targetRelationships     piece_relationships[] @relation("target_relationships")
+  apronParent             quote_pieces?         @relation("apron_pieces", fields: [apron_parent_id], references: [id], onDelete: Cascade)
+  apronChildren           quote_pieces[]        @relation("apron_pieces")
 }
 
 model quote_rooms {
@@ -668,13 +674,13 @@ model quotes {
   accepted_at       DateTime?
   declined_at       DateTime?
   declined_reason   String?
-  revision_number   Int         @default(1)
+  revision_number   Int       @default(1)
   parent_quote_id   Int?
-  parent_quote      quotes?     @relation("QuoteRevisions", fields: [parent_quote_id], references: [id])
-  child_quotes      quotes[]    @relation("QuoteRevisions")
+  parent_quote      quotes?   @relation("QuoteRevisions", fields: [parent_quote_id], references: [id])
+  child_quotes      quotes[]  @relation("QuoteRevisions")
 
   // Slab edge allowance (per-quote override, mm)
-  slabEdgeAllowanceMm  Int?     @map("slab_edge_allowance_mm")
+  slabEdgeAllowanceMm Int? @map("slab_edge_allowance_mm")
 
   // Delivery & templating fields
   deliveryCost         Decimal? @db.Decimal(10, 2)
@@ -695,19 +701,19 @@ model quotes {
 
   // Quote-level discount
   discount_type       String?
-  discount_value      Decimal?  @db.Decimal(10, 2)
-  discount_applies_to String?   @default("ALL")
+  discount_value      Decimal? @db.Decimal(10, 2)
+  discount_applies_to String?  @default("ALL")
 
   // Material margin — resolved from tier/supplier, overridable per-quote
-  material_margin_percent    Decimal?   @db.Decimal(5, 2)  // The active margin % applied to this quote
-  material_margin_source     String?    // 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none'
+  material_margin_percent Decimal? @db.Decimal(5, 2) // The active margin % applied to this quote
+  material_margin_source  String? // 'quote_override' | 'client_tier' | 'material' | 'supplier' | 'none'
 
   // Optimizer tracking
   optimizer_slab_count Int?
   optimizer_run_at     DateTime?
 
   // Relation
-  custom_charges      quote_custom_charges[]
+  custom_charges quote_custom_charges[]
 
   @@index([company_id])
 }
@@ -722,7 +728,7 @@ model quote_custom_charges {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  quote       quotes   @relation(fields: [quote_id], references: [id], onDelete: Cascade)
+  quote quotes @relation(fields: [quote_id], references: [id], onDelete: Cascade)
 
   @@index([quote_id])
   @@index([company_id])
@@ -846,64 +852,64 @@ model user {
   customers          customers?            @relation(fields: [customer_id], references: [id])
   unitBlockProjects  unit_block_projects[]
   quote_versions     quote_versions[]
-  contact_portal     customer_contacts?   @relation("ContactPortalUser")
+  contact_portal     customer_contacts?    @relation("ContactPortalUser")
 
   @@map("users")
 }
 
 model suppliers {
-  id                       String              @id @default(cuid())
-  company_id               Int
-  company                  companies           @relation(fields: [company_id], references: [id])
-  name                     String
+  id         String    @id @default(cuid())
+  company_id Int
+  company    companies @relation(fields: [company_id], references: [id])
+  name       String
 
-  contact_email            String?
-  phone                    String?
-  website                  String?
+  contact_email String?
+  phone         String?
+  website       String?
 
   // Default margin applied to all materials from this supplier
-  default_margin_percent   Decimal?            @default(0) @db.Decimal(5, 2)
+  default_margin_percent Decimal? @default(0) @db.Decimal(5, 2)
 
   // Default slab dimensions for this supplier's products
-  default_slab_length_mm   Int?
-  default_slab_width_mm    Int?
-  default_thickness_mm     Int?
+  default_slab_length_mm Int?
+  default_slab_width_mm  Int?
+  default_thickness_mm   Int?
 
-  notes                    String?
-  is_active                Boolean             @default(true)
-  created_at               DateTime            @default(now())
-  updated_at               DateTime            @updatedAt
+  notes      String?
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  materials                materials[]
-  price_list_uploads       price_list_uploads[]
+  materials          materials[]
+  price_list_uploads price_list_uploads[]
 
   @@unique([company_id, name])
   @@index([company_id])
 }
 
 model price_list_uploads {
-  id                    String          @id @default(cuid())
-  supplier_id           String
-  supplier              suppliers       @relation(fields: [supplier_id], references: [id])
-  company_id            Int
+  id          String    @id @default(cuid())
+  supplier_id String
+  supplier    suppliers @relation(fields: [supplier_id], references: [id])
+  company_id  Int
 
-  file_name             String
-  file_url              String
-  uploaded_at           DateTime        @default(now())
+  file_name   String
+  file_url    String
+  uploaded_at DateTime @default(now())
 
   // AI extraction results
-  extracted_data        Json?
-  status                PriceListStatus @default(PENDING)
+  extracted_data Json?
+  status         PriceListStatus @default(PENDING)
 
   // Stats
-  materials_created     Int             @default(0)
-  materials_updated     Int             @default(0)
-  materials_discontinued Int            @default(0)
-  materials_skipped     Int             @default(0)
+  materials_created      Int @default(0)
+  materials_updated      Int @default(0)
+  materials_discontinued Int @default(0)
+  materials_skipped      Int @default(0)
 
   // Audit
-  processed_at          DateTime?
-  error_message         String?
+  processed_at  DateTime?
+  error_message String?
 
   @@index([supplier_id])
   @@index([company_id])
@@ -1100,27 +1106,27 @@ enum UnitStatus {
 }
 
 model edge_profile_templates {
-  id                 String   @id @default(cuid())
-  companyId          Int      @map("company_id")
-  name               String
-  description        String?
+  id          String  @id @default(cuid())
+  companyId   Int     @map("company_id")
+  name        String
+  description String?
 
   // Edge assignments (edge type IDs)
-  edgeTop            String?  @map("edge_top")
-  edgeBottom         String?  @map("edge_bottom")
-  edgeLeft           String?  @map("edge_left")
-  edgeRight          String?  @map("edge_right")
+  edgeTop    String? @map("edge_top")
+  edgeBottom String? @map("edge_bottom")
+  edgeLeft   String? @map("edge_left")
+  edgeRight  String? @map("edge_right")
 
   // Scope
-  isBuiltIn          Boolean  @default(false) @map("is_built_in")
-  isShared           Boolean  @default(true)  @map("is_shared")
-  createdById        Int?     @map("created_by_id")
+  isBuiltIn   Boolean @default(false) @map("is_built_in")
+  isShared    Boolean @default(true) @map("is_shared")
+  createdById Int?    @map("created_by_id")
 
   // Piece type hint
-  suggestedPieceType String?  @map("suggested_piece_type")
+  suggestedPieceType String? @map("suggested_piece_type")
 
-  createdAt          DateTime @default(now()) @map("created_at")
-  updatedAt          DateTime @updatedAt      @map("updated_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
 
   @@map("edge_profile_templates")
 }
@@ -1130,13 +1136,13 @@ model starter_templates {
   companyId    Int      @map("company_id")
   name         String
   description  String?
-  category     String   // kitchen, bathroom, laundry, multi-room
+  category     String // kitchen, bathroom, laundry, multi-room
   isBuiltIn    Boolean  @default(false) @map("is_built_in")
-  isShared     Boolean  @default(true)  @map("is_shared")
+  isShared     Boolean  @default(true) @map("is_shared")
   templateData Json     @map("template_data") // Full room/piece/edge/cutout structure
   createdById  Int?     @map("created_by_id")
   createdAt    DateTime @default(now()) @map("created_at")
-  updatedAt    DateTime @updatedAt      @map("updated_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@unique([companyId, name])
   @@map("starter_templates")
@@ -1353,51 +1359,51 @@ model buyer_change_records {
 }
 
 model quote_options {
-  id             Int       @id @default(autoincrement())
-  quoteId        Int
-  quote          quotes    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
-  name           String
-  description    String?
-  sortOrder      Int       @default(0)
-  isBase         Boolean   @default(false)
+  id          Int     @id @default(autoincrement())
+  quoteId     Int
+  quote       quotes  @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  sortOrder   Int     @default(0)
+  isBase      Boolean @default(false)
 
   // Cached pricing totals (recalculated when pieces/overrides change)
-  subtotal       Decimal?  @db.Decimal(10, 2)
-  discountAmount Decimal?  @db.Decimal(10, 2)
-  gstAmount      Decimal?  @db.Decimal(10, 2)
-  total          Decimal?  @db.Decimal(10, 2)
+  subtotal       Decimal? @db.Decimal(10, 2)
+  discountAmount Decimal? @db.Decimal(10, 2)
+  gstAmount      Decimal? @db.Decimal(10, 2)
+  total          Decimal? @db.Decimal(10, 2)
 
   // Per-quote material margin +/- adjustment
   material_margin_adjust_percent Decimal? @default(0) @db.Decimal(5, 2)
 
-  overrides      quote_option_overrides[]
+  overrides quote_option_overrides[]
 
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([quoteId])
   @@map("quote_options")
 }
 
 model quote_option_overrides {
-  id              Int             @id @default(autoincrement())
-  optionId        Int
-  option          quote_options   @relation(fields: [optionId], references: [id], onDelete: Cascade)
-  pieceId         Int
+  id       Int           @id @default(autoincrement())
+  optionId Int
+  option   quote_options @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  pieceId  Int
 
   // ALL override fields are nullable — null means "use base piece value"
-  materialId      Int?
-  thicknessMm     Int?
-  edgeTop         String?
-  edgeBottom      String?
-  edgeLeft        String?
-  edgeRight       String?
-  cutouts         Json?
-  lengthMm        Int?
-  widthMm         Int?
+  materialId  Int?
+  thicknessMm Int?
+  edgeTop     String?
+  edgeBottom  String?
+  edgeLeft    String?
+  edgeRight   String?
+  cutouts     Json?
+  lengthMm    Int?
+  widthMm     Int?
 
-  createdAt       DateTime  @default(now())
-  updatedAt       DateTime  @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([optionId, pieceId])
   @@index([optionId])
@@ -1444,16 +1450,16 @@ model custom_room_presets {
 }
 
 model quote_templates {
-  id              String   @id @default(uuid())
-  company_id      Int
-  name            String
-  description     String?
-  format_type     String   @default("COMPREHENSIVE") // COMPREHENSIVE | SUMMARY
-  is_default      Boolean  @default(false)
-  is_active       Boolean  @default(true)
+  id          String  @id @default(uuid())
+  company_id  Int
+  name        String
+  description String?
+  format_type String  @default("COMPREHENSIVE") // COMPREHENSIVE | SUMMARY
+  is_default  Boolean @default(false)
+  is_active   Boolean @default(true)
 
   // Section toggles — JSON object (QuoteTemplateSections interface)
-  sections_config Json     @default("{}")
+  sections_config Json @default("{}")
 
   // Header
   company_name    String?
@@ -1462,7 +1468,7 @@ model quote_templates {
   company_email   String?
   company_address String?
   logo_url        String?
-  show_logo       Boolean  @default(true)
+  show_logo       Boolean @default(true)
 
   // Display settings
   show_piece_breakdown    Boolean @default(true)
@@ -1475,14 +1481,14 @@ model quote_templates {
   show_piece_descriptions Boolean @default(true)
 
   // Pricing display
-  pricing_mode    String   @default("room_total")
-  show_gst        Boolean  @default(true)
-  gst_label       String   @default("GST (10%)")
-  currency_symbol String   @default("$")
+  pricing_mode    String  @default("room_total")
+  show_gst        Boolean @default(true)
+  gst_label       String  @default("GST (10%)")
+  currency_symbol String  @default("$")
 
   // Custom text overrides (null = use company defaults)
-  custom_intro_text    String?  @db.Text
-  terms_and_conditions String?  @db.Text
+  custom_intro_text    String? @db.Text
+  terms_and_conditions String? @db.Text
   footer_text          String?
 
   // Styling overrides (null = use company defaults)
@@ -1490,18 +1496,18 @@ model quote_templates {
   custom_accent_colour  String?
 
   // Other overrides
-  validity_days         Int       @default(30)
+  validity_days Int @default(30)
 
-  created_at    DateTime @default(now())
-  updated_at    DateTime @updatedAt
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
 
-  company       companies  @relation(fields: [company_id], references: [id])
+  company companies @relation(fields: [company_id], references: [id])
 
   @@index([company_id])
 }
 
 model piece_relationships {
-  id             Int          @id @default(autoincrement())
+  id Int @id @default(autoincrement())
 
   // The 'parent' piece (typically the main benchtop)
   source_piece_id Int
@@ -1512,45 +1518,45 @@ model piece_relationships {
   targetPiece     quote_pieces @relation("target_relationships", fields: [target_piece_id], references: [id], onDelete: Cascade)
 
   // Relationship type: WATERFALL, SPLASHBACK, RETURN_END, MITRE_JOIN, BUTT_JOIN, etc.
-  relation_type   String
+  relation_type String
 
   // Typed enum version of relation_type (nullable during migration)
   relationship_type RelationshipType?
 
   // Which side of the source piece (top, bottom, left, right)
-  side            String?
+  side String?
 
   // Optional notes about the relationship
-  notes           String?
+  notes String?
 
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt @default(now())
+  created_at DateTime @default(now())
+  updated_at DateTime @default(now()) @updatedAt
 
   @@unique([source_piece_id, target_piece_id])
 }
 
 model drawing_corrections {
-  id              Int      @id @default(autoincrement())
-  drawing_id      String?  // nullable — correction might be on a manually-created piece
-  analysis_id     Int?     // link to the AI analysis that produced the original value
-  quote_id        Int?     // the quote where the correction was made
-  piece_id        Int?     // the specific piece that was corrected
-  company_id      Int      // tenant isolation
+  id          Int     @id @default(autoincrement())
+  drawing_id  String? // nullable — correction might be on a manually-created piece
+  analysis_id Int? // link to the AI analysis that produced the original value
+  quote_id    Int? // the quote where the correction was made
+  piece_id    Int? // the specific piece that was corrected
+  company_id  Int // tenant isolation
 
-  correction_type String   // DIMENSION | SHAPE | CUTOUT_TYPE | CUTOUT_QUANTITY | EDGE_PROFILE | ROOM_ASSIGNMENT | MISSING_PIECE | EXTRA_PIECE | MATERIAL
-  field_name      String   // specific field: 'length_mm', 'width_mm', 'shape', 'cutouts[0].type', etc.
+  correction_type String // DIMENSION | SHAPE | CUTOUT_TYPE | CUTOUT_QUANTITY | EDGE_PROFILE | ROOM_ASSIGNMENT | MISSING_PIECE | EXTRA_PIECE | MATERIAL
+  field_name      String // specific field: 'length_mm', 'width_mm', 'shape', 'cutouts[0].type', etc.
 
-  original_value  Json?    // what the AI extracted (null if piece was missing entirely)
-  corrected_value Json     // what the user changed it to
+  original_value  Json? // what the AI extracted (null if piece was missing entirely)
+  corrected_value Json // what the user changed it to
 
-  ai_confidence   String?  // what confidence the AI had: HIGH, MEDIUM, LOW (if available)
+  ai_confidence String? // what confidence the AI had: HIGH, MEDIUM, LOW (if available)
 
-  created_at      DateTime @default(now())
-  created_by      String?  // user ID who made the correction
+  created_at DateTime @default(now())
+  created_by String? // user ID who made the correction
 
   // Relations
-  drawing         drawings?                @relation(fields: [drawing_id], references: [id])
-  analysis        quote_drawing_analyses?  @relation(fields: [analysis_id], references: [id])
+  drawing  drawings?               @relation(fields: [drawing_id], references: [id])
+  analysis quote_drawing_analyses? @relation(fields: [analysis_id], references: [id])
 
   @@index([company_id])
   @@index([drawing_id])
@@ -1559,60 +1565,60 @@ model drawing_corrections {
 }
 
 model drawing_learning_rules {
-  id               Int      @id @default(autoincrement())
-  company_id       Int      // tenant isolation
+  id         Int @id @default(autoincrement())
+  company_id Int // tenant isolation
 
   // What condition triggers this rule
-  drawing_type     String?  // 'job_sheet' | 'hand_drawn' | 'cad_professional' | null = all types
-  field_name       String   // e.g. 'edges.BACK.finish', 'thickness_mm', 'room'
-  condition        String?  // optional context, e.g. 'when adjacent to wall label'
+  drawing_type String? // 'job_sheet' | 'hand_drawn' | 'cad_professional' | null = all types
+  field_name   String // e.g. 'edges.BACK.finish', 'thickness_mm', 'room'
+  condition    String? // optional context, e.g. 'when adjacent to wall label'
 
   // What the rule says
-  correct_value    String   // the value that should be used
-  description      String   // human-readable rule description shown in admin
+  correct_value String // the value that should be used
+  description   String // human-readable rule description shown in admin
 
   // Metadata
-  correction_count Int      @default(0)  // how many corrections backed this rule
-  confidence       Float    @default(0)  // 0.0–1.0, calculated from correction data
+  correction_count Int      @default(0) // how many corrections backed this rule
+  confidence       Float    @default(0) // 0.0–1.0, calculated from correction data
   is_active        Boolean  @default(true)
   created_at       DateTime @default(now())
   updated_at       DateTime @updatedAt
-  approved_by      String?  // user ID who approved this rule
+  approved_by      String? // user ID who approved this rule
 
-  companies        companies @relation(fields: [company_id], references: [id])
+  companies companies @relation(fields: [company_id], references: [id])
 
   @@index([company_id])
   @@index([drawing_type, field_name])
 }
 
 model strip_configurations {
-  id              String   @id @default(cuid())
-  company_id      Int
+  id         String @id @default(cuid())
+  company_id Int
 
   /// Identifier used by the optimizer to look up this config
   /// e.g. "STANDARD", "MITRE", "WIDE" — must be unique per company
-  stripType       String
+  stripType String
 
   /// Human-readable label shown in admin UI
-  label           String
+  label String
 
   /// Total width of the strip cut from the slab (visible + kerf)
-  stripWidthMm    Int
+  stripWidthMm Int
 
   /// Visible width after kerf loss (what the customer sees)
-  visibleWidthMm  Int
+  visibleWidthMm Int
 
   /// Lamination width (thickness of the edge build-up, always 40mm)
-  laminationWidthMm Int   @default(40)
+  laminationWidthMm Int @default(40)
 
   /// Kerf loss from the blade cut
-  kerfLossMm      Int     @default(8)
+  kerfLossMm Int @default(8)
 
   /// Whether this config is active
-  isActive        Boolean @default(true)
+  isActive Boolean @default(true)
 
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@unique([company_id, stripType])
   @@index([company_id])

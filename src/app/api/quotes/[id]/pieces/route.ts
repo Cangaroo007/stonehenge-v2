@@ -323,7 +323,7 @@ export async function POST(
         edge_bottom: resolvedEdgeBottom || null,
         edge_left:   resolvedEdgeLeft   || null,
         edge_right:  resolvedEdgeRight  || null,
-        ...({ piece_type: pieceType } as any),
+        piece_type: pieceType,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
