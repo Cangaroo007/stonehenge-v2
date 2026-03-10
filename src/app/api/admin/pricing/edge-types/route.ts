@@ -26,6 +26,7 @@ export async function GET() {
       category: et.category,
       baseRate: Number(et.baseRate),
       isActive: et.isActive ?? true, // Default to true if null/undefined
+      isMitred: et.isMitred ?? false,
       sortOrder: et.sortOrder,
       // Include fabrication categories that have configured rates (non-zero)
       configuredCategories: et.categoryRates
