@@ -82,6 +82,11 @@ export async function PUT(
     if (data.slabWidthMm !== undefined) {
       updateData.slab_width_mm = data.slabWidthMm === null || data.slabWidthMm === '' ? null : parseInt(String(data.slabWidthMm));
     }
+    if (data.pricePerSlab !== undefined) {
+      updateData.price_per_slab = data.pricePerSlab === null || data.pricePerSlab === ''
+        ? null
+        : parseFloat(String(data.pricePerSlab));
+    }
     if (data.marginOverridePercent !== undefined) {
       updateData.margin_override_percent = data.marginOverridePercent === null ? null : parseFloat(String(data.marginOverridePercent));
     }

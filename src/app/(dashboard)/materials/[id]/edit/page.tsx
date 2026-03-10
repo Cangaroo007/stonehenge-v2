@@ -26,6 +26,7 @@ export default function EditMaterialPage() {
     fabricationCategory: 'ENGINEERED',
     slabLengthMm: '' as string,
     slabWidthMm: '' as string,
+    pricePerSlab: '',
   });
 
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function EditMaterialPage() {
             fabricationCategory: data.fabricationCategory || 'ENGINEERED',
             slabLengthMm: data.slabLengthMm?.toString() || '',
             slabWidthMm: data.slabWidthMm?.toString() || '',
+            pricePerSlab: data.pricePerSlab?.toString() || '',
           });
         } else {
           toast.error('Material not found');
@@ -57,6 +59,30 @@ export default function EditMaterialPage() {
     loadMaterial();
   }, [params.id, router]);
 
+  function handlePricePerSlabChange(value: string) {
+    const slab = parseFloat(value);
+    const l = parseFloat(form.slabLengthMm);
+    const w = parseFloat(form.slabWidthMm);
+    if (!isNaN(slab) && !isNaN(l) && l > 0 && !isNaN(w) && w > 0) {
+      const sqm = slab / ((l / 1000) * (w / 1000));
+      setForm({ ...form, pricePerSlab: value, pricePerSqm: sqm.toFixed(2) });
+    } else {
+      setForm({ ...form, pricePerSlab: value });
+    }
+  }
+
+  function handlePricePerSqmChange(value: string) {
+    const sqm = parseFloat(value);
+    const l = parseFloat(form.slabLengthMm);
+    const w = parseFloat(form.slabWidthMm);
+    if (!isNaN(sqm) && !isNaN(l) && l > 0 && !isNaN(w) && w > 0) {
+      const slab = sqm * ((l / 1000) * (w / 1000));
+      setForm({ ...form, pricePerSqm: value, pricePerSlab: slab.toFixed(2) });
+    } else {
+      setForm({ ...form, pricePerSqm: value });
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
@@ -70,6 +96,7 @@ export default function EditMaterialPage() {
           pricePerSqm: parseFloat(form.pricePerSqm),
           slabLengthMm: form.slabLengthMm ? parseInt(form.slabLengthMm) : null,
           slabWidthMm: form.slabWidthMm ? parseInt(form.slabWidthMm) : null,
+          pricePerSlab: form.pricePerSlab ? parseFloat(form.pricePerSlab) : null,
         }),
       });
 
@@ -130,8 +157,23 @@ export default function EditMaterialPage() {
               min="0"
               className="input"
               value={form.pricePerSqm}
-              onChange={(e) => setForm({ ...form, pricePerSqm: e.target.value })}
+              onChange={(e) => handlePricePerSqmChange(e.target.value)}
             />
+          </div>
+          <div>
+            <label className="label">Price per Slab (AUD)</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              className="input"
+              value={form.pricePerSlab}
+              onChange={(e) => handlePricePerSlabChange(e.target.value)}
+              placeholder="e.g., 850.00"
+            />
+            <p className="mt-1 text-xs text-gray-500">
+              Auto-syncs with price per m² when slab dimensions are set.
+            </p>
           </div>
           <div>
             <label className="label">Fabrication Category *</label>
