@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/add-pricing-health-badge-9s60k — CFG-1: configuration health badge on pricing nav
+> **Last Updated By:** claude/fix-slab-optimizer-unassigned-1WlAT — OPT-1: exclude null-material pieces from slab optimizer
 >
-> CFG-1: AppShell Pricing nav item now shows red badge with gap count (fetches /api/admin/pricing/gaps on mount). Badge visible on both desktop and mobile sidebars when totalGaps > 0. Pricing layout "Gaps" tab renamed to "Configuration Health".
+> OPT-1: buildMaterialGroupings in multi-material-optimizer.ts now skips pieces with null/undefined materialId. Previously these pieces were grouped under an empty-string key, creating phantom optimizer runs that produced "unassigned" pieces in results. No schema changes. No pricing changes.
 
 ---
 

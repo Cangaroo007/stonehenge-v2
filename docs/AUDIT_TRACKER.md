@@ -72,7 +72,7 @@
 | AI-IMPORT-FIX-4 | surfaceFinish strict enum: 'Polished' \| 'Matte' \| 'Textured' \| 'Honed' \| 'Brushed'. Document value mappings (Matt→Matte, Structured→Textured, Leathered→Brushed). Default Polished. | claude/fix-ai-parsing-logic-LFUEK |
 | MITRE-1 | Mitred 40mm apron piece auto-creation. Schema: apron_parent_id + apron_position on quote_pieces (self-referential, cascade delete). PATCH API: auto-creates 4 apron pieces (20mm, 100mm height) when lamination_method set to MITRED on 40mm+ piece; deletes aprons when switching away from MITRED. PieceRow: apron badge on parent + child rows. | claude/mitred-apron-auto-creation-34rJS |
 | C6 | ROUNDED_RECT curved cutting pricing. Calculator: ROUNDED_RECT added to CURVED_SHAPE_TYPES set. calcArcLengthM handles uniform (4 × π/2 × r) and individual corner radii (π/2 × sum of 4 corners). arcLengthLm wired into EnginePiece. Engine: ruleCurvedCutting added — CURVED_CUTTING rate × arcLengthLm, thickness-aware (rate20mm/rate40mm), null for non-curved pieces. Cost included in per-piece and quote-level fabricationSubtotal. | claude/fix-rounded-rect-pricing-RsC1P |
-| CFG-1 | Configuration health badge on Pricing nav. AppShell fetches /api/admin/pricing/gaps on mount, shows red badge with totalGaps count on Pricing nav item (desktop + mobile). Badge hidden when count is 0. "Gaps" tab renamed to "Configuration Health" in pricing layout. | claude/add-pricing-health-badge-9s60k |
+| OPT-1 | Slab optimizer grouped null-material pieces into optimizer runs, causing "unassigned" pieces in results. Root cause: buildMaterialGroupings included pieces with materialId=null in groups keyed by empty string. Fix: multi-material-optimizer.ts buildMaterialGroupings now skips pieces where materialId is null/undefined. These pieces are excluded from slab optimization (they have no material to assign slabs for). | claude/fix-slab-optimizer-unassigned-1WlAT |
 
 ---
 
@@ -125,7 +125,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
-| CFG-1 configuration health badge on pricing nav | claude/add-pricing-health-badge-9s60k | Mar 10 | ✅ Complete |
+| OPT-1 exclude null-material pieces from slab optimizer | claude/fix-slab-optimizer-unassigned-1WlAT | Mar 10 | ✅ Complete |
 | C6 ROUNDED_RECT curved cutting pricing | claude/fix-rounded-rect-pricing-RsC1P | Mar 10 | ✅ Complete |
 | MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
 | AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |

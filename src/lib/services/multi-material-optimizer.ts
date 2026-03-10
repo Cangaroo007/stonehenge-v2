@@ -94,7 +94,9 @@ export async function optimizeMultiMaterial(
   const unassigned: MultiMaterialPiece[] = [];
 
   for (const piece of pieces) {
-    const matId = piece.materialId ?? primaryMaterialId;
+    // Skip pieces with no material assigned — they have no slab to pack onto
+    if (!piece.materialId) continue;
+    const matId = piece.materialId;
 
     if (!matId) {
       unassigned.push(piece);
