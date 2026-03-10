@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/add-piece-type-column-2LMdo — SB-1a: piece_type DB column + migration + type cleanup
+> **Last Updated By:** claude/add-piece-type-column-2LMdo — WF-1a: piece_type + join_method + splashback_top_edge_id DB columns
 >
-> SB-1a: piece_type now a real DB column on quote_pieces (String?, default 'BENCHTOP'). Migration 20260320000000_add_piece_type_column. 'as any' casts removed from POST/PATCH routes and InlinePieceEditor. piece_type wired through transformPieceForClient, ServerQuoteData, QuotePiece, InlinePieceData interfaces. Waterfall edge type deactivated (isActive=false).
+> WF-1a: Three new DB columns confirmed in production. quote_pieces.piece_type (String?, default 'BENCHTOP') — piece type selector. quote_pieces.join_method (String?) — multi-piece assembly method. pricing_settings.splashback_top_edge_id (VARCHAR 255) — default splashback top edge. Migration 20260320000000_add_piece_type_column covers all three. 'as any' casts removed from POST/PATCH routes and InlinePieceEditor. piece_type wired through transformPieceForClient, ServerQuoteData, QuotePiece, InlinePieceData interfaces. Waterfall edge type deactivated (isActive=false).
 
 ---
 
@@ -71,6 +71,7 @@
 | apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). Cascade delete. MITRE-1. |
 | apron_position | String? | Position of this apron on parent: 'front' \| 'back' \| 'left' \| 'right'. MITRE-1. |
 | piece_type | String? @default("BENCHTOP") | Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER. SB-1a. |
+| join_method | String? | Join method for multi-piece assemblies (e.g. MITRE, BUTT, NONE). WF-1a. |
 
 #### quotes
 | Field | Type | Notes |
@@ -213,6 +214,7 @@
 | cutout_thickness_multiplier | Decimal(5,2) | Default 1.0 |
 | waterfall_pricing_method | WaterfallPricingMethod | Default FIXED_PER_END |
 | slab_edge_allowance_mm | Int? | |
+| splashback_top_edge_id | String? @db.VarChar(255) | Default edge type for splashback top edge. References edge_types.id. WF-1a. |
 
 #### companies (tenant)
 | Field | Type | Notes |
