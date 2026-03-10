@@ -544,7 +544,7 @@ export default function ImportPage() {
                   {m.name}
                   {m.isDiscontinued && (
                     <span className="ml-1.5 text-[10px] font-semibold text-orange-500 uppercase">
-                      DISC
+                      DISC{(m as any).discontinuedDate ? ` ${(m as any).discontinuedDate}` : ''}
                     </span>
                   )}
                 </td>
