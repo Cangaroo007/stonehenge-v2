@@ -991,3 +991,5 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | [ ] Kitchen pieces unchanged after edge edit | Pending production verification | — | — |
 | Lamination label shows correct method when charge > 0 | Not verified | — | Quote 55 |
 | Grain match badge visible on collapsed piece card for oversize pieces | Not verified | — | Quote 55 |
+
+BUG-3-HOTFIX: curvedCutting null added to fallback engine result in pricing-calculator-v2.ts line ~1088

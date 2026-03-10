@@ -164,3 +164,5 @@
 ---
 
 *Last Updated: Mar 10 2026 — C6: ROUNDED_RECT curved cutting pricing (calculator + engine).*
+
+BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10

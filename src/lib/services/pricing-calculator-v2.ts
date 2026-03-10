@@ -1092,6 +1092,7 @@ export async function calculateQuotePrice(
         polishing: { lm: 0, ratePerLm: 0, cost: 0 },
         edgeProfiles: { lm: 0, cost: 0, items: [] },
         lamination: null,
+        curvedCutting: null,
         cutouts: { cost: 0, items: [] },
         join: null,
         grainSurcharge: null,
