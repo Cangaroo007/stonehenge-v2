@@ -44,6 +44,8 @@ export async function GET(request: NextRequest) {
         defaultEdgeTypeId: null,
         splashbackTopEdgeId: null,
         stripToPieceThresholdMm: 300,
+        curvedCuttingMode: 'FIXED',
+        curvedPolishingMode: 'FIXED',
         organisationId
       });
     }
@@ -67,6 +69,8 @@ export async function GET(request: NextRequest) {
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,
       splashbackTopEdgeId: settings.splashback_top_edge_id ?? null,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
+      curvedCuttingMode: settings.curved_cutting_mode,
+      curvedPolishingMode: settings.curved_polishing_mode,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
       service_rates: settings.service_rates.map(sr => ({
@@ -191,6 +195,20 @@ export async function PUT(request: NextRequest) {
       );
     }
 
+    const validCurvedModes = ['FIXED', 'PERCENTAGE'];
+    if (body.curvedCuttingMode && !validCurvedModes.includes(body.curvedCuttingMode)) {
+      return NextResponse.json(
+        { error: 'Invalid curvedCuttingMode value. Must be FIXED or PERCENTAGE.' },
+        { status: 400 }
+      );
+    }
+    if (body.curvedPolishingMode && !validCurvedModes.includes(body.curvedPolishingMode)) {
+      return NextResponse.json(
+        { error: 'Invalid curvedPolishingMode value. Must be FIXED or PERCENTAGE.' },
+        { status: 400 }
+      );
+    }
+
     if (existingSettings) {
       // Update existing settings
       settings = await prisma.pricing_settings.update({
@@ -219,6 +237,8 @@ export async function PUT(request: NextRequest) {
           strip_to_piece_threshold_mm: body.stripToPieceThresholdMm !== undefined
             ? parseInt(String(body.stripToPieceThresholdMm), 10)
             : undefined,
+          curved_cutting_mode: body.curvedCuttingMode || undefined,
+          curved_polishing_mode: body.curvedPolishingMode || undefined,
           updated_at: new Date(),
         }
       });
@@ -247,6 +267,8 @@ export async function PUT(request: NextRequest) {
           strip_to_piece_threshold_mm: body.stripToPieceThresholdMm !== undefined
             ? parseInt(String(body.stripToPieceThresholdMm), 10)
             : 300,
+          curved_cutting_mode: body.curvedCuttingMode || 'FIXED',
+          curved_polishing_mode: body.curvedPolishingMode || 'FIXED',
           updated_at: new Date(),
         }
       });
@@ -271,6 +293,8 @@ export async function PUT(request: NextRequest) {
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,
       splashbackTopEdgeId: settings.splashback_top_edge_id ?? null,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
+      curvedCuttingMode: settings.curved_cutting_mode,
+      curvedPolishingMode: settings.curved_polishing_mode,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()
     };
