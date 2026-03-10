@@ -669,6 +669,11 @@ export default function PricingSummary({
                 {formatCurrency(grandTotal)}
               </span>
             </div>
+            {isCalculating && (
+              <p className="text-xs font-medium text-amber-600 text-right">
+                ⚠ Recalculating…
+              </p>
+            )}
           </div>
 
           {/* Calculated At Timestamp */}
