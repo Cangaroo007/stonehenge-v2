@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/add-piece-type-column-2LMdo — WF-1a: piece_type + join_method + splashback_top_edge_id DB columns
+> **Last Updated By:** claude/add-pricing-health-badge-9s60k — CFG-1: configuration health badge on pricing nav
 >
-> WF-1a: Three new DB columns confirmed in production. quote_pieces.piece_type (String?, default 'BENCHTOP') — piece type selector. quote_pieces.join_method (String?) — multi-piece assembly method. pricing_settings.splashback_top_edge_id (VARCHAR 255) — default splashback top edge. Migration 20260320000000_add_piece_type_column covers all three. 'as any' casts removed from POST/PATCH routes and InlinePieceEditor. piece_type wired through transformPieceForClient, ServerQuoteData, QuotePiece, InlinePieceData interfaces. Waterfall edge type deactivated (isActive=false).
+> CFG-1: AppShell Pricing nav item now shows red badge with gap count (fetches /api/admin/pricing/gaps on mount). Badge visible on both desktop and mobile sidebars when totalGaps > 0. Pricing layout "Gaps" tab renamed to "Configuration Health".
 
 ---
 
@@ -501,7 +501,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `/(dashboard)/templates/[id]/edit/page.tsx` | Template edit |
 | `/(dashboard)/optimize/page.tsx` | Slab optimizer |
 | `/(dashboard)/admin/pricing/page.tsx` | Admin pricing dashboard |
-| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Gaps tab — coverage bars, missing rate tables, configure links |
+| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Configuration Health tab (renamed from Gaps) — coverage bars, missing rate tables, configure links. Badge on tab shows gap count. |
 | `/(dashboard)/admin/pricing/edges/page.tsx` | Edge type admin |
 | `/(dashboard)/admin/pricing/cutouts/page.tsx` | Cutout type admin |
 | `/(dashboard)/admin/pricing/services/page.tsx` | Service rates admin |
