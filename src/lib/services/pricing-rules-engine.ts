@@ -25,6 +25,8 @@ export interface EngineSettings {
   templatingCost: number
   laminatedMultiplier: number       // default 1.30
   mitredMultiplier: number          // default 1.50
+  curvedCuttingMode: 'FIXED' | 'PERCENTAGE'    // FIXED = $/Lm, PERCENTAGE = % surcharge on base cutting rate
+  curvedPolishingMode: 'FIXED' | 'PERCENTAGE'  // FIXED = $/Lm, PERCENTAGE = % surcharge on base polishing rate
 }
 
 export interface EngineServiceRate {
@@ -103,6 +105,7 @@ export interface PiecePricingResult {
   cutting:        { lm: number; ratePerLm: number; cost: number }
   curvedCutting:  { lm: number; ratePerLm: number; cost: number } | null
   polishing:      { lm: number; ratePerLm: number; cost: number }
+  curvedPolishing: { lm: number; ratePerLm: number; cost: number } | null
   edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; lm: number; rate: number; cost: number }> }
   lamination:     { lm: number; rate: number; cost: number } | null
   cutouts:        { cost: number; items: Array<{ type: string; qty: number; rate: number; cost: number }> }
@@ -150,12 +153,16 @@ export function ruleCutting(
 /**
  * RULE: Curved Cutting — Pricing Bible v1.3 §C6
  * Extra charge for cutting curved arcs on shaped pieces.
- * arcLengthLm × CURVED_CUTTING rate. Only applies when piece has arcLengthLm.
+ * FIXED mode: arcLengthLm × CURVED_CUTTING rate ($/Lm).
+ * PERCENTAGE mode: arcLengthLm × baseCuttingRate × (curvedRate / 100).
+ * Only applies when piece has arcLengthLm.
  */
 export function ruleCurvedCutting(
   piece: EnginePiece,
   rates: EngineServiceRate[],
-  category: string
+  category: string,
+  mode: EngineSettings['curvedCuttingMode'] = 'FIXED',
+  baseCuttingResult?: PiecePricingResult['cutting']
 ): PiecePricingResult['curvedCutting'] {
   if (!piece.arcLengthLm || piece.arcLengthLm <= 0) return null
   const rate = rates.find(r => r.serviceType === 'CURVED_CUTTING' && r.fabricationCategory === category)
@@ -163,8 +170,44 @@ export function ruleCurvedCutting(
     `[PricingEngine] No CURVED_CUTTING rate configured for category "${category}". ` +
     `Go to Pricing Admin → Service Rates to fix this.`
   )
-  const ratePerLm = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
-  return { lm: piece.arcLengthLm, ratePerLm, cost: piece.arcLengthLm * ratePerLm }
+  const rawRate = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
+  if (mode === 'PERCENTAGE' && baseCuttingResult) {
+    // PERCENTAGE: rawRate is a percentage — surcharge = arcLength × baseRate × (percentage / 100)
+    const ratePerLm = baseCuttingResult.ratePerLm * (rawRate / 100)
+    return { lm: piece.arcLengthLm, ratePerLm, cost: piece.arcLengthLm * ratePerLm }
+  }
+  // FIXED: rawRate is $/Lm
+  return { lm: piece.arcLengthLm, ratePerLm: rawRate, cost: piece.arcLengthLm * rawRate }
+}
+
+/**
+ * RULE: Curved Polishing — Pricing Bible v1.3 §C6
+ * Extra charge for polishing curved arcs on shaped pieces.
+ * FIXED mode: arcLengthLm × CURVED_POLISHING rate ($/Lm).
+ * PERCENTAGE mode: arcLengthLm × basePolishingRate × (curvedRate / 100).
+ * Only applies when piece has arcLengthLm.
+ */
+export function ruleCurvedPolishing(
+  piece: EnginePiece,
+  rates: EngineServiceRate[],
+  category: string,
+  mode: EngineSettings['curvedPolishingMode'] = 'FIXED',
+  basePolishingResult?: PiecePricingResult['polishing']
+): PiecePricingResult['curvedPolishing'] {
+  if (!piece.arcLengthLm || piece.arcLengthLm <= 0) return null
+  const rate = rates.find(r => r.serviceType === 'CURVED_POLISHING' && r.fabricationCategory === category)
+  if (!rate) throw new Error(
+    `[PricingEngine] No CURVED_POLISHING rate configured for category "${category}". ` +
+    `Go to Pricing Admin → Service Rates to fix this.`
+  )
+  const rawRate = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
+  if (mode === 'PERCENTAGE' && basePolishingResult) {
+    // PERCENTAGE: rawRate is a percentage — surcharge = arcLength × baseRate × (percentage / 100)
+    const ratePerLm = basePolishingResult.ratePerLm * (rawRate / 100)
+    return { lm: piece.arcLengthLm, ratePerLm, cost: piece.arcLengthLm * ratePerLm }
+  }
+  // FIXED: rawRate is $/Lm
+  return { lm: piece.arcLengthLm, ratePerLm: rawRate, cost: piece.arcLengthLm * rawRate }
 }
 
 /**
@@ -321,25 +364,26 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
   const pieceResults: PiecePricingResult[] = []
 
   for (const piece of input.pieces) {
-    const cutting       = ruleCutting(piece, input.serviceRates, category)
-    const curvedCutting = ruleCurvedCutting(piece, input.serviceRates, category)
-    const polishing     = rulePolishing(piece, input.serviceRates, category)
-    const edgeProfiles  = ruleEdgeProfiles(piece, input.edgeCategoryRates, category)
-    const lamination    = ruleLamination(piece, input.serviceRates, input.settings, category)
-    const cutouts       = ruleCutouts(piece, input.cutoutRates, category)
-    const join          = ruleJoin(piece, input.serviceRates, category)
-    const installation  = ruleInstallation(piece, input.serviceRates, category)
+    const cutting        = ruleCutting(piece, input.serviceRates, category)
+    const curvedCutting  = ruleCurvedCutting(piece, input.serviceRates, category, input.settings.curvedCuttingMode, cutting)
+    const polishing      = rulePolishing(piece, input.serviceRates, category)
+    const curvedPolishing = ruleCurvedPolishing(piece, input.serviceRates, category, input.settings.curvedPolishingMode, polishing)
+    const edgeProfiles   = ruleEdgeProfiles(piece, input.edgeCategoryRates, category)
+    const lamination     = ruleLamination(piece, input.serviceRates, input.settings, category)
+    const cutouts        = ruleCutouts(piece, input.cutoutRates, category)
+    const join           = ruleJoin(piece, input.serviceRates, category)
+    const installation   = ruleInstallation(piece, input.serviceRates, category)
 
     const fabricationSubtotal =
-      cutting.cost + (curvedCutting?.cost ?? 0) + polishing.cost + edgeProfiles.cost +
-      (lamination?.cost ?? 0) + cutouts.cost + (join?.cost ?? 0)
+      cutting.cost + (curvedCutting?.cost ?? 0) + polishing.cost + (curvedPolishing?.cost ?? 0) +
+      edgeProfiles.cost + (lamination?.cost ?? 0) + cutouts.cost + (join?.cost ?? 0)
 
     const grainSurcharge = ruleGrainSurcharge(piece, fabricationSubtotal)
 
     pieceResults.push({
       id: piece.id,
       name: piece.name,
-      cutting, curvedCutting: curvedCutting ?? null, polishing, edgeProfiles,
+      cutting, curvedCutting: curvedCutting ?? null, polishing, curvedPolishing: curvedPolishing ?? null, edgeProfiles,
       lamination: lamination ?? null,
       cutouts,
       join: join ?? null,
@@ -355,8 +399,8 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
     : input.slabCount
   const materialCost          = wholeSlabs * input.material.pricePerSlab
   const fabricationSubtotal   = pieceResults.reduce((s, p) =>
-    s + p.cutting.cost + (p.curvedCutting?.cost ?? 0) + p.polishing.cost + p.edgeProfiles.cost +
-    (p.lamination?.cost ?? 0) + p.cutouts.cost + (p.join?.cost ?? 0) +
+    s + p.cutting.cost + (p.curvedCutting?.cost ?? 0) + p.polishing.cost + (p.curvedPolishing?.cost ?? 0) +
+    p.edgeProfiles.cost + (p.lamination?.cost ?? 0) + p.cutouts.cost + (p.join?.cost ?? 0) +
     (p.grainSurcharge?.cost ?? 0), 0)
   const installationSubtotal  = pieceResults.reduce((s, p) => s + p.installation.cost, 0)
 

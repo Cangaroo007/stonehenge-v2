@@ -250,6 +250,8 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
+      curvedCuttingMode: settings.curved_cutting_mode,
+      curvedPolishingMode: settings.curved_polishing_mode,
     };
   }
 
@@ -1061,6 +1063,8 @@ export async function calculateQuotePrice(
       templatingCost: 0,
       laminatedMultiplier: pricingContext.laminatedMultiplier,
       mitredMultiplier: pricingContext.mitredMultiplier,
+      curvedCuttingMode: pricingContext.curvedCuttingMode,
+      curvedPolishingMode: pricingContext.curvedPolishingMode,
     },
     serviceRates: engineServiceRates,
     edgeCategoryRates: engineEdgeCategoryRates,
@@ -1093,6 +1097,7 @@ export async function calculateQuotePrice(
         edgeProfiles: { lm: 0, cost: 0, items: [] },
         lamination: null,
         curvedCutting: null,
+        curvedPolishing: null,
         cutouts: { cost: 0, items: [] },
         join: null,
         grainSurcharge: null,
@@ -1482,8 +1487,9 @@ export async function calculateQuotePrice(
     }
 
     const fabricationSubtotal = roundToTwo(
-      ep.cutting.cost + ep.polishing.cost + ep.edgeProfiles.cost +
-      (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
+      ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
+      ep.polishing.cost + (ep.curvedPolishing?.cost ?? 0) +
+      ep.edgeProfiles.cost + (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
       (installationBreakdown?.total ?? 0)
     );
 
