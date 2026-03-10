@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { cn } from '@/lib/utils';
 
 const tabs = [
-  { name: 'Gaps', href: '/admin/pricing/gaps' },
+  { name: 'Configuration Health', href: '/admin/pricing/gaps' },
   { name: 'Settings', href: '/admin/pricing/settings' },
   { name: 'Service Rates', href: '/admin/pricing/services' },
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
@@ -47,7 +47,7 @@ export default function PricingLayout({
         <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
           {tabs.map((tab) => {
             const isActive = pathname === tab.href;
-            const isGapsTab = tab.name === 'Gaps';
+            const isGapsTab = tab.name === 'Configuration Health';
 
             return (
               <Link
