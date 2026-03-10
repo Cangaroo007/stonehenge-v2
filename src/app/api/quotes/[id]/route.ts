@@ -138,6 +138,9 @@ export async function GET(
                 materials: true,
                 sourceRelationships: true,
                 targetRelationships: true,
+                apronParent: {
+                  select: { id: true, name: true },
+                },
               },
             },
           },
