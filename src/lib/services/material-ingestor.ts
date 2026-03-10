@@ -23,6 +23,8 @@ export interface ProposedMaterial {
   slabWidthMm: number | null;
   thicknessMm: number | null;
   isDiscontinued: boolean;
+  /** Expected discontinuation date if stated (e.g. "Q2 2026"). Null if not stated or not discontinued. */
+  discontinuedDate: string | null;
   notes: string | null;
   confidence: 'high' | 'medium' | 'low';
   /**
@@ -103,6 +105,7 @@ Return ONLY a valid JSON object (no markdown, no commentary):
       "slabWidthMm": number | null,
       "thicknessMm": number | null,
       "isDiscontinued": boolean,
+      "discontinuedDate": string | null,
       "notes": string | null,
       "confidence": "high" | "medium" | "low",
       "requiresGrainMatch": boolean,
@@ -137,6 +140,9 @@ Infer from material name, collection name, and surface finish.
 - "porcelain", "sintered", "dekton", "neolith", "lapitec" → "SINTERED"
 - If uncertain: null
 
+DISCONTINUED DATE (discontinuedDate):
+- discontinuedDate: If discontinued with a stated date or quarter (e.g. "Discontinued Q2 26", "Disc'd June 2026"), extract as human-readable string (e.g. "Q2 2026"). If discontinued but no date stated, or if not discontinued, set null.
+
 RAISE AN UNCERTAINTY (and set appropriate severity) for:
 - Ranges that appear to be different product tiers (may need filtering) → warning
 - Dimensions that appear reversed (width listed before length) → warning
@@ -161,6 +167,7 @@ function buildRefinementPrompt(command: string, proposal: Proposal): string {
     slabWidthMm: m.slabWidthMm,
     thicknessMm: m.thicknessMm,
     isDiscontinued: m.isDiscontinued,
+    discontinuedDate: m.discontinuedDate,
     action: m.action,
     confidence: m.confidence,
   }));
@@ -330,6 +337,7 @@ export async function ingestPriceList(
       slabWidthMm,
       thicknessMm: m.thicknessMm ?? null,
       isDiscontinued: m.isDiscontinued ?? false,
+      discontinuedDate: m.discontinuedDate ?? null,
       notes: m.notes ?? null,
       confidence: m.confidence ?? 'medium',
       requiresGrainMatch: m.requiresGrainMatch ?? false,
