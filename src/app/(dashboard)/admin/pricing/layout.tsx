@@ -12,7 +12,6 @@ const tabs = [
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
   { name: 'Edge Rates', href: '/admin/pricing/edges' },
   { name: 'Configuration', href: '/admin/pricing' },
-  { name: 'AI Import', href: '/admin/pricing/import' },
   { name: 'Strip Configurations', href: '/admin/pricing/strip-configurations' },
 ];
 
