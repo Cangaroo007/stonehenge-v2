@@ -73,6 +73,7 @@
 | MITRE-1 | Mitred 40mm apron piece auto-creation. Schema: apron_parent_id + apron_position on quote_pieces (self-referential, cascade delete). PATCH API: auto-creates 4 apron pieces (20mm, 100mm height) when lamination_method set to MITRED on 40mm+ piece; deletes aprons when switching away from MITRED. PieceRow: apron badge on parent + child rows. | claude/mitred-apron-auto-creation-34rJS |
 | C6 | ROUNDED_RECT curved cutting pricing. Calculator: ROUNDED_RECT added to CURVED_SHAPE_TYPES set. calcArcLengthM handles uniform (4 × π/2 × r) and individual corner radii (π/2 × sum of 4 corners). arcLengthLm wired into EnginePiece. Engine: ruleCurvedCutting added — CURVED_CUTTING rate × arcLengthLm, thickness-aware (rate20mm/rate40mm), null for non-curved pieces. Cost included in per-piece and quote-level fabricationSubtotal. | claude/fix-rounded-rect-pricing-RsC1P |
 | OPT-1 | Slab optimizer grouped null-material pieces into optimizer runs, causing "unassigned" pieces in results. Root cause: buildMaterialGroupings included pieces with materialId=null in groups keyed by empty string. Fix: multi-material-optimizer.ts buildMaterialGroupings now skips pieces where materialId is null/undefined. These pieces are excluded from slab optimization (they have no material to assign slabs for). | claude/fix-slab-optimizer-unassigned-1WlAT |
+| MITRE-1-FK | apron_parent_id FK changed from CASCADE DELETE to SET NULL. Deleting a parent piece no longer cascade-deletes its apron children — aprons become orphans instead. Migration: 20260321000000_fix_apron_strip_fk_set_null. Schema-only change, no code modified. | claude/fix-apron-fk-cascade-NPtsj |
 
 ---
 
@@ -125,6 +126,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| MITRE-1-FK apron_parent_id FK CASCADE → SET NULL | claude/fix-apron-fk-cascade-NPtsj | Mar 10 | ✅ Complete |
 | OPT-1 exclude null-material pieces from slab optimizer | claude/fix-slab-optimizer-unassigned-1WlAT | Mar 10 | ✅ Complete |
 | C6 ROUNDED_RECT curved cutting pricing | claude/fix-rounded-rect-pricing-RsC1P | Mar 10 | ✅ Complete |
 | MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
@@ -165,7 +167,7 @@
 
 ---
 
-*Last Updated: Mar 10 2026 — CFG-1: configuration health badge on pricing nav, Gaps tab renamed to Configuration Health.*
+*Last Updated: Mar 10 2026 — MITRE-1-FK: apron_parent_id FK changed from CASCADE DELETE to SET NULL.*
 
 BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10
 SB-1 — Splashback piece_type + auto top edge | claude/splashback-piece-type-m1lJa | 2026-03-10

@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/fix-slab-optimizer-unassigned-1WlAT — OPT-1: exclude null-material pieces from slab optimizer
+> **Last Updated By:** claude/fix-apron-fk-cascade-NPtsj — MITRE-1-FK: change apron_parent_id FK from CASCADE DELETE to SET NULL
 >
-> OPT-1: buildMaterialGroupings in multi-material-optimizer.ts now skips pieces with null/undefined materialId. Previously these pieces were grouped under an empty-string key, creating phantom optimizer runs that produced "unassigned" pieces in results. No schema changes. No pricing changes.
+> MITRE-1-FK: Migration 20260321000000_fix_apron_strip_fk_set_null changes apron_parent_id FK onDelete from CASCADE to SET NULL. Prevents deleting a parent piece from cascade-deleting its apron children — aprons become orphans (apron_parent_id = NULL) instead. No code changes — migration only.
 
 ---
 
@@ -68,7 +68,7 @@
 | mitred_corner_treatment | String? | Default "RAW" — RAW/SQUARE/ROUND. ME-1. |
 | promoted_from_piece_id | Int? | When promoted from a lamination strip, references the parent piece. ME-4. |
 | promoted_edge_position | String? | The edge position on the parent (e.g. "top", "left") that was promoted. ME-4. |
-| apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). Cascade delete. MITRE-1. |
+| apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). SET NULL on delete (changed from CASCADE in MITRE-1-FK). MITRE-1. |
 | apron_position | String? | Position of this apron on parent: 'front' \| 'back' \| 'left' \| 'right'. MITRE-1. |
 | piece_type | String? @default("BENCHTOP") | Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER. SB-1a. |
 | join_method | String? | Join method for multi-piece assemblies (e.g. MITRE, BUTT, NONE). WF-1a. |
@@ -279,6 +279,8 @@ piece_relationships, drawing_corrections
 | 20260307000000 | add_requires_grain_match_to_quote_pieces |
 | 20260308000000 | add_optimizer_slab_count |
 | 20260309000000 | add_shape_fields_to_pieces |
+| 20260319000000 | add_apron_pieces_relation |
+| 20260321000000 | fix_apron_strip_fk_set_null — changed apron_parent_id FK from CASCADE DELETE to SET NULL |
 
 ---
 
