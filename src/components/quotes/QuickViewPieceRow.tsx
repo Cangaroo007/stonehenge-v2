@@ -18,7 +18,8 @@ import { useState, useCallback, useMemo, useRef } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import PieceVisualEditor from './PieceVisualEditor';
-import type { EdgeSide } from './PieceVisualEditor';
+import type { EdgeSide, EdgePreset } from './PieceVisualEditor';
+import { EDGE_PRESETS, PresetThumbnail } from './PieceVisualEditor';
 import PieceEditorErrorBoundary from './PieceEditorErrorBoundary';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { InlinePieceData } from './InlinePieceEditor';
@@ -456,6 +457,7 @@ export default function QuickViewPieceRow({
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
   const [flashEdge, setFlashEdge] = useState<MiniEdgeSide | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<MiniEdgeSide | null>(null);
+  const [presetMessage, setPresetMessage] = useState<string | null>(null);
   const [showCutoutPopover, setShowCutoutPopover] = useState(false);
   const [materialSearch, setMaterialSearch] = useState('');
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
@@ -705,6 +707,22 @@ export default function QuickViewPieceRow({
     },
     [fullPiece, onSavePiece, savePieceImmediate]
   );
+
+  const handlePresetApply = useCallback((preset: EdgePreset) => {
+    if (!preset.allRaw && !quickEdgeProfileId) {
+      setPresetMessage('Select an edge profile first');
+      setTimeout(() => setPresetMessage(null), 2000);
+      return;
+    }
+
+    const profileId = preset.allRaw ? null : quickEdgeProfileId;
+    handleEdgesChange({
+      top:    preset.sides.includes('top')    ? profileId : null,
+      bottom: preset.sides.includes('bottom') ? profileId : null,
+      left:   preset.sides.includes('left')   ? profileId : null,
+      right:  preset.sides.includes('right')  ? profileId : null,
+    });
+  }, [handleEdgesChange, quickEdgeProfileId]);
 
   const handleBulkApply = useCallback(
     (edges: { top: string | null; bottom: string | null; left: string | null; right: string | null }, scope: 'room' | 'quote') => {
@@ -1057,6 +1075,31 @@ export default function QuickViewPieceRow({
                     </button>
                   );
                 })}
+              </div>
+            )}
+
+            {/* Layout Presets (Rectangle only, edit mode) */}
+            {isEditMode && (!piece.shapeType || piece.shapeType === 'RECTANGLE') && (
+              <div className="flex flex-wrap items-center gap-1 mb-1">
+                <span className="text-[10px] text-gray-400 mr-0.5">Presets:</span>
+                {EDGE_PRESETS.map(preset => (
+                  <button
+                    key={preset.id}
+                    onClick={() => handlePresetApply(preset)}
+                    title={preset.label}
+                    className="flex flex-col items-center gap-0.5 px-1.5 py-1 rounded border
+                               border-gray-200 hover:border-stone-400 hover:bg-stone-50
+                               transition-colors text-center"
+                  >
+                    <PresetThumbnail sides={preset.sides} />
+                    <span className="text-[9px] text-gray-500 leading-tight whitespace-nowrap">
+                      {preset.label}
+                    </span>
+                  </button>
+                ))}
+                {presetMessage && (
+                  <p className="text-[10px] text-amber-600 ml-1">{presetMessage}</p>
+                )}
               </div>
             )}
 
