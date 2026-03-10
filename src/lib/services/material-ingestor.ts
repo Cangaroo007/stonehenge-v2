@@ -23,6 +23,8 @@ export interface ProposedMaterial {
   slabWidthMm: number | null;
   thicknessMm: number | null;
   isDiscontinued: boolean;
+  /** Expected discontinuation date if stated (e.g. "Q2 2026"). Null if not stated or not discontinued. */
+  discontinuedDate: string | null;
   notes: string | null;
   confidence: 'high' | 'medium' | 'low';
   /**
@@ -78,6 +80,7 @@ Domain knowledge:
 - Common thicknesses: 12mm, 20mm, 30mm
 - Wholesale price = supplier's list price; cost price = buyer's actual price after any discount
 - If only one price shown, use it for both wholesale and cost
+- SUPPLIER IDENTIFICATION: The supplier is the COMPANY THAT MAKES OR DISTRIBUTES THE STONE (e.g. Quantum Zero, Zenith Surfaces, Caesarstone, Smartstone). The buyer is the fabricator or stone mason the price list is addressed TO (e.g. "Northcoast Stone P/L", "ABC Stone Pty Ltd"). NEVER use the buyer's name as the supplierName. The supplierName must be the brand/distributor shown in the document header, logo, or footer — NOT the company the document is addressed to.
 - Common surface finishes: Polished, Matte, Honed, Textured, Silk
 - Product codes uniquely identify a material; missing codes make future re-matching unreliable`;
 
@@ -102,6 +105,7 @@ Return ONLY a valid JSON object (no markdown, no commentary):
       "slabWidthMm": number | null,
       "thicknessMm": number | null,
       "isDiscontinued": boolean,
+      "discontinuedDate": string | null,
       "notes": string | null,
       "confidence": "high" | "medium" | "low",
       "requiresGrainMatch": boolean,
@@ -136,12 +140,16 @@ Infer from material name, collection name, and surface finish.
 - "porcelain", "sintered", "dekton", "neolith", "lapitec" → "SINTERED"
 - If uncertain: null
 
+DISCONTINUED DATE (discontinuedDate):
+- discontinuedDate: If discontinued with a stated date or quarter (e.g. "Discontinued Q2 26", "Disc'd June 2026"), extract as human-readable string (e.g. "Q2 2026"). If discontinued but no date stated, or if not discontinued, set null.
+
 RAISE AN UNCERTAINTY (and set appropriate severity) for:
 - Ranges that appear to be different product tiers (may need filtering) → warning
 - Dimensions that appear reversed (width listed before length) → warning
 - Products with no product code (makes re-matching harder) → info
 - Currency other than AUD → critical
 - Discontinued products mixed with active ones without clear marking → warning
+- Supplier name is ambiguous (document addressed to a buyer but supplier brand is unclear) → critical
 
 ${existingCount > 0 ? `The company already has ${existingCount} materials in their library.` : ''}`;
 }
@@ -159,6 +167,7 @@ function buildRefinementPrompt(command: string, proposal: Proposal): string {
     slabWidthMm: m.slabWidthMm,
     thicknessMm: m.thicknessMm,
     isDiscontinued: m.isDiscontinued,
+    discontinuedDate: m.discontinuedDate,
     action: m.action,
     confidence: m.confidence,
   }));
@@ -328,6 +337,7 @@ export async function ingestPriceList(
       slabWidthMm,
       thicknessMm: m.thicknessMm ?? null,
       isDiscontinued: m.isDiscontinued ?? false,
+      discontinuedDate: m.discontinuedDate ?? null,
       notes: m.notes ?? null,
       confidence: m.confidence ?? 'medium',
       requiresGrainMatch: m.requiresGrainMatch ?? false,

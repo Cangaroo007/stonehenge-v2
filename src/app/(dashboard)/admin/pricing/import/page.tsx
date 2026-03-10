@@ -22,6 +22,15 @@ import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { Proposal, ProposedMaterial, Uncertainty } from '@/lib/services/material-ingestor';
 
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function calcDisplayPricePerSqm(costPrice: number | null, lengthMm: number | null, widthMm: number | null): string {
+  if (!costPrice || !lengthMm || !widthMm) return '—';
+  const areaSqm = (lengthMm * widthMm) / 1_000_000;
+  if (areaSqm <= 0) return '—';
+  return `$${(costPrice / areaSqm).toFixed(2)}`;
+}
+
 // ─── Types ────────────────────────────────────────────────────────────────────
 
 type Phase = 'upload' | 'parsing' | 'staging' | 'syncing' | 'done';
@@ -479,10 +488,10 @@ export default function ImportPage() {
                 Code
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Wholesale
+                Cost
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Cost
+                Price/m²
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Δ
@@ -535,7 +544,7 @@ export default function ImportPage() {
                   {m.name}
                   {m.isDiscontinued && (
                     <span className="ml-1.5 text-[10px] font-semibold text-orange-500 uppercase">
-                      DISC
+                      DISC{(m as any).discontinuedDate ? ` ${(m as any).discontinuedDate}` : ''}
                     </span>
                   )}
                 </td>
@@ -549,13 +558,13 @@ export default function ImportPage() {
                     <span className="text-amber-500 text-[10px]">auto-slug</span>
                   )}
                 </td>
-                {/* Wholesale */}
-                <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                  {m.wholesalePrice != null ? `$${m.wholesalePrice.toFixed(2)}` : '—'}
-                </td>
                 {/* Cost */}
                 <td className="px-3 py-2 text-right tabular-nums text-gray-900 font-medium">
                   {m.costPrice != null ? `$${m.costPrice.toFixed(2)}` : '—'}
+                </td>
+                {/* Price per m² */}
+                <td className="px-3 py-2 text-right tabular-nums text-gray-500 text-xs">
+                  {calcDisplayPricePerSqm(m.costPrice, m.slabLengthMm, m.slabWidthMm)}
                 </td>
                 {/* Delta */}
                 <td className="px-3 py-2 text-right">
