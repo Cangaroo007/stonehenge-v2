@@ -995,3 +995,5 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | Grain match badge visible on collapsed piece card for oversize pieces | Not verified | — | Quote 55 |
 
 BUG-3-HOTFIX: curvedCutting null added to fallback engine result in pricing-calculator-v2.ts line ~1088
+
+FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price question removed.

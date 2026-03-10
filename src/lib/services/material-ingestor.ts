@@ -137,7 +137,6 @@ Infer from material name, collection name, and surface finish.
 - If uncertain: null
 
 RAISE AN UNCERTAINTY (and set appropriate severity) for:
-- Two price columns where wholesale vs cost is unclear → critical
 - Ranges that appear to be different product tiers (may need filtering) → warning
 - Dimensions that appear reversed (width listed before length) → warning
 - Products with no product code (makes re-matching harder) → info
