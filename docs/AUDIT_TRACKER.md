@@ -126,6 +126,7 @@
 | MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
 | AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |
 | PRICING-FIX-1 verify pricing deployment + anchor update | claude/verify-pricing-deployment-gQ96n | Mar 9 | ✅ Complete |
+| MITRE-1 — apron_parent_id + apron_position schema + Parts List display | claude/mitre-1-apron-schema-sR6fU | Mar 10 | In Progress |
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
 | QF-1 tenant-configurable default edge profile | claude/qf1-default-edge-profile-ywF7t | Mar 5 | ✅ Complete |
 | ME-4 promoted strip calculator | claude/promoted-strip-calculator-ttPTD | Mar 5 | ✅ Complete |
