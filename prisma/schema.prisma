@@ -488,6 +488,8 @@ model pricing_settings {
   // References edge_types.id (not enforced as FK to avoid migration complexity)
   splashback_top_edge_id           String?                       @db.VarChar(255)
   // Default edge type applied to splashback top edge. References edge_types.id.
+  curved_cutting_mode              CurvedSurchargeMode           @default(FIXED)
+  curved_polishing_mode            CurvedSurchargeMode           @default(FIXED)
   created_at                       DateTime                      @default(now())
   updated_at                       DateTime
   cutout_rates                     cutout_rates[]
@@ -951,6 +953,11 @@ enum WaterfallPricingMethod {
   FIXED_PER_END
   PER_LINEAR_METRE
   INCLUDED_IN_SLAB
+}
+
+enum CurvedSurchargeMode {
+  FIXED
+  PERCENTAGE
 }
 
 enum Permission {
