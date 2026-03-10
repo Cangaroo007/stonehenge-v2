@@ -42,6 +42,7 @@ export async function GET(request: NextRequest) {
         waterfallPricingMethod: 'FIXED_PER_END',
         slabEdgeAllowanceMm: null,
         defaultEdgeTypeId: null,
+        splashbackTopEdgeId: null,
         stripToPieceThresholdMm: 300,
         organisationId
       });
@@ -64,6 +65,7 @@ export async function GET(request: NextRequest) {
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,
+      splashbackTopEdgeId: settings.splashback_top_edge_id ?? null,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString(),
@@ -211,6 +213,9 @@ export async function PUT(request: NextRequest) {
           default_edge_type_id: body.defaultEdgeTypeId !== undefined
             ? (body.defaultEdgeTypeId || null)
             : undefined,
+          splashback_top_edge_id: body.splashbackTopEdgeId !== undefined
+            ? (body.splashbackTopEdgeId || null)
+            : undefined,
           strip_to_piece_threshold_mm: body.stripToPieceThresholdMm !== undefined
             ? parseInt(String(body.stripToPieceThresholdMm), 10)
             : undefined,
@@ -238,6 +243,7 @@ export async function PUT(request: NextRequest) {
             ? parseInt(String(body.slabEdgeAllowanceMm), 10)
             : null,
           default_edge_type_id: body.defaultEdgeTypeId || null,
+          splashback_top_edge_id: body.splashbackTopEdgeId || null,
           strip_to_piece_threshold_mm: body.stripToPieceThresholdMm !== undefined
             ? parseInt(String(body.stripToPieceThresholdMm), 10)
             : 300,
@@ -263,6 +269,7 @@ export async function PUT(request: NextRequest) {
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,
+      splashbackTopEdgeId: settings.splashback_top_edge_id ?? null,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
       createdAt: settings.created_at.toISOString(),
       updatedAt: settings.updated_at.toISOString()

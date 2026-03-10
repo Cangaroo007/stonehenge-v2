@@ -18,6 +18,7 @@ interface PricingSettings {
   waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
   slabEdgeAllowanceMm: number | null;
   defaultEdgeTypeId: string | null;
+  splashbackTopEdgeId: string | null;
   stripToPieceThresholdMm: number;
 }
 
@@ -43,6 +44,7 @@ export default function PricingSettingsPage() {
     waterfallPricingMethod: 'FIXED_PER_END',
     slabEdgeAllowanceMm: null,
     defaultEdgeTypeId: null,
+    splashbackTopEdgeId: null,
     stripToPieceThresholdMm: 300,
   });
   const [edgeTypes, setEdgeTypes] = useState<EdgeType[]>([]);
@@ -573,6 +575,31 @@ export default function PricingSettingsPage() {
             className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
           >
             <option value="">None (Raw)</option>
+            {edgeTypes.map((et) => (
+              <option key={et.id} value={et.id}>
+                {et.name}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        {/* Splashback Default Top Edge */}
+        <div className="space-y-4">
+          <h3 className="text-sm font-medium text-gray-900">Splashback Default Top Edge</h3>
+          <p className="text-xs text-gray-500">
+            The edge profile applied to the top edge of new Splashback pieces. Leave blank to use Arris (system default).
+          </p>
+          <select
+            value={settings.splashbackTopEdgeId ?? ''}
+            onChange={(e) =>
+              setSettings({
+                ...settings,
+                splashbackTopEdgeId: e.target.value || null,
+              })
+            }
+            className="block w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+          >
+            <option value="">Arris (system default)</option>
             {edgeTypes.map((et) => (
               <option key={et.id} value={et.id}>
                 {et.name}
