@@ -501,7 +501,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `/(dashboard)/templates/[id]/edit/page.tsx` | Template edit |
 | `/(dashboard)/optimize/page.tsx` | Slab optimizer |
 | `/(dashboard)/admin/pricing/page.tsx` | Admin pricing dashboard |
-| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Gaps tab — coverage bars, missing rate tables, configure links |
+| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Configuration Health tab (renamed from Gaps) — coverage bars, missing rate tables, configure links. Badge on tab shows gap count. |
 | `/(dashboard)/admin/pricing/edges/page.tsx` | Edge type admin |
 | `/(dashboard)/admin/pricing/cutouts/page.tsx` | Cutout type admin |
 | `/(dashboard)/admin/pricing/services/page.tsx` | Service rates admin |

@@ -165,7 +165,7 @@
 
 ---
 
-*Last Updated: Mar 10 2026 — WF-1a: piece_type + join_method + splashback_top_edge_id DB columns, Waterfall edge deactivated.*
+*Last Updated: Mar 10 2026 — CFG-1: configuration health badge on pricing nav, Gaps tab renamed to Configuration Health.*
 
 BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10
 SB-1 — Splashback piece_type + auto top edge | claude/splashback-piece-type-m1lJa | 2026-03-10
