@@ -256,6 +256,7 @@ export async function PATCH(
       shapeConfig,
       noStripEdges,
       stripWidthOverrides,
+      pieceType,
     } = data;
     const mitredCornerTreatment = data.mitredCornerTreatment as string | undefined;
 
@@ -391,6 +392,7 @@ export async function PATCH(
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // no_strip_edges: wall edges that don't need lamination strips
         ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
+        ...(pieceType !== undefined && { piece_type: pieceType as any }),
         strip_width_overrides: stripWidthOverrides !== undefined
           ? stripWidthOverrides as unknown as Prisma.InputJsonValue
           : undefined,
