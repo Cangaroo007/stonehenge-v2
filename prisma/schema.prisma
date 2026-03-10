@@ -572,6 +572,10 @@ model quote_pieces {
   apron_parent_id         Int?
   /// Position of this apron on the parent piece: 'front' | 'back' | 'left' | 'right'
   apron_position          String?
+  corner_edge_tl          String?               @db.VarChar(255)
+  corner_edge_tr          String?               @db.VarChar(255)
+  corner_edge_bl          String?               @db.VarChar(255)
+  corner_edge_br          String?               @db.VarChar(255)
   /// Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER
   piece_type              String?               @default("BENCHTOP")
   /// Join method for multi-piece assemblies (e.g. MITRE, BUTT, NONE)
