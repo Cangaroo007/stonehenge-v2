@@ -169,10 +169,10 @@ export default function RoomTypePicker({
           lengthMm: number;
           widthMm: number;
           thicknessMm: number;
-          edgeTop: string;
-          edgeBottom: string;
-          edgeLeft: string;
-          edgeRight: string;
+          edgeTop: string | null;
+          edgeBottom: string | null;
+          edgeLeft: string | null;
+          edgeRight: string | null;
           cutouts: Array<{ name: string; quantity: number }>;
         }>;
       }> = [];
