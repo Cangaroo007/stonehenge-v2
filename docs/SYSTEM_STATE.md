@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/add-piece-type-column-2LMdo — WF-1a: piece_type + join_method + splashback_top_edge_id DB columns
+> **Last Updated By:** claude/fix-slab-optimizer-unassigned-1WlAT — OPT-1: exclude null-material pieces from slab optimizer
 >
-> WF-1a: Three new DB columns confirmed in production. quote_pieces.piece_type (String?, default 'BENCHTOP') — piece type selector. quote_pieces.join_method (String?) — multi-piece assembly method. pricing_settings.splashback_top_edge_id (VARCHAR 255) — default splashback top edge. Migration 20260320000000_add_piece_type_column covers all three. 'as any' casts removed from POST/PATCH routes and InlinePieceEditor. piece_type wired through transformPieceForClient, ServerQuoteData, QuotePiece, InlinePieceData interfaces. Waterfall edge type deactivated (isActive=false).
+> OPT-1: buildMaterialGroupings in multi-material-optimizer.ts now skips pieces with null/undefined materialId. Previously these pieces were grouped under an empty-string key, creating phantom optimizer runs that produced "unassigned" pieces in results. No schema changes. No pricing changes.
 
 ---
 
