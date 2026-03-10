@@ -32,8 +32,6 @@ interface Supplier {
   phone: string | null;
   website: string | null;
   default_margin_percent: string;
-  default_slab_length_mm: number | null;
-  default_slab_width_mm: number | null;
   default_thickness_mm: number | null;
   notes: string | null;
   is_active: boolean;

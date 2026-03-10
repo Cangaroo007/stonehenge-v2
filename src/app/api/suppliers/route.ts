@@ -39,8 +39,6 @@ export async function POST(request: NextRequest) {
         phone: body.phone ?? null,
         website: body.website ?? null,
         default_margin_percent: body.defaultMarginPercent ?? 0,
-        default_slab_length_mm: body.defaultSlabLengthMm ?? null,
-        default_slab_width_mm: body.defaultSlabWidthMm ?? null,
         default_thickness_mm: body.defaultThicknessMm ?? null,
         notes: body.notes ?? null,
       },
