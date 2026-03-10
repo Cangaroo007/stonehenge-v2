@@ -4,9 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 
 // ── Constants ────────────────────────────────────────────────────────────────
 
-const WATERFALL_EDGE_ID = 'cmlar3eu60007znatm9qddvfd';
-const SPLASHBACK_EDGE_ID = 'et-splashback';
 const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
+const ARRIS_EDGE_ID = 'cmlar3etm0002znat72h7jnx0';
 
 /** Max strip width (mm) before auto-promoting to a piece */
 const MAX_STRIP_WIDTH_MM = 300;
@@ -22,9 +21,7 @@ interface WaterfallSplashbackModalProps {
   isOpen: boolean;
   /** Which type was selected — determines labels */
   edgeTypeName: 'Waterfall' | 'Splashback';
-  /** Which side the edge was set on */
-  side: string;
-  /** Pieces in this quote (excluding the source piece) */
+  /** Pieces in this quote */
   otherPieces: PieceOption[];
   /** Called when user selects "Adjoin existing piece" */
   onAdjoinPiece: (pieceId: string) => void;
@@ -36,28 +33,13 @@ interface WaterfallSplashbackModalProps {
   onClose: () => void;
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
-
-/** Returns true if the given edge type ID is Waterfall or Splashback */
-export function isWaterfallOrSplashback(edgeTypeId: string | null): boolean {
-  return edgeTypeId === WATERFALL_EDGE_ID || edgeTypeId === SPLASHBACK_EDGE_ID;
-}
-
-/** Returns the display name for a Waterfall/Splashback edge type ID */
-export function getRelationshipEdgeName(edgeTypeId: string): 'Waterfall' | 'Splashback' | null {
-  if (edgeTypeId === WATERFALL_EDGE_ID) return 'Waterfall';
-  if (edgeTypeId === SPLASHBACK_EDGE_ID) return 'Splashback';
-  return null;
-}
-
-export { WATERFALL_EDGE_ID, SPLASHBACK_EDGE_ID, MITERED_EDGE_ID, MAX_STRIP_WIDTH_MM };
+export { MITERED_EDGE_ID, ARRIS_EDGE_ID, MAX_STRIP_WIDTH_MM };
 
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function WaterfallSplashbackModal({
   isOpen,
   edgeTypeName,
-  side,
   otherPieces,
   onAdjoinPiece,
   onCreatePiece,
@@ -86,8 +68,6 @@ export default function WaterfallSplashbackModal({
 
   if (!isOpen) return null;
 
-  const directionLabel = edgeTypeName === 'Waterfall' ? 'down' : 'up';
-
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
       <div
@@ -97,15 +77,14 @@ export default function WaterfallSplashbackModal({
         {/* Header */}
         <div className="px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">
-            {edgeTypeName} requires a connected piece
+            Add {edgeTypeName} piece
           </h3>
         </div>
 
         {/* Body */}
         <div className="px-6 py-4">
           <p className="text-sm text-gray-600 mb-6">
-            A {edgeTypeName} drops {directionLabel} from this edge and is typically joined with a
-            Mitred edge. Would you like to:
+            A {edgeTypeName.toLowerCase()} piece is typically joined with a Mitred edge. Would you like to:
           </p>
 
           <div className="space-y-3">

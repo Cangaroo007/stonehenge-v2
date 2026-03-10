@@ -86,6 +86,8 @@ export async function GET(
           edgeLeft: piece.edge_left,
           edgeRight: piece.edge_right,
           laminationMethod: piece.lamination_method,
+          joinMethod: piece.join_method,
+          pieceType: piece.piece_type || 'BENCHTOP',
           sortOrder: piece.sort_order,
           // K2: Shape camelCase aliases
           shapeType: piece.shape_type || 'RECTANGLE',
@@ -167,6 +169,7 @@ export async function POST(
       promotedFromPieceId,
       promotedEdgePosition,
       pieceType = 'BENCHTOP',
+      joinMethod = null,
     } = data;
 
     // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
@@ -324,6 +327,7 @@ export async function POST(
         edge_left:   resolvedEdgeLeft   || null,
         edge_right:  resolvedEdgeRight  || null,
         piece_type: pieceType,
+        join_method: joinMethod,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
@@ -378,6 +382,8 @@ export async function POST(
       edgeLeft: pieceAny.edge_left,
       edgeRight: pieceAny.edge_right,
       laminationMethod: pieceAny.lamination_method,
+      joinMethod: pieceAny.join_method,
+      pieceType: pieceAny.piece_type || 'BENCHTOP',
       sortOrder: pieceAny.sort_order,
       // K2: Shape camelCase aliases
       shapeType: pieceAny.shape_type || 'RECTANGLE',
