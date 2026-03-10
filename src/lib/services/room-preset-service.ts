@@ -10,10 +10,10 @@ export interface PresetPieceConfig {
   width_mm: number;
   thickness_mm: number;
   edges: {
-    top: string;
-    bottom: string;
-    left: string;
-    right: string;
+    top: string | null;
+    bottom: string | null;
+    left: string | null;
+    right: string | null;
   };
   cutouts: Array<{
     type: string;

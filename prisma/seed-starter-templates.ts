@@ -18,7 +18,7 @@ interface StarterTemplateJson {
       lengthMm: number;
       widthMm: number;
       thicknessMm: number;
-      edges: { top: string; bottom: string; left: string; right: string };
+      edges: { top: string | null; bottom: string | null; left: string | null; right: string | null };
       cutouts: Array<{ type: string; quantity: number }>;
       relatedTo?: { pieceName: string; relationType: string };
     }>;
