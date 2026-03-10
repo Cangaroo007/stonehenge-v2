@@ -564,11 +564,17 @@ model quote_pieces {
   promoted_from_piece_id  Int?
   /// The edge position on the parent piece that this strip was promoted from (e.g. "top", "left").
   promoted_edge_position  String?
+  /// Apron parent piece — set when this is a mitre apron strip (20mm face piece)
+  apron_parent_id         Int?
+  /// Position of this apron on the parent piece: 'front' | 'back' | 'left' | 'right'
+  apron_position          String?
   piece_features      piece_features[]
   materials           materials?           @relation(fields: [material_id], references: [id])
   quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
   sourceRelationships piece_relationships[] @relation("source_relationships")
   targetRelationships piece_relationships[] @relation("target_relationships")
+  apronParent         quote_pieces?        @relation("apron_pieces", fields: [apron_parent_id], references: [id], onDelete: Cascade)
+  apronChildren       quote_pieces[]       @relation("apron_pieces")
 }
 
 model quote_rooms {

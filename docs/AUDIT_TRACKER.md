@@ -1,6 +1,6 @@
 # Stone Henge — Audit Tracker
 
-> **Updated:** March 9, 2026
+> **Updated:** March 10, 2026
 > **Status:** ACTIVE
 
 ---
@@ -70,6 +70,7 @@
 | AI-IMPORT-FIX-2 | fabricationCategory strict enum added to ParsedMaterial interface and extraction prompt. 5-value enum (ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED) with material-type mapping rules. surfaceFinish explicitly excluded from category determination. Default ENGINEERED. | claude/fix-ai-parsing-logic-LFUEK |
 | AI-IMPORT-FIX-3 | Grain matching fields added to ParsedMaterial: requiresGrainMatch (boolean) + grainDirection (VEINED/UNIFORM/null). Keyword-based detection only — category alone never triggers grain matching. | claude/fix-ai-parsing-logic-LFUEK |
 | AI-IMPORT-FIX-4 | surfaceFinish strict enum: 'Polished' \| 'Matte' \| 'Textured' \| 'Honed' \| 'Brushed'. Document value mappings (Matt→Matte, Structured→Textured, Leathered→Brushed). Default Polished. | claude/fix-ai-parsing-logic-LFUEK |
+| MITRE-1 | Mitred 40mm apron piece auto-creation. Schema: apron_parent_id + apron_position on quote_pieces (self-referential, cascade delete). PATCH API: auto-creates 4 apron pieces (20mm, 100mm height) when lamination_method set to MITRED on 40mm+ piece; deletes aprons when switching away from MITRED. PieceRow: apron badge on parent + child rows. | claude/mitred-apron-auto-creation-34rJS |
 
 ---
 
@@ -122,6 +123,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
 | AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |
 | PRICING-FIX-1 verify pricing deployment + anchor update | claude/verify-pricing-deployment-gQ96n | Mar 9 | ✅ Complete |
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
@@ -158,4 +160,4 @@
 
 ---
 
-*Last Updated: Mar 9 2026 — AI-IMPORT-FIX 1-4: Hardened AI price list parser (price column detection, fabricationCategory enum, grain matching, surfaceFinish enum).*
+*Last Updated: Mar 10 2026 — MITRE-1: Mitred 40mm apron piece auto-creation (schema + API + UI).*

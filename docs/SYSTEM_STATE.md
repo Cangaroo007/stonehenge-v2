@@ -5,8 +5,8 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-09
-> **Last Updated By:** claude/fix-ai-parsing-logic-LFUEK — AI-IMPORT-FIX 1-4: Hardened AI price list parser (price column detection, fabricationCategory enum, grain matching fields, surfaceFinish enum)
+> **Last Updated:** 2026-03-10
+> **Last Updated By:** claude/mitred-apron-auto-creation-34rJS — MITRE-1: Apron piece auto-creation (schema + API + UI)
 
 ---
 
@@ -66,6 +66,8 @@
 | mitred_corner_treatment | String? | Default "RAW" — RAW/SQUARE/ROUND. ME-1. |
 | promoted_from_piece_id | Int? | When promoted from a lamination strip, references the parent piece. ME-4. |
 | promoted_edge_position | String? | The edge position on the parent (e.g. "top", "left") that was promoted. ME-4. |
+| apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). Cascade delete. MITRE-1. |
+| apron_position | String? | Position of this apron on parent: 'front' \| 'back' \| 'left' \| 'right'. MITRE-1. |
 
 #### quotes
 | Field | Type | Notes |
