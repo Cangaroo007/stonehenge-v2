@@ -1095,6 +1095,7 @@ export async function calculateQuotePrice(
         cutouts: { cost: 0, items: [] },
         join: null,
         grainSurcharge: null,
+        curvedCutting: null,
         installation: { area_sqm: 0, ratePerSqm: 0, cost: 0 },
         subtotal: 0,
       })),
