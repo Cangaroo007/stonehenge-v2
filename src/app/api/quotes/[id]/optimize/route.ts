@@ -284,11 +284,18 @@ export async function POST(
     // Collect all unique edge type IDs from pieces for name resolution
     const allEdgeTypeIds = new Set<string>();
     for (const room of quote.quote_rooms) {
-      for (const piece of room.quote_pieces as Array<{ edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null }>) {
+      for (const piece of room.quote_pieces as Array<{ edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; shape_config: unknown }>) {
         if (piece.edge_top) allEdgeTypeIds.add(piece.edge_top);
         if (piece.edge_bottom) allEdgeTypeIds.add(piece.edge_bottom);
         if (piece.edge_left) allEdgeTypeIds.add(piece.edge_left);
         if (piece.edge_right) allEdgeTypeIds.add(piece.edge_right);
+        // CURVE-2a: Also collect edge IDs from shape_config.edges (legacy ROUNDED_RECT data)
+        const scEdgesCollect = (piece.shape_config as any)?.edges as Record<string, string | null> | undefined;
+        if (scEdgesCollect) {
+          for (const edgeId of Object.values(scEdgesCollect)) {
+            if (edgeId) allEdgeTypeIds.add(edgeId);
+          }
+        }
       }
     }
 
@@ -337,13 +344,20 @@ export async function POST(
           ? ((piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {})
           : {};
 
+        // CURVE-2a: For ROUNDED_RECT pieces, fallback to shape_config.edges when top-level columns are null (legacy data)
+        const scEdgesOpt = (piece.shape_config as any)?.edges as Record<string, string | null> | undefined;
+        const effectiveEdgeTop = piece.edge_top ?? scEdgesOpt?.top ?? null;
+        const effectiveEdgeBottom = piece.edge_bottom ?? scEdgesOpt?.bottom ?? null;
+        const effectiveEdgeLeft = piece.edge_left ?? scEdgesOpt?.left ?? null;
+        const effectiveEdgeRight = piece.edge_right ?? scEdgesOpt?.right ?? null;
+
         const finishedEdges = isShapedPiece
           ? { top: false, bottom: false, left: false, right: false }
           : {
-              top:    piece.edge_top !== null,
-              bottom: piece.edge_bottom !== null,
-              left:   piece.edge_left !== null,
-              right:  piece.edge_right !== null,
+              top:    effectiveEdgeTop !== null,
+              bottom: effectiveEdgeBottom !== null,
+              left:   effectiveEdgeLeft !== null,
+              right:  effectiveEdgeRight !== null,
             };
 
         return {
@@ -354,10 +368,10 @@ export async function POST(
         thickness: piece.thickness_mm || 20,
         finishedEdges,
         edgeTypeNames: {
-          top: piece.edge_top ? edgeTypeMap.get(piece.edge_top) : undefined,
-          bottom: piece.edge_bottom ? edgeTypeMap.get(piece.edge_bottom) : undefined,
-          left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
-          right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
+          top: effectiveEdgeTop ? edgeTypeMap.get(effectiveEdgeTop) : undefined,
+          bottom: effectiveEdgeBottom ? edgeTypeMap.get(effectiveEdgeBottom) : undefined,
+          left: effectiveEdgeLeft ? edgeTypeMap.get(effectiveEdgeLeft) : undefined,
+          right: effectiveEdgeRight ? edgeTypeMap.get(effectiveEdgeRight) : undefined,
         },
         shapeConfigEdges,
         noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],

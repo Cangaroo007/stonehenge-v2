@@ -81,10 +81,11 @@ export async function GET(
           thicknessMm: piece.thickness_mm,
           materialId: piece.material_id,
           materialName: piece.material_name,
-          edgeTop: piece.edge_top,
-          edgeBottom: piece.edge_bottom,
-          edgeLeft: piece.edge_left,
-          edgeRight: piece.edge_right,
+          // CURVE-2a: Prefer top-level edge columns, fallback to shape_config.edges for legacy ROUNDED_RECT data
+          edgeTop: piece.edge_top ?? (piece.shape_config as any)?.edges?.top ?? null,
+          edgeBottom: piece.edge_bottom ?? (piece.shape_config as any)?.edges?.bottom ?? null,
+          edgeLeft: piece.edge_left ?? (piece.shape_config as any)?.edges?.left ?? null,
+          edgeRight: piece.edge_right ?? (piece.shape_config as any)?.edges?.right ?? null,
           laminationMethod: piece.lamination_method,
           joinMethod: piece.join_method,
           pieceType: piece.piece_type || 'BENCHTOP',
@@ -173,10 +174,19 @@ export async function POST(
     } = data;
 
     // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
-    const resolvedEdgeTop    = edgeTop;
-    const resolvedEdgeBottom = pieceType === 'SPLASHBACK' ? null : edgeBottom;
-    const resolvedEdgeLeft   = pieceType === 'SPLASHBACK' ? null : edgeLeft;
-    const resolvedEdgeRight  = pieceType === 'SPLASHBACK' ? null : edgeRight;
+    let resolvedEdgeTop    = edgeTop;
+    let resolvedEdgeBottom = pieceType === 'SPLASHBACK' ? null : edgeBottom;
+    let resolvedEdgeLeft   = pieceType === 'SPLASHBACK' ? null : edgeLeft;
+    let resolvedEdgeRight  = pieceType === 'SPLASHBACK' ? null : edgeRight;
+
+    // CURVE-2a: If shapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
+    const shapeEdges = (shapeConfig as Record<string, unknown> | null)?.edges as Record<string, string | null> | undefined;
+    if (shapeEdges) {
+      if (shapeEdges.top !== undefined) resolvedEdgeTop = shapeEdges.top ?? null;
+      if (shapeEdges.bottom !== undefined) resolvedEdgeBottom = shapeEdges.bottom ?? null;
+      if (shapeEdges.left !== undefined) resolvedEdgeLeft = shapeEdges.left ?? null;
+      if (shapeEdges.right !== undefined) resolvedEdgeRight = shapeEdges.right ?? null;
+    }
 
     // Validate required fields
     if (!name || !lengthMm || !widthMm) {
@@ -332,6 +342,11 @@ export async function POST(
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
         shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
+        // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
+        corner_edge_tl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tl as string ?? null,
+        corner_edge_tr: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tr as string ?? null,
+        corner_edge_bl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_bl as string ?? null,
+        corner_edge_br: (shapeConfig as Record<string, unknown> | null)?.corner_edge_br as string ?? null,
         requiresGrainMatch: requiresGrainMatch ?? false,
         promoted_from_piece_id: promotedFromPieceId ? parseInt(String(promotedFromPieceId), 10) : null,
         promoted_edge_position: promotedEdgePosition || null,
