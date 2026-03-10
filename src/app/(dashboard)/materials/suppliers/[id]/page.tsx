@@ -248,6 +248,19 @@ export default function SupplierDetailPage() {
         </div>
       </div>
 
+      {/* ─── Discontinued Warning Banner ─── */}
+      {(() => {
+        const discontinuedCount = materials.filter((m) => m.is_discontinued).length;
+        return discontinuedCount > 0 ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-800">
+              ⚠ This supplier has {discontinuedCount} discontinued material{discontinuedCount !== 1 ? 's' : ''}. Review and hide them to keep your quote builder clean.
+            </p>
+          </div>
+        ) : null;
+      })()}
+
       {/* ─── Margin Settings ─── */}
       <div className="card p-6">
         <h2 className="text-lg font-semibold text-gray-900 mb-3">Default Margin</h2>
