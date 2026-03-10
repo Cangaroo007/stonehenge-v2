@@ -66,10 +66,10 @@ export interface StarterTemplatePiece {
   thicknessMm: number;    // usually 20
 
   edges: {
-    top: string;          // "polished", "raw", "bullnose", "pencil_round"
-    bottom: string;
-    left: string;
-    right: string;
+    top: string | null;          // "polished", "raw", "bullnose", "pencil_round"
+    bottom: string | null;
+    left: string | null;
+    right: string | null;
   };
 
   cutouts: StarterTemplateCutout[];
