@@ -138,12 +138,7 @@ export default function MiniPieceEditor({
 
   // ── Mitred check ──────────────────────────────────────────────────────
 
-  const isMitred = piece?.thickness_mm === 40;
-
-  const pencilRoundId = useMemo(() => {
-    if (!edgeTypes) return null;
-    return edgeTypes.find(e => e.name.toLowerCase().includes('pencil'))?.id ?? null;
-  }, [edgeTypes]);
+  const isMitred = piece?.lamination_method === 'MITRED';
 
   // ── Cutout helpers ────────────────────────────────────────────────────
 
@@ -172,11 +167,6 @@ export default function MiniPieceEditor({
 
       let profileToApply = selectedProfileId;
 
-      // Mitred enforcement: only Pencil Round allowed (Pricing Bible Rule #1)
-      if (isMitred && profileToApply && profileToApply !== pencilRoundId) {
-        profileToApply = pencilRoundId;
-      }
-
       const updated = {
         ...piece,
         edges: {
@@ -190,7 +180,7 @@ export default function MiniPieceEditor({
       setFlashEdge(side);
       setTimeout(() => setFlashEdge(null), 200);
     },
-    [readOnly, piece, onChange, selectedProfileId, isMitred, pencilRoundId],
+    [readOnly, piece, onChange, selectedProfileId],
   );
 
   const handleCutoutAdd = useCallback(

@@ -1013,11 +1013,10 @@ export async function calculateQuotePrice(
       isOversize,
       joinLength_Lm: joinLengthLm,
       requiresGrainMatch: isOversize,
-      // Pricing Bible: 40mm thickness = lamination is a construction requirement.
-      // MITRED takes priority (explicit user choice), then LAMINATED (explicit or implied by thickness >= 40).
+      // Lamination method is an explicit user choice — never inferred from thickness.
       laminationMethod: piece.lamination_method === 'MITRED'
         ? 'MITRED'
-        : piece.lamination_method === 'LAMINATED' || piece.thickness_mm >= 40
+        : piece.lamination_method === 'LAMINATED'
         ? 'LAMINATED'
         : null,
       edges,
