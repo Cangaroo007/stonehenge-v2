@@ -20,6 +20,7 @@ interface WizardPiece {
   thickness_mm: number;
   edges: { top: string; bottom: string; left: string; right: string };
   cutouts: Array<{ type: string; quantity: number }>;
+  lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
 }
 
 interface EdgeTypeOption {

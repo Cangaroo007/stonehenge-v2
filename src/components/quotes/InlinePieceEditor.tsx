@@ -62,6 +62,7 @@ export interface InlinePieceData {
   shapeConfig?: Record<string, unknown> | null;
   overrideMaterialCost?: number | null;
   stripWidthOverrides?: Record<string, number> | null;
+  lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
 }
 
 export interface InlinePieceEditorProps {
@@ -442,6 +443,7 @@ export default function InlinePieceEditor({
   const [lengthMm, setLengthMm] = useState(piece.lengthMm.toString());
   const [widthMm, setWidthMm] = useState(piece.widthMm.toString());
   const [thicknessMm, setThicknessMm] = useState(piece.thicknessMm);
+  const [laminationMethod, setLaminationMethod] = useState<'NONE' | 'LAMINATED' | 'MITRED'>(piece.lamination_method ?? 'NONE');
   const [thicknessMode, setThicknessMode] = useState<'20mm' | '40mm' | 'custom'>(() => {
     const t = piece.thicknessMm;
     if (t === 20) return '20mm';
@@ -862,6 +864,7 @@ export default function InlinePieceEditor({
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
       thicknessMm,
+      laminationMethod,
       mitredCornerTreatment,
       materialId,
       materialName: selectedMaterial?.name || null,
@@ -986,7 +989,7 @@ export default function InlinePieceEditor({
 
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
-  const laminationMethod: string = (piece as unknown as Record<string, unknown>)?.laminationMethod as string ?? (thicknessMm > 20 ? 'LAMINATED' : 'NONE');
+  // laminationMethod is now managed as local state (line ~445), not derived from piece cast
 
   // Dimension input helper — reused across shapes
   const dimInput = (
@@ -1154,9 +1157,27 @@ export default function InlinePieceEditor({
               )}
             </div>
             {thicknessMm > 20 && (
-              <p className="mt-1 text-xs text-purple-600">
-                Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
-              </p>
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  40mm Build-up Method
+                </label>
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                  {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${
+                        laminationMethod === method
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
           </div>
@@ -1320,7 +1341,18 @@ export default function InlinePieceEditor({
                   <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
                 )}
               </div>
-              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {thicknessMm > 20 && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
+                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
             </div>
             <div>
@@ -1475,7 +1507,18 @@ export default function InlinePieceEditor({
                   <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
                 )}
               </div>
-              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {thicknessMm > 20 && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
+                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
             </div>
             <div>
