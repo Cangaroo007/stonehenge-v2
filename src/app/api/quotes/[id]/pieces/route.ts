@@ -169,7 +169,7 @@ export async function POST(
       promotedFromPieceId,
       promotedEdgePosition,
       pieceType = 'BENCHTOP',
-      joinMethod = 'NONE',
+      joinMethod = null,
     } = data;
 
     // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
