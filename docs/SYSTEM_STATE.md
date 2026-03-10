@@ -6,7 +6,7 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/mitred-apron-auto-creation-34rJS — MITRE-1: Apron piece auto-creation (schema + API + UI)
+> **Last Updated By:** claude/fix-rounded-rect-pricing-RsC1P — C6: ROUNDED_RECT curved cutting pricing (calculator + engine)
 
 ---
 
@@ -528,7 +528,9 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `loadPricingContext` | 131 | Loads all pricing config for an organisation |
 | `calculateMaterialCost` | 167 | Calculates material cost for a piece. PROMPT-16: PER_SLAB quotes now always use buildMaterialGroupings result (slabCount x price_per_slab), not just multi-material quotes. |
 | `buildMaterialGroupings` | 350 | Groups pieces by material for slab calculation |
-| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm` |
+| `isCurvedShape` | 89 | Returns true for RADIUS_END, FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT |
+| `calcArcLengthM` | 97 | Calculates arc length in metres for curved shapes. ROUNDED_RECT: uniform (4 × π/2 × r) or individual corners (π/2 × sum). C6. |
+| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm`. C6: wires `arcLengthLm` into EnginePiece for curved shapes. |
 | `getServiceRate` | 1573 | Looks up service rate by type/category |
 | `applyMinimumCharge` | 1610 | Applies minimum charge to a line item |
 | `getApplicableRules` | 1626 | Finds pricing rules matching a piece |
@@ -578,8 +580,9 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 ### pricing-rules-engine.ts
 | Function | Line | Purpose |
 |----------|------|---------|
-| `ruleCutting` | 132 | Calculates cutting cost |
-| `rulePolishing` | 152 | Calculates polishing cost |
+| `ruleCutting` | 134 | Calculates cutting cost |
+| `ruleCurvedCutting` | 154 | Calculates curved cutting surcharge (CURVED_CUTTING rate × arcLengthLm). Returns null for non-curved pieces. C6. |
+| `rulePolishing` | 174 | Calculates polishing cost |
 | `ruleEdgeProfiles` | 176 | Calculates edge profile cost |
 | `ruleLamination` | 205 | Calculates lamination cost (40mm) |
 | `ruleCutouts` | 227 | Calculates cutout cost |
