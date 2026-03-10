@@ -118,7 +118,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option B: From Template */}
           <button
-            onClick={() => setStep('template')}
+            onClick={() => setStep('manual')}
             className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">
@@ -137,7 +137,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option C: Template */}
           <button
-            onClick={() => setStep('manual')}
+            onClick={() => setStep('manual-scratch')}
             className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">
@@ -202,7 +202,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
   if (step === 'manual-scratch') {
     return (
       <ManualQuoteWizard
-        onBack={() => setStep('manual')}
+        onBack={() => setStep('choose')}
         customerId={customerId}
         onComplete={() => {
           // No-op — ManualQuoteWizard step 4 handles batch-create + redirect
