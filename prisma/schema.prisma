@@ -568,6 +568,8 @@ model quote_pieces {
   apron_parent_id         Int?
   /// Position of this apron on the parent piece: 'front' | 'back' | 'left' | 'right'
   apron_position          String?
+  /// Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER
+  piece_type              String?          @default("BENCHTOP")
   piece_features      piece_features[]
   materials           materials?           @relation(fields: [material_id], references: [id])
   quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)

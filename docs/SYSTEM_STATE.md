@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/splashback-piece-type-m1lJa — SB-1: splashback piece_type + auto top edge
+> **Last Updated By:** claude/add-piece-type-column-2LMdo — SB-1a: piece_type DB column + migration + type cleanup
 >
-> SB-1: piece_type flows through POST and PATCH piece API routes. SPLASHBACK pieces auto-apply edge_top = tenant default; bottom/left/right = null. InlinePieceEditor has piece_type selector (BENCHTOP/ISLAND/SPLASHBACK/WATERFALL/VANITY/SHELF/PANEL/OTHER).
+> SB-1a: piece_type now a real DB column on quote_pieces (String?, default 'BENCHTOP'). Migration 20260320000000_add_piece_type_column. 'as any' casts removed from POST/PATCH routes and InlinePieceEditor. piece_type wired through transformPieceForClient, ServerQuoteData, QuotePiece, InlinePieceData interfaces. Waterfall edge type deactivated (isActive=false).
 
 ---
 
@@ -70,6 +70,7 @@
 | promoted_edge_position | String? | The edge position on the parent (e.g. "top", "left") that was promoted. ME-4. |
 | apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). Cascade delete. MITRE-1. |
 | apron_position | String? | Position of this apron on parent: 'front' \| 'back' \| 'left' \| 'right'. MITRE-1. |
+| piece_type | String? @default("BENCHTOP") | Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER. SB-1a. |
 
 #### quotes
 | Field | Type | Notes |

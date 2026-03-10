@@ -113,6 +113,7 @@ interface QuotePiece {
   edgeRight: string | null;
   shapeType: string | null;
   shapeConfig: Record<string, unknown> | null;
+  pieceType: string | null;
   requiresGrainMatch: boolean;
   noStripEdges?: string[];
   stripWidthOverrides?: Record<string, number> | null;
@@ -291,6 +292,7 @@ export interface ServerQuoteData {
       edge_right: string | null;
       shape_type: string | null;
       shape_config: Record<string, unknown> | null;
+      piece_type: string | null;
       requiresGrainMatch: boolean;
       piece_features: Array<{
         id: number;
@@ -2517,7 +2519,7 @@ export default function QuoteDetailClient({
     () => effectivePieces.map(p => ({
       id: String(p.id),
       description: p.name || 'Unnamed Piece',
-      piece_type: null as string | null,
+      piece_type: p.pieceType ?? null,
       room_name: p.quote_rooms?.name ?? null,
     })),
     [effectivePieces]
@@ -2970,7 +2972,7 @@ export default function QuoteDetailClient({
                                 length_mm: p.length_mm,
                                 width_mm: p.width_mm,
                                 thickness_mm: p.thickness_mm,
-                                piece_type: null as string | null,
+                                piece_type: p.piece_type ?? 'BENCHTOP',
                                 area_sqm: p.area_sqm,
                                 total_cost: p.total_cost ?? 0,
                                 pieceTotal: pb?.pieceTotal,
@@ -3338,6 +3340,7 @@ export default function QuoteDetailClient({
               shapeType: p.shapeType || (p.shapeConfig?.shape as string) || 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
               stripWidthOverrides: p.stripWidthOverrides ?? null,
+              piece_type: p.pieceType ?? 'BENCHTOP',
             }}
             editData={inlineEditData}
             onSavePiece={handleInlineSavePiece}
@@ -3597,7 +3600,7 @@ export default function QuoteDetailClient({
                         length_mm: p.lengthMm,
                         width_mm: p.widthMm,
                         thickness_mm: p.thicknessMm,
-                        piece_type: null as string | null,
+                        piece_type: p.pieceType ?? 'BENCHTOP',
                         area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
                         total_cost: p.totalCost ?? 0,
                         pieceTotal: pb?.pieceTotal,

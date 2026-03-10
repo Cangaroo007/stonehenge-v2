@@ -63,6 +63,7 @@ export interface InlinePieceData {
   overrideMaterialCost?: number | null;
   stripWidthOverrides?: Record<string, number> | null;
   lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
+  piece_type?: string | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -465,7 +466,7 @@ export default function InlinePieceEditor({
     useState<'RAW' | 'SQUARE_TOP' | 'ROUND_TOP'>('RAW');
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
   const [localPieceType, setLocalPieceType] = useState<string>(
-    (piece as any).piece_type ?? 'BENCHTOP'
+    piece.piece_type ?? 'BENCHTOP'
   );
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
