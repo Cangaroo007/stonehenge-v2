@@ -999,4 +999,6 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 
 BUG-3-HOTFIX: curvedCutting null added to fallback engine result in pricing-calculator-v2.ts line ~1088
 
+WF-1c: Calculator waterfall detection changed from edge ID string match to piece_type = 'WATERFALL'. Legacy waterfall_height_mm fallback kept. Only pricing-calculator-v2.ts modified (lines 1208–1214). WF sprint status: WF-1a ✅, WF-1b ✅, WF-1c ✅.
+
 FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price question removed.
