@@ -256,21 +256,33 @@ export async function POST(
     }
 
     // Resolve primary material from first piece that has one
-    type QuotePiece = { materials: { slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string; name: string } | null };
+    type QuotePiece = { material_id: number | null; materials: { slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string; name: string } | null };
     const primaryMaterial = quote.quote_rooms
       .flatMap((r: { quote_pieces: QuotePiece[] }) => r.quote_pieces)
       .find((p: QuotePiece) => p.materials)?.materials;
 
+    // Read per-quote slab dimension overrides (keyed by material ID string)
+    const slabOverrides = (quote as unknown as { slab_dimension_overrides: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null }).slab_dimension_overrides;
+
+    // Resolve primary material ID for override lookup (single-material path)
+    const primaryMaterialId = quote.quote_rooms
+      .flatMap((r: { quote_pieces: QuotePiece[] }) => r.quote_pieces)
+      .find((p: QuotePiece) => p.material_id)?.material_id;
+    const primaryOverride = primaryMaterialId ? slabOverrides?.[String(primaryMaterialId)] : null;
+
     // Slab dimension fallback chain:
+    //   0. Per-quote slab dimension override for this material
     //   1. Explicit body value from the client
     //   2. Material record's slab dimensions (length → optimizer width, width → optimizer height)
     //   3. Default for the material's fabrication category (from SLAB_SIZES)
     //   4. Ultimate fallback: 3200 × 1600 (jumbo engineered quartz)
-    const slabWidth = body.slabWidth
+    const slabWidth = primaryOverride?.slabLengthMm
+      ?? body.slabWidth
       ?? primaryMaterial?.slab_length_mm
       ?? getDefaultSlabLength(primaryMaterial?.fabrication_category)
       ?? 3200;
-    const slabHeight = body.slabHeight
+    const slabHeight = primaryOverride?.slabWidthMm
+      ?? body.slabHeight
       ?? primaryMaterial?.slab_width_mm
       ?? getDefaultSlabWidth(primaryMaterial?.fabrication_category)
       ?? 1600;
@@ -400,13 +412,18 @@ export async function POST(
       );
 
       const materialsInfo: MaterialInfo[] = Array.from(materialRecords.entries()).map(
-        ([id, mat]) => ({
-          id,
-          name: mat?.name ?? `Material ${id}`,
-          slabLengthMm: mat?.slab_length_mm,
-          slabWidthMm: mat?.slab_width_mm,
-          fabricationCategory: mat?.fabrication_category,
-        })
+        ([id, mat]) => {
+          const override = slabOverrides?.[id];
+          return {
+            id,
+            name: mat?.name ?? `Material ${id}`,
+            slabLengthMm: mat?.slab_length_mm,
+            slabWidthMm: mat?.slab_width_mm,
+            fabricationCategory: mat?.fabrication_category,
+            slabLengthOverrideMm: override?.slabLengthMm ?? null,
+            slabWidthOverrideMm: override?.slabWidthMm ?? null,
+          };
+        }
       );
 
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
