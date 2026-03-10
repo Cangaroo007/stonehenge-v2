@@ -78,6 +78,7 @@ Domain knowledge:
 - Common thicknesses: 12mm, 20mm, 30mm
 - Wholesale price = supplier's list price; cost price = buyer's actual price after any discount
 - If only one price shown, use it for both wholesale and cost
+- SUPPLIER IDENTIFICATION: The supplier is the COMPANY THAT MAKES OR DISTRIBUTES THE STONE (e.g. Quantum Zero, Zenith Surfaces, Caesarstone, Smartstone). The buyer is the fabricator or stone mason the price list is addressed TO (e.g. "Northcoast Stone P/L", "ABC Stone Pty Ltd"). NEVER use the buyer's name as the supplierName. The supplierName must be the brand/distributor shown in the document header, logo, or footer — NOT the company the document is addressed to.
 - Common surface finishes: Polished, Matte, Honed, Textured, Silk
 - Product codes uniquely identify a material; missing codes make future re-matching unreliable`;
 
@@ -142,6 +143,7 @@ RAISE AN UNCERTAINTY (and set appropriate severity) for:
 - Products with no product code (makes re-matching harder) → info
 - Currency other than AUD → critical
 - Discontinued products mixed with active ones without clear marking → warning
+- Supplier name is ambiguous (document addressed to a buyer but supplier brand is unclear) → critical
 
 ${existingCount > 0 ? `The company already has ${existingCount} materials in their library.` : ''}`;
 }
