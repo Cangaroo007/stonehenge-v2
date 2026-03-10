@@ -94,6 +94,11 @@ export async function GET(
           shapeType: piece.shape_type || 'RECTANGLE',
           shapeConfig: piece.shape_config || null,
           requiresGrainMatch: piece.requiresGrainMatch ?? false,
+          // CURVE-2a: Corner edge camelCase aliases
+          cornerEdgeTl: piece.corner_edge_tl ?? null,
+          cornerEdgeTr: piece.corner_edge_tr ?? null,
+          cornerEdgeBl: piece.corner_edge_bl ?? null,
+          cornerEdgeBr: piece.corner_edge_br ?? null,
           overrideMaterialCost: piece.override_material_cost
             ? Number(piece.override_material_cost)
             : null,
@@ -404,6 +409,11 @@ export async function POST(
       shapeType: pieceAny.shape_type || 'RECTANGLE',
       shapeConfig: pieceAny.shape_config || null,
       requiresGrainMatch: pieceAny.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pieceAny.corner_edge_tl ?? null,
+      cornerEdgeTr: pieceAny.corner_edge_tr ?? null,
+      cornerEdgeBl: pieceAny.corner_edge_bl ?? null,
+      cornerEdgeBr: pieceAny.corner_edge_br ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),

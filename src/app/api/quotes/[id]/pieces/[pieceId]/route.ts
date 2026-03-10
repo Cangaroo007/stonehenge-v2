@@ -174,6 +174,11 @@ export async function GET(
       overrideMaterialCost: piece.override_material_cost
         ? Number(piece.override_material_cost)
         : null,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: p.corner_edge_tl ?? null,
+      cornerEdgeTr: p.corner_edge_tr ?? null,
+      cornerEdgeBl: p.corner_edge_bl ?? null,
+      cornerEdgeBr: p.corner_edge_br ?? null,
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
       mitredCornerTreatment: p.mitred_corner_treatment ?? 'RAW',
@@ -477,6 +482,11 @@ export async function PATCH(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pu.corner_edge_tl ?? null,
+      cornerEdgeTr: pu.corner_edge_tr ?? null,
+      cornerEdgeBl: pu.corner_edge_bl ?? null,
+      cornerEdgeBr: pu.corner_edge_br ?? null,
       overrideMaterialCost: updatedPiece.override_material_cost
         ? Number(updatedPiece.override_material_cost)
         : null,
@@ -753,6 +763,11 @@ export async function PUT(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pu.corner_edge_tl ?? null,
+      cornerEdgeTr: pu.corner_edge_tr ?? null,
+      cornerEdgeBl: pu.corner_edge_bl ?? null,
+      cornerEdgeBr: pu.corner_edge_br ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
