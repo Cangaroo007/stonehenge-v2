@@ -72,6 +72,7 @@
 | AI-IMPORT-FIX-4 | surfaceFinish strict enum: 'Polished' \| 'Matte' \| 'Textured' \| 'Honed' \| 'Brushed'. Document value mappings (Matt→Matte, Structured→Textured, Leathered→Brushed). Default Polished. | claude/fix-ai-parsing-logic-LFUEK |
 | MITRE-1 | Mitred 40mm apron piece auto-creation. Schema: apron_parent_id + apron_position on quote_pieces (self-referential, cascade delete). PATCH API: auto-creates 4 apron pieces (20mm, 100mm height) when lamination_method set to MITRED on 40mm+ piece; deletes aprons when switching away from MITRED. PieceRow: apron badge on parent + child rows. | claude/mitred-apron-auto-creation-34rJS |
 | C6 | ROUNDED_RECT curved cutting pricing. Calculator: ROUNDED_RECT added to CURVED_SHAPE_TYPES set. calcArcLengthM handles uniform (4 × π/2 × r) and individual corner radii (π/2 × sum of 4 corners). arcLengthLm wired into EnginePiece. Engine: ruleCurvedCutting added — CURVED_CUTTING rate × arcLengthLm, thickness-aware (rate20mm/rate40mm), null for non-curved pieces. Cost included in per-piece and quote-level fabricationSubtotal. | claude/fix-rounded-rect-pricing-RsC1P |
+| CFG-1 | Configuration health badge on Pricing nav. AppShell fetches /api/admin/pricing/gaps on mount, shows red badge with totalGaps count on Pricing nav item (desktop + mobile). Badge hidden when count is 0. "Gaps" tab renamed to "Configuration Health" in pricing layout. | claude/add-pricing-health-badge-9s60k |
 
 ---
 
@@ -124,6 +125,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| CFG-1 configuration health badge on pricing nav | claude/add-pricing-health-badge-9s60k | Mar 10 | ✅ Complete |
 | C6 ROUNDED_RECT curved cutting pricing | claude/fix-rounded-rect-pricing-RsC1P | Mar 10 | ✅ Complete |
 | MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
 | AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |
@@ -163,7 +165,7 @@
 
 ---
 
-*Last Updated: Mar 10 2026 — WF-1a: piece_type + join_method + splashback_top_edge_id DB columns, Waterfall edge deactivated.*
+*Last Updated: Mar 10 2026 — CFG-1: configuration health badge on pricing nav, Gaps tab renamed to Configuration Health.*
 
 BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10
 SB-1 — Splashback piece_type + auto top edge | claude/splashback-piece-type-m1lJa | 2026-03-10
