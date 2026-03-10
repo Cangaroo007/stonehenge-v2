@@ -85,7 +85,7 @@ const COMPANY_ADDRESS =
 
 // ── Curved shape helpers (C6) ─────────────────────────────────────────────────
 
-const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC']);
+const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC', 'ROUNDED_RECT']);
 
 function isCurvedShape(shapeType?: string | null): boolean {
   return !!shapeType && CURVED_SHAPE_TYPES.has(shapeType);
@@ -135,6 +135,18 @@ function calcArcLengthM(shapeType: string, shapeConfig: unknown): number {
       const r = Number(cfg.inner_radius_mm) || 0;
       const sweep = Number(cfg.sweep_deg) || 0;
       return ((sweep / 360) * 2 * Math.PI * r) / 1000; // mm → metres
+    }
+    case 'ROUNDED_RECT': {
+      const cfg2 = shapeConfig as Record<string, unknown>;
+      if (cfg2.individual_corners) {
+        const tl = Number(cfg2.corner_tl_mm) || 0;
+        const tr = Number(cfg2.corner_tr_mm) || 0;
+        const br = Number(cfg2.corner_br_mm) || 0;
+        const bl = Number(cfg2.corner_bl_mm) || 0;
+        return ((Math.PI / 2) * (tl + tr + br + bl)) / 1000;
+      }
+      const r = Number(cfg2.corner_radius_mm) || 0;
+      return ((Math.PI / 2) * r * 4) / 1000;
     }
     default:
       return 0;
@@ -1031,6 +1043,9 @@ export async function calculateQuotePrice(
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
+      arcLengthLm: isCurvedShape((piece as any).shape_type)
+        ? calcArcLengthM((piece as any).shape_type!, (piece as any).shape_config)
+        : undefined,
     });
   }
 
