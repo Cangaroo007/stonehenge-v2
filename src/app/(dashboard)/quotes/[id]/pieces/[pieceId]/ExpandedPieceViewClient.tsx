@@ -569,25 +569,36 @@ export default function ExpandedPieceViewClient({
               Material
             </h3>
             {isEditMode && materials.length > 0 ? (
-              <select
-                value={editFields.materialId ?? ''}
-                onChange={(e) => {
-                  const matId = e.target.value ? Number(e.target.value) : null;
-                  const mat = materials.find((m) => m.id === matId);
-                  updateField('materialId', matId);
-                  updateField('materialName', mat?.name ?? null);
-                }}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">No material</option>
-                {materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}{m.collection ? ` (${m.collection})` : ''}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={editFields.materialId ?? ''}
+                  onChange={(e) => {
+                    const matId = e.target.value ? Number(e.target.value) : null;
+                    const mat = materials.find((m) => m.id === matId);
+                    updateField('materialId', matId);
+                    updateField('materialName', mat?.name ?? null);
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">No material</option>
+                  {materials.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}{m.collection ? ` (${m.collection})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {editFields.materialId === null && (
+                  <p className="mt-1 text-xs text-amber-600">⚠️ No material — cost will be $0.00</p>
+                )}
+              </>
             ) : (
               <div className="space-y-2">
+                {!pieceData.materialDetails && !editFields.materialName && (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                    <span>⚠️</span>
+                    <span>No material assigned — material cost will be $0.00</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Name</span>
                   <span className="text-sm font-medium text-gray-900">
