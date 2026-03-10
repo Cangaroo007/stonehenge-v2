@@ -101,6 +101,7 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred: boolean;
   sortOrder: number;
 }
 
@@ -323,7 +324,8 @@ export default function ExpandedPieceViewClient({
 
   const edgeTypeOptions = useMemo(() => {
     if (edgeTypes.length > 0) {
-      return edgeTypes.filter((e: EdgeType) => e.isActive).map((e: EdgeType) => ({ id: e.id, name: e.name }));
+      const mitred = editFields?.laminationMethod === 'MITRED';
+      return edgeTypes.filter((e: EdgeType) => e.isActive && (!mitred || e.isMitred)).map((e: EdgeType) => ({ id: e.id, name: e.name }));
     }
     // Fallback: build from piece data
     if (!pieceData?.edgeDetails) return [];
@@ -342,7 +344,7 @@ export default function ExpandedPieceViewClient({
       }
     }
     return items;
-  }, [edgeTypes, pieceData?.edgeDetails]);
+  }, [edgeTypes, pieceData?.edgeDetails, editFields?.laminationMethod]);
 
   // ── Cutout displays for visual editor ──────────────────────────────────────
 
@@ -548,7 +550,7 @@ export default function ExpandedPieceViewClient({
                         className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Raw</option>
-                        {edgeTypes.filter((e) => e.isActive).map((e) => (
+                        {edgeTypes.filter((e) => e.isActive && (!isMitred || e.isMitred)).map((e) => (
                           <option key={e.id} value={e.id}>{e.name}</option>
                         ))}
                       </select>

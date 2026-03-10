@@ -49,6 +49,7 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
   configuredCategories?: string[];
 }
