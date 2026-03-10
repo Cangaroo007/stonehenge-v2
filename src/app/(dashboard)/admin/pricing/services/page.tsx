@@ -31,18 +31,27 @@ const CATEGORY_MULTIPLIER_LABELS: Record<string, string> = {
   SINTERED: '1.30x — high tension',
 };
 
+type CurvedSurchargeMode = 'FIXED' | 'PERCENTAGE';
+
+const CURVED_MODE_SERVICES = new Set(['CURVED_CUTTING', 'CURVED_POLISHING']);
+
 export default function ServiceRatesPage() {
   const [allRates, setAllRates] = useState<ServiceRate[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('ENGINEERED');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [curvedCuttingMode, setCurvedCuttingMode] = useState<CurvedSurchargeMode>('FIXED');
+  const [curvedPolishingMode, setCurvedPolishingMode] = useState<CurvedSurchargeMode>('FIXED');
 
   const fetchRates = useCallback(async () => {
     try {
-      const res = await fetch('/api/admin/pricing/service-rates');
-      if (!res.ok) throw new Error('Failed to fetch service rates');
-      const data = await res.json();
+      const [ratesRes, settingsRes] = await Promise.all([
+        fetch('/api/admin/pricing/service-rates'),
+        fetch('/api/admin/pricing/settings'),
+      ]);
+      if (!ratesRes.ok) throw new Error('Failed to fetch service rates');
+      const data = await ratesRes.json();
       // Convert Decimal strings to numbers for display
       const parsed = data.map((r: any) => ({
         ...r,
@@ -53,6 +62,13 @@ export default function ServiceRatesPage() {
           : null,
       }));
       setAllRates(parsed);
+
+      // Load curved surcharge modes from pricing settings
+      if (settingsRes.ok) {
+        const settings = await settingsRes.json();
+        if (settings.curvedCuttingMode) setCurvedCuttingMode(settings.curvedCuttingMode);
+        if (settings.curvedPolishingMode) setCurvedPolishingMode(settings.curvedPolishingMode);
+      }
     } catch (error) {
       console.error('Error fetching service rates:', error);
       setToast({ message: 'Failed to load service rates', type: 'error' });
@@ -103,6 +119,15 @@ export default function ServiceRatesPage() {
         })
       );
 
+      // Also save curved surcharge modes to pricing settings
+      promises.push(
+        fetch('/api/admin/pricing/settings', {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ curvedCuttingMode, curvedPolishingMode }),
+        })
+      );
+
       await Promise.all(promises);
       setToast({ message: 'Service rates saved successfully', type: 'success' });
       fetchRates();
@@ -121,7 +146,12 @@ export default function ServiceRatesPage() {
       INSTALLATION: 'Installation',
       WATERFALL_END: 'Waterfall End',
       TEMPLATING: 'Templating',
-      DELIVERY: 'Delivery'
+      DELIVERY: 'Delivery',
+      CURVED_CUTTING: 'Curved Cutting',
+      CURVED_POLISHING: 'Curved Polishing',
+      RADIUS_SETUP: 'Radius Setup',
+      CURVED_MIN_LM: 'Curved Min LM',
+      JOIN: 'Join',
     };
     return labels[type] || type;
   };
@@ -238,47 +268,90 @@ export default function ServiceRatesPage() {
                       <p className="text-xs text-gray-500">{rate.description}</p>
                     )}
 
+                    {/* Curved Surcharge Mode Selector */}
+                    {CURVED_MODE_SERVICES.has(rate.serviceType) && (
+                      <div className="bg-amber-50 border border-amber-200 rounded-lg p-3">
+                        <label className="block text-sm font-medium text-amber-800 mb-2">
+                          Surcharge Mode
+                        </label>
+                        <div className="flex gap-2">
+                          {(['FIXED', 'PERCENTAGE'] as const).map((mode) => {
+                            const currentMode = rate.serviceType === 'CURVED_CUTTING' ? curvedCuttingMode : curvedPolishingMode;
+                            const setMode = rate.serviceType === 'CURVED_CUTTING' ? setCurvedCuttingMode : setCurvedPolishingMode;
+                            return (
+                              <button
+                                key={mode}
+                                onClick={() => setMode(mode)}
+                                className={cn(
+                                  'flex-1 py-1.5 px-3 text-sm rounded-md border font-medium transition-colors',
+                                  currentMode === mode
+                                    ? 'bg-amber-600 text-white border-amber-600'
+                                    : 'bg-white text-gray-700 border-gray-300 hover:bg-gray-50'
+                                )}
+                              >
+                                {mode === 'FIXED' ? '$ Fixed ($/Lm)' : '% of Base Rate'}
+                              </button>
+                            );
+                          })}
+                        </div>
+                        <p className="text-xs text-amber-700 mt-1.5">
+                          {(rate.serviceType === 'CURVED_CUTTING' ? curvedCuttingMode : curvedPolishingMode) === 'FIXED'
+                            ? 'Rate values below are dollars per lineal metre.'
+                            : 'Rate values below are a percentage surcharge on the base rate.'}
+                        </p>
+                      </div>
+                    )}
+
                     <hr className="border-gray-200" />
 
                     {/* Rates */}
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          20mm Rate
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
-                            $
-                          </span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={rate.rate20mm}
-                            onChange={(e) => handleRateChange(rate.id, 'rate20mm', parseFloat(e.target.value) || 0)}
-                            className="block w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-                      </div>
+                      {(() => {
+                        const isPercentMode = CURVED_MODE_SERVICES.has(rate.serviceType) &&
+                          (rate.serviceType === 'CURVED_CUTTING' ? curvedCuttingMode : curvedPolishingMode) === 'PERCENTAGE';
+                        const prefix = isPercentMode ? '%' : '$';
+                        return (
+                          <>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                20mm Rate
+                              </label>
+                              <div className="relative">
+                                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
+                                  {prefix}
+                                </span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={rate.rate20mm}
+                                  onChange={(e) => handleRateChange(rate.id, 'rate20mm', parseFloat(e.target.value) || 0)}
+                                  className="block w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                />
+                              </div>
+                            </div>
 
-                      <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
-                          40mm Rate
-                        </label>
-                        <div className="relative">
-                          <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
-                            $
-                          </span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={rate.rate40mm}
-                            onChange={(e) => handleRateChange(rate.id, 'rate40mm', parseFloat(e.target.value) || 0)}
-                            className="block w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
-                          />
-                        </div>
-                      </div>
+                            <div>
+                              <label className="block text-sm font-medium text-gray-700 mb-1">
+                                40mm Rate
+                              </label>
+                              <div className="relative">
+                                <span className="absolute inset-y-0 left-0 pl-3 flex items-center text-gray-500 text-sm">
+                                  {prefix}
+                                </span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={rate.rate40mm}
+                                  onChange={(e) => handleRateChange(rate.id, 'rate40mm', parseFloat(e.target.value) || 0)}
+                                  className="block w-full pl-7 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+                                />
+                              </div>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </div>
 
                     {/* Minimum Charge */}
