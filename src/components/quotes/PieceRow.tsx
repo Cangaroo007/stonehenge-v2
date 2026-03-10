@@ -945,6 +945,14 @@ export default function PieceRow({
                   <span>{piece.roomName}</span>
                 </>
               )}
+              {!piece.materialName && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    No material
+                  </span>
+                </>
+              )}
             </div>
             {/* Line 3: Edges (colour dots) · Cutouts (only if any) */}
             {(edgeEntries.length > 0 || cutoutSummary) && (
