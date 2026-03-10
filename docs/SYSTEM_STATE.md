@@ -6,7 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/fix-rounded-rect-pricing-RsC1P — C6: ROUNDED_RECT curved cutting pricing (calculator + engine)
+> **Last Updated By:** claude/splashback-piece-type-m1lJa — SB-1: splashback piece_type + auto top edge
+>
+> SB-1: piece_type flows through POST and PATCH piece API routes. SPLASHBACK pieces auto-apply edge_top = tenant default; bottom/left/right = null. InlinePieceEditor has piece_type selector (BENCHTOP/ISLAND/SPLASHBACK/WATERFALL/VANITY/SHELF/PANEL/OTHER).
 
 ---
 

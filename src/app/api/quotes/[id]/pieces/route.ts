@@ -166,7 +166,14 @@ export async function POST(
       requiresGrainMatch,
       promotedFromPieceId,
       promotedEdgePosition,
+      pieceType = 'BENCHTOP',
     } = data;
+
+    // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
+    const resolvedEdgeTop    = edgeTop;
+    const resolvedEdgeBottom = pieceType === 'SPLASHBACK' ? null : edgeBottom;
+    const resolvedEdgeLeft   = pieceType === 'SPLASHBACK' ? null : edgeLeft;
+    const resolvedEdgeRight  = pieceType === 'SPLASHBACK' ? null : edgeRight;
 
     // Validate required fields
     if (!name || !lengthMm || !widthMm) {
@@ -312,10 +319,11 @@ export async function POST(
         total_cost: materialCost,
         sort_order: (maxPiece?.sort_order ?? -1) + 1,
         cutouts: [],
-        edge_top: edgeTop || null,
-        edge_bottom: edgeBottom || null,
-        edge_left: edgeLeft || null,
-        edge_right: edgeRight || null,
+        edge_top:    resolvedEdgeTop    || null,
+        edge_bottom: resolvedEdgeBottom || null,
+        edge_left:   resolvedEdgeLeft   || null,
+        edge_right:  resolvedEdgeRight  || null,
+        piece_type:  pieceType as any,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',

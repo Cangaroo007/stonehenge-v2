@@ -464,6 +464,9 @@ export default function InlinePieceEditor({
   const [mitredCornerTreatment, setMitredCornerTreatment] =
     useState<'RAW' | 'SQUARE_TOP' | 'ROUND_TOP'>('RAW');
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
+  const [localPieceType, setLocalPieceType] = useState<string>(
+    (piece as any).piece_type ?? 'BENCHTOP'
+  );
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
     edgeBottom: piece.edgeBottom || null,
@@ -863,6 +866,7 @@ export default function InlinePieceEditor({
 
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
+      pieceType: localPieceType,
       thicknessMm,
       laminationMethod,
       mitredCornerTreatment,
@@ -1064,6 +1068,25 @@ export default function InlinePieceEditor({
           {errors.pieceName && <p className="mt-0.5 text-xs text-red-500">{errors.pieceName}</p>}
         </div>
       )}
+
+      {/* Piece type */}
+      <div>
+        <label className="block text-[10px] text-gray-500 mb-0.5">Piece Type</label>
+        <select
+          value={localPieceType}
+          onChange={(e) => setLocalPieceType(e.target.value)}
+          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="BENCHTOP">Benchtop</option>
+          <option value="ISLAND">Island</option>
+          <option value="SPLASHBACK">Splashback</option>
+          <option value="WATERFALL">Waterfall</option>
+          <option value="VANITY">Vanity</option>
+          <option value="SHELF">Shelf</option>
+          <option value="PANEL">Panel</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
 
       {/* ── RECTANGLE dimensions (existing flow — unchanged) ─────────── */}
       {shapeType === 'RECTANGLE' && (
