@@ -1206,9 +1206,11 @@ export async function calculateQuotePrice(
 
   // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
   const waterfallPieces = allPieces.filter((p: any) => {
+    // Primary: detect by piece_type (real Prisma field added in WF-1a)
+    if (p.piece_type === 'WATERFALL') return true;
+    // Legacy fallback: waterfall_height_mm for pieces created before WF-1b
     if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
-    const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
-    return edges.some((e: string | null) => e && (e.includes('WATERFALL') || e.includes('waterfall')));
+    return false;
   });
   if (waterfallPieces.length > 0) {
     const avgThickness = allPieces.length > 0
