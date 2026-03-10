@@ -16,6 +16,7 @@ import {
   RotateCcw,
   Database,
   MessageSquare,
+  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
@@ -129,6 +130,19 @@ export default function ImportPage() {
   const [isRefining, setIsRefining] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showNewSupplierForm, setShowNewSupplierForm] = useState(false);
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+  const [newSupplierForm, setNewSupplierForm] = useState({
+    name: '',
+    contactEmail: '',
+    phone: '',
+    website: '',
+    defaultMarginPercent: '',
+    defaultSlabLengthMm: '',
+    defaultSlabWidthMm: '',
+    defaultThicknessMm: '',
+    notes: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
 
@@ -224,7 +238,18 @@ export default function ImportPage() {
         const match = suppliers.find(
           (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
         );
-        if (match) setSelectedSupplierId(match.id);
+        if (match) {
+          setSelectedSupplierId(match.id);
+        } else {
+          // Pre-fill new supplier form from parsed data
+          setNewSupplierForm((prev) => ({
+            ...prev,
+            name: proposal.supplierName ?? '',
+            defaultSlabLengthMm: proposal.extractedData[0]?.slabLengthMm?.toString() ?? '',
+            defaultSlabWidthMm: proposal.extractedData[0]?.slabWidthMm?.toString() ?? '',
+            defaultThicknessMm: proposal.extractedData[0]?.thicknessMm?.toString() ?? '',
+          }));
+        }
       }
 
       const critCount = proposal.uncertainties.filter(
@@ -320,6 +345,42 @@ export default function ImportPage() {
     } catch (err) {
       setPhase('staging');
       showToast(err instanceof Error ? err.message : 'Sync failed', 'error');
+    }
+  }
+
+  async function handleCreateSupplier() {
+    if (!newSupplierForm.name.trim()) {
+      showToast('Supplier name is required', 'error');
+      return;
+    }
+    setIsCreatingSupplier(true);
+    try {
+      const res = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newSupplierForm.name.trim(),
+          contactEmail: newSupplierForm.contactEmail.trim() || null,
+          phone: newSupplierForm.phone.trim() || null,
+          website: newSupplierForm.website.trim() || null,
+          defaultMarginPercent: newSupplierForm.defaultMarginPercent ? Number(newSupplierForm.defaultMarginPercent) : 0,
+          defaultSlabLengthMm: newSupplierForm.defaultSlabLengthMm ? Number(newSupplierForm.defaultSlabLengthMm) : null,
+          defaultSlabWidthMm: newSupplierForm.defaultSlabWidthMm ? Number(newSupplierForm.defaultSlabWidthMm) : null,
+          defaultThicknessMm: newSupplierForm.defaultThicknessMm ? Number(newSupplierForm.defaultThicknessMm) : null,
+          notes: newSupplierForm.notes.trim() || null,
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Failed to create supplier');
+      const created = data as unknown as Supplier & { id: string };
+      setSuppliers((prev) => [...prev, { id: created.id, name: newSupplierForm.name.trim() }]);
+      setSelectedSupplierId(created.id);
+      setShowNewSupplierForm(false);
+      showToast(`✓ ${newSupplierForm.name.trim()} added`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create supplier', 'error');
+    } finally {
+      setIsCreatingSupplier(false);
     }
   }
 
@@ -724,21 +785,6 @@ export default function ImportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Supplier selector (for sync) */}
-            {!selectedSupplierId && (
-              <select
-                value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-                className="rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              >
-                <option value="">Select supplier to sync…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            )}
             <button
               onClick={() => {
                 setPhase('upload');
@@ -751,6 +797,166 @@ export default function ImportPage() {
             </button>
           </div>
         </div>
+
+        {/* Supplier matching banner */}
+        {selectedSupplierId ? (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+            <span className="font-medium">
+              Matched to {suppliers.find((s) => s.id === selectedSupplierId)?.name ?? 'supplier'}
+            </span>
+            <button
+              onClick={() => setSelectedSupplierId('')}
+              className="ml-auto text-xs text-emerald-600 hover:text-emerald-800 underline"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-3">
+            <div className="flex items-start gap-2 text-sm text-amber-700">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>{proposal.supplierName ?? 'Unknown supplier'}</strong> is not in your supplier list.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNewSupplierForm(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add {proposal.supplierName ?? 'supplier'} as a new supplier
+              </button>
+              <select
+                value=""
+                onChange={(e) => setSelectedSupplierId(e.target.value)}
+                className="rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              >
+                <option value="">Select an existing supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Inline supplier creation form */}
+            {showNewSupplierForm && (
+              <div className="rounded-lg border border-amber-300 bg-white p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.name}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, name: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Contact Email</label>
+                    <input
+                      type="email"
+                      value={newSupplierForm.contactEmail}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, contactEmail: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.phone}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, phone: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Website</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.website}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, website: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Margin %</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultMarginPercent}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultMarginPercent: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Slab Length mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultSlabLengthMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultSlabLengthMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Slab Width mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultSlabWidthMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultSlabWidthMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Thickness mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultThicknessMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultThicknessMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.notes}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, notes: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCreateSupplier}
+                    disabled={isCreatingSupplier || !newSupplierForm.name.trim()}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                      !isCreatingSupplier && newSupplierForm.name.trim()
+                        ? 'bg-gray-900 text-white hover:bg-gray-800'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+                    )}
+                  >
+                    {isCreatingSupplier ? (
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-white animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )}
+                    Save Supplier
+                  </button>
+                  <button
+                    onClick={() => setShowNewSupplierForm(false)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Command bar */}
         <div
