@@ -24,9 +24,10 @@ import { inferMaterialRole } from '@/lib/types/starter-templates';
  * Returns null for "raw" edges (no finish).
  */
 async function resolveEdgeString(
-  edgeValue: string,
+  edgeValue: string | null,
   edgeTypeCache: Map<string, string | null>
 ): Promise<string | null> {
+  if (edgeValue === null) return null;
   const normalized = edgeValue.toLowerCase().trim();
 
   if (normalized === 'raw' || normalized === '') {
