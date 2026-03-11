@@ -495,7 +495,7 @@ export default function ExpandedPieceViewClient({
   // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT)
   const effectiveShapeType = (editFields.shapeType ?? 'RECTANGLE') as ShapeType;
   const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
-    if (effectiveShapeType !== 'ROUNDED_RECT') return {};
+    if (effectiveShapeType !== 'ROUNDED_RECT') return {} as Record<string, string | null>;
     return {
       top: editFields.edgeTop,
       right: editFields.edgeRight,
