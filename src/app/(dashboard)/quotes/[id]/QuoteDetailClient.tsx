@@ -2521,12 +2521,12 @@ export default function QuoteDetailClient({
 
   // WF-2c: Parent → children map for nested piece display
   const childPieceIds = useMemo(() => {
-    return new Set(Array.from(relationships).map((r) => r.childPieceId));
+    return new Set(relationships.map((r: PieceRelationshipData) => r.childPieceId));
   }, [relationships]);
 
   const parentToChildren = useMemo(() => {
-    return Array.from(relationships).reduce(
-      (acc: Record<string, PieceRelationshipData[]>, rel) => {
+    return relationships.reduce(
+      (acc: Record<string, PieceRelationshipData[]>, rel: PieceRelationshipData) => {
         const parentId = rel.parentPieceId;
         if (!acc[parentId]) acc[parentId] = [];
         acc[parentId].push(rel);
@@ -3897,6 +3897,7 @@ export default function QuoteDetailClient({
                 edge_bottom: p.edgeBottom,
                 edge_left: p.edgeLeft,
                 edge_right: p.edgeRight,
+                piece_type: p.pieceType,
                 sourceRelationships: [],
                 targetRelationships: [],
               })),
