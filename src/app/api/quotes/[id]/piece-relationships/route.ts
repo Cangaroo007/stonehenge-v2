@@ -99,18 +99,20 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { sourcePieceId, targetPieceId, relationType, side } = body;
+    const { sourcePieceId, targetPieceId, relationType, side, grainMatch = false, notes } = body;
+    // Accept relationshipType as alias (edge-attach UI sends this name)
+    const relationshipType = relationType || body.relationshipType;
 
     // Validate required fields
-    if (!sourcePieceId || !targetPieceId || !relationType) {
+    if (!sourcePieceId || !targetPieceId || !relationshipType) {
       return NextResponse.json(
-        { error: 'sourcePieceId, targetPieceId, and relationType are required' },
+        { error: 'sourcePieceId, targetPieceId, and relationType/relationshipType are required' },
         { status: 400 }
       );
     }
 
     // Validate relation type
-    if (!VALID_RELATION_TYPES.includes(relationType)) {
+    if (!VALID_RELATION_TYPES.includes(relationshipType)) {
       return NextResponse.json(
         { error: `Invalid relationType. Must be one of: ${VALID_RELATION_TYPES.join(', ')}` },
         { status: 400 }
@@ -156,8 +158,11 @@ export async function POST(
       data: {
         source_piece_id: sourcePieceId,
         target_piece_id: targetPieceId,
-        relation_type: relationType,
+        relation_type: relationshipType,        // existing field — keep
+        relationship_type: relationshipType,    // typed enum — write together always
         side: side || null,
+        grain_match: grainMatch,               // edge-attach grain direction flag
+        notes: notes ?? null,
       },
     });
 
