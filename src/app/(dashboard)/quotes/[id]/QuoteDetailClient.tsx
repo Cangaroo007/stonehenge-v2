@@ -1677,6 +1677,15 @@ export default function QuoteDetailClient({
     }
   };
 
+  // WF-2c: Detach a child piece from its parent (deletes relationship, keeps piece)
+  const handleDetachRelationship = async (relationshipId: string) => {
+    await fetch(
+      `/api/quotes/${quoteIdStr}/relationships/${relationshipId}`,
+      { method: 'DELETE' }
+    );
+    await fetchRelationships();
+  };
+
   const handleDuplicatePiece = async (pieceId: number) => {
     const sourcePiece = pieces.find(p => p.id === pieceId);
     const pieceName = sourcePiece?.name || `Piece #${pieceId}`;
@@ -2510,6 +2519,23 @@ export default function QuoteDetailClient({
     [effectivePieces]
   );
 
+  // WF-2c: Parent → children map for nested piece display
+  const childPieceIds = useMemo(() => {
+    return new Set(relationships.map((r: PieceRelationshipData) => r.childPieceId));
+  }, [relationships]);
+
+  const parentToChildren = useMemo(() => {
+    return relationships.reduce(
+      (acc: Record<string, PieceRelationshipData[]>, rel: PieceRelationshipData) => {
+        const parentId = rel.parentPieceId;
+        if (!acc[parentId]) acc[parentId] = [];
+        acc[parentId].push(rel);
+        return acc;
+      },
+      {}
+    );
+  }, [relationships]);
+
   // View-mode relationships derived from server data (no extra API call needed)
   const viewRelationships = useMemo<PieceRelationshipData[]>(() => {
     const rels: PieceRelationshipData[] = [];
@@ -2525,6 +2551,7 @@ export default function QuoteDetailClient({
               childPieceId: String(sr.target_piece_id),
               relationshipType: (sr.relationship_type || sr.relation_type) as RelationshipType,
               joinPosition: sr.side,
+              grainMatch: (sr as Record<string, unknown>).grain_match === true,
               notes: null,
             });
           }
@@ -3275,7 +3302,12 @@ export default function QuoteDetailClient({
       }
     }
 
-    const renderEditPieceCard = (p: QuotePiece, pieceNumber: number) => {
+    const renderEditPieceCard = (p: QuotePiece, pieceNumber: number, nestingProps?: {
+      attachedCount?: number;
+      relationshipLabel?: string;
+      grainMatch?: boolean;
+      onDetach?: () => void;
+    }) => {
       const pb = breakdownMap.get(p.id);
       const pieceOverride = activeOverrideMap.get(p.id);
       const isNonBaseOption = quoteOptions.activeOption && !quoteOptions.activeOption.isBase;
@@ -3343,6 +3375,10 @@ export default function QuoteDetailClient({
             quoteIdStr={quoteIdStr}
             onRelationshipChange={fetchRelationships}
             onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
+            attachedCount={nestingProps?.attachedCount}
+            relationshipLabel={nestingProps?.relationshipLabel}
+            grainMatch={nestingProps?.grainMatch}
+            onDetach={nestingProps?.onDetach}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
@@ -3716,14 +3752,37 @@ export default function QuoteDetailClient({
                             onBatchEdgeUpdate={handleBatchEdgeUpdate}
                           />
                         )}
-                        {/* Room pieces (hidden when collapsed) */}
+                        {/* Room pieces (hidden when collapsed) — WF-2c: children nested under parents */}
                         {!isCollapsed && (
                           roomPieces.length > 0 ? (
                             <div className="space-y-2">
-                              {roomPieces.map(p => {
-                                globalIndex++;
-                                return renderEditPieceCard(p, globalIndex);
-                              })}
+                              {roomPieces
+                                .filter(p => !childPieceIds.has(String(p.id)))
+                                .map(p => {
+                                  globalIndex++;
+                                  const childRels = parentToChildren[String(p.id)] ?? [];
+                                  return (
+                                    <div key={p.id}>
+                                      {renderEditPieceCard(p, globalIndex, {
+                                        attachedCount: childRels.length,
+                                      })}
+                                      {childRels.map(rel => {
+                                        const childPiece = effectivePieces.find(ep => String(ep.id) === rel.childPieceId);
+                                        if (!childPiece) return null;
+                                        globalIndex++;
+                                        return (
+                                          <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
+                                            {renderEditPieceCard(childPiece, globalIndex, {
+                                              relationshipLabel: `↳ ${rel.relationshipType} (${rel.joinPosition ?? 'N/A'})`,
+                                              grainMatch: rel.grainMatch,
+                                              onDetach: () => handleDetachRelationship(rel.id),
+                                            })}
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  );
+                                })}
                             </div>
                           ) : (
                             <div className="py-4 text-center text-gray-400 text-sm border border-dashed border-gray-200 rounded-lg">
@@ -3764,10 +3823,33 @@ export default function QuoteDetailClient({
                       </div>
                       {expandedRooms.has(-1) && (
                         <div className="space-y-2">
-                          {unassignedPieces.map(p => {
-                            globalIndex++;
-                            return renderEditPieceCard(p, globalIndex);
-                          })}
+                          {unassignedPieces
+                            .filter(p => !childPieceIds.has(String(p.id)))
+                            .map(p => {
+                              globalIndex++;
+                              const childRels = parentToChildren[String(p.id)] ?? [];
+                              return (
+                                <div key={p.id}>
+                                  {renderEditPieceCard(p, globalIndex, {
+                                    attachedCount: childRels.length,
+                                  })}
+                                  {childRels.map(rel => {
+                                    const childPiece = effectivePieces.find(ep => String(ep.id) === rel.childPieceId);
+                                    if (!childPiece) return null;
+                                    globalIndex++;
+                                    return (
+                                      <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
+                                        {renderEditPieceCard(childPiece, globalIndex, {
+                                          relationshipLabel: `↳ ${rel.relationshipType} (${rel.joinPosition ?? 'N/A'})`,
+                                          grainMatch: rel.grainMatch,
+                                          onDetach: () => handleDetachRelationship(rel.id),
+                                        })}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              );
+                            })}
                         </div>
                       )}
                     </div>
@@ -3815,6 +3897,7 @@ export default function QuoteDetailClient({
                 edge_bottom: p.edgeBottom,
                 edge_left: p.edgeLeft,
                 edge_right: p.edgeRight,
+                piece_type: p.pieceType,
                 sourceRelationships: [],
                 targetRelationships: [],
               })),

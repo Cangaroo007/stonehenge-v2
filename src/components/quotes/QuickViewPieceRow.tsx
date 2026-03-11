@@ -144,6 +144,14 @@ export interface QuickViewPieceRowProps {
   ) => void;
   /** Callback after strip width override changes — triggers re-optimise */
   onStripWidthChange?: () => void;
+  /** WF-2c: shows "↳ N attached" badge on parent row */
+  attachedCount?: number;
+  /** WF-2c: shows "↳ WATERFALL (LEFT)" prefix on child rows */
+  relationshipLabel?: string;
+  /** WF-2c: shows grain match badge when true */
+  grainMatch?: boolean;
+  /** WF-2c: shows × detach button when provided */
+  onDetach?: () => void;
 }
 
 // ── Strip Width Constants ───────────────────────────────────────────────────
@@ -445,6 +453,10 @@ export default function QuickViewPieceRow({
   quoteIdStr,
   onRelationshipChange,
   onStripWidthChange,
+  attachedCount,
+  relationshipLabel,
+  grainMatch,
+  onDetach,
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -793,6 +805,11 @@ export default function QuickViewPieceRow({
             </span>
           )}
 
+          {/* WF-2c: Relationship label prefix for child pieces */}
+          {relationshipLabel && (
+            <span className="text-xs text-gray-400 flex-shrink-0">{relationshipLabel}</span>
+          )}
+
           {/* Piece name */}
           <div className="flex-shrink-0 min-w-[100px] max-w-[180px]">
             {isEditMode && editingName ? (
@@ -815,6 +832,20 @@ export default function QuickViewPieceRow({
               </span>
             )}
           </div>
+
+          {/* WF-2c: Attached count badge for parent pieces */}
+          {attachedCount != null && attachedCount > 0 && (
+            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-medium text-gray-500 flex-shrink-0">
+              ↳ {attachedCount} attached
+            </span>
+          )}
+
+          {/* WF-2c: Grain match badge for child pieces */}
+          {grainMatch && (
+            <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[10px] font-medium text-green-700 flex-shrink-0">
+              🌿 Grain match
+            </span>
+          )}
 
           {/* Dimension inputs */}
           {isEditMode ? (
@@ -969,6 +1000,16 @@ export default function QuickViewPieceRow({
                 </button>
               )}
             </div>
+          )}
+          {/* WF-2c: Detach button for child pieces */}
+          {onDetach && (
+            <button
+              onClick={onDetach}
+              className="p-1 text-gray-400 hover:text-red-500 flex-shrink-0"
+              title="Detach from parent (keeps piece as top-level)"
+            >
+              ×
+            </button>
           )}
         </div>
 

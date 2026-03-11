@@ -30,6 +30,9 @@ interface QuotePiece {
   edge_right: string | null;
   promoted_from_piece_id?: number | null;
   promoted_edge_position?: string | null;
+  piece_type?: string | null;
+  lamination_method?: string | null;
+  cutouts?: Array<{ cutout_type?: string }> | null;
   sourceRelationships: Array<{
     id: number;
     source_piece_id: number;
@@ -1005,6 +1008,56 @@ export default function PartsSection({
           );
         })}
       </div>
+
+      {/* WF-2c: Apron Strips — MITRED pieces with 40mm thickness */}
+      {(() => {
+        const allPieces = rooms.flatMap((r) => r.quote_pieces);
+        const apronStrips = allPieces.filter((p) => {
+          // Check lamination_method if available, or fall back to pricing breakdown
+          if (p.lamination_method === 'MITRED' && String(p.thickness_mm).includes('40')) return true;
+          const bd = breakdownMap.get(p.id);
+          if (bd?.fabrication?.lamination?.method === 'MITRED' && String(p.thickness_mm).includes('40')) return true;
+          return false;
+        });
+        if (apronStrips.length === 0) return null;
+        return (
+          <div className="border-t border-gray-200 p-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Apron Strips</h4>
+            {apronStrips.map((strip) => (
+              <div key={strip.id} className="flex justify-between text-sm py-1 border-b border-gray-50">
+                <span>{strip.name ?? 'Unnamed'} — {strip.length_mm} × {strip.width_mm}mm</span>
+                <span className="text-gray-500">{strip.edge_top ?? 'Raw'}</span>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* WF-2c: Splashback Strips — SPLASHBACK pieces with width ≤ 300mm */}
+      {(() => {
+        const allPieces = rooms.flatMap((r) => r.quote_pieces);
+        const splashbackStrips = allPieces.filter((p) =>
+          p.piece_type === 'SPLASHBACK' && p.width_mm != null && p.width_mm <= 300
+        );
+        if (splashbackStrips.length === 0) return null;
+        return (
+          <div className="border-t border-gray-200 p-4">
+            <h4 className="text-sm font-medium text-gray-700 mb-2">Splashback Strips</h4>
+            {splashbackStrips.map((strip) => (
+              <div key={strip.id} className="text-sm py-1 border-b border-gray-50">
+                <div className="flex justify-between">
+                  <span>{strip.name ?? 'Unnamed'} — {strip.length_mm} × {strip.width_mm}mm</span>
+                </div>
+                {strip.cutouts != null && strip.cutouts.length > 0 && (
+                  <div className="text-xs text-gray-500 ml-2">
+                    Cutouts: {strip.cutouts.map((c) => c.cutout_type ?? 'Unknown').join(', ')}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        );
+      })()}
     </div>
   );
 }
