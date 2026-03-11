@@ -163,6 +163,9 @@ export default function ExpandedPieceViewClient({
   const [cutoutTypes, setCutoutTypes] = useState<CutoutType[]>([]);
   const [thicknessOptions, setThicknessOptions] = useState<ThicknessOption[]>([]);
 
+  // Strip-to-piece promotion threshold (fetched from pricing settings)
+  const [promotionThresholdMm, setPromotionThresholdMm] = useState<number | null>(null);
+
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
 
   // ── Dirty state detection ──────────────────────────────────────────────────
@@ -239,6 +242,26 @@ export default function ExpandedPieceViewClient({
       loadReferenceData();
     }
   }, [loadPiece, loadReferenceData, mode]);
+
+  // Fetch strip-to-piece promotion threshold from pricing settings
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchThreshold() {
+      try {
+        const res = await fetch('/api/admin/pricing/settings');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data?.stripToPieceThresholdMm != null) {
+            setPromotionThresholdMm(data.stripToPieceThresholdMm);
+          }
+        }
+      } catch {
+        // Non-fatal — threshold warning simply won't show
+      }
+    }
+    fetchThreshold();
+    return () => { cancelled = true; };
+  }, []);
 
   // ── Save handler ───────────────────────────────────────────────────────────
 
@@ -412,6 +435,7 @@ export default function ExpandedPieceViewClient({
   const isEditMode = mode === 'edit';
   const breakdown = pieceData.costBreakdown;
   const isMitred = editFields.laminationMethod === 'MITRED';
+  const isPromotedStrip = isMitred && promotionThresholdMm != null && editFields.widthMm > promotionThresholdMm;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -460,6 +484,15 @@ export default function ExpandedPieceViewClient({
           )}
         </div>
       </div>
+
+      {/* ── Strip Promotion Warning ────────────────────────────────────────── */}
+      {isPromotedStrip && (
+        <div className="max-w-5xl mx-auto px-4 mt-4">
+          <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+            ⚠ This apron strip exceeds the promotion threshold ({promotionThresholdMm}mm). It will be treated as a separate piece for pricing.
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* ── Large SVG Diagram ────────────────────────────────────────────── */}
