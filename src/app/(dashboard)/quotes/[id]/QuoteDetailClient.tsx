@@ -2510,6 +2510,23 @@ export default function QuoteDetailClient({
     [effectivePieces]
   );
 
+  // WF-2c: Parent → children map for nested piece display
+  const childPieceIds = useMemo(() => {
+    return new Set(Array.from(relationships).map((r) => r.childPieceId));
+  }, [relationships]);
+
+  const parentToChildren = useMemo(() => {
+    return Array.from(relationships).reduce(
+      (acc: Record<string, PieceRelationshipData[]>, rel) => {
+        const parentId = rel.parentPieceId;
+        if (!acc[parentId]) acc[parentId] = [];
+        acc[parentId].push(rel);
+        return acc;
+      },
+      {}
+    );
+  }, [relationships]);
+
   // View-mode relationships derived from server data (no extra API call needed)
   const viewRelationships = useMemo<PieceRelationshipData[]>(() => {
     const rels: PieceRelationshipData[] = [];
@@ -2525,6 +2542,7 @@ export default function QuoteDetailClient({
               childPieceId: String(sr.target_piece_id),
               relationshipType: (sr.relationship_type || sr.relation_type) as RelationshipType,
               joinPosition: sr.side,
+              grainMatch: (sr as Record<string, unknown>).grain_match === true,
               notes: null,
             });
           }

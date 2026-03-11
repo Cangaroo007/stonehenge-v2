@@ -17,6 +17,7 @@ function toRelationshipData(record: {
   relationship_type: RelationshipType | null;
   relation_type: string;
   side: string | null;
+  grain_match: boolean;
   notes: string | null;
 }): PieceRelationshipData {
   return {
@@ -25,6 +26,7 @@ function toRelationshipData(record: {
     childPieceId: String(record.target_piece_id),
     relationshipType: record.relationship_type ?? (record.relation_type as RelationshipType),
     joinPosition: record.side,
+    grainMatch: record.grain_match,
     notes: record.notes,
   };
 }

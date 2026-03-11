@@ -6,6 +6,7 @@ export interface PieceRelationshipData {
   childPieceId: string;        // Maps from DB: target_piece_id
   relationshipType: RelationshipType; // Maps from DB: relationship_type
   joinPosition: string | null; // Maps from DB: side
+  grainMatch: boolean;          // Maps from DB: grain_match
   notes: string | null;
 }
 
