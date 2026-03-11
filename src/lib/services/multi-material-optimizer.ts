@@ -48,6 +48,9 @@ export interface MaterialInfo {
   slabLengthMm?: number | null;
   slabWidthMm?: number | null;
   fabricationCategory?: string | null;
+  /** Per-quote slab dimension override (takes priority over catalogue) */
+  slabLengthOverrideMm?: number | null;
+  slabWidthOverrideMm?: number | null;
 }
 
 export interface MultiMaterialOptimizationInput {
@@ -227,6 +230,7 @@ export async function optimizeMultiMaterial(
 // ── Slab dimension resolution ────────────────────────────────────────────────
 
 function resolveSlabLength(material?: MaterialInfo | null): number {
+  if (material?.slabLengthOverrideMm) return material.slabLengthOverrideMm;
   if (material?.slabLengthMm) return material.slabLengthMm;
   if (material?.fabricationCategory) {
     const catLength = getDefaultSlabLength(material.fabricationCategory);
@@ -236,6 +240,7 @@ function resolveSlabLength(material?: MaterialInfo | null): number {
 }
 
 function resolveSlabWidth(material?: MaterialInfo | null): number {
+  if (material?.slabWidthOverrideMm) return material.slabWidthOverrideMm;
   if (material?.slabWidthMm) return material.slabWidthMm;
   if (material?.fabricationCategory) {
     const catWidth = getDefaultSlabWidth(material.fabricationCategory);

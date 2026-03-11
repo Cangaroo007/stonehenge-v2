@@ -170,6 +170,8 @@ interface EditQuote {
   discount_type?: string | null;
   discount_value?: number | null;
   discount_applies_to?: string | null;
+  // Per-quote slab dimension overrides
+  slab_dimension_overrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null;
 }
 
 interface CustomerOption {
@@ -3918,6 +3920,9 @@ export default function QuoteDetailClient({
               hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
               optimiserError={optimiserError}
               onEdgeAllowanceApplied={triggerOptimise}
+              usedMaterialIds={Array.from(new Set(effectivePieces.filter(p => p.materialId).map(p => p.materialId!))).map(Number)}
+              slabDimensionOverrides={editQuote?.slab_dimension_overrides ?? null}
+              onSlabDimensionOverridesSaved={triggerOptimise}
             />
           </div>
         </details>
