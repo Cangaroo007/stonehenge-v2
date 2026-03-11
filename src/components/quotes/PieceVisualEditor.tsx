@@ -175,6 +175,16 @@ export interface PieceVisualEditorProps {
 
   /** Called when wall edge state changes for the piece */
   onNoStripEdgesChange?: (noStripEdges: string[]) => void;
+
+  /** Piece attach context — needed for "Attach Waterfall / Splashback" from edge panel */
+  pieceId?: number;
+  pieceName?: string;
+  pieceThickness?: number;
+  pieceMaterialId?: number | null;
+
+  /** Called after a waterfall/splashback is created from edge attach.
+   *  Receives the new piece ID so the parent can navigate to it. */
+  onPieceAttached?: (newPieceId: number) => void;
 }
 
 // ── Constants ───────────────────────────────────────────────────────────────
@@ -236,6 +246,11 @@ export default function PieceVisualEditor({
   shapeConfigEdges,
   noStripEdges = [],
   onNoStripEdgesChange,
+  pieceId,
+  pieceName,
+  pieceThickness,
+  pieceMaterialId,
+  onPieceAttached,
 }: PieceVisualEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [popover, setPopover] = useState<{
@@ -316,6 +331,62 @@ export default function PieceVisualEditor({
       }
     }
   }, [recentProfiles.length, edgeTypes, recentsKey]);
+
+  // ── Edge attach state (waterfall / splashback) ─────────────────────────
+  const [grainMatch, setGrainMatch] = useState(false);
+  const [edgeAttachments, setEdgeAttachments] = useState<any[]>([]);
+
+  const handleAttachPiece = async (type: 'WATERFALL' | 'SPLASHBACK', side: string) => {
+    if (!quoteId || !pieceId) return;
+
+    const edgeLength = (side === 'left' || side === 'right')
+      ? (widthMm ?? 600)
+      : (lengthMm ?? 2400);
+
+    const newPieceData = {
+      name: `${type === 'WATERFALL' ? 'Waterfall' : 'Splashback'} \u2014 ${side.toUpperCase()} edge of ${pieceName ?? 'Piece'}`,
+      pieceType: type,
+      shapeType: 'RECTANGLE',
+      lengthMm: edgeLength,
+      widthMm: type === 'WATERFALL' ? (widthMm ?? 600) : null,
+      thicknessMm: type === 'SPLASHBACK' ? 20 : (pieceThickness ?? 20),
+      materialId: pieceMaterialId ?? null,
+      laminationMethod: type === 'WATERFALL' ? 'MITRED' : 'NONE',
+    };
+
+    const pieceRes = await fetch(`/api/quotes/${quoteId}/pieces`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(newPieceData),
+    });
+    const pieceJson = await pieceRes.json();
+    const newPiece = pieceJson.piece ?? pieceJson;
+
+    await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourcePieceId: pieceId,
+        targetPieceId: newPiece.id,
+        relationType: type,
+        side,
+        grainMatch,
+      }),
+    });
+
+    if (onPieceAttached) {
+      onPieceAttached(newPiece.id);
+    }
+  };
+
+  const handleDetach = async (relationshipId: number) => {
+    if (!quoteId) return;
+    await fetch(
+      `/api/quotes/${quoteId}/piece-relationships?relationshipId=${relationshipId}`,
+      { method: 'DELETE' }
+    );
+    setEdgeAttachments(prev => prev.filter(r => r.id !== relationshipId));
+  };
 
   const updateRecents = useCallback(
     (profileId: string) => {
@@ -1976,6 +2047,64 @@ export default function PieceVisualEditor({
               >
                 Close
               </button>
+            </div>
+          )}
+
+          {/* Attach piece to this edge */}
+          {isEditMode && pieceId && quoteId && (
+            <div
+              className="absolute z-40 bg-white border border-gray-200 rounded-md shadow-lg p-2"
+              style={{ left: popover.x, top: (popover.y + 40) }}
+            >
+              <p className="text-xs font-medium text-gray-500 mb-2">Attach to this edge</p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleAttachPiece('WATERFALL', popover.side)}
+                  className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700"
+                >
+                  + Waterfall
+                </button>
+                <button
+                  onClick={() => handleAttachPiece('SPLASHBACK', popover.side)}
+                  className="text-xs px-2 py-1 rounded border border-gray-300 hover:bg-gray-50 text-gray-700"
+                >
+                  + Splashback
+                </button>
+              </div>
+              <label className="flex items-center gap-1.5 mt-2 text-xs text-gray-600 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={grainMatch}
+                  onChange={e => setGrainMatch(e.target.checked)}
+                  className="rounded"
+                />
+                Match grain direction
+              </label>
+
+              {/* Show existing attachments for this edge */}
+              {edgeAttachments.filter(r => r.side === popover.side).length > 0 && (
+                <div className="mt-2 pt-2 border-t border-gray-100">
+                  {edgeAttachments
+                    .filter(r => r.side === popover.side)
+                    .map((rel: any) => (
+                      <div key={rel.id} className="text-xs text-gray-500 flex items-center justify-between">
+                        <span>{'\u21B3'} {rel.relationship_type ?? rel.relation_type} attached</span>
+                        <button
+                          onClick={() => handleDetach(rel.id)}
+                          className="text-red-400 hover:text-red-600 ml-2"
+                        >
+                          {'\u00D7'}
+                        </button>
+                      </div>
+                    ))}
+                  <button
+                    onClick={() => handleAttachPiece('WATERFALL', popover.side)}
+                    className="text-xs text-gray-400 hover:text-gray-600 mt-1"
+                  >
+                    + Add another waterfall
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>
