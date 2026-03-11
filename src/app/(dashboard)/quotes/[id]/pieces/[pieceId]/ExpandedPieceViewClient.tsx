@@ -293,7 +293,7 @@ export default function ExpandedPieceViewClient({
       if (editFields.cornerEdgeTl !== undefined || editFields.cornerEdgeTr !== undefined
         || editFields.cornerEdgeBl !== undefined || editFields.cornerEdgeBr !== undefined) {
         savePayload.shapeConfig = {
-          ...(editFields.shapeConfig as Record<string, unknown> ?? {}),
+          ...(editFields.shapeConfig as unknown as Record<string, unknown> ?? {}),
           corner_edge_tl: editFields.cornerEdgeTl ?? null,
           corner_edge_tr: editFields.cornerEdgeTr ?? null,
           corner_edge_bl: editFields.cornerEdgeBl ?? null,
