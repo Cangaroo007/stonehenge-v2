@@ -1514,6 +1514,8 @@ export async function calculateQuotePrice(
         edges: edgeBreakdowns,
         cutouts: cutoutBreakdowns,
         subtotal: fabricationSubtotal,
+        ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(ep.curvedCutting.cost) } } : {}),
+        ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(ep.curvedPolishing.cost) } } : {}),
       },
       pieceTotal: fabricationSubtotal,
     };
