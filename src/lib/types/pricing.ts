@@ -286,6 +286,8 @@ export interface PiecePricingBreakdown {
       total: number;
     }>;
     subtotal: number;
+    curvedCutting?: { arcLengthLm: number; rate: number; cost: number };
+    curvedPolishing?: { arcLengthLm: number; rate: number; cost: number };
   };
 
   oversize?: {
