@@ -414,6 +414,7 @@ export default function QuoteDetailClient({
     isOpen: boolean;
     type: 'WATERFALL' | 'SPLASHBACK';
   }>({ isOpen: false, type: 'WATERFALL' });
+  const [showPieceOverflow, setShowPieceOverflow] = useState(false);
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -3490,18 +3491,32 @@ export default function QuoteDetailClient({
               <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
                 + Add Piece
               </button>
-              <button
-                onClick={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL' })}
-                className="btn-secondary text-sm"
-              >
-                + Waterfall
-              </button>
-              <button
-                onClick={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK' })}
-                className="btn-secondary text-sm"
-              >
-                + Splashback
-              </button>
+              {/* ··· overflow — secondary piece actions */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowPieceOverflow(prev => !prev)}
+                  className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 text-gray-500"
+                  title="More piece options"
+                >
+                  ···
+                </button>
+                {showPieceOverflow && (
+                  <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded shadow-lg py-1 min-w-[160px]">
+                    <button
+                      onClick={() => { setShowPieceOverflow(false); setWaterfallModal({ isOpen: true, type: 'WATERFALL' }); }}
+                      className="w-full text-left text-sm px-3 py-1.5 hover:bg-gray-50 text-gray-700"
+                    >
+                      + Waterfall
+                    </button>
+                    <button
+                      onClick={() => { setShowPieceOverflow(false); setWaterfallModal({ isOpen: true, type: 'SPLASHBACK' }); }}
+                      className="w-full text-left text-sm px-3 py-1.5 hover:bg-gray-50 text-gray-700"
+                    >
+                      + Splashback
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
