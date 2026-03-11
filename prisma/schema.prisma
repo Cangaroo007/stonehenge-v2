@@ -558,6 +558,12 @@ model quote_pieces {
   /// Per-edge strip width overrides as JSON: { top?: number, bottom?: number, left?: number, right?: number, ... }
   /// Overrides the tenant strip_configurations default for this piece per edge.
   /// Only applies to LAMINATED/MITRED pieces (thickness >= 40mm).
+  strip_width_overrides  Json?
+  waterfall_height_mm  Int?
+  shape_type           String?          @default("RECTANGLE")
+  shape_config         Json?
+  no_strip_edges       Json?            @default("[]")
+  mitred_corner_treatment String?      @default("RAW")
   strip_width_overrides   Json?
   waterfall_height_mm     Int?
   shape_type              String?               @default("RECTANGLE")
@@ -568,6 +574,11 @@ model quote_pieces {
   promoted_from_piece_id  Int?
   /// The edge position on the parent piece that this strip was promoted from (e.g. "top", "left").
   promoted_edge_position  String?
+  piece_features      piece_features[]
+  materials           materials?           @relation(fields: [material_id], references: [id])
+  quote_rooms         quote_rooms          @relation(fields: [room_id], references: [id], onDelete: Cascade)
+  sourceRelationships piece_relationships[] @relation("source_relationships")
+  targetRelationships piece_relationships[] @relation("target_relationships")
   /// Apron parent piece — set when this is a mitre apron strip (20mm face piece)
   apron_parent_id         Int?
   /// Position of this apron on the parent piece: 'front' | 'back' | 'left' | 'right'
