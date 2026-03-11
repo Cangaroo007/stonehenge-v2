@@ -438,6 +438,11 @@ export default function ExpandedPieceViewClient({
                 Unsaved changes
               </span>
             )}
+            {isDirty && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                ⚠ Price may be outdated
+              </span>
+            )}
           </div>
 
           {isEditMode && (
