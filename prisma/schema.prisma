@@ -564,12 +564,6 @@ model quote_pieces {
   shape_config         Json?
   no_strip_edges       Json?            @default("[]")
   mitred_corner_treatment String?      @default("RAW")
-  strip_width_overrides   Json?
-  waterfall_height_mm     Int?
-  shape_type              String?               @default("RECTANGLE")
-  shape_config            Json?
-  no_strip_edges          Json?                 @default("[]")
-  mitred_corner_treatment String?               @default("RAW")
   /// When this piece was promoted from a lamination strip, references the parent piece ID.
   promoted_from_piece_id  Int?
   /// The edge position on the parent piece that this strip was promoted from (e.g. "top", "left").
