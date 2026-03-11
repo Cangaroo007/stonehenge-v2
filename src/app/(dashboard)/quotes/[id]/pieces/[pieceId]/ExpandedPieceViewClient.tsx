@@ -8,6 +8,7 @@ import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import type { EdgeSide } from '@/components/quotes/PieceVisualEditor';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
+import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,12 @@ interface PieceApiData {
   edgeRight: string | null;
   cutouts: PieceCutout[];
   laminationMethod: string;
+  shape_type?: string | null;
+  shape_config?: ShapeConfig | null;
+  cornerEdgeTl: string | null;
+  cornerEdgeTr: string | null;
+  cornerEdgeBl: string | null;
+  cornerEdgeBr: string | null;
   totalCost: number;
   areaSqm: number;
   materialCost: number;
@@ -85,6 +92,12 @@ interface EditableFields {
   cutouts: PieceCutout[];
   roomName: string;
   laminationMethod: string;
+  shapeType?: string | null;
+  shapeConfig?: ShapeConfig | null;
+  cornerEdgeTl: string | null;
+  cornerEdgeTr: string | null;
+  cornerEdgeBl: string | null;
+  cornerEdgeBr: string | null;
 }
 
 interface Material {
@@ -206,6 +219,12 @@ export default function ExpandedPieceViewClient({
         cutouts: data.cutouts || [],
         roomName: data.quote_rooms.name,
         laminationMethod: data.laminationMethod,
+        shapeType: data.shape_type ?? null,
+        shapeConfig: data.shape_config ?? null,
+        cornerEdgeTl: data.cornerEdgeTl ?? null,
+        cornerEdgeTr: data.cornerEdgeTr ?? null,
+        cornerEdgeBl: data.cornerEdgeBl ?? null,
+        cornerEdgeBr: data.cornerEdgeBr ?? null,
       };
       setEditFields(fields);
       setOriginalFields(fields);
@@ -246,10 +265,22 @@ export default function ExpandedPieceViewClient({
     if (!editFields || !isDirty) return;
     setSaving(true);
     try {
+      // Build save payload — include corner edges in shapeConfig for API PATCH handler
+      const savePayload: Record<string, unknown> = { ...editFields };
+      if (editFields.cornerEdgeTl !== undefined || editFields.cornerEdgeTr !== undefined
+        || editFields.cornerEdgeBl !== undefined || editFields.cornerEdgeBr !== undefined) {
+        savePayload.shapeConfig = {
+          ...(editFields.shapeConfig as Record<string, unknown> ?? {}),
+          corner_edge_tl: editFields.cornerEdgeTl ?? null,
+          corner_edge_tr: editFields.cornerEdgeTr ?? null,
+          corner_edge_bl: editFields.cornerEdgeBl ?? null,
+          corner_edge_br: editFields.cornerEdgeBr ?? null,
+        };
+      }
       const res = await fetch(`/api/quotes/${quoteId}/pieces/${pieceId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editFields),
+        body: JSON.stringify(savePayload),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -300,6 +331,30 @@ export default function ExpandedPieceViewClient({
     },
     []
   );
+
+  // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT)
+  const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
+    // Corner edges map to cornerEdge fields
+    const cornerMap: Record<string, keyof EditableFields> = {
+      corner_tl: 'cornerEdgeTl',
+      corner_tr: 'cornerEdgeTr',
+      corner_bl: 'cornerEdgeBl',
+      corner_br: 'cornerEdgeBr',
+    };
+    const cornerKey = cornerMap[edgeId];
+    if (cornerKey) {
+      updateField(cornerKey, profileId as EditableFields[typeof cornerKey]);
+      return;
+    }
+    // Straight edges (top/right/bottom/left) map to edgeTop/edgeRight/edgeBottom/edgeLeft
+    const straightMap: Record<string, keyof EditableFields> = {
+      top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft',
+    };
+    const straightKey = straightMap[edgeId];
+    if (straightKey) {
+      updateField(straightKey, profileId as EditableFields[typeof straightKey]);
+    }
+  }, [updateField]);
 
   const handleCutoutAdd = useCallback((cutoutTypeId: string) => {
     setEditFields((prev: EditableFields | null) => {
@@ -413,6 +468,22 @@ export default function ExpandedPieceViewClient({
   const breakdown = pieceData.costBreakdown;
   const isMitred = editFields.laminationMethod === 'MITRED';
 
+  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT)
+  const effectiveShapeType = (editFields.shapeType ?? 'RECTANGLE') as ShapeType;
+  const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
+    if (effectiveShapeType !== 'ROUNDED_RECT') return {};
+    return {
+      top: editFields.edgeTop,
+      right: editFields.edgeRight,
+      bottom: editFields.edgeBottom,
+      left: editFields.edgeLeft,
+      corner_tl: editFields.cornerEdgeTl,
+      corner_tr: editFields.cornerEdgeTr,
+      corner_bl: editFields.cornerEdgeBl,
+      corner_br: editFields.cornerEdgeBr,
+    };
+  }, [effectiveShapeType, editFields.edgeTop, editFields.edgeRight, editFields.edgeBottom, editFields.edgeLeft, editFields.cornerEdgeTl, editFields.cornerEdgeTr, editFields.cornerEdgeBl, editFields.cornerEdgeBr]);
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* ── Header Bar ──────────────────────────────────────────────────────── */}
@@ -484,6 +555,10 @@ export default function ExpandedPieceViewClient({
               onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
               onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
               cutoutTypes={cutoutTypes.filter((c) => c.isActive)}
+              shapeType={effectiveShapeType}
+              shapeConfig={editFields.shapeConfig ?? undefined}
+              shapeConfigEdges={effectiveShapeType === 'ROUNDED_RECT' ? shapeConfigEdges : undefined}
+              onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
             />
           </div>
         </div>

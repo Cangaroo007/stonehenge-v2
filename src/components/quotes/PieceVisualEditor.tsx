@@ -31,7 +31,8 @@ export type ShapeEdgeSide =
   | 'r_top' | 'r_btm' | 'inner'  // L-shape
   | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner'  // U-shape
   | 'arc_end' | 'arc_body'  // RADIUS_END / FULL_CIRCLE
-  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer';  // CONCAVE_ARC
+  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer'  // CONCAVE_ARC
+  | 'corner_tl' | 'corner_tr' | 'corner_bl' | 'corner_br';  // ROUNDED_RECT corners
 type EdgeEditMode = 'select' | 'quickEdge';
 
 // ─── Edge Layout Presets ─────────────────────────────────────────────────────
@@ -601,7 +602,16 @@ export default function PieceVisualEditor({
       left:   preset.sides.includes('left')   ? profileId : null,
       right:  preset.sides.includes('right')  ? profileId : null,
     });
-  }, [onEdgesChange, quickEdgeProfile]);
+
+    // ROUNDED_RECT: also apply to all 4 corner arcs
+    if (effectiveShapeType === 'ROUNDED_RECT' && onShapeEdgeChange) {
+      const cornerProfileId = preset.allRaw ? null : (preset.sides.length === 4 ? profileId : null);
+      onShapeEdgeChange('corner_tl', cornerProfileId);
+      onShapeEdgeChange('corner_tr', cornerProfileId);
+      onShapeEdgeChange('corner_bl', cornerProfileId);
+      onShapeEdgeChange('corner_br', cornerProfileId);
+    }
+  }, [onEdgesChange, quickEdgeProfile, effectiveShapeType, onShapeEdgeChange]);
 
   const handleBulkApply = useCallback(
     (scope: 'room' | 'quote') => {
@@ -1121,7 +1131,64 @@ export default function PieceVisualEditor({
           lengthMm: H - tlMm - blMm, label: 'Left' },
       ];
 
-      return { path, edges, svgW, svgH };
+      // Corner arc definitions for clickable hit areas + labels
+      // Each corner: centre point, radius, start/end angles, arc path, label position
+      const MID_ANGLE = Math.PI / 4; // 45° — midpoint of 90° quarter circle
+      const cornerArcs: Array<{
+        side: string;
+        label: string;
+        arcPath: string;
+        labelX: number;
+        labelY: number;
+        radius: number;
+      }> = [];
+
+      if (tl > 0) {
+        const cx = ox + tl, cy = oy + tl;
+        // TL arc: from (ox, oy+tl) to (ox+tl, oy) — 270° to 360° (or -90° to 0°)
+        cornerArcs.push({
+          side: 'corner_tl', label: 'TL',
+          arcPath: `M ${ox} ${cy} A ${tl} ${tl} 0 0 1 ${cx} ${oy}`,
+          labelX: cx - tl * Math.cos(MID_ANGLE) - 10,
+          labelY: cy - tl * Math.sin(MID_ANGLE) - 10,
+          radius: tl,
+        });
+      }
+      if (tr > 0) {
+        const cx = ox + sW - tr, cy = oy + tr;
+        // TR arc: from (cx, oy) to (ox+sW, cy) — 0° to 90°
+        cornerArcs.push({
+          side: 'corner_tr', label: 'TR',
+          arcPath: `M ${cx} ${oy} A ${tr} ${tr} 0 0 1 ${ox + sW} ${cy}`,
+          labelX: cx + tr * Math.cos(MID_ANGLE) + 10,
+          labelY: cy - tr * Math.sin(MID_ANGLE) - 10,
+          radius: tr,
+        });
+      }
+      if (br > 0) {
+        const cx = ox + sW - br, cy = oy + sH - br;
+        // BR arc: from (ox+sW, cy) to (cx, oy+sH) — 90° to 180°
+        cornerArcs.push({
+          side: 'corner_br', label: 'BR',
+          arcPath: `M ${ox + sW} ${cy} A ${br} ${br} 0 0 1 ${cx} ${oy + sH}`,
+          labelX: cx + br * Math.cos(MID_ANGLE) + 10,
+          labelY: cy + br * Math.sin(MID_ANGLE) + 10,
+          radius: br,
+        });
+      }
+      if (bl > 0) {
+        const cx = ox + bl, cy = oy + sH - bl;
+        // BL arc: from (cx, oy+sH) to (ox, cy) — 180° to 270°
+        cornerArcs.push({
+          side: 'corner_bl', label: 'BL',
+          arcPath: `M ${cx} ${oy + sH} A ${bl} ${bl} 0 0 1 ${ox} ${cy}`,
+          labelX: cx - bl * Math.cos(MID_ANGLE) - 10,
+          labelY: cy + bl * Math.sin(MID_ANGLE) + 10,
+          radius: bl,
+        });
+      }
+
+      return { path, edges, svgW, svgH, cornerArcs };
     }
 
     return null;
@@ -1391,8 +1458,8 @@ export default function PieceVisualEditor({
         </div>
       )}
 
-      {/* ── Edge Layout Presets (Rectangle only) ────────────────────── */}
-      {isEditMode && onEdgesChange && effectiveShapeType === 'RECTANGLE' && (
+      {/* ── Edge Layout Presets (Rectangle + Rounded Rect) ─────────── */}
+      {isEditMode && onEdgesChange && (effectiveShapeType === 'RECTANGLE' || effectiveShapeType === 'ROUNDED_RECT') && (
         <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
           <p className="text-xs font-medium text-gray-500 mr-1">Layout Presets</p>
           {EDGE_PRESETS.map(preset => (
@@ -1563,6 +1630,94 @@ export default function PieceVisualEditor({
                     >
                       <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
                       {isWallEdge ? `WALL ${edge.label}` : (isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`)}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+
+            {/* ── ROUNDED_RECT corner arcs — clickable hit areas + labels ── */}
+            {shapeLayout.cornerArcs?.map((arc) => {
+              const profileId = shapeConfigEdges?.[arc.side] ?? null;
+              const name = profileId ? resolveEdgeName(profileId) : undefined;
+              const isFinished = !!profileId;
+              const colour = edgeColour(name);
+              const code = edgeCode(name);
+              const isHovered = hoveredEdge === arc.side;
+
+              return (
+                <g key={arc.side}>
+                  {/* Hover glow */}
+                  {isHovered && isEditMode && (
+                    <path
+                      d={arc.arcPath}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth={10}
+                      opacity={0.15}
+                      className="pointer-events-none transition-opacity duration-100"
+                    />
+                  )}
+
+                  {/* Visible arc */}
+                  <path
+                    d={arc.arcPath}
+                    fill="none"
+                    stroke={colour}
+                    strokeWidth={isFinished ? 3 : 1}
+                    strokeDasharray={isFinished ? undefined : '4 3'}
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                  </path>
+
+                  {/* Hit area for clicking */}
+                  {isEditMode && onShapeEdgeChange && (
+                    <path
+                      d={arc.arcPath}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={20}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                          onShapeEdgeChange(arc.side, quickEdgeProfile);
+                          updateRecents(quickEdgeProfile);
+                          return;
+                        }
+                        const svgRect = (e.currentTarget as SVGElement)
+                          .closest('svg')
+                          ?.getBoundingClientRect();
+                        if (!svgRect) return;
+                        const relX = e.clientX - svgRect.left;
+                        const relY = e.clientY - svgRect.top;
+                        setShapeEdgePopover({ edgeId: arc.side, x: relX, y: relY });
+                      }}
+                      onMouseEnter={() => setHoveredEdge(arc.side)}
+                      onMouseLeave={() => setHoveredEdge(null)}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                    </path>
+                  )}
+
+                  {/* Corner edge label */}
+                  <g>
+                    <circle
+                      cx={arc.labelX}
+                      cy={arc.labelY}
+                      r={3}
+                      fill={colour}
+                    />
+                    <text
+                      x={arc.labelX}
+                      y={arc.labelY + 12}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className={`select-none ${isFinished ? 'text-[9px] font-semibold' : 'text-[8px]'}`}
+                      fill={colour}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                      {isFinished ? `${code} ${arc.label}` : `RAW ${arc.label}`}
                     </text>
                   </g>
                 </g>
