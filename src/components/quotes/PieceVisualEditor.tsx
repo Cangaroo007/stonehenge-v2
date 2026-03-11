@@ -586,6 +586,17 @@ export default function PieceVisualEditor({
     [onEdgesChange, onEdgeChange, onBulkApply]
   );
 
+  // ── Effective shape type (fallback to RECTANGLE if config missing) ───
+  const effectiveShapeType: ShapeType = useMemo(() => {
+    if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
+    if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
+    if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
+    if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
+    if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
+    if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') return 'ROUNDED_RECT';
+    return 'RECTANGLE';
+  }, [shapeType, shapeConfig]);
+
   const handlePresetApply = useCallback((preset: EdgePreset) => {
     if (!onEdgesChange) return;
 
@@ -715,16 +726,6 @@ export default function PieceVisualEditor({
     };
   }, [layout, lengthMm, widthMm]);
 
-  // ── Effective shape type (fallback to RECTANGLE if config missing) ───
-  const effectiveShapeType: ShapeType = useMemo(() => {
-    if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
-    if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
-    if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
-    if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
-    if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
-    if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') return 'ROUNDED_RECT';
-    return 'RECTANGLE';
-  }, [shapeType, shapeConfig]);
 
   // ── L/U shape layout & edge definitions ─────────────────────────────
   const shapeLayout = useMemo(() => {
