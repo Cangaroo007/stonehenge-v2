@@ -1543,6 +1543,8 @@ model piece_relationships {
   // Optional notes about the relationship
   notes String?
 
+  grain_match              Boolean                       @default(false)
+
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
 
