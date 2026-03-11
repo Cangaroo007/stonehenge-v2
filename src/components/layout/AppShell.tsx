@@ -78,6 +78,7 @@ export default function AppShell({ children, user }: AppShellProps) {
   const [isPeeking, setIsPeeking] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [materialsOpen, setMaterialsOpen] = useState(false);
+  const [pricingGapCount, setPricingGapCount] = useState<number>(0);
   const collapseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pathname = usePathname();
   const router = useRouter();
@@ -103,6 +104,20 @@ export default function AppShell({ children, user }: AppShellProps) {
         clearTimeout(collapseTimerRef.current);
       }
     };
+  }, []);
+
+  // Fetch pricing gap count for nav badge
+  useEffect(() => {
+    fetch('/api/admin/pricing/gaps')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.summary?.totalGaps !== undefined) {
+          setPricingGapCount(data.summary.totalGaps);
+        }
+      })
+      .catch(() => {
+        // Silently fail — badge just won't show
+      });
   }, []);
 
   // Auto-open Materials accordion when on a materials sub-route
@@ -234,6 +249,11 @@ export default function AppShell({ children, user }: AppShellProps) {
                   )}
                   <Icon className={cn('h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
                   {showLabels && <span>{item.name}</span>}
+                  {showLabels && item.name === 'Pricing' && pricingGapCount > 0 && (
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+                      {pricingGapCount}
+                    </span>
+                  )}
                   {/* Tooltip in collapsed mode */}
                   {!showLabels && (
                     <span className="absolute left-full ml-2 px-2 py-1 bg-zinc-900 text-text-inverse text-xs rounded whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-300 pointer-events-none z-[60] border border-zinc-700">
@@ -421,6 +441,11 @@ export default function AppShell({ children, user }: AppShellProps) {
                 >
                   <Icon className={cn('h-5 w-5', 'shrink-0', active && 'text-primary-600')} />
                   <span>{item.name}</span>
+                  {item.name === 'Pricing' && pricingGapCount > 0 && (
+                    <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-xs font-medium text-white">
+                      {pricingGapCount}
+                    </span>
+                  )}
                 </Link>
 
                 {/* Materials accordion — inserted after Customers */}

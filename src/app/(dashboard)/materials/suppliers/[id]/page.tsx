@@ -32,8 +32,6 @@ interface Supplier {
   phone: string | null;
   website: string | null;
   default_margin_percent: string;
-  default_slab_length_mm: number | null;
-  default_slab_width_mm: number | null;
   default_thickness_mm: number | null;
   notes: string | null;
   is_active: boolean;
@@ -249,6 +247,19 @@ export default function SupplierDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* ─── Discontinued Warning Banner ─── */}
+      {(() => {
+        const discontinuedCount = materials.filter((m) => m.is_discontinued).length;
+        return discontinuedCount > 0 ? (
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-3 flex items-start gap-3">
+            <AlertTriangle className="h-5 w-5 text-yellow-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-yellow-800">
+              ⚠ This supplier has {discontinuedCount} discontinued material{discontinuedCount !== 1 ? 's' : ''}. Review and hide them to keep your quote builder clean.
+            </p>
+          </div>
+        ) : null;
+      })()}
 
       {/* ─── Margin Settings ─── */}
       <div className="card p-6">

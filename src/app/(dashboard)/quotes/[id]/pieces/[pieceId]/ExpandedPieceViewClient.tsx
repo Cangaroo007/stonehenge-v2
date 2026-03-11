@@ -8,6 +8,7 @@ import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import type { EdgeSide } from '@/components/quotes/PieceVisualEditor';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
+import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -54,6 +55,12 @@ interface PieceApiData {
   edgeRight: string | null;
   cutouts: PieceCutout[];
   laminationMethod: string;
+  shape_type?: string | null;
+  shape_config?: ShapeConfig | null;
+  cornerEdgeTl: string | null;
+  cornerEdgeTr: string | null;
+  cornerEdgeBl: string | null;
+  cornerEdgeBr: string | null;
   totalCost: number;
   areaSqm: number;
   materialCost: number;
@@ -85,6 +92,12 @@ interface EditableFields {
   cutouts: PieceCutout[];
   roomName: string;
   laminationMethod: string;
+  shapeType?: string | null;
+  shapeConfig?: ShapeConfig | null;
+  cornerEdgeTl: string | null;
+  cornerEdgeTr: string | null;
+  cornerEdgeBl: string | null;
+  cornerEdgeBr: string | null;
 }
 
 interface Material {
@@ -101,6 +114,7 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred: boolean;
   sortOrder: number;
 }
 
@@ -162,6 +176,9 @@ export default function ExpandedPieceViewClient({
   const [cutoutTypes, setCutoutTypes] = useState<CutoutType[]>([]);
   const [thicknessOptions, setThicknessOptions] = useState<ThicknessOption[]>([]);
 
+  // Strip-to-piece promotion threshold (fetched from pricing settings)
+  const [promotionThresholdMm, setPromotionThresholdMm] = useState<number | null>(null);
+
   const { hasUnsavedChanges, markAsChanged, markAsSaved } = useUnsavedChanges();
 
   // ── Dirty state detection ──────────────────────────────────────────────────
@@ -205,6 +222,12 @@ export default function ExpandedPieceViewClient({
         cutouts: data.cutouts || [],
         roomName: data.quote_rooms.name,
         laminationMethod: data.laminationMethod,
+        shapeType: data.shape_type ?? null,
+        shapeConfig: data.shape_config ?? null,
+        cornerEdgeTl: data.cornerEdgeTl ?? null,
+        cornerEdgeTr: data.cornerEdgeTr ?? null,
+        cornerEdgeBl: data.cornerEdgeBl ?? null,
+        cornerEdgeBr: data.cornerEdgeBr ?? null,
       };
       setEditFields(fields);
       setOriginalFields(fields);
@@ -239,16 +262,48 @@ export default function ExpandedPieceViewClient({
     }
   }, [loadPiece, loadReferenceData, mode]);
 
+  // Fetch strip-to-piece promotion threshold from pricing settings
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchThreshold() {
+      try {
+        const res = await fetch('/api/admin/pricing/settings');
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          if (data?.stripToPieceThresholdMm != null) {
+            setPromotionThresholdMm(data.stripToPieceThresholdMm);
+          }
+        }
+      } catch {
+        // Non-fatal — threshold warning simply won't show
+      }
+    }
+    fetchThreshold();
+    return () => { cancelled = true; };
+  }, []);
+
   // ── Save handler ───────────────────────────────────────────────────────────
 
   const handleSave = useCallback(async () => {
     if (!editFields || !isDirty) return;
     setSaving(true);
     try {
+      // Build save payload — include corner edges in shapeConfig for API PATCH handler
+      const savePayload: Record<string, unknown> = { ...editFields };
+      if (editFields.cornerEdgeTl !== undefined || editFields.cornerEdgeTr !== undefined
+        || editFields.cornerEdgeBl !== undefined || editFields.cornerEdgeBr !== undefined) {
+        savePayload.shapeConfig = {
+          ...(editFields.shapeConfig as Record<string, unknown> ?? {}),
+          corner_edge_tl: editFields.cornerEdgeTl ?? null,
+          corner_edge_tr: editFields.cornerEdgeTr ?? null,
+          corner_edge_bl: editFields.cornerEdgeBl ?? null,
+          corner_edge_br: editFields.cornerEdgeBr ?? null,
+        };
+      }
       const res = await fetch(`/api/quotes/${quoteId}/pieces/${pieceId}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(editFields),
+        body: JSON.stringify(savePayload),
       });
       if (!res.ok) {
         const data = await res.json();
@@ -300,6 +355,30 @@ export default function ExpandedPieceViewClient({
     []
   );
 
+  // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT)
+  const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
+    // Corner edges map to cornerEdge fields
+    const cornerMap: Record<string, keyof EditableFields> = {
+      corner_tl: 'cornerEdgeTl',
+      corner_tr: 'cornerEdgeTr',
+      corner_bl: 'cornerEdgeBl',
+      corner_br: 'cornerEdgeBr',
+    };
+    const cornerKey = cornerMap[edgeId];
+    if (cornerKey) {
+      updateField(cornerKey, profileId as EditableFields[typeof cornerKey]);
+      return;
+    }
+    // Straight edges (top/right/bottom/left) map to edgeTop/edgeRight/edgeBottom/edgeLeft
+    const straightMap: Record<string, keyof EditableFields> = {
+      top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft',
+    };
+    const straightKey = straightMap[edgeId];
+    if (straightKey) {
+      updateField(straightKey, profileId as EditableFields[typeof straightKey]);
+    }
+  }, [updateField]);
+
   const handleCutoutAdd = useCallback((cutoutTypeId: string) => {
     setEditFields((prev: EditableFields | null) => {
       if (!prev) return prev;
@@ -323,7 +402,8 @@ export default function ExpandedPieceViewClient({
 
   const edgeTypeOptions = useMemo(() => {
     if (edgeTypes.length > 0) {
-      return edgeTypes.filter((e: EdgeType) => e.isActive).map((e: EdgeType) => ({ id: e.id, name: e.name }));
+      const mitred = editFields?.laminationMethod === 'MITRED';
+      return edgeTypes.filter((e: EdgeType) => e.isActive && (!mitred || e.isMitred)).map((e: EdgeType) => ({ id: e.id, name: e.name }));
     }
     // Fallback: build from piece data
     if (!pieceData?.edgeDetails) return [];
@@ -342,7 +422,7 @@ export default function ExpandedPieceViewClient({
       }
     }
     return items;
-  }, [edgeTypes, pieceData?.edgeDetails]);
+  }, [edgeTypes, pieceData?.edgeDetails, editFields?.laminationMethod]);
 
   // ── Cutout displays for visual editor ──────────────────────────────────────
 
@@ -410,6 +490,23 @@ export default function ExpandedPieceViewClient({
   const isEditMode = mode === 'edit';
   const breakdown = pieceData.costBreakdown;
   const isMitred = editFields.laminationMethod === 'MITRED';
+  const isPromotedStrip = isMitred && promotionThresholdMm != null && editFields.widthMm > promotionThresholdMm;
+
+  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT)
+  const effectiveShapeType = (editFields.shapeType ?? 'RECTANGLE') as ShapeType;
+  const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
+    if (effectiveShapeType !== 'ROUNDED_RECT') return {};
+    return {
+      top: editFields.edgeTop,
+      right: editFields.edgeRight,
+      bottom: editFields.edgeBottom,
+      left: editFields.edgeLeft,
+      corner_tl: editFields.cornerEdgeTl,
+      corner_tr: editFields.cornerEdgeTr,
+      corner_bl: editFields.cornerEdgeBl,
+      corner_br: editFields.cornerEdgeBr,
+    };
+  }, [effectiveShapeType, editFields.edgeTop, editFields.edgeRight, editFields.edgeBottom, editFields.edgeLeft, editFields.cornerEdgeTl, editFields.cornerEdgeTr, editFields.cornerEdgeBl, editFields.cornerEdgeBr]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -436,6 +533,11 @@ export default function ExpandedPieceViewClient({
                 Unsaved changes
               </span>
             )}
+            {isDirty && (
+              <span className="text-xs font-medium text-amber-600 bg-amber-50 border border-amber-200 rounded px-1.5 py-0.5">
+                ⚠ Price may be outdated
+              </span>
+            )}
           </div>
 
           {isEditMode && (
@@ -453,6 +555,15 @@ export default function ExpandedPieceViewClient({
           )}
         </div>
       </div>
+
+      {/* ── Strip Promotion Warning ────────────────────────────────────────── */}
+      {isPromotedStrip && (
+        <div className="max-w-5xl mx-auto px-4 mt-4">
+          <div className="px-3 py-2 bg-amber-50 border border-amber-200 rounded text-sm text-amber-800">
+            ⚠ This apron strip exceeds the promotion threshold ({promotionThresholdMm}mm). It will be treated as a separate piece for pricing.
+          </div>
+        </div>
+      )}
 
       <div className="max-w-5xl mx-auto px-4 py-6 space-y-6">
         {/* ── Large SVG Diagram ────────────────────────────────────────────── */}
@@ -477,6 +588,10 @@ export default function ExpandedPieceViewClient({
               onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
               onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
               cutoutTypes={cutoutTypes.filter((c) => c.isActive)}
+              shapeType={effectiveShapeType}
+              shapeConfig={editFields.shapeConfig ?? undefined}
+              shapeConfigEdges={effectiveShapeType === 'ROUNDED_RECT' ? shapeConfigEdges : undefined}
+              onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
             />
           </div>
         </div>
@@ -548,7 +663,7 @@ export default function ExpandedPieceViewClient({
                         className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                       >
                         <option value="">Raw</option>
-                        {edgeTypes.filter((e) => e.isActive).map((e) => (
+                        {edgeTypes.filter((e) => e.isActive && (!isMitred || e.isMitred)).map((e) => (
                           <option key={e.id} value={e.id}>{e.name}</option>
                         ))}
                       </select>
@@ -569,25 +684,36 @@ export default function ExpandedPieceViewClient({
               Material
             </h3>
             {isEditMode && materials.length > 0 ? (
-              <select
-                value={editFields.materialId ?? ''}
-                onChange={(e) => {
-                  const matId = e.target.value ? Number(e.target.value) : null;
-                  const mat = materials.find((m) => m.id === matId);
-                  updateField('materialId', matId);
-                  updateField('materialName', mat?.name ?? null);
-                }}
-                className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">No material</option>
-                {materials.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name}{m.collection ? ` (${m.collection})` : ''}
-                  </option>
-                ))}
-              </select>
+              <>
+                <select
+                  value={editFields.materialId ?? ''}
+                  onChange={(e) => {
+                    const matId = e.target.value ? Number(e.target.value) : null;
+                    const mat = materials.find((m) => m.id === matId);
+                    updateField('materialId', matId);
+                    updateField('materialName', mat?.name ?? null);
+                  }}
+                  className="w-full px-3 py-2 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">No material</option>
+                  {materials.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.name}{m.collection ? ` (${m.collection})` : ''}
+                    </option>
+                  ))}
+                </select>
+                {editFields.materialId === null && (
+                  <p className="mt-1 text-xs text-amber-600">⚠️ No material — cost will be $0.00</p>
+                )}
+              </>
             ) : (
               <div className="space-y-2">
+                {!pieceData.materialDetails && !editFields.materialName && (
+                  <div className="flex items-center gap-2 rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 text-sm text-amber-800">
+                    <span>⚠️</span>
+                    <span>No material assigned — material cost will be $0.00</span>
+                  </div>
+                )}
                 <div className="flex items-center justify-between">
                   <span className="text-sm text-gray-600">Name</span>
                   <span className="text-sm font-medium text-gray-900">
@@ -705,6 +831,20 @@ export default function ExpandedPieceViewClient({
                   label="Polishing"
                   formula={`${breakdown.fabrication.polishing.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.polishing.unit)} \u00D7 ${formatCurrency(breakdown.fabrication.polishing.rate)}`}
                   total={breakdown.fabrication.polishing.total}
+                />
+              )}
+              {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
+                <CostRow
+                  label="Curved Cutting"
+                  formula={`${breakdown.fabrication.curvedCutting.arcLengthLm.toFixed(2)} Lm \u00D7 ${formatCurrency(breakdown.fabrication.curvedCutting.rate)}`}
+                  total={breakdown.fabrication.curvedCutting.cost}
+                />
+              )}
+              {breakdown.fabrication.curvedPolishing && breakdown.fabrication.curvedPolishing.cost > 0 && (
+                <CostRow
+                  label="Curved Polishing"
+                  formula={`${breakdown.fabrication.curvedPolishing.arcLengthLm.toFixed(2)} Lm \u00D7 ${formatCurrency(breakdown.fabrication.curvedPolishing.rate)}`}
+                  total={breakdown.fabrication.curvedPolishing.cost}
                 />
               )}
               {breakdown.fabrication.edges.filter((e) => e.total > 0).map((edge, idx) => (

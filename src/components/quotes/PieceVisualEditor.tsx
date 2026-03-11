@@ -6,7 +6,7 @@ import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type {
   ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
-  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig,
+  RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig,
 } from '@/lib/types/shapes';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -31,8 +31,51 @@ export type ShapeEdgeSide =
   | 'r_top' | 'r_btm' | 'inner'  // L-shape
   | 'top_left' | 'top_right' | 'outer_left' | 'outer_right' | 'inner_left' | 'inner_right' | 'back_inner'  // U-shape
   | 'arc_end' | 'arc_body'  // RADIUS_END / FULL_CIRCLE
-  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer';  // CONCAVE_ARC
+  | 'arc_left' | 'arc_right' | 'arc_inner' | 'arc_outer'  // CONCAVE_ARC
+  | 'corner_tl' | 'corner_tr' | 'corner_bl' | 'corner_br';  // ROUNDED_RECT corners
 type EdgeEditMode = 'select' | 'quickEdge';
+
+// ─── Edge Layout Presets ─────────────────────────────────────────────────────
+
+export interface EdgePreset {
+  id: string;
+  label: string;
+  /** Which sides get the selected profile. Others get null. */
+  sides: Array<'top' | 'bottom' | 'left' | 'right'>;
+  /** If true, always sets all edges to null regardless of selected profile */
+  allRaw?: boolean;
+}
+
+export const EDGE_PRESETS: EdgePreset[] = [
+  { id: 'all-raw',              label: 'All Raw',              sides: [],                              allRaw: true },
+  { id: 'front-only',           label: 'Front Only',           sides: ['bottom'] },
+  { id: 'front-return-right',   label: 'Front + Return',       sides: ['bottom', 'right'] },
+  { id: 'front-return-left',    label: 'Front + Left Return',  sides: ['bottom', 'left'] },
+  { id: 'front-both-returns',   label: 'Front + Both Returns', sides: ['bottom', 'left', 'right'] },
+  { id: 'front-back',           label: 'Front + Back',         sides: ['bottom', 'top'] },
+  { id: 'island',               label: 'Island',               sides: ['top', 'bottom', 'left', 'right'] },
+];
+
+export function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'left' | 'right'> }) {
+  const active = 'stroke-stone-700';
+  const inactive = 'stroke-gray-200';
+  return (
+    <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
+      {/* top */}
+      <line x1="2" y1="2"  x2="30" y2="2"
+        className={sides.includes('top')    ? active : inactive} strokeWidth="2.5" />
+      {/* bottom */}
+      <line x1="2" y1="18" x2="30" y2="18"
+        className={sides.includes('bottom') ? active : inactive} strokeWidth="2.5" />
+      {/* left */}
+      <line x1="2" y1="2"  x2="2"  y2="18"
+        className={sides.includes('left')   ? active : inactive} strokeWidth="2.5" />
+      {/* right */}
+      <line x1="30" y1="2" x2="30" y2="18"
+        className={sides.includes('right')  ? active : inactive} strokeWidth="2.5" />
+    </svg>
+  );
+}
 
 /** Edge segment definition for shape rendering */
 interface ShapeEdgeDef {
@@ -221,6 +264,9 @@ export default function PieceVisualEditor({
   const [showTemplates, setShowTemplates] = useState(false);
   const [showSaveTemplate, setShowSaveTemplate] = useState(false);
   const [templatesFetched, setTemplatesFetched] = useState(false);
+
+  // ── Preset state ─────────────────────────────────────────────────────
+  const [presetMessage, setPresetMessage] = useState<string | null>(null);
 
   // ── Bulk apply state ──────────────────────────────────────────────────
   const [bulkApplyInfo, setBulkApplyInfo] = useState<{
@@ -540,6 +586,33 @@ export default function PieceVisualEditor({
     [onEdgesChange, onEdgeChange, onBulkApply]
   );
 
+  const handlePresetApply = useCallback((preset: EdgePreset) => {
+    if (!onEdgesChange) return;
+
+    if (!preset.allRaw && !quickEdgeProfile) {
+      setPresetMessage('Select an edge profile first');
+      setTimeout(() => setPresetMessage(null), 2000);
+      return;
+    }
+
+    const profileId = preset.allRaw ? null : quickEdgeProfile;
+    onEdgesChange({
+      top:    preset.sides.includes('top')    ? profileId : null,
+      bottom: preset.sides.includes('bottom') ? profileId : null,
+      left:   preset.sides.includes('left')   ? profileId : null,
+      right:  preset.sides.includes('right')  ? profileId : null,
+    });
+
+    // ROUNDED_RECT: also apply to all 4 corner arcs
+    if (effectiveShapeType === 'ROUNDED_RECT' && onShapeEdgeChange) {
+      const cornerProfileId = preset.allRaw ? null : (preset.sides.length === 4 ? profileId : null);
+      onShapeEdgeChange('corner_tl', cornerProfileId);
+      onShapeEdgeChange('corner_tr', cornerProfileId);
+      onShapeEdgeChange('corner_bl', cornerProfileId);
+      onShapeEdgeChange('corner_br', cornerProfileId);
+    }
+  }, [onEdgesChange, quickEdgeProfile, effectiveShapeType, onShapeEdgeChange]);
+
   const handleBulkApply = useCallback(
     (scope: 'room' | 'quote') => {
       if (!bulkApplyInfo || !onBulkApply) return;
@@ -649,6 +722,7 @@ export default function PieceVisualEditor({
     if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
     if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
     if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
+    if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') return 'ROUNDED_RECT';
     return 'RECTANGLE';
   }, [shapeType, shapeConfig]);
 
@@ -999,6 +1073,124 @@ export default function PieceVisualEditor({
       return { path, edges, svgW, svgH };
     }
 
+    if (effectiveShapeType === 'ROUNDED_RECT') {
+      const cfg = shapeConfig as RoundedRectConfig;
+      const W = cfg.length_mm ?? lengthMm;
+      const H = cfg.width_mm ?? widthMm;
+
+      const scale = Math.min(
+        (500 - SVG_PADDING * 2) / W,
+        (300 - SVG_PADDING * 2) / H
+      );
+      const sW = W * scale;
+      const sH = H * scale;
+      const ox = SVG_PADDING;
+      const oy = SVG_PADDING;
+      const svgW = sW + SVG_PADDING * 2;
+      const svgH = sH + SVG_PADDING * 2;
+
+      // Resolve per-corner radii, capped to half the smallest dimension
+      const maxR = Math.min(W / 2, H / 2);
+      const tlMm = Math.min(cfg.individual_corners ? cfg.corner_tl_mm : cfg.corner_radius_mm, maxR);
+      const trMm = Math.min(cfg.individual_corners ? cfg.corner_tr_mm : cfg.corner_radius_mm, maxR);
+      const brMm = Math.min(cfg.individual_corners ? cfg.corner_br_mm : cfg.corner_radius_mm, maxR);
+      const blMm = Math.min(cfg.individual_corners ? cfg.corner_bl_mm : cfg.corner_radius_mm, maxR);
+
+      const tl = tlMm * scale;
+      const tr = trMm * scale;
+      const br = brMm * scale;
+      const bl = blMm * scale;
+
+      // SVG path: start top-left after corner, go clockwise
+      const path = [
+        `M ${ox + tl} ${oy}`,
+        `L ${ox + sW - tr} ${oy}`,
+        `A ${tr} ${tr} 0 0 1 ${ox + sW} ${oy + tr}`,
+        `L ${ox + sW} ${oy + sH - br}`,
+        `A ${br} ${br} 0 0 1 ${ox + sW - br} ${oy + sH}`,
+        `L ${ox + bl} ${oy + sH}`,
+        `A ${bl} ${bl} 0 0 1 ${ox} ${oy + sH - bl}`,
+        `L ${ox} ${oy + tl}`,
+        `A ${tl} ${tl} 0 0 1 ${ox + tl} ${oy}`,
+        'Z',
+      ].join(' ');
+
+      // 4 straight edge segments — each length subtracts corner radii at each end
+      const edges: ShapeEdgeDef[] = [
+        { side: 'top', x1: ox + tl, y1: oy, x2: ox + sW - tr, y2: oy,
+          labelX: ox + sW / 2, labelY: oy - 12,
+          lengthMm: W - tlMm - trMm, label: 'Top' },
+        { side: 'right', x1: ox + sW, y1: oy + tr, x2: ox + sW, y2: oy + sH - br,
+          labelX: ox + sW + 16, labelY: oy + sH / 2,
+          lengthMm: H - trMm - brMm, label: 'Right' },
+        { side: 'bottom', x1: ox + sW - br, y1: oy + sH, x2: ox + bl, y2: oy + sH,
+          labelX: ox + sW / 2, labelY: oy + sH + 16,
+          lengthMm: W - blMm - brMm, label: 'Bottom' },
+        { side: 'left', x1: ox, y1: oy + sH - bl, x2: ox, y2: oy + tl,
+          labelX: ox - 16, labelY: oy + sH / 2,
+          lengthMm: H - tlMm - blMm, label: 'Left' },
+      ];
+
+      // Corner arc definitions for clickable hit areas + labels
+      // Each corner: centre point, radius, start/end angles, arc path, label position
+      const MID_ANGLE = Math.PI / 4; // 45° — midpoint of 90° quarter circle
+      const cornerArcs: Array<{
+        side: string;
+        label: string;
+        arcPath: string;
+        labelX: number;
+        labelY: number;
+        radius: number;
+      }> = [];
+
+      if (tl > 0) {
+        const cx = ox + tl, cy = oy + tl;
+        // TL arc: from (ox, oy+tl) to (ox+tl, oy) — 270° to 360° (or -90° to 0°)
+        cornerArcs.push({
+          side: 'corner_tl', label: 'TL',
+          arcPath: `M ${ox} ${cy} A ${tl} ${tl} 0 0 1 ${cx} ${oy}`,
+          labelX: cx - tl * Math.cos(MID_ANGLE) - 10,
+          labelY: cy - tl * Math.sin(MID_ANGLE) - 10,
+          radius: tl,
+        });
+      }
+      if (tr > 0) {
+        const cx = ox + sW - tr, cy = oy + tr;
+        // TR arc: from (cx, oy) to (ox+sW, cy) — 0° to 90°
+        cornerArcs.push({
+          side: 'corner_tr', label: 'TR',
+          arcPath: `M ${cx} ${oy} A ${tr} ${tr} 0 0 1 ${ox + sW} ${cy}`,
+          labelX: cx + tr * Math.cos(MID_ANGLE) + 10,
+          labelY: cy - tr * Math.sin(MID_ANGLE) - 10,
+          radius: tr,
+        });
+      }
+      if (br > 0) {
+        const cx = ox + sW - br, cy = oy + sH - br;
+        // BR arc: from (ox+sW, cy) to (cx, oy+sH) — 90° to 180°
+        cornerArcs.push({
+          side: 'corner_br', label: 'BR',
+          arcPath: `M ${ox + sW} ${cy} A ${br} ${br} 0 0 1 ${cx} ${oy + sH}`,
+          labelX: cx + br * Math.cos(MID_ANGLE) + 10,
+          labelY: cy + br * Math.sin(MID_ANGLE) + 10,
+          radius: br,
+        });
+      }
+      if (bl > 0) {
+        const cx = ox + bl, cy = oy + sH - bl;
+        // BL arc: from (cx, oy+sH) to (ox, cy) — 180° to 270°
+        cornerArcs.push({
+          side: 'corner_bl', label: 'BL',
+          arcPath: `M ${cx} ${oy + sH} A ${bl} ${bl} 0 0 1 ${ox} ${cy}`,
+          labelX: cx - bl * Math.cos(MID_ANGLE) - 10,
+          labelY: cy + bl * Math.sin(MID_ANGLE) + 10,
+          radius: bl,
+        });
+      }
+
+      return { path, edges, svgW, svgH, cornerArcs };
+    }
+
     return null;
   }, [effectiveShapeType, shapeConfig, layout]);
 
@@ -1266,6 +1458,31 @@ export default function PieceVisualEditor({
         </div>
       )}
 
+      {/* ── Edge Layout Presets (Rectangle + Rounded Rect) ─────────── */}
+      {isEditMode && onEdgesChange && (effectiveShapeType === 'RECTANGLE' || effectiveShapeType === 'ROUNDED_RECT') && (
+        <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
+          <p className="text-xs font-medium text-gray-500 mr-1">Layout Presets</p>
+          {EDGE_PRESETS.map(preset => (
+            <button
+              key={preset.id}
+              onClick={() => handlePresetApply(preset)}
+              title={preset.label}
+              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded border
+                         border-gray-200 hover:border-stone-400 hover:bg-stone-50
+                         transition-colors text-center"
+            >
+              <PresetThumbnail sides={preset.sides} />
+              <span className="text-[10px] text-gray-500 leading-tight whitespace-nowrap">
+                {preset.label}
+              </span>
+            </button>
+          ))}
+          {presetMessage && (
+            <p className="text-xs text-amber-600 ml-1">{presetMessage}</p>
+          )}
+        </div>
+      )}
+
       {/* ── Recents Strip (Quick Edge mode, above SVG) ─────────────── */}
       {isEditMode && !isMitred && editMode === 'quickEdge' && recentProfiles.length > 0 && (
         <div className="flex items-center gap-1 mb-1 px-1">
@@ -1413,6 +1630,94 @@ export default function PieceVisualEditor({
                     >
                       <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
                       {isWallEdge ? `WALL ${edge.label}` : (isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`)}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
+
+            {/* ── ROUNDED_RECT corner arcs — clickable hit areas + labels ── */}
+            {shapeLayout.cornerArcs?.map((arc) => {
+              const profileId = shapeConfigEdges?.[arc.side] ?? null;
+              const name = profileId ? resolveEdgeName(profileId) : undefined;
+              const isFinished = !!profileId;
+              const colour = edgeColour(name);
+              const code = edgeCode(name);
+              const isHovered = hoveredEdge === arc.side;
+
+              return (
+                <g key={arc.side}>
+                  {/* Hover glow */}
+                  {isHovered && isEditMode && (
+                    <path
+                      d={arc.arcPath}
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth={10}
+                      opacity={0.15}
+                      className="pointer-events-none transition-opacity duration-100"
+                    />
+                  )}
+
+                  {/* Visible arc */}
+                  <path
+                    d={arc.arcPath}
+                    fill="none"
+                    stroke={colour}
+                    strokeWidth={isFinished ? 3 : 1}
+                    strokeDasharray={isFinished ? undefined : '4 3'}
+                  >
+                    <title>{name || 'Raw / Unfinished'}</title>
+                  </path>
+
+                  {/* Hit area for clicking */}
+                  {isEditMode && onShapeEdgeChange && (
+                    <path
+                      d={arc.arcPath}
+                      fill="none"
+                      stroke="transparent"
+                      strokeWidth={20}
+                      style={{ cursor: 'pointer' }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                          onShapeEdgeChange(arc.side, quickEdgeProfile);
+                          updateRecents(quickEdgeProfile);
+                          return;
+                        }
+                        const svgRect = (e.currentTarget as SVGElement)
+                          .closest('svg')
+                          ?.getBoundingClientRect();
+                        if (!svgRect) return;
+                        const relX = e.clientX - svgRect.left;
+                        const relY = e.clientY - svgRect.top;
+                        setShapeEdgePopover({ edgeId: arc.side, x: relX, y: relY });
+                      }}
+                      onMouseEnter={() => setHoveredEdge(arc.side)}
+                      onMouseLeave={() => setHoveredEdge(null)}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                    </path>
+                  )}
+
+                  {/* Corner edge label */}
+                  <g>
+                    <circle
+                      cx={arc.labelX}
+                      cy={arc.labelY}
+                      r={3}
+                      fill={colour}
+                    />
+                    <text
+                      x={arc.labelX}
+                      y={arc.labelY + 12}
+                      textAnchor="middle"
+                      dominantBaseline="middle"
+                      className={`select-none ${isFinished ? 'text-[9px] font-semibold' : 'text-[8px]'}`}
+                      fill={colour}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                      {isFinished ? `${code} ${arc.label}` : `RAW ${arc.label}`}
                     </text>
                   </g>
                 </g>

@@ -85,7 +85,7 @@ const COMPANY_ADDRESS =
 
 // ── Curved shape helpers (C6) ─────────────────────────────────────────────────
 
-const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC']);
+const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC', 'ROUNDED_RECT']);
 
 function isCurvedShape(shapeType?: string | null): boolean {
   return !!shapeType && CURVED_SHAPE_TYPES.has(shapeType);
@@ -135,6 +135,18 @@ function calcArcLengthM(shapeType: string, shapeConfig: unknown): number {
       const r = Number(cfg.inner_radius_mm) || 0;
       const sweep = Number(cfg.sweep_deg) || 0;
       return ((sweep / 360) * 2 * Math.PI * r) / 1000; // mm → metres
+    }
+    case 'ROUNDED_RECT': {
+      const cfg2 = shapeConfig as Record<string, unknown>;
+      if (cfg2.individual_corners) {
+        const tl = Number(cfg2.corner_tl_mm) || 0;
+        const tr = Number(cfg2.corner_tr_mm) || 0;
+        const br = Number(cfg2.corner_br_mm) || 0;
+        const bl = Number(cfg2.corner_bl_mm) || 0;
+        return ((Math.PI / 2) * (tl + tr + br + bl)) / 1000;
+      }
+      const r = Number(cfg2.corner_radius_mm) || 0;
+      return ((Math.PI / 2) * r * 4) / 1000;
     }
     default:
       return 0;
@@ -238,6 +250,8 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
+      curvedCuttingMode: settings.curved_cutting_mode,
+      curvedPolishingMode: settings.curved_polishing_mode,
     };
   }
 
@@ -1013,11 +1027,10 @@ export async function calculateQuotePrice(
       isOversize,
       joinLength_Lm: joinLengthLm,
       requiresGrainMatch: isOversize,
-      // Pricing Bible: 40mm thickness = lamination is a construction requirement.
-      // MITRED takes priority (explicit user choice), then LAMINATED (explicit or implied by thickness >= 40).
+      // Lamination method is an explicit user choice — never inferred from thickness.
       laminationMethod: piece.lamination_method === 'MITRED'
         ? 'MITRED'
-        : piece.lamination_method === 'LAMINATED' || piece.thickness_mm >= 40
+        : piece.lamination_method === 'LAMINATED'
         ? 'LAMINATED'
         : null,
       edges,
@@ -1032,6 +1045,9 @@ export async function calculateQuotePrice(
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
+      arcLengthLm: isCurvedShape((piece as any).shape_type)
+        ? calcArcLengthM((piece as any).shape_type!, (piece as any).shape_config)
+        : undefined,
     });
   }
 
@@ -1047,6 +1063,8 @@ export async function calculateQuotePrice(
       templatingCost: 0,
       laminatedMultiplier: pricingContext.laminatedMultiplier,
       mitredMultiplier: pricingContext.mitredMultiplier,
+      curvedCuttingMode: pricingContext.curvedCuttingMode,
+      curvedPolishingMode: pricingContext.curvedPolishingMode,
     },
     serviceRates: engineServiceRates,
     edgeCategoryRates: engineEdgeCategoryRates,
@@ -1078,6 +1096,8 @@ export async function calculateQuotePrice(
         polishing: { lm: 0, ratePerLm: 0, cost: 0 },
         edgeProfiles: { lm: 0, cost: 0, items: [] },
         lamination: null,
+        curvedCutting: null,
+        curvedPolishing: null,
         cutouts: { cost: 0, items: [] },
         join: null,
         grainSurcharge: null,
@@ -1191,9 +1211,11 @@ export async function calculateQuotePrice(
 
   // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
   const waterfallPieces = allPieces.filter((p: any) => {
+    // Primary: detect by piece_type (real Prisma field added in WF-1a)
+    if (p.piece_type === 'WATERFALL') return true;
+    // Legacy fallback: waterfall_height_mm for pieces created before WF-1b
     if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
-    const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
-    return edges.some((e: string | null) => e && (e.includes('WATERFALL') || e.includes('waterfall')));
+    return false;
   });
   if (waterfallPieces.length > 0) {
     const avgThickness = allPieces.length > 0
@@ -1465,8 +1487,9 @@ export async function calculateQuotePrice(
     }
 
     const fabricationSubtotal = roundToTwo(
-      ep.cutting.cost + ep.polishing.cost + ep.edgeProfiles.cost +
-      (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
+      ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
+      ep.polishing.cost + (ep.curvedPolishing?.cost ?? 0) +
+      ep.edgeProfiles.cost + (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
       (installationBreakdown?.total ?? 0)
     );
 
@@ -1491,6 +1514,8 @@ export async function calculateQuotePrice(
         edges: edgeBreakdowns,
         cutouts: cutoutBreakdowns,
         subtotal: fabricationSubtotal,
+        ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(ep.curvedCutting.cost) } } : {}),
+        ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(ep.curvedPolishing.cost) } } : {}),
       },
       pieceTotal: fabricationSubtotal,
     };
@@ -1712,15 +1737,18 @@ export async function calculateQuotePrice(
       : (calculatedDeliveryCost ?? 0),
   };
 
-  // Calculate templating cost
+  // Calculate templating cost — guard: if templatingRequired is false, cost is always $0
+  const templatingRequired = quoteAny.templatingRequired === true;
   const templatingBreakdown = {
-    required: quoteAny.templatingRequired,
+    required: templatingRequired,
     distanceKm: quoteAny.templatingDistanceKm ? Number(quoteAny.templatingDistanceKm) : deliveryDistanceKm,
     calculatedCost: calculatedTemplatingCost,
     overrideCost: quoteAny.overrideTemplatingCost ? Number(quoteAny.overrideTemplatingCost) : null,
-    finalCost: quoteAny.overrideTemplatingCost
-      ? Number(quoteAny.overrideTemplatingCost)
-      : (calculatedTemplatingCost ?? 0),
+    finalCost: templatingRequired
+      ? (quoteAny.overrideTemplatingCost
+          ? Number(quoteAny.overrideTemplatingCost)
+          : (calculatedTemplatingCost ?? 0))
+      : 0,
   };
 
   // Calculate initial subtotal from aggregate values.

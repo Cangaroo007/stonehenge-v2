@@ -62,6 +62,8 @@ export interface InlinePieceData {
   shapeConfig?: Record<string, unknown> | null;
   overrideMaterialCost?: number | null;
   stripWidthOverrides?: Record<string, number> | null;
+  lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
+  piece_type?: string | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -442,6 +444,7 @@ export default function InlinePieceEditor({
   const [lengthMm, setLengthMm] = useState(piece.lengthMm.toString());
   const [widthMm, setWidthMm] = useState(piece.widthMm.toString());
   const [thicknessMm, setThicknessMm] = useState(piece.thicknessMm);
+  const [laminationMethod, setLaminationMethod] = useState<'NONE' | 'LAMINATED' | 'MITRED'>(piece.lamination_method ?? 'NONE');
   const [thicknessMode, setThicknessMode] = useState<'20mm' | '40mm' | 'custom'>(() => {
     const t = piece.thicknessMm;
     if (t === 20) return '20mm';
@@ -462,6 +465,9 @@ export default function InlinePieceEditor({
   const [mitredCornerTreatment, setMitredCornerTreatment] =
     useState<'RAW' | 'SQUARE_TOP' | 'ROUND_TOP'>('RAW');
   const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
+  const [localPieceType, setLocalPieceType] = useState<string>(
+    piece.piece_type ?? 'BENCHTOP'
+  );
   const [edgeSelections, setEdgeSelections] = useState<EdgeSelections>({
     edgeTop: piece.edgeTop || null,
     edgeBottom: piece.edgeBottom || null,
@@ -482,9 +488,19 @@ export default function InlinePieceEditor({
     slabWidthMm: '',
     pricePerSlab: '',
     collection: '',
+    pricePerSqm: 0,
   });
   const [newMatSaving, setNewMatSaving] = useState(false);
   const [newMatError, setNewMatError] = useState<string | null>(null);
+
+  const calculatedPricePerSqm = useMemo(() => {
+    const price = parseFloat(newMat.pricePerSlab);
+    const length = parseInt(newMat.slabLengthMm);
+    const width = parseInt(newMat.slabWidthMm);
+    if (!price || !length || !width || price <= 0 || length <= 0 || width <= 0) return null;
+    const slabAreaSqm = (length * width) / 1_000_000;
+    return Math.round((price / slabAreaSqm) * 100) / 100;
+  }, [newMat.pricePerSlab, newMat.slabLengthMm, newMat.slabWidthMm]);
 
   // ── Shape state (K2: L/U shape wizard) ─────────────────────────────────
   const [shapeType, setShapeType] = useState<ShapeType>('RECTANGLE');
@@ -823,7 +839,7 @@ export default function InlinePieceEditor({
           slabLengthMm: newMat.slabLengthMm ? parseInt(newMat.slabLengthMm) : null,
           slabWidthMm: newMat.slabWidthMm ? parseInt(newMat.slabWidthMm) : null,
           pricePerSlab: newMat.pricePerSlab ? parseFloat(newMat.pricePerSlab) : null,
-          pricePerSqm: 0,
+          pricePerSqm: calculatedPricePerSqm ?? 0,
           isActive: true,
         }),
       });
@@ -835,7 +851,7 @@ export default function InlinePieceEditor({
       const created = await res.json();
       setMaterialId(created.id);
       setShowNewMaterialModal(false);
-      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '' });
+      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '', pricePerSqm: 0 });
       onMaterialCreated?.();
     } catch {
       setNewMatError('Failed to create material');
@@ -851,7 +867,9 @@ export default function InlinePieceEditor({
 
     // Cutouts: always use local state since CutoutSelector is rendered for all pieces.
     const payload: Record<string, unknown> = {
+      pieceType: localPieceType,
       thicknessMm,
+      laminationMethod,
       mitredCornerTreatment,
       materialId,
       materialName: selectedMaterial?.name || null,
@@ -976,7 +994,7 @@ export default function InlinePieceEditor({
 
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
-  const laminationMethod: string = (piece as unknown as Record<string, unknown>)?.laminationMethod as string ?? (thicknessMm > 20 ? 'LAMINATED' : 'NONE');
+  // laminationMethod is now managed as local state (line ~445), not derived from piece cast
 
   // Dimension input helper — reused across shapes
   const dimInput = (
@@ -1051,6 +1069,25 @@ export default function InlinePieceEditor({
           {errors.pieceName && <p className="mt-0.5 text-xs text-red-500">{errors.pieceName}</p>}
         </div>
       )}
+
+      {/* Piece type */}
+      <div>
+        <label className="block text-[10px] text-gray-500 mb-0.5">Piece Type</label>
+        <select
+          value={localPieceType}
+          onChange={(e) => setLocalPieceType(e.target.value)}
+          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500"
+        >
+          <option value="BENCHTOP">Benchtop</option>
+          <option value="ISLAND">Island</option>
+          <option value="SPLASHBACK">Splashback</option>
+          <option value="WATERFALL">Waterfall</option>
+          <option value="VANITY">Vanity</option>
+          <option value="SHELF">Shelf</option>
+          <option value="PANEL">Panel</option>
+          <option value="OTHER">Other</option>
+        </select>
+      </div>
 
       {/* ── RECTANGLE dimensions (existing flow — unchanged) ─────────── */}
       {shapeType === 'RECTANGLE' && (
@@ -1144,9 +1181,27 @@ export default function InlinePieceEditor({
               )}
             </div>
             {thicknessMm > 20 && (
-              <p className="mt-1 text-xs text-purple-600">
-                Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
-              </p>
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  40mm Build-up Method
+                </label>
+                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                  {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                    <button
+                      key={method}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }}
+                      className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${
+                        laminationMethod === method
+                          ? 'bg-gray-900 text-white'
+                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      }`}
+                    >
+                      {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                    </button>
+                  ))}
+                </div>
+              </div>
             )}
             {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
           </div>
@@ -1310,7 +1365,18 @@ export default function InlinePieceEditor({
                   <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
                 )}
               </div>
-              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {thicknessMm > 20 && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
+                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
             </div>
             <div>
@@ -1465,7 +1531,18 @@ export default function InlinePieceEditor({
                   <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
                 )}
               </div>
-              {thicknessMm > 20 && <p className="mt-1 text-xs text-purple-600">Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}</p>}
+              {thicknessMm > 20 && (
+                <div className="mt-2">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
+                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
+                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
+                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
             </div>
             <div>
@@ -1981,6 +2058,16 @@ export default function InlinePieceEditor({
                     className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
                   />
                 </div>
+                {calculatedPricePerSqm !== null && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    ≈ <span className="font-medium text-gray-700">${calculatedPricePerSqm.toFixed(2)}/m²</span> based on slab dimensions
+                  </p>
+                )}
+                {newMat.pricePerSlab && !calculatedPricePerSqm && (
+                  <p className="text-xs text-amber-600 mt-1">
+                    Enter slab dimensions to calculate m² rate
+                  </p>
+                )}
               </div>
               {newMatError && (
                 <p className="text-xs text-red-600">{newMatError}</p>

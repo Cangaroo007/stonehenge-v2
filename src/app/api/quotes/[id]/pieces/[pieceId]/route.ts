@@ -163,16 +163,22 @@ export async function GET(
       thicknessMm: p.thickness_mm,
       materialId: p.material_id,
       materialName: p.material_name,
-      edgeTop: p.edge_top,
-      edgeBottom: p.edge_bottom,
-      edgeLeft: p.edge_left,
-      edgeRight: p.edge_right,
+      // CURVE-2a: Prefer top-level edge columns, fallback to shape_config.edges for legacy ROUNDED_RECT data
+      edgeTop: p.edge_top ?? (piece.shape_config as any)?.edges?.top ?? null,
+      edgeBottom: p.edge_bottom ?? (piece.shape_config as any)?.edges?.bottom ?? null,
+      edgeLeft: p.edge_left ?? (piece.shape_config as any)?.edges?.left ?? null,
+      edgeRight: p.edge_right ?? (piece.shape_config as any)?.edges?.right ?? null,
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
       overrideMaterialCost: piece.override_material_cost
         ? Number(piece.override_material_cost)
         : null,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: p.corner_edge_tl ?? null,
+      cornerEdgeTr: p.corner_edge_tr ?? null,
+      cornerEdgeBl: p.corner_edge_bl ?? null,
+      cornerEdgeBr: p.corner_edge_br ?? null,
       noStripEdges: (p.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
       mitredCornerTreatment: p.mitred_corner_treatment ?? 'RAW',
@@ -256,6 +262,7 @@ export async function PATCH(
       shapeConfig,
       noStripEdges,
       stripWidthOverrides,
+      pieceType,
     } = data;
     const mitredCornerTreatment = data.mitredCornerTreatment as string | undefined;
 
@@ -355,6 +362,15 @@ export async function PATCH(
         : effectiveThickness >= 40 ? 'LAMINATED' : 'NONE';
     }
 
+    // CURVE-2a: If shapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
+    const scEdgesPatch = (shapeConfig as Record<string, unknown> | undefined)?.edges as Record<string, string | null> | undefined;
+    const patchEdgeTop = scEdgesPatch?.top !== undefined ? (scEdgesPatch.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top);
+    const patchEdgeBottom = scEdgesPatch?.bottom !== undefined ? (scEdgesPatch.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom);
+    const patchEdgeLeft = scEdgesPatch?.left !== undefined ? (scEdgesPatch.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left);
+    const patchEdgeRight = scEdgesPatch?.right !== undefined ? (scEdgesPatch.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
+    // CURVE-2a: Corner edge sync from shapeConfig
+    const scForCornersPatch = shapeConfig as Record<string, unknown> | undefined;
+
     // Update the piece
     const updatedPiece = await prisma.quote_pieces.update({
       where: { id: pieceIdNum },
@@ -374,10 +390,10 @@ export async function PATCH(
         // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
         // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: materialCost + currentPiece.features_cost.toNumber(),
-        edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
-        edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
-        edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
-        edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+        edge_top: patchEdgeTop,
+        edge_bottom: patchEdgeBottom,
+        edge_left: patchEdgeLeft,
+        edge_right: patchEdgeRight,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: derivedLaminationMethod ?? (laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method),
         ...(mitredCornerTreatment !== undefined && {
@@ -389,8 +405,14 @@ export async function PATCH(
           : undefined,
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
+        // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
+        ...(scForCornersPatch?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPatch.corner_edge_tl as string) ?? null }),
+        ...(scForCornersPatch?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPatch.corner_edge_tr as string) ?? null }),
+        ...(scForCornersPatch?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPatch.corner_edge_bl as string) ?? null }),
+        ...(scForCornersPatch?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPatch.corner_edge_br as string) ?? null }),
         // no_strip_edges: wall edges that don't need lamination strips
         ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
+        ...(pieceType !== undefined && { piece_type: pieceType }),
         strip_width_overrides: stripWidthOverrides !== undefined
           ? stripWidthOverrides as unknown as Prisma.InputJsonValue
           : undefined,
@@ -460,6 +482,11 @@ export async function PATCH(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pu.corner_edge_tl ?? null,
+      cornerEdgeTr: pu.corner_edge_tr ?? null,
+      cornerEdgeBl: pu.corner_edge_bl ?? null,
+      cornerEdgeBr: pu.corner_edge_br ?? null,
       overrideMaterialCost: updatedPiece.override_material_cost
         ? Number(updatedPiece.override_material_cost)
         : null,
@@ -653,6 +680,15 @@ export async function PUT(
       }
     }
 
+    // CURVE-2a: If putShapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
+    const scEdgesPut = (putShapeConfig as Record<string, unknown> | undefined)?.edges as Record<string, string | null> | undefined;
+    const putEdgeTop = scEdgesPut?.top !== undefined ? (scEdgesPut.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top);
+    const putEdgeBottom = scEdgesPut?.bottom !== undefined ? (scEdgesPut.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom);
+    const putEdgeLeft = scEdgesPut?.left !== undefined ? (scEdgesPut.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left);
+    const putEdgeRight = scEdgesPut?.right !== undefined ? (scEdgesPut.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
+    // CURVE-2a: Corner edge sync from putShapeConfig
+    const scForCornersPut = putShapeConfig as Record<string, unknown> | undefined;
+
     // Update the piece
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceIdNum },
@@ -672,15 +708,20 @@ export async function PUT(
         // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
         // Kept to avoid null constraint violations. Do not read this value for display.
         total_cost: materialCost + currentPiece.features_cost.toNumber(),
-        edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
-        edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
-        edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
-        edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+        edge_top: putEdgeTop,
+        edge_bottom: putEdgeBottom,
+        edge_left: putEdgeLeft,
+        edge_right: putEdgeRight,
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
         requiresGrainMatch: reqGrainMatch !== undefined ? reqGrainMatch : currentPiece.requiresGrainMatch,
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
+        // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
+        ...(scForCornersPut?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPut.corner_edge_tl as string) ?? null }),
+        ...(scForCornersPut?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPut.corner_edge_tr as string) ?? null }),
+        ...(scForCornersPut?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPut.corner_edge_bl as string) ?? null }),
+        ...(scForCornersPut?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPut.corner_edge_br as string) ?? null }),
         // no_strip_edges: wall edges that don't need lamination strips
         ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
       },
@@ -722,6 +763,11 @@ export async function PUT(
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pu.corner_edge_tl ?? null,
+      cornerEdgeTr: pu.corner_edge_tr ?? null,
+      cornerEdgeBl: pu.corner_edge_bl ?? null,
+      cornerEdgeBr: pu.corner_edge_br ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),

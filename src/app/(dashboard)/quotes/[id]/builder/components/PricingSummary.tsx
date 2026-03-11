@@ -238,28 +238,53 @@ export default function PricingSummary({
           )}
 
           {/* Missing rates banner */}
-          {calculation?.missingRates && calculation.missingRates.length > 0 && (
-            <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
-              <div className="flex items-start gap-2">
-                <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-sm font-medium text-amber-800">
-                    Missing service rates — some costs are showing as $0
-                  </p>
-                  <ul className="mt-1 text-xs text-amber-700 space-y-1">
-                    {calculation.missingRates.map((mr, i) => (
-                      <li key={i}>
-                        <span className="font-medium">{mr.pieceName}:</span> {mr.description}
-                      </li>
-                    ))}
-                  </ul>
-                  <p className="mt-2 text-xs text-amber-600">
-                    Configure missing rates in Pricing Admin → Service Rates
-                  </p>
+          {calculation?.missingRates && calculation.missingRates.length > 0 && (() => {
+            const zeroRateCodes = ['EDGE_CATEGORY_RATE', 'CUTOUT_CATEGORY_RATE'];
+            const missingItems = calculation.missingRates.filter(mr => !zeroRateCodes.includes(mr.code));
+            const zeroItems = calculation.missingRates.filter(mr => zeroRateCodes.includes(mr.code));
+            return (
+              <div className="rounded-lg bg-amber-50 border border-amber-200 px-4 py-3 mb-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    {missingItems.length > 0 && (
+                      <>
+                        <p className="text-sm font-medium text-amber-800">
+                          Missing service rates — some costs are showing as $0
+                        </p>
+                        <ul className="mt-1 text-xs text-amber-700 space-y-1">
+                          {missingItems.map((mr, i) => (
+                            <li key={`missing-${i}`} className="flex items-start gap-1">
+                              <span className="flex-shrink-0">🔴</span>
+                              <span><span className="font-medium">{mr.pieceName}:</span> {mr.description}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    {zeroItems.length > 0 && (
+                      <>
+                        <p className={`text-sm font-medium text-amber-800 ${missingItems.length > 0 ? 'mt-2' : ''}`}>
+                          Zero rate warnings — configured rates are $0
+                        </p>
+                        <ul className="mt-1 text-xs text-amber-700 space-y-1">
+                          {zeroItems.map((mr, i) => (
+                            <li key={`zero-${i}`} className="flex items-start gap-1">
+                              <span className="flex-shrink-0">⚠️</span>
+                              <span><span className="font-medium">{mr.pieceName}:</span> {mr.description}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </>
+                    )}
+                    <p className="mt-2 text-xs text-amber-600">
+                      Configure missing rates in Pricing Admin → Service Rates
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Warning when no customer selected */}
           {!customerName && (
@@ -644,6 +669,11 @@ export default function PricingSummary({
                 {formatCurrency(grandTotal)}
               </span>
             </div>
+            {isCalculating && (
+              <p className="text-xs font-medium text-amber-600 text-right">
+                ⚠ Recalculating…
+              </p>
+            )}
           </div>
 
           {/* Calculated At Timestamp */}

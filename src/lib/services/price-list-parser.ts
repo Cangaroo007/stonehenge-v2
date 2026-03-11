@@ -6,7 +6,8 @@ const MODEL = 'claude-sonnet-4-20250514';
 export interface ParsedMaterial {
   productCode: string | null;
   name: string;
-  surfaceFinish: string;
+  surfaceFinish: 'Polished' | 'Matte' | 'Textured' | 'Honed' | 'Brushed';
+  fabricationCategory: 'ENGINEERED' | 'NATURAL_HARD' | 'NATURAL_SOFT' | 'NATURAL_PREMIUM' | 'SINTERED';
   range: string;
   wholesalePrice: number;
   costPrice: number;
@@ -15,6 +16,8 @@ export interface ParsedMaterial {
   thicknessMm: number;
   isDiscontinued: boolean;
   notes: string | null;
+  requiresGrainMatch: boolean;
+  grainDirection: 'VEINED' | 'UNIFORM' | null;
 }
 
 export interface PriceListParseResult {
@@ -34,7 +37,8 @@ Extract EVERY material/product from this price list into a structured JSON forma
 For EACH material, extract:
 - productCode: The supplier's product code/number (e.g. "5131", "CM 1453"). Null if no code exists.
 - name: The product/colour name (e.g. "Calacatta Nuvo", "Arctic White")
-- surfaceFinish: "Polished", "Matte", or "Textured"
+- surfaceFinish: One of "Polished", "Matte", "Textured", "Honed", "Brushed". Map document values: "Matt"/"Matte"/"Matte Finish" → "Matte", "Textured"/"Texture"/"Structured" → "Textured", "Brushed"/"Leathered" → "Brushed", "Honed" → "Honed", "Polished" → "Polished". Default to "Polished" if not specified.
+- fabricationCategory: One of ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED (see FABRICATION CATEGORY RULES below)
 - range: The range/tier name (e.g. "Builder Range", "Premium Plus", "M2 20 CSF")
 - wholesalePrice: The standard/wholesale price per slab in AUD (before any customer discount)
 - costPrice: Northcoast Stone's actual price per slab (after discount). If only one price shown, use it for both.
@@ -43,15 +47,59 @@ For EACH material, extract:
 - thicknessMm: Slab thickness in mm (typically 12 or 20)
 - isDiscontinued: true if marked as discontinued, false otherwise
 - notes: Any special notes (e.g. "Book-Match available", "New", "Back to back order only")
+- requiresGrainMatch: true if the material has visible veining/grain that requires matching between slabs (see GRAIN MATCHING RULES below)
+- grainDirection: "VEINED" if material has directional veining, "UNIFORM" if no directional pattern, null if unknown
 
 IMPORTANT RULES:
 1. Prices are ALWAYS ex-GST (this is standard in the Australian stone industry)
-2. If the PDF shows TWO prices (wholesale + discounted), extract BOTH. The discounted price is costPrice.
-3. If only ONE price is shown with "Discount Applied" text, that IS the costPrice. Estimate wholesale if a discount % is shown.
+2. PRICE COLUMN DETECTION RULES — MANDATORY:
+   a) PER-M² REFERENCE COLUMN (not a real price):
+      A numeric column is a per-m² reference figure — NOT a separate price — when ANY of:
+      - The column header contains "m²", "sqm", "per m", "per square", "m2"
+      - The value ≈ the slab price ÷ slab area in m² (within 5% tolerance)
+      - The ratio slab_price ÷ this_value falls between 4.0 and 7.0 (typical slab area range)
+      When detected: store slab price as wholesalePrice. Derive price per m² by dividing
+      wholesalePrice by slab area. Do NOT treat the per-m² column as costPrice or a second price.
+      Do NOT raise a clarification question about it. Use the slab price for BOTH wholesalePrice and costPrice.
+   b) GENUINE DUAL PRICE (both real prices):
+      Two real prices exist only when column headers explicitly say:
+      - "Wholesale" / "Wholesale Price" AND "VIP" / "Your Price" / "Net" / "Your VIP Price"
+      In this case: wholesalePrice = the higher figure, costPrice = the lower figure.
+   c) SINGLE PRICE WITH DISCOUNT:
+      When a document shows a wholesale price, a discount %, and a resulting net price:
+      wholesalePrice = the pre-discount figure, costPrice = the post-discount figure.
+   d) SINGLE PRICE, NO DISCOUNT:
+      If only one price is shown with no discount information, use it for both wholesalePrice and costPrice.
+3. NEVER raise a clarification question about a per-m² reference column. It is not a second price.
 4. Slab dimensions: ALWAYS put the longer dimension as slabLengthMm and shorter as slabWidthMm, regardless of how the PDF lists them (some list Width×Length).
 5. Include ALL products, even discontinued ones (mark isDiscontinued: true)
 6. The supplier name should be extracted from the PDF header/logo
 7. Look for an effective date in the document
+8. FABRICATION CATEGORY RULES — MANDATORY:
+   Valid values ONLY: ENGINEERED | NATURAL_HARD | NATURAL_SOFT | NATURAL_PREMIUM | SINTERED
+   Any value not in this list is FORBIDDEN. Never invent a new category.
+   MAPPING:
+   - Engineered quartz, engineered stone, recycled surfaces, "Quantum Zero", "Zenith", "Caesarstone" → ENGINEERED
+   - Granite, quartzite, travertine, slate → NATURAL_HARD
+   - Marble, limestone, onyx → NATURAL_SOFT
+   - Premium/rare natural stone → NATURAL_PREMIUM
+   - Sintered stone, porcelain, Dekton, Neolith, Lapitec → SINTERED
+   The surfaceFinish field (Polished, Matt, Matte, Textured, Honed, Brushed) is NEVER used to determine fabricationCategory. These are completely separate fields.
+   If fabricationCategory cannot be determined with confidence → default to ENGINEERED.
+   Do NOT invent a value. Do NOT use "Natural Marble" or any other value outside the valid enum above.
+9. GRAIN MATCHING RULES — MANDATORY:
+   requiresGrainMatch and grainDirection are determined ONLY by keywords in the material name,
+   description, or supplier notes — NEVER by fabricationCategory alone.
+   KEYWORD DETECTION (case-insensitive):
+   requiresGrainMatch = true ONLY when the material name, description, or supplier notes
+   contain ANY of: "vein", "veined", "veining", "bookmatch", "book match", "book-match",
+   "flow", "flowing", "directional", "matched", "matching" (in context of grain/pattern).
+   If none of these keywords are present, requiresGrainMatch = false — regardless of category.
+   Category alone (e.g. marble, natural stone) NEVER triggers grain matching.
+   grainDirection values: "VEINED" | "UNIFORM" | null
+   - VEINED: Any of the above keywords are present
+   - UNIFORM: The document explicitly indicates a consistent/uniform surface
+   - null: Direction cannot be determined from the price list — this is the safe default
 
 Also extract:
 - supplierName: The supplier company name
@@ -68,7 +116,8 @@ Respond with ONLY valid JSON, no markdown backticks, no explanation. Format:
     {
       "productCode": "..." or null,
       "name": "...",
-      "surfaceFinish": "...",
+      "surfaceFinish": "Polished",
+      "fabricationCategory": "ENGINEERED",
       "range": "...",
       "wholesalePrice": 0.00,
       "costPrice": 0.00,
@@ -76,7 +125,9 @@ Respond with ONLY valid JSON, no markdown backticks, no explanation. Format:
       "slabWidthMm": 0,
       "thicknessMm": 20,
       "isDiscontinued": false,
-      "notes": null
+      "notes": null,
+      "requiresGrainMatch": false,
+      "grainDirection": null
     }
   ]
 }`;

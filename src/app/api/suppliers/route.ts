@@ -24,7 +24,7 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAuth(['ADMIN', 'SALES_MANAGER']);
+    const auth = await requireAuth();
     if ('error' in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
@@ -39,8 +39,6 @@ export async function POST(request: NextRequest) {
         phone: body.phone ?? null,
         website: body.website ?? null,
         default_margin_percent: body.defaultMarginPercent ?? 0,
-        default_slab_length_mm: body.defaultSlabLengthMm ?? null,
-        default_slab_width_mm: body.defaultSlabWidthMm ?? null,
         default_thickness_mm: body.defaultThicknessMm ?? null,
         notes: body.notes ?? null,
       },

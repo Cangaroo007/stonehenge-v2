@@ -90,6 +90,8 @@ interface QuoteUpdateData {
   // Material margin
   material_margin_percent?: number | null;
   material_margin_source?: string | null;
+  // Per-quote slab dimension overrides
+  slabDimensionOverrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null;
 }
 
 export async function GET(
@@ -138,6 +140,9 @@ export async function GET(
                 materials: true,
                 sourceRelationships: true,
                 targetRelationships: true,
+                apronParent: {
+                  select: { id: true, name: true },
+                },
               },
             },
           },
@@ -279,6 +284,8 @@ export async function PUT(
       // Material margin fields
       if (data.material_margin_percent !== undefined) updateFields.material_margin_percent = data.material_margin_percent;
       if (data.material_margin_source !== undefined) updateFields.material_margin_source = data.material_margin_source;
+      // Per-quote slab dimension overrides
+      if (data.slabDimensionOverrides !== undefined) updateFields.slab_dimension_overrides = data.slabDimensionOverrides as unknown as Prisma.InputJsonValue;
 
       if (Object.keys(updateFields).length === 0) {
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
@@ -439,6 +446,7 @@ function transformPieceForClient(piece: any) {
     edgeRight: piece.edge_right,
     shapeType: piece.shape_type || 'RECTANGLE',
     shapeConfig: piece.shape_config as Record<string, unknown> | null,
+    pieceType: piece.piece_type ?? 'BENCHTOP',
     requiresGrainMatch: piece.requiresGrainMatch ?? false,
     noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
     stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,

@@ -5,8 +5,10 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-05
-> **Last Updated By:** claude/promoted-strip-calculator-ttPTD — ME-4: Promoted strip calculator with parent edge exclusion and double-charge safeguard
+> **Last Updated:** 2026-03-10
+> **Last Updated By:** claude/fix-apron-fk-cascade-NPtsj — MITRE-1-FK: change apron_parent_id FK from CASCADE DELETE to SET NULL
+>
+> MITRE-1-FK: Migration 20260321000000_fix_apron_strip_fk_set_null changes apron_parent_id FK onDelete from CASCADE to SET NULL. Prevents deleting a parent piece from cascade-deleting its apron children — aprons become orphans (apron_parent_id = NULL) instead. No code changes — migration only.
 
 ---
 
@@ -66,6 +68,10 @@
 | mitred_corner_treatment | String? | Default "RAW" — RAW/SQUARE/ROUND. ME-1. |
 | promoted_from_piece_id | Int? | When promoted from a lamination strip, references the parent piece. ME-4. |
 | promoted_edge_position | String? | The edge position on the parent (e.g. "top", "left") that was promoted. ME-4. |
+| apron_parent_id | Int? | Self-referential FK → quote_pieces. Set when this piece is a mitre apron strip (20mm face piece). SET NULL on delete (changed from CASCADE in MITRE-1-FK). MITRE-1. |
+| apron_position | String? | Position of this apron on parent: 'front' \| 'back' \| 'left' \| 'right'. MITRE-1. |
+| piece_type | String? @default("BENCHTOP") | Piece type: BENCHTOP, ISLAND, SPLASHBACK, WATERFALL, VANITY, SHELF, PANEL, OTHER. SB-1a. |
+| join_method | String? | Join method for multi-piece assemblies (e.g. MITRE, BUTT, NONE). WF-1a. |
 
 #### quotes
 | Field | Type | Notes |
@@ -208,6 +214,7 @@
 | cutout_thickness_multiplier | Decimal(5,2) | Default 1.0 |
 | waterfall_pricing_method | WaterfallPricingMethod | Default FIXED_PER_END |
 | slab_edge_allowance_mm | Int? | |
+| splashback_top_edge_id | String? @db.VarChar(255) | Default edge type for splashback top edge. References edge_types.id. WF-1a. |
 
 #### companies (tenant)
 | Field | Type | Notes |
@@ -272,6 +279,8 @@ piece_relationships, drawing_corrections
 | 20260307000000 | add_requires_grain_match_to_quote_pieces |
 | 20260308000000 | add_optimizer_slab_count |
 | 20260309000000 | add_shape_fields_to_pieces |
+| 20260319000000 | add_apron_pieces_relation |
+| 20260321000000 | fix_apron_strip_fk_set_null — changed apron_parent_id FK from CASCADE DELETE to SET NULL |
 
 ---
 
@@ -494,7 +503,7 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `/(dashboard)/templates/[id]/edit/page.tsx` | Template edit |
 | `/(dashboard)/optimize/page.tsx` | Slab optimizer |
 | `/(dashboard)/admin/pricing/page.tsx` | Admin pricing dashboard |
-| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Gaps tab — coverage bars, missing rate tables, configure links |
+| `/(dashboard)/admin/pricing/gaps/page.tsx` | PX-3: Configuration Health tab (renamed from Gaps) — coverage bars, missing rate tables, configure links. Badge on tab shows gap count. |
 | `/(dashboard)/admin/pricing/edges/page.tsx` | Edge type admin |
 | `/(dashboard)/admin/pricing/cutouts/page.tsx` | Cutout type admin |
 | `/(dashboard)/admin/pricing/services/page.tsx` | Service rates admin |
@@ -526,7 +535,9 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 | `loadPricingContext` | 131 | Loads all pricing config for an organisation |
 | `calculateMaterialCost` | 167 | Calculates material cost for a piece. PROMPT-16: PER_SLAB quotes now always use buildMaterialGroupings result (slabCount x price_per_slab), not just multi-material quotes. |
 | `buildMaterialGroupings` | 350 | Groups pieces by material for slab calculation |
-| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm` |
+| `isCurvedShape` | 89 | Returns true for RADIUS_END, FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT |
+| `calcArcLengthM` | 97 | Calculates arc length in metres for curved shapes. ROUNDED_RECT: uniform (4 × π/2 × r) or individual corners (π/2 × sum). C6. |
+| `calculateQuotePrice` | 476 | **Main entry point** — calculates full quote pricing. PROMPT-12: strips all edges minus noStripEdges (wall edges) via `stripLm`. C6: wires `arcLengthLm` into EnginePiece for curved shapes. |
 | `getServiceRate` | 1573 | Looks up service rate by type/category |
 | `applyMinimumCharge` | 1610 | Applies minimum charge to a line item |
 | `getApplicableRules` | 1626 | Finds pricing rules matching a piece |
@@ -576,8 +587,9 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 ### pricing-rules-engine.ts
 | Function | Line | Purpose |
 |----------|------|---------|
-| `ruleCutting` | 132 | Calculates cutting cost |
-| `rulePolishing` | 152 | Calculates polishing cost |
+| `ruleCutting` | 134 | Calculates cutting cost |
+| `ruleCurvedCutting` | 154 | Calculates curved cutting surcharge (CURVED_CUTTING rate × arcLengthLm). Returns null for non-curved pieces. C6. |
+| `rulePolishing` | 174 | Calculates polishing cost |
 | `ruleEdgeProfiles` | 176 | Calculates edge profile cost |
 | `ruleLamination` | 205 | Calculates lamination cost (40mm) |
 | `ruleCutouts` | 227 | Calculates cutout cost |
@@ -986,3 +998,9 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 | [ ] Kitchen pieces unchanged after edge edit | Pending production verification | — | — |
 | Lamination label shows correct method when charge > 0 | Not verified | — | Quote 55 |
 | Grain match badge visible on collapsed piece card for oversize pieces | Not verified | — | Quote 55 |
+
+BUG-3-HOTFIX: curvedCutting null added to fallback engine result in pricing-calculator-v2.ts line ~1088
+
+WF-1c: Calculator waterfall detection changed from edge ID string match to piece_type = 'WATERFALL'. Legacy waterfall_height_mm fallback kept. Only pricing-calculator-v2.ts modified (lines 1208–1214). WF sprint status: WF-1a ✅, WF-1b ✅, WF-1c ✅.
+
+FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price question removed.

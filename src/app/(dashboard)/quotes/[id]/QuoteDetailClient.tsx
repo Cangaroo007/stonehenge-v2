@@ -71,6 +71,9 @@ import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 import ContactPicker from '@/components/quotes/ContactPicker';
 import QuoteReadinessChecker from '@/components/quotes/QuoteReadinessChecker';
+import WaterfallSplashbackModal, {
+  MITERED_EDGE_ID,
+} from '@/components/quotes/WaterfallSplashbackModal';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
@@ -108,6 +111,7 @@ interface QuotePiece {
   edgeRight: string | null;
   shapeType: string | null;
   shapeConfig: Record<string, unknown> | null;
+  pieceType: string | null;
   requiresGrainMatch: boolean;
   noStripEdges?: string[];
   stripWidthOverrides?: Record<string, number> | null;
@@ -115,6 +119,8 @@ interface QuotePiece {
   sortOrder: number;
   totalCost: number;
   machineProfileId: string | null;
+  /** Fabrication category from the assigned material (e.g. ENGINEERED, NATURAL_HARD) */
+  fabricationCategory?: string;
   quote_rooms: {
     id: number;
     name: string;
@@ -164,6 +170,8 @@ interface EditQuote {
   discount_type?: string | null;
   discount_value?: number | null;
   discount_applies_to?: string | null;
+  // Per-quote slab dimension overrides
+  slab_dimension_overrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null;
 }
 
 interface CustomerOption {
@@ -179,6 +187,7 @@ interface Material {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  fabricationCategory?: string;
 }
 
 interface EdgeType {
@@ -189,6 +198,8 @@ interface EdgeType {
   baseRate: number;
   isActive: boolean;
   sortOrder: number;
+  /** Fabrication categories with configured (non-zero) rates */
+  configuredCategories?: string[];
 }
 
 interface ThicknessOption {
@@ -281,6 +292,7 @@ export interface ServerQuoteData {
       edge_right: string | null;
       shape_type: string | null;
       shape_config: Record<string, unknown> | null;
+      piece_type: string | null;
       requiresGrainMatch: boolean;
       piece_features: Array<{
         id: number;
@@ -398,6 +410,10 @@ export default function QuoteDetailClient({
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [showReadinessCheck, setShowReadinessCheck] = useState(false);
+  const [waterfallModal, setWaterfallModal] = useState<{
+    isOpen: boolean;
+    type: 'WATERFALL' | 'SPLASHBACK';
+  }>({ isOpen: false, type: 'WATERFALL' });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -526,6 +542,8 @@ export default function QuoteDetailClient({
       room.pieces.map(piece => ({
         ...piece,
         quote_rooms: { id: room.id, name: room.name },
+        fabricationCategory: (piece as unknown as { materials?: { fabrication_category?: string } })
+          .materials?.fabrication_category ?? undefined,
       }))
     ).sort((a, b) => a.sortOrder - b.sortOrder);
   }, []);
@@ -2486,7 +2504,7 @@ export default function QuoteDetailClient({
     () => effectivePieces.map(p => ({
       id: String(p.id),
       description: p.name || 'Unnamed Piece',
-      piece_type: null as string | null,
+      piece_type: p.pieceType ?? null,
       room_name: p.quote_rooms?.name ?? null,
     })),
     [effectivePieces]
@@ -2939,7 +2957,7 @@ export default function QuoteDetailClient({
                                 length_mm: p.length_mm,
                                 width_mm: p.width_mm,
                                 thickness_mm: p.thickness_mm,
-                                piece_type: null as string | null,
+                                piece_type: p.piece_type ?? 'BENCHTOP',
                                 area_sqm: p.area_sqm,
                                 total_cost: p.total_cost ?? 0,
                                 pieceTotal: pb?.pieceTotal,
@@ -3307,6 +3325,7 @@ export default function QuoteDetailClient({
               shapeType: p.shapeType || (p.shapeConfig?.shape as string) || 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
               stripWidthOverrides: p.stripWidthOverrides ?? null,
+              piece_type: p.pieceType ?? 'BENCHTOP',
             }}
             editData={inlineEditData}
             onSavePiece={handleInlineSavePiece}
@@ -3434,6 +3453,18 @@ export default function QuoteDetailClient({
               </button>
               <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
                 + Add Piece
+              </button>
+              <button
+                onClick={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL' })}
+                className="btn-secondary text-sm"
+              >
+                + Waterfall
+              </button>
+              <button
+                onClick={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK' })}
+                className="btn-secondary text-sm"
+              >
+                + Splashback
               </button>
             </div>
           </div>
@@ -3566,7 +3597,7 @@ export default function QuoteDetailClient({
                         length_mm: p.lengthMm,
                         width_mm: p.widthMm,
                         thickness_mm: p.thicknessMm,
-                        piece_type: null as string | null,
+                        piece_type: p.pieceType ?? 'BENCHTOP',
                         area_sqm: (p.lengthMm * p.widthMm) / 1_000_000,
                         total_cost: p.totalCost ?? 0,
                         pieceTotal: pb?.pieceTotal,
@@ -3580,6 +3611,7 @@ export default function QuoteDetailClient({
                           name: c.cutoutTypeId,
                           quantity: c.quantity,
                         })),
+                        fabricationCategory: p.fabricationCategory,
                       };
                     });
                     const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
@@ -3677,7 +3709,7 @@ export default function QuoteDetailClient({
                             selectedPieceIds={selectedPieceIds}
                             onPieceMultiSelect={handlePieceMultiSelect}
                             onContextMenu={handleContextMenu}
-                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name }))}
+                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories }))}
                             onPieceEdgeChange={handlePieceEdgeChange}
                             cutoutTypes={cutoutTypes}
                             onPieceCutoutAdd={handlePieceCutoutAdd}
@@ -3888,6 +3920,9 @@ export default function QuoteDetailClient({
               hasMaterial={effectivePieces.some(p => !!p.materialId || !!p.materialName)}
               optimiserError={optimiserError}
               onEdgeAllowanceApplied={triggerOptimise}
+              usedMaterialIds={Array.from(new Set(effectivePieces.filter(p => p.materialId).map(p => p.materialId!))).map(Number)}
+              slabDimensionOverrides={editQuote?.slab_dimension_overrides ?? null}
+              onSlabDimensionOverridesSaved={triggerOptimise}
             />
           </div>
         </details>
@@ -4290,6 +4325,34 @@ export default function QuoteDetailClient({
           onSave={handleSaveQuote}
         />
       )}
+
+      {/* Waterfall / Splashback connected piece modal */}
+      <WaterfallSplashbackModal
+        isOpen={waterfallModal.isOpen}
+        edgeTypeName={waterfallModal.type === 'WATERFALL' ? 'Waterfall' : 'Splashback'}
+        otherPieces={effectivePieces
+          .map(p => ({ id: String(p.id), name: p.name || p.description || `Piece ${p.id}` }))}
+        onAdjoinPiece={async (targetPieceId) => {
+          // Set the joining edge of the selected piece to Mitred
+          const target = effectivePieces.find(p => String(p.id) === targetPieceId);
+          if (target) {
+            // Set top edge to Mitred on the target piece
+            await handlePieceEdgeChange(targetPieceId, 'top', MITERED_EDGE_ID);
+          }
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+        }}
+        onCreatePiece={() => {
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+          handleAddPiece();
+          toast('Set the joining edge to Mitred on the new piece', { icon: 'i' });
+        }}
+        onCreateStrip={() => {
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+          handleAddPiece();
+          toast('Set the joining edge to Mitred on the new strip piece', { icon: 'i' });
+        }}
+        onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type })}
+      />
     </>
   );
 }

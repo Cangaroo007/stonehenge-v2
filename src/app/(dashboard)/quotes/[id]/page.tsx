@@ -139,6 +139,7 @@ export default async function QuoteDetailPage({
         edge_right: piece.edge_right,
         shape_type: piece.shape_type ?? 'RECTANGLE',
         shape_config: piece.shape_config as Record<string, unknown> | null,
+        piece_type: piece.piece_type ?? 'BENCHTOP',
         requiresGrainMatch: piece.requiresGrainMatch ?? false,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,

@@ -16,10 +16,10 @@ export interface PresetPiece {
   width: number;            // mm
   thickness: number;        // mm (20 default)
   defaultEdges: {
-    top: string;            // e.g. "pencil_round" or "raw"
-    bottom: string;
-    left: string;
-    right: string;
+    top: string | null;     // null = raw (no edge profile)
+    bottom: string | null;
+    left: string | null;
+    right: string | null;
   };
   defaultCutouts: Array<{
     type: string;           // e.g. "Undermount Sink", "Tap Hole"
@@ -52,10 +52,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 600,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },
@@ -76,10 +76,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 600,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },
@@ -92,10 +92,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 900,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'pencil_round',
-          left: 'pencil_round',
-          right: 'pencil_round',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [],
       },
@@ -113,10 +113,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 500,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Basin', quantity: 1 },
@@ -137,10 +137,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 500,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Basin', quantity: 1 },
@@ -161,10 +161,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 600,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Drop-in Sink', quantity: 1 },
@@ -185,10 +185,10 @@ export const ROOM_PRESETS: RoomPreset[] = [
         width: 600,
         thickness: 20,
         defaultEdges: {
-          top: 'pencil_round',
-          bottom: 'arris',
-          left: 'arris',
-          right: 'arris',
+          top: null,
+          bottom: null,
+          left: null,
+          right: null,
         },
         defaultCutouts: [
           { type: 'Undermount Sink', quantity: 1 },
@@ -223,10 +223,10 @@ export function presetToApiPayload(
       lengthMm: number;
       widthMm: number;
       thicknessMm: number;
-      edgeTop: string;
-      edgeBottom: string;
-      edgeLeft: string;
-      edgeRight: string;
+      edgeTop: string | null;
+      edgeBottom: string | null;
+      edgeLeft: string | null;
+      edgeRight: string | null;
       cutouts: Array<{ name: string; quantity: number }>;
     }>;
   }>;

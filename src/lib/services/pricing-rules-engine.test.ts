@@ -12,6 +12,8 @@ const BASE_SETTINGS = {
   templatingCost: 0,
   laminatedMultiplier: 1.30,
   mitredMultiplier: 1.50,
+  curvedCuttingMode: 'FIXED' as const,
+  curvedPolishingMode: 'FIXED' as const,
 }
 
 const BASE_RATES = [

@@ -70,6 +70,7 @@ export async function PUT(
       collection: data.collection || null,
       description: data.description || null,
       price_per_sqm: data.pricePerSqm,
+      price_per_square_metre: data.pricePerSqm,
       is_active: data.isActive ?? true,
     };
     if (data.fabricationCategory) {
@@ -80,6 +81,11 @@ export async function PUT(
     }
     if (data.slabWidthMm !== undefined) {
       updateData.slab_width_mm = data.slabWidthMm === null || data.slabWidthMm === '' ? null : parseInt(String(data.slabWidthMm));
+    }
+    if (data.pricePerSlab !== undefined) {
+      updateData.price_per_slab = data.pricePerSlab === null || data.pricePerSlab === ''
+        ? null
+        : parseFloat(String(data.pricePerSlab));
     }
     if (data.marginOverridePercent !== undefined) {
       updateData.margin_override_percent = data.marginOverridePercent === null ? null : parseFloat(String(data.marginOverridePercent));

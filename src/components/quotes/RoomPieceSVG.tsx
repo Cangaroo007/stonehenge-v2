@@ -15,6 +15,8 @@ interface PieceData {
   thickness_mm: number;
   edges?: Array<{ position: string; profile: string }>;
   cutouts?: Array<{ type: string; quantity: number }>;
+  laminationMethod?: string | null;
+  mitredCornerTreatment?: string | null;
 }
 
 interface RoomPieceSVGProps {
@@ -437,6 +439,21 @@ export default function RoomPieceSVG({
           fontSize={9}
         >
           {piece.length_mm}&times;{piece.width_mm}
+        </text>
+      )}
+
+      {/* Mitred corner treatment badge */}
+      {piece.laminationMethod === 'MITRED' && w > 50 && h > 36 && (
+        <text
+          x={x + w / 2}
+          y={y + h / 2 + 22}
+          textAnchor="middle"
+          dominantBaseline="central"
+          style={{ fontSize: '9px', fill: '#92400e', pointerEvents: 'none' }}
+        >
+          {piece.mitredCornerTreatment === 'SQUARE_TOP' ? 'Mitre SQ'
+            : piece.mitredCornerTreatment === 'ROUND_TOP' ? 'Mitre RD'
+            : 'Mitre'}
         </text>
       )}
 

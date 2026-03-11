@@ -39,6 +39,7 @@ interface Material {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  fabricationCategory?: string;
 }
 
 interface EdgeType {
@@ -48,7 +49,9 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
+  configuredCategories?: string[];
 }
 
 interface EdgeSelections {
@@ -455,7 +458,16 @@ export default function PieceForm({
       )}
 
       {/* Edge Profiles — PieceVisualEditor SVG (Rule 44: no banned edge components) */}
-      {lengthMm && widthMm && parseInt(lengthMm) > 0 && parseInt(widthMm) > 0 && (
+      {lengthMm && widthMm && parseInt(lengthMm) > 0 && parseInt(widthMm) > 0 && (() => {
+        const selectedMat = materials.find(m => m.id === materialId);
+        const fabCat = selectedMat?.fabricationCategory;
+        const filteredEdgeTypes = edgeTypes
+          .filter(e => e.isActive !== false)
+          .filter(e => !fabCat || !e.configuredCategories || e.configuredCategories.length === 0 || e.configuredCategories.includes(fabCat));
+        const filteredCutoutTypes = cutoutTypes
+          .filter(c => c.isActive !== false)
+          .filter(c => !fabCat || !c.configuredCategories || c.configuredCategories.length === 0 || c.configuredCategories.includes(fabCat));
+        return (
         <PieceVisualEditor
           lengthMm={parseInt(lengthMm)}
           widthMm={parseInt(widthMm)}
@@ -463,7 +475,7 @@ export default function PieceForm({
           edgeBottom={edgeSelections.edgeBottom}
           edgeLeft={edgeSelections.edgeLeft}
           edgeRight={edgeSelections.edgeRight}
-          edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
+          edgeTypes={filteredEdgeTypes.map(e => ({ id: e.id, name: e.name }))}
           cutouts={cutouts.map((c, idx) => {
             const ct = cutoutTypes.find(t => t.id === c.cutoutTypeId);
             return {
@@ -489,9 +501,10 @@ export default function PieceForm({
           onCutoutRemove={(cutoutId: string) => {
             setCutouts(prev => prev.filter(c => c.id !== cutoutId));
           }}
-          cutoutTypes={cutoutTypes.filter(t => t.isActive).map(t => ({ id: t.id, name: t.name, baseRate: Number(t.baseRate) }))}
+          cutoutTypes={filteredCutoutTypes.map(t => ({ id: t.id, name: t.name, baseRate: Number(t.baseRate) }))}
         />
-      )}
+        );
+      })()}
 
       {/* Mitre Lamination Strip Auto-Calculation */}
       {thicknessMm >= 40 && (() => {

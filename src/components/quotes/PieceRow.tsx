@@ -114,6 +114,9 @@ interface PieceRowProps {
     shapeConfig?: Record<string, unknown> | null;
     requiresGrainMatch?: boolean;
     noStripEdges?: string[];
+    apron_parent_id?: number | null;
+    apron_position?: string | null;
+    apronParent?: { id: number; name: string } | null;
   };
   /** Per-piece cost breakdown from the calculation result */
   breakdown?: PiecePricingBreakdown;
@@ -224,6 +227,11 @@ function unitShort(unit: string): string {
 // ── Display Name Helper ─────────────────────────────────────────────────────
 
 function getDisplayName(piece: PieceRowProps['piece']): string {
+  if (piece.apron_parent_id && piece.apronParent) {
+    const position = (piece.apron_position ?? '').charAt(0).toUpperCase() +
+      (piece.apron_position ?? '').slice(1).toLowerCase();
+    return `${piece.apronParent.name} \u2014 Apron (${position})`;
+  }
   const name = piece.name || 'Untitled Piece';
   if (name.length <= 60) return name;
   return name.slice(0, 57) + '\u2026';
@@ -935,6 +943,14 @@ export default function PieceRow({
                 <>
                   <span className="text-gray-300">&middot;</span>
                   <span>{piece.roomName}</span>
+                </>
+              )}
+              {!piece.materialName && (
+                <>
+                  <span className="text-gray-300">&middot;</span>
+                  <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-amber-100 text-amber-800">
+                    No material
+                  </span>
                 </>
               )}
             </div>

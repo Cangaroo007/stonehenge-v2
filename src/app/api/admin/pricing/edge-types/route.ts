@@ -11,6 +11,11 @@ export async function GET() {
 
     const edgeTypes = await prisma.edge_types.findMany({
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
+      include: {
+        categoryRates: {
+          select: { fabricationCategory: true, rate20mm: true, rate40mm: true },
+        },
+      },
     });
 
     // Properly serialize Decimal fields to numbers and ensure boolean fields are set
@@ -21,7 +26,12 @@ export async function GET() {
       category: et.category,
       baseRate: Number(et.baseRate),
       isActive: et.isActive ?? true, // Default to true if null/undefined
+      isMitred: et.isMitred ?? false,
       sortOrder: et.sortOrder,
+      // Include fabrication categories that have configured rates (non-zero)
+      configuredCategories: et.categoryRates
+        .filter((r: { rate20mm: unknown; rate40mm: unknown }) => Number(r.rate20mm) > 0 || Number(r.rate40mm) > 0)
+        .map((r: { fabricationCategory: string }) => r.fabricationCategory),
     }));
 
     return NextResponse.json(serialized);

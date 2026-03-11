@@ -16,10 +16,20 @@ import {
   RotateCcw,
   Database,
   MessageSquare,
+  Plus,
 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
 import type { Proposal, ProposedMaterial, Uncertainty } from '@/lib/services/material-ingestor';
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+
+function calcDisplayPricePerSqm(costPrice: number | null, lengthMm: number | null, widthMm: number | null): string {
+  if (!costPrice || !lengthMm || !widthMm) return '—';
+  const areaSqm = (lengthMm * widthMm) / 1_000_000;
+  if (areaSqm <= 0) return '—';
+  return `$${(costPrice / areaSqm).toFixed(2)}`;
+}
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -82,6 +92,8 @@ function ActionBadge({ action }: { action: ProposedMaterial['action'] }) {
 
 function ConfidenceDots({ level }: { level: ProposedMaterial['confidence'] }) {
   const filled = level === 'high' ? 3 : level === 'medium' ? 2 : 1;
+  const filledColor =
+    level === 'high' ? 'bg-emerald-500' : level === 'medium' ? 'bg-amber-500' : 'bg-red-500';
   return (
     <span className="inline-flex gap-0.5" title={`Confidence: ${level}`}>
       {[1, 2, 3].map((i) => (
@@ -89,7 +101,7 @@ function ConfidenceDots({ level }: { level: ProposedMaterial['confidence'] }) {
           key={i}
           className={cn(
             'h-1.5 w-1.5 rounded-full',
-            i <= filled ? 'bg-gray-600' : 'bg-gray-200',
+            i <= filled ? filledColor : 'bg-gray-200',
           )}
         />
       ))}
@@ -127,6 +139,19 @@ export default function ImportPage() {
   const [isRefining, setIsRefining] = useState(false);
   const [syncResult, setSyncResult] = useState<SyncResult | null>(null);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [showNewSupplierForm, setShowNewSupplierForm] = useState(false);
+  const [isCreatingSupplier, setIsCreatingSupplier] = useState(false);
+  const [newSupplierForm, setNewSupplierForm] = useState({
+    name: '',
+    contactEmail: '',
+    phone: '',
+    website: '',
+    defaultMarginPercent: '',
+    defaultSlabLengthMm: '',
+    defaultSlabWidthMm: '',
+    defaultThicknessMm: '',
+    notes: '',
+  });
   const fileInputRef = useRef<HTMLInputElement>(null);
   const commandInputRef = useRef<HTMLInputElement>(null);
 
@@ -209,78 +234,37 @@ export default function ImportPage() {
         body: fd,
       });
 
-      // Handle non-streaming error responses (auth failures, validation errors)
-      // These return JSON directly with a non-event-stream content type.
-      const ct = res.headers.get('content-type') ?? '';
-      if (!ct.includes('text/event-stream')) {
-        // Fell through to a fast-path JSON error response
-        const data = await res.json() as { error?: string };
+      const data = await res.json() as { error?: string } & Partial<Proposal>;
+      if (!res.ok || data.error) {
         throw new Error(data.error ?? `Server error (HTTP ${res.status})`);
       }
 
-      if (!res.body) throw new Error('No response body from server');
+      const proposal = data as Proposal;
+      setProposal(proposal);
+      setPhase('staging');
 
-      // Read the SSE stream until we get a 'result' or 'error' event
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-
-        // SSE events are separated by double newlines
-        const events = buffer.split('\n\n');
-        // Keep the last incomplete chunk in the buffer
-        buffer = events.pop() ?? '';
-
-        for (const eventBlock of events) {
-          if (!eventBlock.trim()) continue;
-
-          const lines = eventBlock.split('\n');
-          const eventType = lines.find(l => l.startsWith('event:'))?.slice(7).trim();
-          const dataLine = lines.find(l => l.startsWith('data:'))?.slice(5).trim();
-
-          if (!eventType || !dataLine) continue;
-
-          if (eventType === 'heartbeat') {
-            // Keep-alive ping — ignore, spinner is already showing
-            continue;
-          }
-
-          if (eventType === 'error') {
-            const { error } = JSON.parse(dataLine) as { error: string };
-            throw new Error(error ?? 'Failed to parse price list');
-          }
-
-          if (eventType === 'result') {
-            const proposal = JSON.parse(dataLine) as Proposal;
-            setProposal(proposal);
-            setPhase('staging');
-
-            // Auto-select supplier if AI detected a name and user hadn't picked one
-            if (!selectedSupplierId && proposal.supplierName) {
-              const match = suppliers.find(
-                (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
-              );
-              if (match) setSelectedSupplierId(match.id);
-            }
-
-            const critCount = proposal.uncertainties.filter(
-              (u: Uncertainty) => u.severity === 'critical',
-            ).length;
-            if (critCount > 0) setDrawerOpen(true);
-
-            reader.cancel(); // Clean up the stream
-            return;
-          }
+      if (!selectedSupplierId && proposal.supplierName) {
+        const match = suppliers.find(
+          (s) => s.name.toLowerCase() === proposal.supplierName!.toLowerCase(),
+        );
+        if (match) {
+          setSelectedSupplierId(match.id);
+        } else {
+          // Pre-fill new supplier form from parsed data
+          setNewSupplierForm((prev) => ({
+            ...prev,
+            name: proposal.supplierName ?? '',
+            defaultSlabLengthMm: proposal.extractedData[0]?.slabLengthMm?.toString() ?? '',
+            defaultSlabWidthMm: proposal.extractedData[0]?.slabWidthMm?.toString() ?? '',
+            defaultThicknessMm: proposal.extractedData[0]?.thicknessMm?.toString() ?? '',
+          }));
         }
       }
 
-      // If we exit the loop without a result, something went wrong
-      throw new Error('Connection closed before result was received');
+      const critCount = proposal.uncertainties.filter(
+        (u: Uncertainty) => u.severity === 'critical',
+      ).length;
+      if (critCount > 0) setDrawerOpen(true);
 
     } catch (err) {
       setPhase('upload');
@@ -373,6 +357,42 @@ export default function ImportPage() {
     }
   }
 
+  async function handleCreateSupplier() {
+    if (!newSupplierForm.name.trim()) {
+      showToast('Supplier name is required', 'error');
+      return;
+    }
+    setIsCreatingSupplier(true);
+    try {
+      const res = await fetch('/api/suppliers', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newSupplierForm.name.trim(),
+          contactEmail: newSupplierForm.contactEmail.trim() || null,
+          phone: newSupplierForm.phone.trim() || null,
+          website: newSupplierForm.website.trim() || null,
+          defaultMarginPercent: newSupplierForm.defaultMarginPercent ? Number(newSupplierForm.defaultMarginPercent) : 0,
+          defaultSlabLengthMm: newSupplierForm.defaultSlabLengthMm ? Number(newSupplierForm.defaultSlabLengthMm) : null,
+          defaultSlabWidthMm: newSupplierForm.defaultSlabWidthMm ? Number(newSupplierForm.defaultSlabWidthMm) : null,
+          defaultThicknessMm: newSupplierForm.defaultThicknessMm ? Number(newSupplierForm.defaultThicknessMm) : null,
+          notes: newSupplierForm.notes.trim() || null,
+        }),
+      });
+      const data = await safeJson(res);
+      if (!res.ok) throw new Error((data.error as string) ?? 'Failed to create supplier');
+      const created = data as unknown as Supplier & { id: string };
+      setSuppliers((prev) => [...prev, { id: created.id, name: newSupplierForm.name.trim() }]);
+      setSelectedSupplierId(created.id);
+      setShowNewSupplierForm(false);
+      showToast(`✓ ${newSupplierForm.name.trim()} added`);
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : 'Failed to create supplier', 'error');
+    } finally {
+      setIsCreatingSupplier(false);
+    }
+  }
+
   // ── Render helpers ─────────────────────────────────────────────────────────
 
   function renderUpload() {
@@ -382,7 +402,7 @@ export default function ImportPage() {
           <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-primary-50 ring-1 ring-primary-100">
             <Sparkles className="h-8 w-8 text-primary-600" />
           </div>
-          <h2 className="text-xl font-semibold text-gray-900">AI Price List Import</h2>
+          <h2 className="text-xl font-semibold text-gray-900">AI Material Import</h2>
           <p className="mt-1 text-sm text-gray-500">
             Drop a supplier PDF and let the AI discover and stage all materials for you.
           </p>
@@ -468,10 +488,10 @@ export default function ImportPage() {
                 Code
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Wholesale
+                Cost
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
-                Cost
+                Price/m²
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Δ
@@ -484,6 +504,9 @@ export default function ImportPage() {
               </th>
               <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
                 Fabrication
+              </th>
+              <th className="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">
+                Surface Finish
               </th>
               <th className="whitespace-nowrap px-3 py-2.5 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Conf.
@@ -521,7 +544,7 @@ export default function ImportPage() {
                   {m.name}
                   {m.isDiscontinued && (
                     <span className="ml-1.5 text-[10px] font-semibold text-orange-500 uppercase">
-                      DISC
+                      DISC{(m as any).discontinuedDate ? ` ${(m as any).discontinuedDate}` : ''}
                     </span>
                   )}
                 </td>
@@ -535,13 +558,13 @@ export default function ImportPage() {
                     <span className="text-amber-500 text-[10px]">auto-slug</span>
                   )}
                 </td>
-                {/* Wholesale */}
-                <td className="px-3 py-2 text-right tabular-nums text-gray-700">
-                  {m.wholesalePrice != null ? `$${m.wholesalePrice.toFixed(2)}` : '—'}
-                </td>
                 {/* Cost */}
                 <td className="px-3 py-2 text-right tabular-nums text-gray-900 font-medium">
                   {m.costPrice != null ? `$${m.costPrice.toFixed(2)}` : '—'}
+                </td>
+                {/* Price per m² */}
+                <td className="px-3 py-2 text-right tabular-nums text-gray-500 text-xs">
+                  {calcDisplayPricePerSqm(m.costPrice, m.slabLengthMm, m.slabWidthMm)}
                 </td>
                 {/* Delta */}
                 <td className="px-3 py-2 text-right">
@@ -609,6 +632,36 @@ export default function ImportPage() {
                     <option value="NATURAL_SOFT">Natural Marble</option>
                     <option value="NATURAL_PREMIUM">Natural Premium</option>
                     <option value="SINTERED">Porcelain / Sintered</option>
+                  </select>
+                </td>
+                {/* Surface Finish */}
+                <td className="px-3 py-2">
+                  <select
+                    value={m.surfaceFinish ?? ''}
+                    onChange={(e) => {
+                      if (!proposal) return;
+                      setProposal({
+                        ...proposal,
+                        extractedData: proposal.extractedData.map((row) =>
+                          row._id === m._id
+                            ? { ...row, surfaceFinish: (e.target.value || null) }
+                            : row,
+                        ),
+                      });
+                    }}
+                    className={cn(
+                      'text-xs rounded border px-1.5 py-0.5',
+                      !m.surfaceFinish
+                        ? 'border-amber-400 bg-amber-50 text-amber-700'
+                        : 'border-gray-200 bg-white text-gray-700',
+                    )}
+                  >
+                    <option value="">Select...</option>
+                    <option value="Polished">Polished</option>
+                    <option value="Matte">Matte</option>
+                    <option value="Honed">Honed</option>
+                    <option value="Brushed">Brushed</option>
+                    <option value="Textured">Textured</option>
                   </select>
                 </td>
                 {/* Confidence */}
@@ -741,21 +794,6 @@ export default function ImportPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            {/* Supplier selector (for sync) */}
-            {!selectedSupplierId && (
-              <select
-                value={selectedSupplierId}
-                onChange={(e) => setSelectedSupplierId(e.target.value)}
-                className="rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
-              >
-                <option value="">Select supplier to sync…</option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            )}
             <button
               onClick={() => {
                 setPhase('upload');
@@ -768,6 +806,166 @@ export default function ImportPage() {
             </button>
           </div>
         </div>
+
+        {/* Supplier matching banner */}
+        {selectedSupplierId ? (
+          <div className="flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            <CheckCircle2 className="h-4 w-4 flex-shrink-0" />
+            <span className="font-medium">
+              Matched to {suppliers.find((s) => s.id === selectedSupplierId)?.name ?? 'supplier'}
+            </span>
+            <button
+              onClick={() => setSelectedSupplierId('')}
+              className="ml-auto text-xs text-emerald-600 hover:text-emerald-800 underline"
+            >
+              Change
+            </button>
+          </div>
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 space-y-3">
+            <div className="flex items-start gap-2 text-sm text-amber-700">
+              <AlertTriangle className="h-4 w-4 flex-shrink-0 mt-0.5" />
+              <span>
+                <strong>{proposal.supplierName ?? 'Unknown supplier'}</strong> is not in your supplier list.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setShowNewSupplierForm(true)}
+                className="flex items-center gap-1.5 rounded-lg bg-amber-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-amber-700"
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Add {proposal.supplierName ?? 'supplier'} as a new supplier
+              </button>
+              <select
+                value=""
+                onChange={(e) => setSelectedSupplierId(e.target.value)}
+                className="rounded-lg border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+              >
+                <option value="">Select an existing supplier</option>
+                {suppliers.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Inline supplier creation form */}
+            {showNewSupplierForm && (
+              <div className="rounded-lg border border-amber-300 bg-white p-4 space-y-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Name *</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.name}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, name: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Contact Email</label>
+                    <input
+                      type="email"
+                      value={newSupplierForm.contactEmail}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, contactEmail: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Phone</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.phone}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, phone: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Website</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.website}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, website: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Margin %</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultMarginPercent}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultMarginPercent: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Slab Length mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultSlabLengthMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultSlabLengthMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Slab Width mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultSlabWidthMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultSlabWidthMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Default Thickness mm</label>
+                    <input
+                      type="number"
+                      value={newSupplierForm.defaultThicknessMm}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, defaultThicknessMm: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs font-medium text-gray-700 mb-1">Notes</label>
+                    <input
+                      type="text"
+                      value={newSupplierForm.notes}
+                      onChange={(e) => setNewSupplierForm((f) => ({ ...f, notes: e.target.value }))}
+                      className="w-full rounded border-gray-300 text-sm shadow-sm focus:border-primary-500 focus:ring-primary-500"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={handleCreateSupplier}
+                    disabled={isCreatingSupplier || !newSupplierForm.name.trim()}
+                    className={cn(
+                      'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+                      !isCreatingSupplier && newSupplierForm.name.trim()
+                        ? 'bg-gray-900 text-white hover:bg-gray-800'
+                        : 'bg-gray-100 text-gray-400 cursor-not-allowed',
+                    )}
+                  >
+                    {isCreatingSupplier ? (
+                      <span className="h-3.5 w-3.5 rounded-full border-2 border-gray-300 border-t-white animate-spin" />
+                    ) : (
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                    )}
+                    Save Supplier
+                  </button>
+                  <button
+                    onClick={() => setShowNewSupplierForm(false)}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Command bar */}
         <div

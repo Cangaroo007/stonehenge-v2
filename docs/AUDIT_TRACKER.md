@@ -1,6 +1,6 @@
 # Stone Henge — Audit Tracker
 
-> **Updated:** March 5, 2026
+> **Updated:** March 10, 2026
 > **Status:** ACTIVE
 
 ---
@@ -65,6 +65,36 @@
 | ME-1 | Removed wrong MITRED_PROFILE_CONSTRAINT validation from 4 API routes (calculate, pieces, pieces/[pieceId] ×2, bulk-edges). Constraint was factually incorrect — mitred edges have no traditional profile, the 45° mitre IS the edge. Added mitred_corner_treatment (RAW/SQUARE/ROUND, default RAW) to quote_pieces. Added strip_to_piece_threshold_mm (default 300) to pricing_settings. Updated Pricing Bible to correct constraint matrix. | claude/pricing-schema-correction-WASuU |
 | QF-1 | Tenant-configurable default edge profile. Added default_edge_type_id (String?) to pricing_settings. Piece POST handler reads setting and applies to all 4 edges when not explicitly provided. Drawing adapter updated to accept defaultEdgeTypeId param (no longer references hardcoded ARRIS). Pricing Admin dropdown added. Raw remains fallback when setting is null. | claude/qf1-default-edge-profile-ywF7t |
 | ME-4 | Promoted strip calculator. Schema: promoted_from_piece_id + promoted_edge_position on quote_pieces. On promote: POST creates new piece, atomically adds edge to parent's no_strip_edges (Task A). On delete: restores parent edge. stripToPieceThresholdMm added to loadPricingContext (Task B). Secondary safeguard in calculator: promotedEdgesByParent map merges promoted edges into noStripEdges even if DB field not patched (Task C). UI: "Promoted strip" badge on promoted pieces, "Already promoted" label replaces promote button for promoted edges. | claude/promoted-strip-calculator-ttPTD |
+| PRICING-FIX-1 | Templating guard (cost $0 when templatingRequired=false), waterfall modal, zero-rate warnings, category filtering on edge/cutout admin routes. Verified via full recalculate: Q-00051 $7,028.70, Q-00055 $12,067.85, Q-00058 $11,736.33. Old anchors were stale — deltas reflect accumulated engine improvements since ME-4, A-01, PX-1/2, MRG-1 (not PRICING-FIX-1 regressions). Note: service_rates table has NOT NULL updated_at — all INSERTs must include updated_at or they fail. | claude/verify-pricing-deployment-gQ96n |
+| AI-IMPORT-FIX-1 | Price column detection rules for AI price list parser. Per-m² reference column detection (header match, ratio check 4.0–7.0), genuine dual price (Wholesale+VIP headers), single price with discount, single price fallback. Prevents AI treating per-m² column as a second price. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-2 | fabricationCategory strict enum added to ParsedMaterial interface and extraction prompt. 5-value enum (ENGINEERED, NATURAL_HARD, NATURAL_SOFT, NATURAL_PREMIUM, SINTERED) with material-type mapping rules. surfaceFinish explicitly excluded from category determination. Default ENGINEERED. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-3 | Grain matching fields added to ParsedMaterial: requiresGrainMatch (boolean) + grainDirection (VEINED/UNIFORM/null). Keyword-based detection only — category alone never triggers grain matching. | claude/fix-ai-parsing-logic-LFUEK |
+| AI-IMPORT-FIX-4 | surfaceFinish strict enum: 'Polished' \| 'Matte' \| 'Textured' \| 'Honed' \| 'Brushed'. Document value mappings (Matt→Matte, Structured→Textured, Leathered→Brushed). Default Polished. | claude/fix-ai-parsing-logic-LFUEK |
+| MITRE-1 | Mitred 40mm apron piece auto-creation. Schema: apron_parent_id + apron_position on quote_pieces (self-referential, cascade delete). PATCH API: auto-creates 4 apron pieces (20mm, 100mm height) when lamination_method set to MITRED on 40mm+ piece; deletes aprons when switching away from MITRED. PieceRow: apron badge on parent + child rows. | claude/mitred-apron-auto-creation-34rJS |
+| C6 | ROUNDED_RECT curved cutting pricing. Calculator: ROUNDED_RECT added to CURVED_SHAPE_TYPES set. calcArcLengthM handles uniform (4 × π/2 × r) and individual corner radii (π/2 × sum of 4 corners). arcLengthLm wired into EnginePiece. Engine: ruleCurvedCutting added — CURVED_CUTTING rate × arcLengthLm, thickness-aware (rate20mm/rate40mm), null for non-curved pieces. Cost included in per-piece and quote-level fabricationSubtotal. | claude/fix-rounded-rect-pricing-RsC1P |
+| OPT-1 | Slab optimizer grouped null-material pieces into optimizer runs, causing "unassigned" pieces in results. Root cause: buildMaterialGroupings included pieces with materialId=null in groups keyed by empty string. Fix: multi-material-optimizer.ts buildMaterialGroupings now skips pieces where materialId is null/undefined. These pieces are excluded from slab optimization (they have no material to assign slabs for). | claude/fix-slab-optimizer-unassigned-1WlAT |
+| MITRE-1-FK | apron_parent_id FK changed from CASCADE DELETE to SET NULL. Deleting a parent piece no longer cascade-deletes its apron children — aprons become orphans instead. Migration: 20260321000000_fix_apron_strip_fk_set_null. Schema-only change, no code modified. | claude/fix-apron-fk-cascade-NPtsj |
+
+---
+
+## Pricing Anchors
+
+> **Source of truth for expected quote totals.** Updated after verified full recalculation on 2026-03-09.
+> Old anchors were stale — recalculation reflects accumulated engine improvements since ME-4, A-01, PX-1/2, MRG-1.
+
+| Quote | Subtotal (ex GST) | Last Verified |
+|-------|-------------------|---------------|
+| Q-00051 | $7,028.70 | 2026-03-09 |
+| Q-00055 | $12,067.85 | 2026-03-09 |
+| Q-00058 | $11,736.33 | 2026-03-09 |
+
+---
+
+## Known Schema Gotchas
+
+| Table | Gotcha | Detail |
+|-------|--------|--------|
+| service_rates | `updated_at` is NOT NULL with no default | All INSERTs must explicitly include `updated_at: new Date()` or the query fails. Bake into all future seed/migration prompts. |
 
 ---
 
@@ -96,6 +126,13 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| MITRE-1-FK apron_parent_id FK CASCADE → SET NULL | claude/fix-apron-fk-cascade-NPtsj | Mar 10 | ✅ Complete |
+| OPT-1 exclude null-material pieces from slab optimizer | claude/fix-slab-optimizer-unassigned-1WlAT | Mar 10 | ✅ Complete |
+| C6 ROUNDED_RECT curved cutting pricing | claude/fix-rounded-rect-pricing-RsC1P | Mar 10 | ✅ Complete |
+| MITRE-1 mitred apron auto-creation | claude/mitred-apron-auto-creation-34rJS | Mar 10 | 🔄 In progress |
+| AI-IMPORT-FIX 1-4 fix AI price list parsing logic | claude/fix-ai-parsing-logic-LFUEK | Mar 9 | ✅ Complete |
+| PRICING-FIX-1 verify pricing deployment + anchor update | claude/verify-pricing-deployment-gQ96n | Mar 9 | ✅ Complete |
+| MITRE-1 — apron_parent_id + apron_position schema + Parts List display | claude/mitre-1-apron-schema-sR6fU | Mar 10 | In Progress |
 | ME-1 remove wrong mitred constraint + schema fields | claude/pricing-schema-correction-WASuU | Mar 5 | ✅ Complete |
 | QF-1 tenant-configurable default edge profile | claude/qf1-default-edge-profile-ywF7t | Mar 5 | ✅ Complete |
 | ME-4 promoted strip calculator | claude/promoted-strip-calculator-ttPTD | Mar 5 | ✅ Complete |
@@ -130,4 +167,13 @@
 
 ---
 
-*Last Updated: Mar 5 2026 — QF-1: Tenant-configurable default edge profile on new pieces.*
+*Last Updated: Mar 10 2026 — MITRE-1-FK: apron_parent_id FK changed from CASCADE DELETE to SET NULL.*
+
+BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10
+SB-1 — Splashback piece_type + auto top edge | claude/splashback-piece-type-m1lJa | 2026-03-10
+SB-1a — piece_type column added to quote_pieces (was app-only, now DB-backed). Migration: 20260320000000_add_piece_type_column. 'as any' casts removed from POST/PATCH pieces routes + InlinePieceEditor. Waterfall edge type deactivated (isActive=false). | claude/add-piece-type-column-2LMdo | 2026-03-10
+WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (VARCHAR 255) added to pricing_settings. All 3 columns confirmed in production DB. Waterfall edge type deactivated (isActive=false). | claude/add-piece-type-column-2LMdo | 2026-03-10
+
+| WF-1c | ✅ | Calculator waterfall detection changed from edge ID string match to piece_type = 'WATERFALL'. Legacy waterfall_height_mm fallback kept. File: pricing-calculator-v2.ts | Mar 10 2026 |
+| FIX-1 | Supplier creation opened to all authenticated users — removed ADMIN/SALES_MANAGER role restriction from POST /api/suppliers | fix/supplier-permission-and-price-import |
+| FIX-2 | Removed two-price critical question from AI material importer — AI no longer raises clarification when it sees slab price + m² columns | fix/supplier-permission-and-price-import |

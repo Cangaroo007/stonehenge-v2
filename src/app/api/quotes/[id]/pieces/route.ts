@@ -81,16 +81,24 @@ export async function GET(
           thicknessMm: piece.thickness_mm,
           materialId: piece.material_id,
           materialName: piece.material_name,
-          edgeTop: piece.edge_top,
-          edgeBottom: piece.edge_bottom,
-          edgeLeft: piece.edge_left,
-          edgeRight: piece.edge_right,
+          // CURVE-2a: Prefer top-level edge columns, fallback to shape_config.edges for legacy ROUNDED_RECT data
+          edgeTop: piece.edge_top ?? (piece.shape_config as any)?.edges?.top ?? null,
+          edgeBottom: piece.edge_bottom ?? (piece.shape_config as any)?.edges?.bottom ?? null,
+          edgeLeft: piece.edge_left ?? (piece.shape_config as any)?.edges?.left ?? null,
+          edgeRight: piece.edge_right ?? (piece.shape_config as any)?.edges?.right ?? null,
           laminationMethod: piece.lamination_method,
+          joinMethod: piece.join_method,
+          pieceType: piece.piece_type || 'BENCHTOP',
           sortOrder: piece.sort_order,
           // K2: Shape camelCase aliases
           shapeType: piece.shape_type || 'RECTANGLE',
           shapeConfig: piece.shape_config || null,
           requiresGrainMatch: piece.requiresGrainMatch ?? false,
+          // CURVE-2a: Corner edge camelCase aliases
+          cornerEdgeTl: piece.corner_edge_tl ?? null,
+          cornerEdgeTr: piece.corner_edge_tr ?? null,
+          cornerEdgeBl: piece.corner_edge_bl ?? null,
+          cornerEdgeBr: piece.corner_edge_br ?? null,
           overrideMaterialCost: piece.override_material_cost
             ? Number(piece.override_material_cost)
             : null,
@@ -166,7 +174,24 @@ export async function POST(
       requiresGrainMatch,
       promotedFromPieceId,
       promotedEdgePosition,
+      pieceType = 'BENCHTOP',
+      joinMethod = null,
     } = data;
+
+    // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
+    let resolvedEdgeTop    = edgeTop;
+    let resolvedEdgeBottom = pieceType === 'SPLASHBACK' ? null : edgeBottom;
+    let resolvedEdgeLeft   = pieceType === 'SPLASHBACK' ? null : edgeLeft;
+    let resolvedEdgeRight  = pieceType === 'SPLASHBACK' ? null : edgeRight;
+
+    // CURVE-2a: If shapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
+    const shapeEdges = (shapeConfig as Record<string, unknown> | null)?.edges as Record<string, string | null> | undefined;
+    if (shapeEdges) {
+      if (shapeEdges.top !== undefined) resolvedEdgeTop = shapeEdges.top ?? null;
+      if (shapeEdges.bottom !== undefined) resolvedEdgeBottom = shapeEdges.bottom ?? null;
+      if (shapeEdges.left !== undefined) resolvedEdgeLeft = shapeEdges.left ?? null;
+      if (shapeEdges.right !== undefined) resolvedEdgeRight = shapeEdges.right ?? null;
+    }
 
     // Validate required fields
     if (!name || !lengthMm || !widthMm) {
@@ -312,14 +337,21 @@ export async function POST(
         total_cost: materialCost,
         sort_order: (maxPiece?.sort_order ?? -1) + 1,
         cutouts: [],
-        edge_top: edgeTop || null,
-        edge_bottom: edgeBottom || null,
-        edge_left: edgeLeft || null,
-        edge_right: edgeRight || null,
+        edge_top:    resolvedEdgeTop    || null,
+        edge_bottom: resolvedEdgeBottom || null,
+        edge_left:   resolvedEdgeLeft   || null,
+        edge_right:  resolvedEdgeRight  || null,
+        piece_type: pieceType,
+        join_method: joinMethod,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
         shape_type: shapeType || 'RECTANGLE',
         shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
+        // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
+        corner_edge_tl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tl as string ?? null,
+        corner_edge_tr: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tr as string ?? null,
+        corner_edge_bl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_bl as string ?? null,
+        corner_edge_br: (shapeConfig as Record<string, unknown> | null)?.corner_edge_br as string ?? null,
         requiresGrainMatch: requiresGrainMatch ?? false,
         promoted_from_piece_id: promotedFromPieceId ? parseInt(String(promotedFromPieceId), 10) : null,
         promoted_edge_position: promotedEdgePosition || null,
@@ -370,11 +402,18 @@ export async function POST(
       edgeLeft: pieceAny.edge_left,
       edgeRight: pieceAny.edge_right,
       laminationMethod: pieceAny.lamination_method,
+      joinMethod: pieceAny.join_method,
+      pieceType: pieceAny.piece_type || 'BENCHTOP',
       sortOrder: pieceAny.sort_order,
       // K2: Shape camelCase aliases
       shapeType: pieceAny.shape_type || 'RECTANGLE',
       shapeConfig: pieceAny.shape_config || null,
       requiresGrainMatch: pieceAny.requiresGrainMatch ?? false,
+      // CURVE-2a: Corner edge camelCase aliases
+      cornerEdgeTl: pieceAny.corner_edge_tl ?? null,
+      cornerEdgeTr: pieceAny.corner_edge_tr ?? null,
+      cornerEdgeBl: pieceAny.corner_edge_bl ?? null,
+      cornerEdgeBr: pieceAny.corner_edge_br ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),

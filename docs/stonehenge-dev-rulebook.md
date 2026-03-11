@@ -1,9 +1,9 @@
-# Stone Henge — Mandatory Development Rulebook v15
+# Stone Henge — Mandatory Development Rulebook v16
 
-> **Updated:** March 2, 2026
+> **Updated:** March 10, 2026
 > **Status:** ACTIVE — read before writing any code
-> **Rules:** 63 total (all NON-NEGOTIABLE)
-> **Supersedes:** All previous dev-rules files (v1–v14 and all addenda)
+> **Rules:** 66 total (Rules 1–61, 66–69 — all NON-NEGOTIABLE)
+> **Supersedes:** All previous dev-rules files (v1–v15 and all addenda)
 > **Stable path:** `docs/stonehenge-dev-rulebook.md`
 > **Location note:** This file lives at `docs/stonehenge-dev-rulebook.md` with no version
 > suffix. Always reference it by that path. The version number lives inside the document only.
@@ -21,7 +21,7 @@ cd ~/Downloads/stonehenge-v2 && cat docs/stonehenge-dev-rulebook.md
 ```
 
 **The prompt preamble always references this path — never a versioned filename.**
-When the rulebook is updated to v16, v17, etc., the file at `docs/stonehenge-dev-rulebook.md`
+When the rulebook is updated to v17, v18, etc., the file at `docs/stonehenge-dev-rulebook.md`
 is updated in place. The path never changes. Prompts never need updating when the rulebook version increments.
 
 **⚠️ LIVE PLATFORM NOTE:** Stone Henge is used by real users at Northcoast Stone. Rule
@@ -66,6 +66,9 @@ violations cause real business harm. Every rule should be treated as if a live q
 33. Stop Gates are absolute
 34. .env is never committed to git
 35. Real data before any conclusion — batch all DB queries upfront
+36. Sean's local build must pass before any git push
+37. Grep all type consumers before changing any type
+38. All files affected by a type change update in a single commit
 
 ---
 
@@ -292,7 +295,7 @@ All calculation logic must match the Pricing Bible specification:
 - Polishing applies ONLY to finished (exposed) edges — NEVER to join faces on L/U shapes
 - Edge profiles are ADDITIONAL cost on top of base polishing
 - 40mm = 20mm slab + lamination edge strips (mandatory, not optional)
-- Mitred edges have no traditional edge profile — the 45° mitre joint IS the finished edge. The only option is the top corner tip treatment: Raw (default), Square Top, or Round Top
+- Mitred edges → Pencil Round profile ONLY
 - All rates are tenant-configurable via Pricing Admin
 - Service units (Lm vs m²) are selectable per tenant
 - Cutout rates and edge surcharges are fabrication-category-aware
@@ -545,7 +548,7 @@ The following patterns are PERMANENTLY BANNED. Their presence in ANY file is a b
 | `EdgeDropdown` component | `grep -rn 'EdgeDropdown\b' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
 | `EdgeManager` component | `grep -rn 'EdgeManager\b' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
 | `EdgeConfigPanel` | `grep -rn 'EdgeConfigPanel' src/ --include='*.tsx'` | PieceVisualEditor SVG click |
-| `edge.*checkbox` in quotes UI | `grep -rn 'checkbox.*edge\|edge.*checkbox' src/components/quotes/` | PieceVisualEditor SVG click |
+| `edge.*checkbox` in quotes UI | `grep -rn 'checkbox.*edge\|edge.*checkbox' src/components/quotes/'` | PieceVisualEditor SVG click |
 | Per-side dropdown edge lists | `grep -rn 'top.*edge.*select\|bottom.*edge.*select' src/components/quotes/` | PieceVisualEditor SVG click |
 
 **Enforcement (add to every PR verification):**
@@ -1121,6 +1124,109 @@ Code analysis can proceed without DB data:
 
 ---
 
+## BUILD VERIFICATION BEFORE PUSH
+
+### RULE 67: GATE FINAL REQUIRES SEAN'S LOCAL BUILD (CRITICAL)
+
+Claude Code cannot verify Railway builds. A build that passes locally in the Claude Code sandbox may still fail on Railway due to stricter TypeScript settings, different Node.js versions, or environment differences.
+
+**Gate Final in every prompt MUST:**
+
+1. **Hard-stop before any `git push`**
+2. **Ask Sean to run locally:**
+
+```bash
+cd ~/Downloads/stonehenge-v2 && npm run build 2>&1 | tail -20 && npx tsc --noEmit 2>&1 | tail -20
+```
+
+3. **Wait for Sean to post:** `"build passed, types passed"`
+4. **Only then** push the branch and open the PR via GitHub UI
+
+**This gate is non-negotiable.** A Railway build failure after merge costs significant debugging time, blocks the live platform, and requires a hotfix PR. The local check prevents this entirely.
+
+**Gate Final template (add to every prompt):**
+
+```
+## ⛔ GATE FINAL — LOCAL BUILD REQUIRED BEFORE PUSH
+
+Before pushing, ask Sean to run:
+
+cd ~/Downloads/stonehenge-v2 && npm run build 2>&1 | tail -20 && npx tsc --noEmit 2>&1 | tail -20
+
+Wait for Sean to confirm: "build passed, types passed"
+
+DO NOT run git push or create the PR until that confirmation is received.
+```
+
+> **Why it exists:** Claude Code operates in a sandboxed environment that cannot run a true
+> Railway-equivalent build. Merges have failed on Railway after passing Claude Code's internal
+> checks. Every failed Railway build blocks the live platform and requires a hotfix PR cycle.
+
+---
+
+## TYPE CHANGE SAFETY
+
+### RULE 68: TYPE PROPAGATION MANDATORY PRE-CHECK (CRITICAL)
+
+Before changing ANY type — especially adding `| null` to an existing type, changing a field from required to optional, or altering a shared interface — grep ALL consumers of that field:
+
+```bash
+grep -rn "FIELD_NAME" src/ --include="*.ts" --include="*.tsx" | grep -v "node_modules|\.next"
+```
+
+**Five high-risk interfaces — check ALL of them before touching piece data:**
+
+| Interface | Location |
+|-----------|----------|
+| `InlinePieceData` | `src/components/quotes/InlinePieceEditor.tsx:47` |
+| `WizardPieceInput` | `src/components/quotes/ManualQuoteWizard.tsx` |
+| `WizardRoomInput` | `src/components/quotes/ManualQuoteWizard.tsx` |
+| `EnginePiece` | `src/lib/services/pricing-calculator-v2.ts` |
+| `SlabOptimizerInput` | `src/lib/services/slab-optimizer.ts` |
+
+**Before making ANY type change:**
+
+1. Run the grep above for every field being changed
+2. List every file in the output
+3. Plan updates to ALL of them before writing a single line of code
+4. If any consumer would be broken by the change → update the plan to include it
+
+**A type change that fixes one file and silently breaks three others is worse than no change at all.**
+
+> **Why it exists:** TypeScript's structural typing means a `| null` addition can propagate
+> breakage to every downstream consumer. Railway's stricter build catches these where local
+> builds may not. Grepping all consumers upfront converts a potential cascade into a planned,
+> atomic change.
+
+---
+
+### RULE 69: INTERFACE CHANGE PROTOCOL (CRITICAL)
+
+All files affected by a type or interface change MUST be updated in a **single commit**. Split commits that update some consumers but not others create a window where the codebase is in a broken intermediate state.
+
+**Protocol:**
+
+1. Complete the Rule 68 grep — identify ALL affected files
+2. Update every affected file
+3. Run `npm run build && npx tsc --noEmit` — must pass with 0 errors
+4. **Gate Final grep:** confirm zero remaining old type signatures before opening the PR:
+
+```bash
+# Replace OLD_SIGNATURE with the exact type pattern being removed
+grep -rn "OLD_SIGNATURE" src/ --include="*.ts" --include="*.tsx" | grep -v "node_modules|\.next"
+# MUST return 0 results
+```
+
+5. Only open the PR once the Gate Final grep returns empty
+
+**A PR that introduces a type change may NOT be opened while any consumer still holds the old type signature.**
+
+> **Why it exists:** Partial type migrations have caused Railway build failures when the
+> first consumer is updated, the PR is opened, and the second consumer's breakage is only
+> discovered post-merge. The single-commit + gate-final-grep requirement closes this gap.
+
+---
+
 ## MANDATORY SESSION START
 
 Run these commands **one at a time** before writing any code in any session:
@@ -1225,10 +1331,11 @@ grep -n "interface\|type\|export type" TARGET_FILE | head -20
 | v12 | Feb 26 | 51–57 | Living audit tracker, pre-prompt micro-audit, API verification, placeholder flagging, DB-graceful tests, regression anchor protocol |
 | v13 | Feb 27 | 51–59 | Full consolidation. Rule 51 hard gate. Rule 52 SYSTEM_STATE added. Rule 58 data freshness. Rule 59 L/U shape two-rule foundation. Stable path (no version suffix). Addenda eliminated. |
 | v14 | Mar 2, 2026 | 60 | Rule 60: STOP GATE protocol. Defines the exact stop phrase, 15 prohibited actions after stop, the only valid continuation triggers, and the recovery procedure when a gate has been passed. Standard template included. |
-| **v15** | **Mar 2, 2026** | **61, 66** | **Rule 61: Database access and .env management (6 sub-rules). Rule 66: Real data before any conclusion — Claude Code cannot reach Railway, batch all DB queries upfront, standard psql format, hard rules on fabrication and guessing. Golden Rules 34–35 added. Session startup updated to include git sync.** |
+| v15 | Mar 2, 2026 | 61, 66 | Rule 61: Database access and .env management (6 sub-rules). Rule 66: Real data before any conclusion — Claude Code cannot reach Railway, batch all DB queries upfront, standard psql format, hard rules on fabrication and guessing. Golden Rules 34–35 added. Session startup updated to include git sync. |
+| **v16** | **Mar 10, 2026** | **67, 68, 69** | **Rule 67: Gate Final requires Sean's local build before any git push — prevents Railway build failures post-merge. Rule 68: Type propagation mandatory pre-check — grep all consumers before changing any type; five high-risk interfaces enumerated. Rule 69: Interface change protocol — all affected files in a single commit, Gate Final grep must confirm zero old signatures before PR opens. Golden Rules 36–38 added.** |
 
 ---
 
 **Stable path:** `docs/stonehenge-dev-rulebook.md`
 **Always reference this path, never a versioned filename.**
-**When this document is updated to v16, the path stays the same.**
+**When this document is updated to v17, the path stays the same.**

@@ -105,6 +105,8 @@ export default function DrawingUploadStep({
     setProgress(10);
     setProgressLabel('Creating draft quote...');
 
+    let progressInterval: ReturnType<typeof setInterval> | null = null;
+
     try {
       // Step 1: Create a draft quote to attach the drawing to
       const params = new URLSearchParams();
@@ -145,7 +147,7 @@ export default function DrawingUploadStep({
       analyseFormData.append('file', file);
 
       // Simulate progress during analysis
-      const progressInterval = setInterval(() => {
+      progressInterval = setInterval(() => {
         setProgress(prev => Math.min(prev + 5, 75));
       }, 1000);
 
@@ -154,8 +156,6 @@ export default function DrawingUploadStep({
         body: analyseFormData,
       });
 
-      clearInterval(progressInterval);
-
       if (!analyseRes.ok) {
         const errData = await analyseRes.json();
         throw new Error(errData.details || errData.error || 'Drawing analysis failed');
@@ -163,6 +163,15 @@ export default function DrawingUploadStep({
 
       const analyseData = await analyseRes.json();
       const analysis = analyseData.analysis;
+
+      if (!analysis || typeof analysis !== 'object') {
+        throw new Error('Drawing analysis returned no data. Please try again.');
+      }
+      if (!Array.isArray(analysis.rooms) || analysis.rooms.length === 0) {
+        throw new Error(
+          'No pieces could be detected in this drawing. Try a clearer image or use the manual builder.'
+        );
+      }
 
       setProgress(80);
       setProgressLabel('Saving drawing record...');
@@ -187,6 +196,8 @@ export default function DrawingUploadStep({
     } catch (err) {
       setAnalysisState('error');
       setError(err instanceof Error ? err.message : 'Drawing analysis failed');
+    } finally {
+      if (progressInterval) clearInterval(progressInterval);
     }
   };
 

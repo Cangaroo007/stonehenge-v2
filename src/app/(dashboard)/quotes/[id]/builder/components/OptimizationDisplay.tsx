@@ -6,6 +6,7 @@ import { OptimizationResult } from '@/types/slab-optimization';
 import type { MultiMaterialOptimisationResult, MaterialGroupResult, OversizePieceInfo, SlabCutoutInfo, Placement } from '@/types/slab-optimization';
 import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { SlabEdgeAllowancePrompt } from './SlabEdgeAllowancePrompt';
+import { SlabDimensionOverrides } from './SlabDimensionOverrides';
 
 // Minimum segment lengths — based on Australian fabrication industry standards
 // Below HARD_MIN: piece is physically unfabricable (cannot be cut, polished, handled)
@@ -72,6 +73,12 @@ interface OptimizationDisplayProps {
   quoteEdgeAllowanceMm?: number | null;
   /** Callback when edge allowance changes (triggers re-optimisation) */
   onEdgeAllowanceApplied?: () => void;
+  /** Material IDs assigned to pieces in this quote (for slab size overrides) */
+  usedMaterialIds?: number[];
+  /** Per-quote slab dimension overrides from the quote record */
+  slabDimensionOverrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null;
+  /** Callback when slab dimension overrides are saved */
+  onSlabDimensionOverridesSaved?: () => void;
 }
 
 export function OptimizationDisplay({
@@ -83,6 +90,9 @@ export function OptimizationDisplay({
   optimiserError = null,
   quoteEdgeAllowanceMm,
   onEdgeAllowanceApplied,
+  usedMaterialIds = [],
+  slabDimensionOverrides = null,
+  onSlabDimensionOverridesSaved,
 }: OptimizationDisplayProps) {
   const [optimization, setOptimization] = useState<any>(null);
   const [result, setResult] = useState<OptimizationResult | null>(null);
@@ -588,6 +598,16 @@ export function OptimizationDisplay({
           />
         )}
       </div>
+
+      {/* Per-quote slab dimension overrides */}
+      {usedMaterialIds.length > 0 && onSlabDimensionOverridesSaved && (
+        <SlabDimensionOverrides
+          quoteId={quoteId}
+          usedMaterialIds={usedMaterialIds}
+          overrides={slabDimensionOverrides}
+          onSaved={onSlabDimensionOverridesSaved}
+        />
+      )}
     </div>
   );
 }
