@@ -592,6 +592,14 @@ export default function ExpandedPieceViewClient({
               shapeConfig={editFields.shapeConfig ?? undefined}
               shapeConfigEdges={effectiveShapeType === 'ROUNDED_RECT' ? shapeConfigEdges : undefined}
               onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
+              quoteId={quoteId}
+              pieceId={pieceData?.id}
+              pieceName={editFields.name}
+              pieceThickness={editFields.thicknessMm}
+              pieceMaterialId={editFields.materialId}
+              onPieceAttached={(newPieceId) => {
+                window.location.href = `/quotes/${quoteId}/pieces/${newPieceId}`;
+              }}
             />
           </div>
         </div>
