@@ -834,13 +834,7 @@ export default function ExpandedPieceViewClient({
                   total={breakdown.fabrication.cutting.total}
                 />
               )}
-              {breakdown.fabrication.polishing.total > 0 && (
-                <CostRow
-                  label="Polishing"
-                  formula={`${breakdown.fabrication.polishing.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.polishing.unit)} \u00D7 ${formatCurrency(breakdown.fabrication.polishing.rate)}`}
-                  total={breakdown.fabrication.polishing.total}
-                />
-              )}
+              {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
                 <CostRow
                   label="Curved Cutting"
@@ -848,13 +842,7 @@ export default function ExpandedPieceViewClient({
                   total={breakdown.fabrication.curvedCutting.cost}
                 />
               )}
-              {breakdown.fabrication.curvedPolishing && breakdown.fabrication.curvedPolishing.cost > 0 && (
-                <CostRow
-                  label="Curved Polishing"
-                  formula={`${breakdown.fabrication.curvedPolishing.arcLengthLm.toFixed(2)} Lm \u00D7 ${formatCurrency(breakdown.fabrication.curvedPolishing.rate)}`}
-                  total={breakdown.fabrication.curvedPolishing.cost}
-                />
-              )}
+              {/* CURVED POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {breakdown.fabrication.edges.filter((e) => e.total > 0).map((edge, idx) => (
                 <CostRow
                   key={`${edge.side}-${idx}`}

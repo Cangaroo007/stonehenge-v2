@@ -1008,3 +1008,5 @@ FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price ques
 
 ## CURVE-3 (2026-03-12)
 - PieceVisualEditor: FULL_CIRCLE perimeter ring is clickable. RADIUS_END arc end is clickable. Vertical diameter line removed.
+
+REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. rulePolishing() and ruleCurvedPolishing() bypassed in pricing-rules-engine.ts (zeroed, not deleted). Polishing render blocks removed from QuickViewPieceRow.tsx, PieceRow.tsx, ExpandedPieceViewClient.tsx. ruleEdgeProfiles() is now sole edge cost mechanism. calculation_breakdown polishing fields zeroed but not removed. ruleLamination untouched — correctly uses polish rate for 40mm strip pricing.

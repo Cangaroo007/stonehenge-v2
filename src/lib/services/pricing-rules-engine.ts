@@ -367,8 +367,12 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
   for (const piece of input.pieces) {
     const cutting        = ruleCutting(piece, input.serviceRates, category)
     const curvedCutting  = ruleCurvedCutting(piece, input.serviceRates, category, input.settings.curvedCuttingMode, cutting)
-    const polishing      = rulePolishing(piece, input.serviceRates, category)
-    const curvedPolishing = ruleCurvedPolishing(piece, input.serviceRates, category, input.settings.curvedPolishingMode, polishing)
+    // POLISHING REMOVED — deliberate pricing decision (March 2026)
+    // rulePolishing(piece, input.serviceRates, category) — bypassed
+    const polishing      = { lm: 0, ratePerLm: 0, cost: 0 }
+    // CURVED POLISHING REMOVED — deliberate pricing decision (March 2026)
+    // ruleCurvedPolishing(piece, input.serviceRates, category, input.settings.curvedPolishingMode, polishing) — bypassed
+    const curvedPolishing = null
     const edgeProfiles   = ruleEdgeProfiles(piece, input.edgeCategoryRates, category)
     const lamination     = ruleLamination(piece, input.serviceRates, input.settings, category)
     const cutouts        = ruleCutouts(piece, input.cutoutRates, category)

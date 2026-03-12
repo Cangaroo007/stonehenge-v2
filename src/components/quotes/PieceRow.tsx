@@ -1132,20 +1132,7 @@ export default function PieceRow({
           />
           )}
 
-          {/* Polishing */}
-          {breakdown.fabrication.polishing.total > 0 && (
-          <CostLine
-            label="Polishing"
-            formula={`${breakdown.fabrication.polishing.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.polishing.unit)} x ${formatCurrency(breakdown.fabrication.polishing.rate)} ${unitLabel(breakdown.fabrication.polishing.unit)} = ${formatCurrency(breakdown.fabrication.polishing.baseAmount)}`}
-            total={breakdown.fabrication.polishing.total}
-            operationType="EDGE_POLISHING"
-            machines={machines}
-            machineOperationDefaults={machineOperationDefaults}
-            mode={mode}
-            pieceId={piece.id}
-            onMachineChange={onMachineChange}
-          />
-          )}
+          {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
 
           {/* Curved Cutting */}
           {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
@@ -1162,20 +1149,7 @@ export default function PieceRow({
           />
           )}
 
-          {/* Curved Polishing */}
-          {breakdown.fabrication.curvedPolishing && breakdown.fabrication.curvedPolishing.cost > 0 && (
-          <CostLine
-            label="Curved Polishing"
-            formula={`${breakdown.fabrication.curvedPolishing.arcLengthLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.curvedPolishing.rate)}`}
-            total={breakdown.fabrication.curvedPolishing.cost}
-            operationType="EDGE_POLISHING"
-            machines={machines}
-            machineOperationDefaults={machineOperationDefaults}
-            mode={mode}
-            pieceId={piece.id}
-            onMachineChange={onMachineChange}
-          />
-          )}
+          {/* CURVED POLISHING REMOVED — deliberate pricing decision (March 2026) */}
 
           {/* Edges */}
           {breakdown.fabrication.edges.filter(e => e.total > 0).map((edge, idx) => (
