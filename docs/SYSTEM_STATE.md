@@ -1006,7 +1006,20 @@ WF-1c: Calculator waterfall detection changed from edge ID string match to piece
 FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price question removed.
 
 
+<<<<<<< HEAD
 ## CURVE-3 (2026-03-12)
 - PieceVisualEditor: FULL_CIRCLE perimeter ring is clickable. RADIUS_END arc end is clickable. Vertical diameter line removed.
 
 REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. rulePolishing() and ruleCurvedPolishing() bypassed in pricing-rules-engine.ts (zeroed, not deleted). Polishing render blocks removed from QuickViewPieceRow.tsx, PieceRow.tsx, ExpandedPieceViewClient.tsx. ruleEdgeProfiles() is now sole edge cost mechanism. calculation_breakdown polishing fields zeroed but not removed. ruleLamination untouched — correctly uses polish rate for 40mm strip pricing.
+=======
+## ME-4 — Promoted strip cuttingPerimeterLm
+- `isPromotedStrip = !!piece.promoted_from_piece_id`
+- If true: `cuttingPerimeterLm = length_mm / 1000` (one saw cut along length)
+- Else: shaped piece uses `getCuttingPerimeterLm(...)`, rectangle uses `undefined`
+
+
+## WF-2f — waterfallModal state
+- Added `parentPieceId: string | null` to state shape
+- Per-piece buttons set parentPieceId to the initiating piece id
+- Toolbar overflow menu removed
+>>>>>>> 40f2912 (feat(wf-2f): per-piece waterfall/splashback buttons, remove toolbar overflow)
