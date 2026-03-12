@@ -5,10 +5,10 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-10
-> **Last Updated By:** claude/fix-apron-fk-cascade-NPtsj — MITRE-1-FK: change apron_parent_id FK from CASCADE DELETE to SET NULL
+> **Last Updated:** 2026-03-12
+> **Last Updated By:** claude/migrate-arc-edge-schema-HchE8 — CURVE-4a: add edge_arc_config JSONB to quote_pieces
 >
-> MITRE-1-FK: Migration 20260321000000_fix_apron_strip_fk_set_null changes apron_parent_id FK onDelete from CASCADE to SET NULL. Prevents deleting a parent piece from cascade-deleting its apron children — aprons become orphans (apron_parent_id = NULL) instead. No code changes — migration only.
+> CURVE-4a: Added edge_arc_config JSONB column to quote_pieces. ArcEdgeConfig interface in shapes.ts. PATCH API accepts edgeArcConfig. Migration: 20260313000001_add_edge_arc_config.
 
 ---
 
@@ -54,6 +54,7 @@
 | edge_right | String? | Edge type for RECTANGLE right |
 | edge_bottom | String? | Edge type for RECTANGLE bottom |
 | edge_left | String? | Edge type for RECTANGLE left |
+| edge_arc_config | Json? | Arc edge profile assignments for curved pieces (FULL_CIRCLE perimeter, RADIUS_END arc ends, ROUNDED_RECT corners). See ArcEdgeConfig interface in shapes.ts. CURVE-4a. |
 | name | String | Default "Piece" |
 | lamination_method | LaminationMethod | Default NONE |
 | isOversize | Boolean | Default false |
@@ -1016,3 +1017,6 @@ REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. ruleP
 
 ## UX-FIX-2 (2026-03-12)
 - isMitred now checks laminationMethod === 'MITRED', not thicknessMm === 40. Edge disabled logic uses et.isMitred boolean. PATCH route derivedLaminationMethod logic unchanged. QuickViewPieceRow.tsx lines 548, 1124.
+
+## UX-FIX-4 (2026-03-12)
+- ExpandedPieceViewClient: editable diameter_mm, radius_mm, corner_radius_mm fields for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT curved pieces. Fields inside Dimensions card, conditional on shapeType + isEditMode. Write to editFields.shapeConfig via setEditFields. Existing handleSave includes shapeConfig in PATCH payload — no API or calculator changes.
