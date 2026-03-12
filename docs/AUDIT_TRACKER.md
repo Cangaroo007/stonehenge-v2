@@ -186,6 +186,8 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Date:** 2026-03-12
 - **What:** FULL_CIRCLE SVG vertical line removed. Arc edge click areas added for FULL_CIRCLE and RADIUS_END.
 
+| UX-FIX-4 | ✅ | ExpandedPieceViewClient: editable shape config fields (diameter, radius, corner radius) for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT. Fields write to editFields.shapeConfig using existing setEditFields pattern. Existing handleSave already includes shapeConfig in PATCH payload — no API changes. | claude/fix-curved-piece-config-2jlkK | 2026-03-12 |
+
 ## CURVE-4a
 - **Status:** ✅ Resolved
 - **Date:** 2026-03-12
