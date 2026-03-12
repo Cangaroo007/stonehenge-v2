@@ -924,7 +924,7 @@ export async function calculateQuotePrice(
       ? piece.cutouts
       : (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
     const engineCutouts: EngineCutout[] = cutoutsArray.map((c: any) => {
-      const ct = cutoutTypes.find((t: any) => t.id === c.cutoutTypeId || t.id === c.typeId || t.name === c.type);
+      const ct = cutoutTypes.find((t: any) => t.id === c.cutoutTypeId || t.id === c.typeId || t.name === c.type || t.name === c.name);
       if (!ct && (c.cutoutTypeId || c.typeId || c.type)) {
         missingRates.push({
           code: 'CUTOUT',
