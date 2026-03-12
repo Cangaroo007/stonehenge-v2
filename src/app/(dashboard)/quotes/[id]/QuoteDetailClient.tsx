@@ -413,8 +413,8 @@ export default function QuoteDetailClient({
   const [waterfallModal, setWaterfallModal] = useState<{
     isOpen: boolean;
     type: 'WATERFALL' | 'SPLASHBACK';
-  }>({ isOpen: false, type: 'WATERFALL' });
-  const [showPieceOverflow, setShowPieceOverflow] = useState(false);
+    parentPieceId: string | null;
+  }>({ isOpen: false, type: 'WATERFALL', parentPieceId: null });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -3389,6 +3389,8 @@ export default function QuoteDetailClient({
             relationshipLabel={nestingProps?.relationshipLabel}
             grainMatch={nestingProps?.grainMatch}
             onDetach={nestingProps?.onDetach}
+            onAddWaterfall={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id) })}
+            onAddSplashback={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id) })}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
@@ -3491,32 +3493,6 @@ export default function QuoteDetailClient({
               <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
                 + Add Piece
               </button>
-              {/* ··· overflow — secondary piece actions */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowPieceOverflow(prev => !prev)}
-                  className="text-xs px-2 py-1 rounded border border-gray-200 hover:bg-gray-50 text-gray-500"
-                  title="More piece options"
-                >
-                  ···
-                </button>
-                {showPieceOverflow && (
-                  <div className="absolute right-0 top-full mt-1 z-20 bg-white border border-gray-200 rounded shadow-lg py-1 min-w-[160px]">
-                    <button
-                      onClick={() => { setShowPieceOverflow(false); setWaterfallModal({ isOpen: true, type: 'WATERFALL' }); }}
-                      className="w-full text-left text-sm px-3 py-1.5 hover:bg-gray-50 text-gray-700"
-                    >
-                      + Waterfall
-                    </button>
-                    <button
-                      onClick={() => { setShowPieceOverflow(false); setWaterfallModal({ isOpen: true, type: 'SPLASHBACK' }); }}
-                      className="w-full text-left text-sm px-3 py-1.5 hover:bg-gray-50 text-gray-700"
-                    >
-                      + Splashback
-                    </button>
-                  </div>
-                )}
-              </div>
             </div>
           </div>
 
@@ -4437,19 +4413,19 @@ export default function QuoteDetailClient({
             // Set top edge to Mitred on the target piece
             await handlePieceEdgeChange(targetPieceId, 'top', MITERED_EDGE_ID);
           }
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
         }}
         onCreatePiece={() => {
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
           handleAddPiece();
           toast('Set the joining edge to Mitred on the new piece', { icon: 'i' });
         }}
         onCreateStrip={() => {
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type });
+          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
           handleAddPiece();
           toast('Set the joining edge to Mitred on the new strip piece', { icon: 'i' });
         }}
-        onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type })}
+        onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null })}
       />
     </>
   );
