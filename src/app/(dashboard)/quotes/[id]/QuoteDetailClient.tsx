@@ -2798,6 +2798,15 @@ export default function QuoteDetailClient({
 
   const editActionButtons = editQuote ? (
     <>
+      {!hasOptions && (
+        <button
+          onClick={() => setShowCreateOptionDialog(true)}
+          className="btn-secondary flex items-center gap-2"
+          title="Add quote option for material comparison"
+        >
+          + Add Option
+        </button>
+      )}
       <QuoteActions
         quoteId={quoteIdStr}
         quoteStatus={editQuote.status}
@@ -3473,15 +3482,6 @@ export default function QuoteDetailClient({
                 </svg>
                 From Template
               </button>
-              {!hasOptions && (
-                <button
-                  onClick={() => setShowCreateOptionDialog(true)}
-                  className="btn-secondary text-sm"
-                  title="Add quote option for material comparison"
-                >
-                  + Add Option
-                </button>
-              )}
               <button
                 onClick={() => setIsAddingRoom(true)}
                 className="btn-secondary text-sm"
