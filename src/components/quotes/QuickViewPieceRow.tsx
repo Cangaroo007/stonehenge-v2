@@ -63,6 +63,7 @@ interface InlineEditEdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
 }
 
