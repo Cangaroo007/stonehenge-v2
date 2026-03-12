@@ -1004,3 +1004,7 @@ BUG-3-HOTFIX: curvedCutting null added to fallback engine result in pricing-calc
 WF-1c: Calculator waterfall detection changed from edge ID string match to piece_type = 'WATERFALL'. Legacy waterfall_height_mm fallback kept. Only pricing-calculator-v2.ts modified (lines 1208–1214). WF sprint status: WF-1a ✅, WF-1b ✅, WF-1c ✅.
 
 FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price question removed.
+
+
+## CURVE-3 (2026-03-12)
+- PieceVisualEditor: FULL_CIRCLE perimeter ring is clickable. RADIUS_END arc end is clickable. Vertical diameter line removed.

@@ -1386,18 +1386,6 @@ export default function QuickViewPieceRow({
                   </div>
                 </div>
               )}
-              {/* Polishing */}
-              {breakdown.fabrication.polishing.total > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Polishing</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-400">
-                      {breakdown.fabrication.polishing.quantity.toFixed(2)} {unitShort(breakdown.fabrication.polishing.unit)} &times; {formatCurrency(breakdown.fabrication.polishing.rate)} {unitLabel(breakdown.fabrication.polishing.unit)}
-                    </span>
-                    <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.polishing.total)}</span>
-                  </div>
-                </div>
-              )}
               {/* Curved Cutting */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
@@ -1407,18 +1395,6 @@ export default function QuickViewPieceRow({
                       {breakdown.fabrication.curvedCutting.arcLengthLm.toFixed(2)} Lm &times; {formatCurrency(breakdown.fabrication.curvedCutting.rate)}
                     </span>
                     <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.curvedCutting.cost)}</span>
-                  </div>
-                </div>
-              )}
-              {/* Curved Polishing */}
-              {breakdown.fabrication.curvedPolishing && breakdown.fabrication.curvedPolishing.cost > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Curved Polishing</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-400">
-                      {breakdown.fabrication.curvedPolishing.arcLengthLm.toFixed(2)} Lm &times; {formatCurrency(breakdown.fabrication.curvedPolishing.rate)}
-                    </span>
-                    <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.curvedPolishing.cost)}</span>
                   </div>
                 </div>
               )}

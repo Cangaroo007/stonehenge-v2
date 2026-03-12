@@ -85,6 +85,7 @@ interface ShapeEdgeDef {
   labelX: number; labelY: number;
   lengthMm: number;
   label: string;
+  arcPath?: string;
 }
 
 interface EdgeTemplate {
@@ -1039,7 +1040,8 @@ export default function PieceVisualEditor({
           lengthMm: H, label: 'Left' },
         { side: 'arc_end', x1: ox + sW - sR, y1: oy, x2: ox + sW - sR, y2: oy + sH,
           labelX: ox + sW + 8, labelY: oy + sH / 2,
-          lengthMm: arcLengthMm, label: 'Arc' },
+          lengthMm: arcLengthMm, label: 'Arc',
+          arcPath: `M ${ox + sW - sR},${oy} A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}` },
       ];
 
       return { path, edges, svgW, svgH };
@@ -1066,9 +1068,10 @@ export default function PieceVisualEditor({
       ].join(' ');
 
       const edges: ShapeEdgeDef[] = [
-        { side: 'arc_body', x1: cx, y1: cy - sR, x2: cx, y2: cy + sR,
+        { side: 'arc_body', x1: cx + sR, y1: cy, x2: cx + sR * 1.2, y2: cy,
           labelX: cx + sR + 12, labelY: cy,
-          lengthMm: Math.PI * D, label: 'Circumference' },
+          lengthMm: Math.PI * D, label: 'Circumference',
+          arcPath: path },
       ];
 
       return { path, edges, svgW, svgH };
@@ -1635,52 +1638,100 @@ export default function PieceVisualEditor({
                 <g key={edge.side}>
                   {/* Hover glow (edit mode only) */}
                   {isHovered && isEditMode && (
-                    <line
-                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                      stroke="#3b82f6" strokeWidth={10} opacity={0.15}
-                      className="pointer-events-none transition-opacity duration-100"
-                    />
+                    edge.arcPath ? (
+                      <path
+                        d={edge.arcPath}
+                        fill="none"
+                        stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+                        className="pointer-events-none transition-opacity duration-100"
+                      />
+                    ) : (
+                      <line
+                        x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                        stroke="#3b82f6" strokeWidth={10} opacity={0.15}
+                        className="pointer-events-none transition-opacity duration-100"
+                      />
+                    )
                   )}
 
                   {/* Visible edge line */}
-                  <line
-                    x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                    stroke={colour}
-                    strokeWidth={isFinished ? 3 : 1}
-                    strokeDasharray={isFinished ? undefined : '4 3'}
-                    opacity={1}
-                  >
-                    <title>{name || 'Raw / Unfinished'}</title>
-                  </line>
-
-                  {/* Hit area for clicking — all shaped edges go through onShapeEdgeChange */}
-                  {isEditMode && onShapeEdgeChange && (
+                  {edge.arcPath ? (
+                    <path
+                      d={edge.arcPath}
+                      fill="none"
+                      stroke={colour}
+                      strokeWidth={isFinished ? 3 : 1}
+                      strokeDasharray={isFinished ? undefined : '4 3'}
+                    >
+                      <title>{name || 'Raw / Unfinished'}</title>
+                    </path>
+                  ) : (
                     <line
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                      stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
-                      style={{ cursor: 'pointer' }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        // Quick Edge mode: instantly apply selected profile
-                        if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
-                          onShapeEdgeChange(edge.side, quickEdgeProfile);
-                          updateRecents(quickEdgeProfile);
-                          return;
-                        }
-                        // Open popover for profile selection
-                        const svgRect = (e.currentTarget as SVGElement)
-                          .closest('svg')
-                          ?.getBoundingClientRect();
-                        if (!svgRect) return;
-                        const relX = e.clientX - svgRect.left;
-                        const relY = e.clientY - svgRect.top;
-                        setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
-                      }}
-                      onMouseEnter={() => setHoveredEdge(edge.side)}
-                      onMouseLeave={() => setHoveredEdge(null)}
+                      stroke={colour}
+                      strokeWidth={isFinished ? 3 : 1}
+                      strokeDasharray={isFinished ? undefined : '4 3'}
+                      opacity={1}
                     >
                       <title>{name || 'Raw / Unfinished'}</title>
                     </line>
+                  )}
+
+                  {/* Hit area for clicking — all shaped edges go through onShapeEdgeChange */}
+                  {isEditMode && onShapeEdgeChange && (
+                    edge.arcPath ? (
+                      <path
+                        d={edge.arcPath}
+                        fill="none"
+                        stroke="transparent"
+                        strokeWidth={20}
+                        style={{ cursor: 'pointer' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                            onShapeEdgeChange(edge.side, quickEdgeProfile);
+                            updateRecents(quickEdgeProfile);
+                            return;
+                          }
+                          const svgRect = (e.currentTarget as SVGElement)
+                            .closest('svg')
+                            ?.getBoundingClientRect();
+                          if (!svgRect) return;
+                          const relX = e.clientX - svgRect.left;
+                          const relY = e.clientY - svgRect.top;
+                          setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
+                        }}
+                        onMouseEnter={() => setHoveredEdge(edge.side)}
+                        onMouseLeave={() => setHoveredEdge(null)}
+                      >
+                        <title>{name || 'Raw / Unfinished'}</title>
+                      </path>
+                    ) : (
+                      <line
+                        x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                        stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
+                        style={{ cursor: 'pointer' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
+                            onShapeEdgeChange(edge.side, quickEdgeProfile);
+                            updateRecents(quickEdgeProfile);
+                            return;
+                          }
+                          const svgRect = (e.currentTarget as SVGElement)
+                            .closest('svg')
+                            ?.getBoundingClientRect();
+                          if (!svgRect) return;
+                          const relX = e.clientX - svgRect.left;
+                          const relY = e.clientY - svgRect.top;
+                          setShapeEdgePopover({ edgeId: edge.side, x: relX, y: relY });
+                        }}
+                        onMouseEnter={() => setHoveredEdge(edge.side)}
+                        onMouseLeave={() => setHoveredEdge(null)}
+                      >
+                        <title>{name || 'Raw / Unfinished'}</title>
+                      </line>
+                    )
                   )}
 
                   {/* Edge label with profile indicator and side abbreviation */}
