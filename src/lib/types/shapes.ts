@@ -50,6 +50,17 @@ export interface RoundedRectConfig {
 
 export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | RoundedRectConfig | null;
 
+/** Arc edge profile assignments for curved pieces (stored as JSONB in quote_pieces.edge_arc_config) */
+export interface ArcEdgeConfig {
+  perimeter?: string | null;        // FULL_CIRCLE — the full circle edge
+  arc_end_start?: string | null;    // RADIUS_END — the start arc end
+  arc_end_end?: string | null;      // RADIUS_END — the end arc end
+  corner_tl?: string | null;        // ROUNDED_RECT — top-left corner
+  corner_tr?: string | null;        // ROUNDED_RECT — top-right corner
+  corner_bl?: string | null;        // ROUNDED_RECT — bottom-left corner
+  corner_br?: string | null;        // ROUNDED_RECT — bottom-right corner
+}
+
 // Derived geometry — calculated from shape config
 export interface ShapeGeometry {
   totalAreaSqm: number;       // total stone area (corner overlap deducted)
