@@ -1147,6 +1147,36 @@ export default function PieceRow({
           />
           )}
 
+          {/* Curved Cutting */}
+          {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
+          <CostLine
+            label="Curved Cutting"
+            formula={`${breakdown.fabrication.curvedCutting.arcLengthLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.curvedCutting.rate)}`}
+            total={breakdown.fabrication.curvedCutting.cost}
+            operationType="INITIAL_CUT"
+            machines={machines}
+            machineOperationDefaults={machineOperationDefaults}
+            mode={mode}
+            pieceId={piece.id}
+            onMachineChange={onMachineChange}
+          />
+          )}
+
+          {/* Curved Polishing */}
+          {breakdown.fabrication.curvedPolishing && breakdown.fabrication.curvedPolishing.cost > 0 && (
+          <CostLine
+            label="Curved Polishing"
+            formula={`${breakdown.fabrication.curvedPolishing.arcLengthLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.curvedPolishing.rate)}`}
+            total={breakdown.fabrication.curvedPolishing.cost}
+            operationType="EDGE_POLISHING"
+            machines={machines}
+            machineOperationDefaults={machineOperationDefaults}
+            mode={mode}
+            pieceId={piece.id}
+            onMachineChange={onMachineChange}
+          />
+          )}
+
           {/* Edges */}
           {breakdown.fabrication.edges.filter(e => e.total > 0).map((edge, idx) => (
             <CostLine
