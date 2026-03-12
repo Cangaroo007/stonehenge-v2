@@ -355,6 +355,45 @@ export function getCuttingPerimeterLm(
   fallbackLengthMm: number,
   fallbackWidthMm: number
 ): number {
+  // FULL_CIRCLE: entire perimeter is the circumference (π × diameter)
+  if (shapeType === 'FULL_CIRCLE') {
+    return Math.PI * fallbackLengthMm / 1000;
+  }
+
+  // RADIUS_END: two straight long edges + arc end(s)
+  if (shapeType === 'RADIUS_END') {
+    const shapeC = shapeConfig as Record<string, unknown> | null | undefined;
+    const r = Number(shapeC?.radius_mm) || 0;
+    const ends = shapeC?.curved_ends === 'BOTH' ? 2 : 1;
+    const arcPerim = Math.PI * r * ends;
+    const straightPerim = fallbackLengthMm; // two long edges (flat end is join face)
+    return (straightPerim + arcPerim) / 1000;
+  }
+
+  // ROUNDED_RECT: straight edges + corner arcs
+  if (shapeType === 'ROUNDED_RECT') {
+    const shapeC = shapeConfig as Record<string, unknown> | null | undefined;
+    if (shapeC?.individual_corners) {
+      const tl = Number(shapeC.corner_tl_mm) || 0;
+      const tr = Number(shapeC.corner_tr_mm) || 0;
+      const br = Number(shapeC.corner_br_mm) || 0;
+      const bl = Number(shapeC.corner_bl_mm) || 0;
+      const arcPerim = (Math.PI / 2) * (tl + tr + br + bl);
+      const avgR = (tl + tr + br + bl) / 4;
+      const straightPerim = 2 * (fallbackLengthMm + fallbackWidthMm) - 8 * avgR;
+      return (straightPerim + arcPerim) / 1000;
+    }
+    const r = Number(shapeC?.corner_radius_mm) || 50;
+    const arcPerim = (Math.PI / 2) * r * 4;
+    const straightPerim = 2 * (fallbackLengthMm + fallbackWidthMm) - 8 * r;
+    return (straightPerim + arcPerim) / 1000;
+  }
+
+  // CONCAVE_ARC: use bounding box (conservative)
+  if (shapeType === 'CONCAVE_ARC') {
+    return 2 * (fallbackLengthMm + fallbackWidthMm) / 1000;
+  }
+
   if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
     const cfg = shapeConfig as LShapeConfig;
     if (!cfg.leg1 || !cfg.leg2) return 0;
