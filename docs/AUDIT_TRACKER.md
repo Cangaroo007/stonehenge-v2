@@ -177,3 +177,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 | WF-1c | ✅ | Calculator waterfall detection changed from edge ID string match to piece_type = 'WATERFALL'. Legacy waterfall_height_mm fallback kept. File: pricing-calculator-v2.ts | Mar 10 2026 |
 | FIX-1 | Supplier creation opened to all authenticated users — removed ADMIN/SALES_MANAGER role restriction from POST /api/suppliers | fix/supplier-permission-and-price-import |
 | FIX-2 | Removed two-price critical question from AI material importer — AI no longer raises clarification when it sees slab price + m² columns | fix/supplier-permission-and-price-import |
+
+
+## CURVE-3
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-12
+- **What:** FULL_CIRCLE SVG vertical line removed. Arc edge click areas added for FULL_CIRCLE and RADIUS_END.
