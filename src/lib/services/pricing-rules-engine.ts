@@ -140,14 +140,15 @@ export function ruleCutting(
   rates: EngineServiceRate[],
   category: string
 ): PiecePricingResult['cutting'] {
-  const perimeterLm = piece.cuttingPerimeterLm ?? 2 * (piece.length_mm + piece.width_mm) / 1000
+  const totalPerimeterLm = piece.cuttingPerimeterLm ?? 2 * (piece.length_mm + piece.width_mm) / 1000
+  const straightLm = Math.max(totalPerimeterLm - (piece.arcLengthLm ?? 0), 0)
   const rate = rates.find(r => r.serviceType === 'CUTTING' && r.fabricationCategory === category)
   if (!rate) throw new Error(
     `[PricingEngine] No CUTTING rate configured for category "${category}". ` +
     `Go to Pricing Admin → Service Rates to fix this.`
   )
   const ratePerLm = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
-  return { lm: perimeterLm, ratePerLm, cost: perimeterLm * ratePerLm }
+  return { lm: straightLm, ratePerLm, cost: straightLm * ratePerLm }
 }
 
 /**
