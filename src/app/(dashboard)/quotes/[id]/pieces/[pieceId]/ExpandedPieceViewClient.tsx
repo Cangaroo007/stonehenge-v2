@@ -656,10 +656,10 @@ export default function ExpandedPieceViewClient({
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
-                      value={(editFields.shapeConfig as Record<string, unknown> | null)?.diameter_mm ?? ''}
+                      value={((editFields.shapeConfig as unknown as Record<string, unknown>) ?? {})?.diameter_mm as number ?? ''}
                       onChange={(e) => setEditFields((f) => f ? ({
                         ...f,
-                        shapeConfig: { ...f.shapeConfig as Record<string, unknown>, diameter_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
+                        shapeConfig: { ...f.shapeConfig as unknown as Record<string, unknown>, diameter_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
                       }) : f)}
                       className="w-24 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -673,10 +673,10 @@ export default function ExpandedPieceViewClient({
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
-                      value={(editFields.shapeConfig as Record<string, unknown> | null)?.radius_mm ?? ''}
+                      value={((editFields.shapeConfig as unknown as Record<string, unknown>) ?? {})?.radius_mm as number ?? ''}
                       onChange={(e) => setEditFields((f) => f ? ({
                         ...f,
-                        shapeConfig: { ...f.shapeConfig as Record<string, unknown>, radius_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
+                        shapeConfig: { ...f.shapeConfig as unknown as Record<string, unknown>, radius_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
                       }) : f)}
                       className="w-24 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
@@ -690,10 +690,10 @@ export default function ExpandedPieceViewClient({
                   <div className="flex items-center gap-1">
                     <input
                       type="number"
-                      value={(editFields.shapeConfig as Record<string, unknown> | null)?.corner_radius_mm ?? ''}
+                      value={((editFields.shapeConfig as unknown as Record<string, unknown>) ?? {})?.corner_radius_mm as number ?? ''}
                       onChange={(e) => setEditFields((f) => f ? ({
                         ...f,
-                        shapeConfig: { ...f.shapeConfig as Record<string, unknown>, corner_radius_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
+                        shapeConfig: { ...f.shapeConfig as unknown as Record<string, unknown>, corner_radius_mm: e.target.value === '' ? '' : Number(e.target.value) } as unknown as ShapeConfig,
                       }) : f)}
                       className="w-24 px-3 py-1.5 text-sm border border-gray-200 rounded-lg focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                     />
