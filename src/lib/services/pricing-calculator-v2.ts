@@ -655,6 +655,8 @@ export async function calculateQuotePrice(
       quote_rooms: {
         include: {
           quote_pieces: {
+            // Scalar fields (promoted_from_piece_id, promoted_edge_position,
+            // piece_type, etc.) are returned automatically with `include`.
             include: {
               materials: {
                 include: {
@@ -716,11 +718,11 @@ export async function calculateQuotePrice(
   // lamination on edges that have been promoted to standalone pieces.
   const promotedEdgesByParent = new Map<number, string[]>();
   for (const p of allPieces) {
-    const pp = p as unknown as { promoted_from_piece_id?: number | null; promoted_edge_position?: string | null };
-    if (pp.promoted_from_piece_id && pp.promoted_edge_position) {
-      const existing = promotedEdgesByParent.get(pp.promoted_from_piece_id) ?? [];
-      existing.push(pp.promoted_edge_position);
-      promotedEdgesByParent.set(pp.promoted_from_piece_id, existing);
+    // Scalar fields come through automatically via Prisma include (promoted_from_piece_id, promoted_edge_position, piece_type)
+    if ((p as any).promoted_from_piece_id && (p as any).promoted_edge_position) {
+      const existing = promotedEdgesByParent.get((p as any).promoted_from_piece_id) ?? [];
+      existing.push((p as any).promoted_edge_position);
+      promotedEdgesByParent.set((p as any).promoted_from_piece_id, existing);
     }
   }
 
@@ -1018,6 +1020,9 @@ export async function calculateQuotePrice(
         .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
     }
 
+    // Promoted apron strip: only one cut along its length (not full perimeter)
+    const isPromotedStrip = !!(piece as any).promoted_from_piece_id;
+
     enginePieces.push({
       id: String(piece.id),
       name: piece.name || piece.description || `Piece ${piece.id}`,
@@ -1036,12 +1041,16 @@ export async function calculateQuotePrice(
       edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
-      cuttingPerimeterLm: isShapedPiece ? getCuttingPerimeterLm(
-        (piece.shape_type ?? 'RECTANGLE') as ShapeType,
-        piece.shape_config as unknown as ShapeConfig,
-        piece.length_mm ?? 0,
-        piece.width_mm ?? 0,
-      ) : undefined,
+      cuttingPerimeterLm: isPromotedStrip
+        ? (piece.length_mm ?? 0) / 1000
+        : isShapedPiece
+        ? getCuttingPerimeterLm(
+            (piece.shape_type ?? 'RECTANGLE') as ShapeType,
+            piece.shape_config as unknown as ShapeConfig,
+            piece.length_mm ?? 0,
+            piece.width_mm ?? 0,
+          )
+        : undefined,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
