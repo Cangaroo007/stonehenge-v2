@@ -1486,9 +1486,30 @@ export async function calculateQuotePrice(
       }
     }
 
+    // Apply minimum charges to curved cutting/polishing (Admin Pricing → Service Rates)
+    let curvedCuttingCostFinal = ep.curvedCutting?.cost ?? 0;
+    if (ep.curvedCutting && ep.curvedCutting.cost > 0) {
+      const ccRate = serviceRates.find(
+        (r: ServiceRateRecord) => r.serviceType === 'CURVED_CUTTING' && r.fabricationCategory === pieceFabCategory
+      );
+      if (ccRate) {
+        curvedCuttingCostFinal = applyMinimumCharge(ep.curvedCutting.cost, ccRate);
+      }
+    }
+
+    let curvedPolishingCostFinal = ep.curvedPolishing?.cost ?? 0;
+    if (ep.curvedPolishing && ep.curvedPolishing.cost > 0) {
+      const cpRate = serviceRates.find(
+        (r: ServiceRateRecord) => r.serviceType === 'CURVED_POLISHING' && r.fabricationCategory === pieceFabCategory
+      );
+      if (cpRate) {
+        curvedPolishingCostFinal = applyMinimumCharge(ep.curvedPolishing.cost, cpRate);
+      }
+    }
+
     const fabricationSubtotal = roundToTwo(
-      ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
-      ep.polishing.cost + (ep.curvedPolishing?.cost ?? 0) +
+      ep.cutting.cost + curvedCuttingCostFinal +
+      ep.polishing.cost + curvedPolishingCostFinal +
       ep.edgeProfiles.cost + (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
       (installationBreakdown?.total ?? 0)
     );
@@ -1514,8 +1535,8 @@ export async function calculateQuotePrice(
         edges: edgeBreakdowns,
         cutouts: cutoutBreakdowns,
         subtotal: fabricationSubtotal,
-        ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(ep.curvedCutting.cost) } } : {}),
-        ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(ep.curvedPolishing.cost) } } : {}),
+        ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(curvedCuttingCostFinal) } } : {}),
+        ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(curvedPolishingCostFinal) } } : {}),
       },
       pieceTotal: fabricationSubtotal,
     };
