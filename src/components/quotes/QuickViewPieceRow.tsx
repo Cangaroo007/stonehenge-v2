@@ -103,6 +103,7 @@ interface PieceData {
   shapeConfig?: Record<string, unknown> | null;
   requiresGrainMatch?: boolean;
   noStripEdges?: string[];
+  laminationMethod?: string | null;
 }
 
 export interface QuickViewPieceRowProps {
@@ -545,7 +546,7 @@ export default function QuickViewPieceRow({
   }, [fullPiece, editData?.cutoutTypes, breakdown]);
 
   // ── Mitred check ────────────────────────────────────────────────────────
-  const isMitred = piece.thicknessMm === 40;
+  const isMitred = piece.laminationMethod === 'MITRED';
 
   // ── Save helper (debounced) ─────────────────────────────────────────────
   // Only recalculate when we have minimum viable data (positive dimensions).
@@ -1121,7 +1122,7 @@ export default function QuickViewPieceRow({
                   Raw
                 </button>
                 {(editData?.edgeTypes ?? []).map(et => {
-                  const disabled = isMitred && !et.name.toLowerCase().includes('pencil');
+                  const disabled = isMitred && !et.isMitred;
                   return (
                     <button
                       key={et.id}

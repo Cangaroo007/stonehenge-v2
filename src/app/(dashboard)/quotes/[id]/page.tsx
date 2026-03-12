@@ -140,6 +140,7 @@ export default async function QuoteDetailPage({
         shape_type: piece.shape_type ?? 'RECTANGLE',
         shape_config: piece.shape_config as Record<string, unknown> | null,
         piece_type: piece.piece_type ?? 'BENCHTOP',
+        lamination_method: piece.lamination_method ?? null,
         requiresGrainMatch: piece.requiresGrainMatch ?? false,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,

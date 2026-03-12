@@ -293,6 +293,7 @@ export interface ServerQuoteData {
       shape_type: string | null;
       shape_config: Record<string, unknown> | null;
       piece_type: string | null;
+      lamination_method: string | null;
       requiresGrainMatch: boolean;
       piece_features: Array<{
         id: number;
@@ -2916,6 +2917,7 @@ export default function QuoteDetailClient({
                       roomName: piece.roomName,
                       shapeType: piece.shape_type ?? 'RECTANGLE',
                       shapeConfig: piece.shape_config ?? null,
+                      laminationMethod: piece.lamination_method ?? null,
                       requiresGrainMatch: piece.requiresGrainMatch ?? false,
                       noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
                     }}
