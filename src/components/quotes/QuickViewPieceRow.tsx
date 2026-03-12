@@ -1386,6 +1386,7 @@ export default function QuickViewPieceRow({
                   </div>
                 </div>
               )}
+              {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {/* Curved Cutting */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
@@ -1398,6 +1399,7 @@ export default function QuickViewPieceRow({
                   </div>
                 </div>
               )}
+              {/* CURVED POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {/* Edge Profiles */}
               {breakdown.fabrication.edges && breakdown.fabrication.edges.length > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
