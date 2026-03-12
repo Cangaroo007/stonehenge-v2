@@ -126,6 +126,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| CURVE-4a edge_arc_config JSONB for arc edge profiles | claude/migrate-arc-edge-schema-HchE8 | Mar 12 | ✅ Complete |
 | MITRE-1-FK apron_parent_id FK CASCADE → SET NULL | claude/fix-apron-fk-cascade-NPtsj | Mar 10 | ✅ Complete |
 | OPT-1 exclude null-material pieces from slab optimizer | claude/fix-slab-optimizer-unassigned-1WlAT | Mar 10 | ✅ Complete |
 | C6 ROUNDED_RECT curved cutting pricing | claude/fix-rounded-rect-pricing-RsC1P | Mar 10 | ✅ Complete |
@@ -167,7 +168,7 @@
 
 ---
 
-*Last Updated: Mar 10 2026 — MITRE-1-FK: apron_parent_id FK changed from CASCADE DELETE to SET NULL.*
+*Last Updated: Mar 12 2026 — CURVE-4a: edge_arc_config JSONB added to quote_pieces for arc edge profile storage.*
 
 BUG-3-HOTFIX — curvedCutting null added to fallback engine result | 2026-03-10
 SB-1 — Splashback piece_type + auto top edge | claude/splashback-piece-type-m1lJa | 2026-03-10
@@ -186,4 +187,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **What:** FULL_CIRCLE SVG vertical line removed. Arc edge click areas added for FULL_CIRCLE and RADIUS_END.
 
 | UX-FIX-4 | ✅ | ExpandedPieceViewClient: editable shape config fields (diameter, radius, corner radius) for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT. Fields write to editFields.shapeConfig using existing setEditFields pattern. Existing handleSave already includes shapeConfig in PATCH payload — no API changes. | claude/fix-curved-piece-config-2jlkK | 2026-03-12 |
+
+## CURVE-4a
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-12
+- **What:** Added edge_arc_config JSONB column to quote_pieces for arc edge profile storage. ArcEdgeConfig interface in shapes.ts. PATCH API accepts edgeArcConfig. Migration: 20260313000001_add_edge_arc_config. Schema + API only — no calculator or UI changes.
 
