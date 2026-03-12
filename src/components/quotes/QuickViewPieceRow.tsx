@@ -63,6 +63,7 @@ interface InlineEditEdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
 }
 
@@ -103,6 +104,7 @@ interface PieceData {
   shapeConfig?: Record<string, unknown> | null;
   requiresGrainMatch?: boolean;
   noStripEdges?: string[];
+  laminationMethod?: string | null;
 }
 
 export interface QuickViewPieceRowProps {
