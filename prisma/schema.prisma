@@ -548,6 +548,7 @@ model quote_pieces {
   edge_left               String?
   edge_right              String?
   edge_top                String?
+  edge_arc_config         Json?
   name                    String                @default("Piece")
   lamination_method       LaminationMethod      @default(NONE)
   isOversize              Boolean               @default(false)
