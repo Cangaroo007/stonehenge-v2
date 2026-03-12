@@ -152,6 +152,10 @@ export interface QuickViewPieceRowProps {
   grainMatch?: boolean;
   /** WF-2c: shows × detach button when provided */
   onDetach?: () => void;
+  /** WF-2f: per-piece attach waterfall action */
+  onAddWaterfall?: () => void;
+  /** WF-2f: per-piece attach splashback action */
+  onAddSplashback?: () => void;
 }
 
 // ── Strip Width Constants ───────────────────────────────────────────────────
@@ -457,6 +461,8 @@ export default function QuickViewPieceRow({
   relationshipLabel,
   grainMatch,
   onDetach,
+  onAddWaterfall,
+  onAddSplashback,
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -976,7 +982,7 @@ export default function QuickViewPieceRow({
           </div>
 
           {/* Action buttons */}
-          {(onExpand || (mode === 'edit' && (onDelete || onDuplicate))) && (
+          {(onExpand || (mode === 'edit' && (onDelete || onDuplicate || onAddWaterfall || onAddSplashback))) && (
             <div className="flex items-center gap-0.5 flex-shrink-0">
               {onExpand && (
                 <button onClick={() => onExpand(piece.id)} className="p-1 text-gray-400 hover:text-gray-600" title="Open piece in new tab">
@@ -990,6 +996,24 @@ export default function QuickViewPieceRow({
                   <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
                   </svg>
+                </button>
+              )}
+              {onAddWaterfall && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onAddWaterfall(); }}
+                  className="px-1 text-[10px] font-medium text-orange-500 hover:text-orange-700 transition-colors"
+                  title="Attach Waterfall"
+                >
+                  +Waterfall
+                </button>
+              )}
+              {onAddSplashback && (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onAddSplashback(); }}
+                  className="px-1 text-[10px] font-medium text-orange-500 hover:text-orange-700 transition-colors"
+                  title="Attach Splashback"
+                >
+                  +Splash Back
                 </button>
               )}
               {onDelete && (
