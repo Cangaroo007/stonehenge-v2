@@ -1015,5 +1015,8 @@ REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. ruleP
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 
+## UX-FIX-2 (2026-03-12)
+- isMitred now checks laminationMethod === 'MITRED', not thicknessMm === 40. Edge disabled logic uses et.isMitred boolean. PATCH route derivedLaminationMethod logic unchanged. QuickViewPieceRow.tsx lines 548, 1124.
+
 ## UX-FIX-4 (2026-03-12)
 - ExpandedPieceViewClient: editable diameter_mm, radius_mm, corner_radius_mm fields for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT curved pieces. Fields inside Dimensions card, conditional on shapeType + isEditMode. Write to editFields.shapeConfig via setEditFields. Existing handleSave includes shapeConfig in PATCH payload — no API or calculator changes.
