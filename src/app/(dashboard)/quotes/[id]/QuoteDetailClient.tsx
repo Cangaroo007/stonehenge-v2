@@ -383,6 +383,8 @@ export default function QuoteDetailClient({
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [addingInlinePiece, setAddingInlinePiece] = useState(false);
   const [addingInlinePieceRoom, setAddingInlinePieceRoom] = useState<string | null>(null);
+  const [addingInlinePieceType, setAddingInlinePieceType] = useState<'BENCHTOP' | 'WATERFALL' | 'SPLASHBACK' | null>(null);
+  const [addingInlinePieceJoinMethod, setAddingInlinePieceJoinMethod] = useState<'NONE' | 'MITRED' | null>(null);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [editLoading, setEditLoading] = useState(false);
@@ -445,6 +447,7 @@ export default function QuoteDetailClient({
   const editDataLoaded = useRef(false);
   const addPieceRef = useRef<HTMLDivElement>(null);
   const actionBarRef = useRef<HTMLDivElement>(null);
+  const pendingWaterfallParentRef = useRef<{ parentPieceId: string | null; type: 'WATERFALL' | 'SPLASHBACK' } | null>(null);
 
   // ── Quote Options state ─────────────────────────────────────────────────
   const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
@@ -953,9 +956,15 @@ export default function QuoteDetailClient({
     setSidebarOpen(true);
   };
 
-  const handleAddPiece = (preselectedRoom?: string) => {
+  const handleAddPiece = (
+    preselectedRoom?: string,
+    pieceType?: 'WATERFALL' | 'SPLASHBACK',
+    joinMethod?: 'MITRED'
+  ) => {
     setAddingInlinePiece(true);
     setAddingInlinePieceRoom(preselectedRoom || null);
+    setAddingInlinePieceType(pieceType ?? null);
+    setAddingInlinePieceJoinMethod(joinMethod ?? null);
     setSelectedPieceId(null);
     setIsAddingPiece(false);
   };
@@ -1219,8 +1228,18 @@ export default function QuoteDetailClient({
         edge_right: (data.edgeRight as string | null) ?? oldPiece?.edgeRight ?? null,
         cutouts: resolvedCutoutsForDesc,
       });
+      // If creating a waterfall/splashback piece, override pieceType and laminationMethod
+      const effectiveData: Record<string, unknown> = (isCreate && pendingWaterfallParentRef.current)
+        ? {
+            ...data,
+            pieceType: pendingWaterfallParentRef.current.type,
+            laminationMethod: 'MITRED',
+            joinMethod: 'MITRED',
+          }
+        : data;
+
       // Only set auto-description if user hasn't manually edited it
-      const dataWithDesc = { ...data };
+      const dataWithDesc = { ...effectiveData };
       if (!data.description && autoDesc) {
         dataWithDesc.description = autoDesc;
       }
@@ -1255,6 +1274,28 @@ export default function QuoteDetailClient({
       const pieceName = (data.name as string) || oldPiece?.name || 'Piece';
       if (isCreate) {
         const newPieceId = savedPiece.id;
+
+        // Create piece_relationship if this piece was created from the waterfall modal
+        if (pendingWaterfallParentRef.current?.parentPieceId) {
+          const { parentPieceId, type } = pendingWaterfallParentRef.current;
+          pendingWaterfallParentRef.current = null;
+          try {
+            await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sourcePieceId: parentPieceId,
+                targetPieceId: newPieceId,
+                relationType: type,
+                side: null,
+                grainMatch: false,
+              }),
+            });
+          } catch {
+            // Non-fatal — piece is created, relationship is best-effort
+          }
+        }
+
         pushAction({
           type: 'PIECE_CREATE',
           description: `Created ${pieceName}`,
@@ -3591,7 +3632,7 @@ export default function QuoteDetailClient({
                 onSave={handleInlineSavePiece}
                 saving={saving}
                 isNew
-                onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
+                onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); setAddingInlinePieceType(null); setAddingInlinePieceJoinMethod(null); pendingWaterfallParentRef.current = null; }}
                 pieceSuggestions={pieceSuggestions}
                 roomSuggestions={roomSuggestions}
                 grainMatchingSurchargePercent={serverData.grainMatchingSurchargePercent}
@@ -4413,23 +4454,44 @@ export default function QuoteDetailClient({
         otherPieces={effectivePieces
           .map(p => ({ id: String(p.id), name: p.name || p.description || `Piece ${p.id}` }))}
         onAdjoinPiece={async (targetPieceId) => {
-          // Set the joining edge of the selected piece to Mitred
           const target = effectivePieces.find(p => String(p.id) === targetPieceId);
           if (target) {
-            // Set top edge to Mitred on the target piece
             await handlePieceEdgeChange(targetPieceId, 'top', MITERED_EDGE_ID);
+          }
+          const parentPieceId = waterfallModal.parentPieceId;
+          if (parentPieceId) {
+            try {
+              await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sourcePieceId: parentPieceId,
+                  targetPieceId,
+                  relationType: waterfallModal.type,
+                  side: null,
+                  grainMatch: false,
+                }),
+              });
+              triggerRecalculate();
+            } catch {
+              // Non-fatal
+            }
           }
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
         }}
         onCreatePiece={() => {
+          const parentId = waterfallModal.parentPieceId;
+          const type = waterfallModal.type;
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          handleAddPiece();
-          toast('Set the joining edge to Mitred on the new piece', { icon: 'i' });
+          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
+          handleAddPiece(undefined, type, 'MITRED');
         }}
         onCreateStrip={() => {
+          const parentId = waterfallModal.parentPieceId;
+          const type = waterfallModal.type;
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          handleAddPiece();
-          toast('Set the joining edge to Mitred on the new strip piece', { icon: 'i' });
+          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
+          handleAddPiece(undefined, type, 'MITRED');
         }}
         onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null })}
       />
