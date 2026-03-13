@@ -1453,6 +1453,31 @@ export default function PieceVisualEditor({
             </button>
           )}
 
+          {/* RADIUS_END — Both Ends pill */}
+          {editMode === 'select' &&
+            effectiveShapeType === 'RADIUS_END' &&
+            (shapeConfig as any)?.curved_ends === 'BOTH' && (
+            <button
+              onClick={() => setSelectedArcEdges(new Set(['arc_end_start', 'arc_end_end']))}
+              className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
+              title="Select both arc ends"
+            >
+              Both ends
+            </button>
+          )}
+
+          {/* ROUNDED_RECT — All Corners pill */}
+          {editMode === 'select' &&
+            effectiveShapeType === 'ROUNDED_RECT' && (
+            <button
+              onClick={() => setSelectedArcEdges(new Set(['corner_tl', 'corner_tr', 'corner_bl', 'corner_br']))}
+              className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
+              title="Select all corner arcs"
+            >
+              All corners
+            </button>
+          )}
+
           {/* Separator */}
           <span className="text-gray-300 mx-0.5">|</span>
 
