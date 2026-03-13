@@ -127,6 +127,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| WF-2g waterfall/splashback verify | claude/verify-waterfall-splashback-VHgZw | Mar 13 | ✅ Verified — no changes |
 | CURVE-4a edge_arc_config JSONB for arc edge profiles | claude/migrate-arc-edge-schema-HchE8 | Mar 12 | ✅ Complete |
 | MITRE-1-FK apron_parent_id FK CASCADE → SET NULL | claude/fix-apron-fk-cascade-NPtsj | Mar 10 | ✅ Complete |
 | OPT-1 exclude null-material pieces from slab optimizer | claude/fix-slab-optimizer-unassigned-1WlAT | Mar 10 | ✅ Complete |
@@ -188,6 +189,19 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **What:** FULL_CIRCLE SVG vertical line removed. Arc edge click areas added for FULL_CIRCLE and RADIUS_END.
 
 | UX-FIX-4 | ✅ | ExpandedPieceViewClient: editable shape config fields (diameter, radius, corner radius) for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT. Fields write to editFields.shapeConfig using existing setEditFields pattern. Existing handleSave already includes shapeConfig in PATCH payload — no API changes. | claude/fix-curved-piece-config-2jlkK | 2026-03-12 |
+
+## WF-2g — Waterfall/Splashback Verify
+- **Status:** ✅ Verified — no changes required
+- **Date:** 2026-03-13
+- **Branch:** claude/verify-waterfall-splashback-VHgZw
+- **Findings:**
+  1. Waterfall detection uses `piece_type === 'WATERFALL'` (primary) with `waterfall_height_mm > 0` fallback — correct per WF-1c
+  2. WATERFALL_END service charge supports both FIXED_PER_END and PER_LINEAR_METRE methods
+  3. Standard cutting on slab perimeter applied to all pieces including waterfall — correct (you cut the whole slab)
+  4. Splashback has no special pricing logic — correct (standard rectangular piece, no override needed)
+  5. Rules engine has no piece_type awareness — correct (waterfall pricing handled in calculator layer)
+  6. DB: 0 piece_relationships rows, all 27 existing pieces are BENCHTOP type (no WATERFALL pieces yet — WF-3 in-flight)
+- **Verdict:** Calculator already prices waterfall/splashback correctly end-to-end. No code changes needed.
 
 ## CURVE-4a
 - **Status:** ✅ Resolved
