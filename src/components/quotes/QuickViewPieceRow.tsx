@@ -159,6 +159,8 @@ export interface QuickViewPieceRowProps {
   onAddWaterfall?: () => void;
   /** WF-2f: per-piece attach splashback action */
   onAddSplashback?: () => void;
+  /** QF-4: callback to refetch materials list after creating a new material */
+  onMaterialsRefresh?: () => void;
 }
 
 // ── Strip Width Constants ───────────────────────────────────────────────────
@@ -466,6 +468,7 @@ export default function QuickViewPieceRow({
   onDetach,
   onAddWaterfall,
   onAddSplashback,
+  onMaterialsRefresh,
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -483,6 +486,21 @@ export default function QuickViewPieceRow({
   const [materialSearch, setMaterialSearch] = useState('');
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const [showGrainWarning, setShowGrainWarning] = useState(false);
+  const [localOverrideCost, setLocalOverrideCost] = useState<string>(
+    piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+  );
+  const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
+  const [newMat, setNewMat] = useState({
+    name: '',
+    fabricationCategory: 'ENGINEERED',
+    slabLengthMm: '',
+    slabWidthMm: '',
+    pricePerSlab: '',
+    collection: '',
+    pricePerSqm: 0,
+  });
+  const [newMatSaving, setNewMatSaving] = useState(false);
+  const [newMatError, setNewMatError] = useState<string | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialRef = useRef<HTMLDivElement>(null);
   const cutoutRef = useRef<HTMLDivElement>(null);
@@ -492,7 +510,10 @@ export default function QuickViewPieceRow({
     setLocalLength(piece.lengthMm);
     setLocalWidth(piece.widthMm);
     setLocalName(piece.name);
-  }, [piece.lengthMm, piece.widthMm, piece.name]);
+    setLocalOverrideCost(
+      piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+    );
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -633,6 +654,60 @@ export default function QuickViewPieceRow({
     savePieceImmediate({ materialId: mat.id, materialName: mat.name });
   }, [savePieceImmediate]);
 
+  const handleOverrideCostChange = useCallback((val: string) => {
+    setLocalOverrideCost(val);
+    savePieceImmediate({
+      overrideMaterialCost: val === '' ? null : parseFloat(val),
+    });
+  }, [savePieceImmediate]);
+
+  const handleLabourOnlyToggle = useCallback((checked: boolean) => {
+    const val = checked ? '0' : '';
+    setLocalOverrideCost(val);
+    savePieceImmediate({
+      overrideMaterialCost: checked ? 0 : null,
+    });
+  }, [savePieceImmediate]);
+
+  const handleSaveNewMaterial = useCallback(async () => {
+    if (!newMat.name.trim()) {
+      setNewMatError('Name is required');
+      return;
+    }
+    setNewMatSaving(true);
+    setNewMatError(null);
+    try {
+      const res = await fetch('/api/materials', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newMat.name.trim(),
+          collection: newMat.collection.trim() || null,
+          fabricationCategory: newMat.fabricationCategory,
+          slabLengthMm: newMat.slabLengthMm ? parseInt(newMat.slabLengthMm) : null,
+          slabWidthMm: newMat.slabWidthMm ? parseInt(newMat.slabWidthMm) : null,
+          pricePerSlab: newMat.pricePerSlab ? parseFloat(newMat.pricePerSlab) : null,
+          pricePerSqm: calculatedPricePerSqm ?? 0,
+          isActive: true,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        setNewMatError(err.error || 'Failed to create material');
+        return;
+      }
+      const created = await res.json();
+      savePieceImmediate({ materialId: created.id, materialName: created.name });
+      setShowNewMaterialModal(false);
+      setNewMat({ name: '', fabricationCategory: 'ENGINEERED', slabLengthMm: '', slabWidthMm: '', pricePerSlab: '', collection: '', pricePerSqm: 0 });
+      onMaterialsRefresh?.();
+    } catch {
+      setNewMatError('Failed to create material');
+    } finally {
+      setNewMatSaving(false);
+    }
+  }, [newMat, calculatedPricePerSqm, savePieceImmediate, onMaterialsRefresh]);
+
   const filteredMaterials = useMemo(() => {
     if (!editData?.materials) return [];
     if (!materialSearch) return editData.materials;
@@ -641,6 +716,15 @@ export default function QuickViewPieceRow({
       m.name.toLowerCase().includes(lower) || (m.collection || '').toLowerCase().includes(lower)
     );
   }, [editData?.materials, materialSearch]);
+
+  const calculatedPricePerSqm = useMemo(() => {
+    const price = parseFloat(newMat.pricePerSlab);
+    const length = parseInt(newMat.slabLengthMm);
+    const width = parseInt(newMat.slabWidthMm);
+    if (!price || !length || !width || price <= 0 || length <= 0 || width <= 0) return null;
+    const slabAreaSqm = (length * width) / 1_000_000;
+    return Math.round((price / slabAreaSqm) * 100) / 100;
+  }, [newMat.pricePerSlab, newMat.slabLengthMm, newMat.slabWidthMm]);
 
   // ── Thickness handler ───────────────────────────────────────────────────
   const handleThicknessChange = useCallback((val: number) => {
@@ -798,6 +882,7 @@ export default function QuickViewPieceRow({
   };
 
   return (
+    <>
     <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
       {/* ══════════════ QUICK VIEW ROW ══════════════ */}
       <div className="px-4 py-3">
@@ -925,6 +1010,18 @@ export default function QuickViewPieceRow({
                       autoFocus
                     />
                   </div>
+                  <div className="px-2 py-1.5 border-b border-gray-100">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowMaterialDropdown(false);
+                        setShowNewMaterialModal(true);
+                      }}
+                      className="w-full text-left text-xs text-primary-600 hover:text-primary-700 font-medium"
+                    >
+                      + Add new material
+                    </button>
+                  </div>
                   <div className="max-h-[200px] overflow-y-auto py-1">
                     {filteredMaterials.map(mat => (
                       <button
@@ -948,6 +1045,48 @@ export default function QuickViewPieceRow({
               <span className="text-xs text-gray-500 flex-shrink-0 truncate max-w-[160px]">{piece.materialName}</span>
             )
           )}
+
+          {isEditMode && (
+            <div className="w-full mt-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id={`labour-only-${piece.id}`}
+                  checked={localOverrideCost === '0'}
+                  onChange={(e) => handleLabourOnlyToggle(e.target.checked)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label
+                  htmlFor={`labour-only-${piece.id}`}
+                  className="text-xs text-gray-600 cursor-pointer select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Labour only
+                </label>
+              </div>
+              {localOverrideCost !== '0' && (
+                <div className="relative">
+                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={localOverrideCost}
+                    onChange={(e) => handleOverrideCostChange(e.target.value)}
+                    onClick={(e) => e.stopPropagation()}
+                    placeholder="Override price (optional)"
+                    className={`w-full pl-5 pr-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary-500 ${
+                      localOverrideCost !== ''
+                        ? 'border-amber-400 bg-amber-50'
+                        : 'border-gray-200'
+                    }`}
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {piece.overrideMaterialCost === 0 ? (
             <span className="ml-1 text-xs text-gray-400 italic">Labour only</span>
           ) : piece.overrideMaterialCost != null ? (
@@ -1503,5 +1642,127 @@ export default function QuickViewPieceRow({
         </div>
       )}
     </div>
+
+    {/* Quick-add material modal */}
+    {showNewMaterialModal && (
+      <div
+        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+        onClick={() => setShowNewMaterialModal(false)}
+      >
+        <div
+          className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4 p-6"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <h3 className="text-base font-semibold text-gray-900 mb-4">New Material</h3>
+          <div className="space-y-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">
+                Name <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="text"
+                value={newMat.name}
+                onChange={(e) => setNewMat(p => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. Calacatta Gold"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                autoFocus
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Collection</label>
+              <input
+                type="text"
+                value={newMat.collection}
+                onChange={(e) => setNewMat(p => ({ ...p, collection: e.target.value }))}
+                placeholder="e.g. Premium Range"
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Fabrication Category</label>
+              <select
+                value={newMat.fabricationCategory}
+                onChange={(e) => setNewMat(p => ({ ...p, fabricationCategory: e.target.value }))}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+              >
+                <option value="ENGINEERED">Engineered Quartz</option>
+                <option value="NATURAL_HARD">Natural Granite</option>
+                <option value="NATURAL_SOFT">Natural Marble</option>
+                <option value="NATURAL_PREMIUM">Natural Premium</option>
+                <option value="SINTERED">Porcelain / Sintered</option>
+              </select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Slab Length (mm)</label>
+                <input
+                  type="number"
+                  value={newMat.slabLengthMm}
+                  onChange={(e) => setNewMat(p => ({ ...p, slabLengthMm: e.target.value }))}
+                  placeholder="3200"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1">Slab Width (mm)</label>
+                <input
+                  type="number"
+                  value={newMat.slabWidthMm}
+                  onChange={(e) => setNewMat(p => ({ ...p, slabWidthMm: e.target.value }))}
+                  placeholder="1600"
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Cost per Slab (ex GST)</label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={newMat.pricePerSlab}
+                  onChange={(e) => setNewMat(p => ({ ...p, pricePerSlab: e.target.value }))}
+                  placeholder="0.00"
+                  className="w-full pl-7 pr-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500"
+                />
+              </div>
+              {calculatedPricePerSqm !== null && (
+                <p className="text-xs text-gray-500 mt-1">
+                  ≈ <span className="font-medium text-gray-700">${calculatedPricePerSqm.toFixed(2)}/m²</span> based on slab dimensions
+                </p>
+              )}
+              {newMat.pricePerSlab && !calculatedPricePerSqm && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Enter slab dimensions to calculate m² rate
+                </p>
+              )}
+            </div>
+            {newMatError && (
+              <p className="text-xs text-red-600">{newMatError}</p>
+            )}
+          </div>
+          <div className="flex justify-end gap-2 mt-5">
+            <button
+              type="button"
+              onClick={() => setShowNewMaterialModal(false)}
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveNewMaterial}
+              disabled={newMatSaving || !newMat.name.trim()}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {newMatSaving ? 'Saving...' : 'Save Material'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+
+    </>
   );
 }

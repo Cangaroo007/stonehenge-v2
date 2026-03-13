@@ -3445,6 +3445,7 @@ export default function QuoteDetailClient({
             onDetach={nestingProps?.onDetach}
             onAddWaterfall={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
             onAddSplashback={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
+            onMaterialsRefresh={fetchMaterials}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
