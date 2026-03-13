@@ -430,7 +430,8 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides, resolvedMarginOverride);
+  const hasNullMaterialPieces = pieces.some(p => !(p as any).material_id && !p.overrideMaterialCost);
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides, resolvedMarginOverride, hasNullMaterialPieces);
 
   // For multi-material quotes, the single-material calculation above
   // (slabCount × firstSlabPrice) is wrong — it uses one material's price for all slabs.
@@ -511,6 +512,7 @@ function buildMaterialGroupings(
   materialMarginAdjustPercent: number = 0,
   pieceAreaOverrides?: number[],
   resolvedMarginOverride?: { quoteMarginOverride: number | null; tierMarginPercent: number | null; tierName: string | null } | null,
+  hasNullMaterialPieces?: boolean,
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -576,8 +578,9 @@ function buildMaterialGroupings(
       // For per-slab, estimate slab count per material using naive calculation
       const slabAreaM2 = (group.slabLengthMm ?? defaultSlabLengthMm ?? 3000)
         * (group.slabWidthMm ?? defaultSlabWidthMm ?? 1400) / 1_000_000;
-      // If we only have one material group and optimiser gave us a count, use that
-      if (groups.size === 1 && slabCount !== undefined) {
+      // Only use optimiser slab count when ALL pieces have materials.
+      // If null-material pieces exist, they inflated the optimiser count — recalculate from area.
+      if (groups.size === 1 && slabCount !== undefined && !hasNullMaterialPieces) {
         groupSlabCount = Math.ceil(slabCount);
       } else {
         groupSlabCount = Math.ceil(areaM2 / slabAreaM2);
