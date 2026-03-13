@@ -1284,7 +1284,7 @@ export default function QuoteDetailClient({
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
-                sourcePieceId: Number(parentPieceId),
+                sourcePieceId: parentPieceId,
                 targetPieceId: newPieceId,
                 relationType: type,
                 side: null,
