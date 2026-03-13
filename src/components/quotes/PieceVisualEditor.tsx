@@ -272,6 +272,7 @@ export default function PieceVisualEditor({
   // ── Multi-select & Quick Edge mode state ──────────────────────────────
   const [editMode, setEditMode] = useState<EdgeEditMode>('quickEdge');
   const [selectedEdges, setSelectedEdges] = useState<Set<EdgeSide>>(new Set());
+  const [selectedArcEdges, setSelectedArcEdges] = useState<Set<string>>(new Set());
   const [quickEdgeProfile, setQuickEdgeProfile] = useState<string | null>(null);
   const [flashEdge, setFlashEdge] = useState<EdgeSide | null>(null);
 
@@ -470,6 +471,7 @@ export default function PieceVisualEditor({
 
   const clearSelection = useCallback(() => {
     setSelectedEdges(new Set());
+    setSelectedArcEdges(new Set());
     setPopover(null);
   }, []);
 
@@ -1451,6 +1453,31 @@ export default function PieceVisualEditor({
             </button>
           )}
 
+          {/* RADIUS_END — Both Ends pill */}
+          {editMode === 'select' &&
+            effectiveShapeType === 'RADIUS_END' &&
+            (shapeConfig as any)?.curved_ends === 'BOTH' && (
+            <button
+              onClick={() => setSelectedArcEdges(new Set(['arc_end_start', 'arc_end_end']))}
+              className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
+              title="Select both arc ends"
+            >
+              Both ends
+            </button>
+          )}
+
+          {/* ROUNDED_RECT — All Corners pill */}
+          {editMode === 'select' &&
+            effectiveShapeType === 'ROUNDED_RECT' && (
+            <button
+              onClick={() => setSelectedArcEdges(new Set(['corner_tl', 'corner_tr', 'corner_bl', 'corner_br']))}
+              className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
+              title="Select all corner arcs"
+            >
+              All corners
+            </button>
+          )}
+
           {/* Separator */}
           <span className="text-gray-300 mx-0.5">|</span>
 
@@ -1693,6 +1720,14 @@ export default function PieceVisualEditor({
                             updateRecents(quickEdgeProfile);
                             return;
                           }
+                          if (e.shiftKey) {
+                            setSelectedArcEdges(prev => {
+                              const next = new Set(prev);
+                              if (next.has(edge.side)) { next.delete(edge.side); } else { next.add(edge.side); }
+                              return next;
+                            });
+                            return;
+                          }
                           const svgRect = (e.currentTarget as SVGElement)
                             .closest('svg')
                             ?.getBoundingClientRect();
@@ -1716,6 +1751,14 @@ export default function PieceVisualEditor({
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                             onShapeEdgeChange(edge.side, quickEdgeProfile);
                             updateRecents(quickEdgeProfile);
+                            return;
+                          }
+                          if (e.shiftKey) {
+                            setSelectedArcEdges(prev => {
+                              const next = new Set(prev);
+                              if (next.has(edge.side)) { next.delete(edge.side); } else { next.add(edge.side); }
+                              return next;
+                            });
                             return;
                           }
                           const svgRect = (e.currentTarget as SVGElement)
@@ -1806,6 +1849,14 @@ export default function PieceVisualEditor({
                         if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                           onShapeEdgeChange(arc.side, quickEdgeProfile);
                           updateRecents(quickEdgeProfile);
+                          return;
+                        }
+                        if (e.shiftKey) {
+                          setSelectedArcEdges(prev => {
+                            const next = new Set(prev);
+                            if (next.has(arc.side)) { next.delete(arc.side); } else { next.add(arc.side); }
+                            return next;
+                          });
                           return;
                         }
                         const svgRect = (e.currentTarget as SVGElement)
@@ -2192,7 +2243,14 @@ export default function PieceVisualEditor({
               profiles={edgeTypes}
               isMitred={isMitred}
               onSelect={(profileId) => {
-                onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+                if (selectedArcEdges.size > 0) {
+                  selectedArcEdges.forEach(edgeId => {
+                    onShapeEdgeChange(edgeId, profileId);
+                  });
+                  setSelectedArcEdges(new Set());
+                } else {
+                  onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+                }
                 setShapeEdgePopover(null);
               }}
               onClose={() => setShapeEdgePopover(null)}
