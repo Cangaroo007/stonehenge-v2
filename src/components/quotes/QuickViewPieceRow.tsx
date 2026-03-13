@@ -105,6 +105,7 @@ interface PieceData {
   requiresGrainMatch?: boolean;
   noStripEdges?: string[];
   laminationMethod?: string | null;
+  overrideMaterialCost?: number | null;
 }
 
 export interface QuickViewPieceRowProps {

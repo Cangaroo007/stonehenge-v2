@@ -1235,6 +1235,30 @@ export default function InlinePieceEditor({
               </button>
             </div>
             <div className="mt-2">
+              {/* Labour only toggle */}
+              <div className="flex items-center gap-2 mb-2">
+                <input
+                  type="checkbox"
+                  id={`labour-only-${piece.id}`}
+                  checked={overrideMaterialCost === '0'}
+                  onChange={(e) => {
+                    if (e.target.checked) {
+                      setOverrideMaterialCost('0');
+                    } else {
+                      setOverrideMaterialCost('');
+                    }
+                  }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <label
+                  htmlFor={`labour-only-${piece.id}`}
+                  className="text-sm text-gray-700 cursor-pointer select-none"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Labour only — no material cost
+                </label>
+              </div>
               <label className="block text-xs font-medium text-gray-600 mb-1">
                 Material Cost Override
                 <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
@@ -1248,6 +1272,7 @@ export default function InlinePieceEditor({
                   value={overrideMaterialCost}
                   onChange={(e) => setOverrideMaterialCost(e.target.value)}
                   onClick={(e) => e.stopPropagation()}
+                  disabled={overrideMaterialCost === '0'}
                   placeholder="Leave blank to use catalogue price"
                   className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                     overrideMaterialCost !== ''
@@ -1388,6 +1413,30 @@ export default function InlinePieceEditor({
                 <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
               </div>
               <div className="mt-2">
+                {/* Labour only toggle */}
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id={`labour-only-${piece.id}`}
+                    checked={overrideMaterialCost === '0'}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setOverrideMaterialCost('0');
+                      } else {
+                        setOverrideMaterialCost('');
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label
+                    htmlFor={`labour-only-${piece.id}`}
+                    className="text-sm text-gray-700 cursor-pointer select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Labour only — no material cost
+                  </label>
+                </div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Material Cost Override
                   <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
@@ -1401,6 +1450,7 @@ export default function InlinePieceEditor({
                     value={overrideMaterialCost}
                     onChange={(e) => setOverrideMaterialCost(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
+                    disabled={overrideMaterialCost === '0'}
                     placeholder="Leave blank to use catalogue price"
                     className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                       overrideMaterialCost !== ''
@@ -1554,6 +1604,30 @@ export default function InlinePieceEditor({
                 <button type="button" onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }} className="shrink-0 px-2 py-1.5 text-xs font-medium text-primary-600 border border-primary-200 rounded-lg hover:bg-primary-50 transition-colors" title="Add new material">+ New</button>
               </div>
               <div className="mt-2">
+                {/* Labour only toggle */}
+                <div className="flex items-center gap-2 mb-2">
+                  <input
+                    type="checkbox"
+                    id={`labour-only-${piece.id}`}
+                    checked={overrideMaterialCost === '0'}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setOverrideMaterialCost('0');
+                      } else {
+                        setOverrideMaterialCost('');
+                      }
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  <label
+                    htmlFor={`labour-only-${piece.id}`}
+                    className="text-sm text-gray-700 cursor-pointer select-none"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    Labour only — no material cost
+                  </label>
+                </div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Material Cost Override
                   <span className="ml-1 text-gray-400 font-normal">(ex GST — overrides catalogue price)</span>
@@ -1567,6 +1641,7 @@ export default function InlinePieceEditor({
                     value={overrideMaterialCost}
                     onChange={(e) => setOverrideMaterialCost(e.target.value)}
                     onClick={(e) => e.stopPropagation()}
+                    disabled={overrideMaterialCost === '0'}
                     placeholder="Leave blank to use catalogue price"
                     className={`w-full pl-6 pr-3 py-1.5 text-sm border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
                       overrideMaterialCost !== ''
