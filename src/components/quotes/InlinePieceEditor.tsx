@@ -1030,7 +1030,6 @@ export default function InlinePieceEditor({
             { type: 'U_SHAPE' as ShapeType, label: 'U-Shape', Icon: UShapeIcon },
             { type: 'RADIUS_END' as ShapeType, label: 'Radius End', Icon: RadiusEndIcon },
             { type: 'FULL_CIRCLE' as ShapeType, label: 'Circle', Icon: FullCircleIcon },
-            { type: 'CONCAVE_ARC' as ShapeType, label: 'Curved Arc', Icon: ConcaveArcIcon },
             { type: 'ROUNDED_RECT' as ShapeType, label: 'Rounded Rect', Icon: RoundedRectIcon },
           ]).map(({ type, label, Icon }) => (
             <button
