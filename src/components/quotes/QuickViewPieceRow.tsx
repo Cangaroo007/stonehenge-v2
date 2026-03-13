@@ -669,6 +669,15 @@ export default function QuickViewPieceRow({
     });
   }, [savePieceImmediate]);
 
+  const calculatedPricePerSqm = useMemo(() => {
+    const price = parseFloat(newMat.pricePerSlab);
+    const length = parseInt(newMat.slabLengthMm);
+    const width = parseInt(newMat.slabWidthMm);
+    if (!price || !length || !width || price <= 0 || length <= 0 || width <= 0) return null;
+    const slabAreaSqm = (length * width) / 1_000_000;
+    return Math.round((price / slabAreaSqm) * 100) / 100;
+  }, [newMat.pricePerSlab, newMat.slabLengthMm, newMat.slabWidthMm]);
+
   const handleSaveNewMaterial = useCallback(async () => {
     if (!newMat.name.trim()) {
       setNewMatError('Name is required');
@@ -716,15 +725,6 @@ export default function QuickViewPieceRow({
       m.name.toLowerCase().includes(lower) || (m.collection || '').toLowerCase().includes(lower)
     );
   }, [editData?.materials, materialSearch]);
-
-  const calculatedPricePerSqm = useMemo(() => {
-    const price = parseFloat(newMat.pricePerSlab);
-    const length = parseInt(newMat.slabLengthMm);
-    const width = parseInt(newMat.slabWidthMm);
-    if (!price || !length || !width || price <= 0 || length <= 0 || width <= 0) return null;
-    const slabAreaSqm = (length * width) / 1_000_000;
-    return Math.round((price / slabAreaSqm) * 100) / 100;
-  }, [newMat.pricePerSlab, newMat.slabLengthMm, newMat.slabWidthMm]);
 
   // ── Thickness handler ───────────────────────────────────────────────────
   const handleThicknessChange = useCallback((val: number) => {
