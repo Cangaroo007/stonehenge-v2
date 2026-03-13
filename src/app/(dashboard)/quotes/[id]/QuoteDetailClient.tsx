@@ -4454,23 +4454,44 @@ export default function QuoteDetailClient({
         otherPieces={effectivePieces
           .map(p => ({ id: String(p.id), name: p.name || p.description || `Piece ${p.id}` }))}
         onAdjoinPiece={async (targetPieceId) => {
-          // Set the joining edge of the selected piece to Mitred
           const target = effectivePieces.find(p => String(p.id) === targetPieceId);
           if (target) {
-            // Set top edge to Mitred on the target piece
             await handlePieceEdgeChange(targetPieceId, 'top', MITERED_EDGE_ID);
+          }
+          const parentPieceId = waterfallModal.parentPieceId;
+          if (parentPieceId) {
+            try {
+              await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  sourcePieceId: parentPieceId,
+                  targetPieceId,
+                  relationType: waterfallModal.type,
+                  side: null,
+                  grainMatch: false,
+                }),
+              });
+              triggerRecalculate();
+            } catch {
+              // Non-fatal
+            }
           }
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
         }}
         onCreatePiece={() => {
+          const parentId = waterfallModal.parentPieceId;
+          const type = waterfallModal.type;
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          handleAddPiece();
-          toast('Set the joining edge to Mitred on the new piece', { icon: 'i' });
+          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
+          handleAddPiece(undefined, type, 'MITRED');
         }}
         onCreateStrip={() => {
+          const parentId = waterfallModal.parentPieceId;
+          const type = waterfallModal.type;
           setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          handleAddPiece();
-          toast('Set the joining edge to Mitred on the new strip piece', { icon: 'i' });
+          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
+          handleAddPiece(undefined, type, 'MITRED');
         }}
         onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null })}
       />
