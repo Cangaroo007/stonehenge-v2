@@ -113,6 +113,7 @@ interface QuotePiece {
   shapeConfig: Record<string, unknown> | null;
   pieceType: string | null;
   requiresGrainMatch: boolean;
+  overrideMaterialCost?: number | null;
   noStripEdges?: string[];
   stripWidthOverrides?: Record<string, number> | null;
   cutouts: PieceCutout[];
@@ -294,6 +295,7 @@ export interface ServerQuoteData {
       shape_config: Record<string, unknown> | null;
       piece_type: string | null;
       requiresGrainMatch: boolean;
+  overrideMaterialCost?: number | null;
       piece_features: Array<{
         id: number;
         name: string;
