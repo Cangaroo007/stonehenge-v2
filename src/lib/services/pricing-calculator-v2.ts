@@ -33,7 +33,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, type ShapeConfig, type ShapeType, type RadiusEndConfig, type FullCircleConfig, type ConcaveArcConfig } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, type ShapeConfig, type ShapeType, type RadiusEndConfig, type FullCircleConfig, type ConcaveArcConfig, type ArcEdgeConfig } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -1054,9 +1054,12 @@ export async function calculateQuotePrice(
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
+      shapeType: (piece as any).shape_type ?? 'RECTANGLE',
+      shapeConfig: (piece as any).shape_config as unknown,
       arcLengthLm: isCurvedShape((piece as any).shape_type)
         ? calcArcLengthM((piece as any).shape_type!, (piece as any).shape_config)
         : undefined,
+      arcEdgeConfig: (piece.edge_arc_config as unknown as ArcEdgeConfig) ?? null,
     });
   }
 
