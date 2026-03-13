@@ -383,6 +383,8 @@ export default function QuoteDetailClient({
   const [isAddingPiece, setIsAddingPiece] = useState(false);
   const [addingInlinePiece, setAddingInlinePiece] = useState(false);
   const [addingInlinePieceRoom, setAddingInlinePieceRoom] = useState<string | null>(null);
+  const [addingInlinePieceType, setAddingInlinePieceType] = useState<'BENCHTOP' | 'WATERFALL' | 'SPLASHBACK' | null>(null);
+  const [addingInlinePieceJoinMethod, setAddingInlinePieceJoinMethod] = useState<'NONE' | 'MITRED' | null>(null);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [editLoading, setEditLoading] = useState(false);
@@ -445,6 +447,7 @@ export default function QuoteDetailClient({
   const editDataLoaded = useRef(false);
   const addPieceRef = useRef<HTMLDivElement>(null);
   const actionBarRef = useRef<HTMLDivElement>(null);
+  const pendingWaterfallParentRef = useRef<{ parentPieceId: string | null; type: 'WATERFALL' | 'SPLASHBACK' } | null>(null);
 
   // ── Quote Options state ─────────────────────────────────────────────────
   const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
@@ -953,9 +956,15 @@ export default function QuoteDetailClient({
     setSidebarOpen(true);
   };
 
-  const handleAddPiece = (preselectedRoom?: string) => {
+  const handleAddPiece = (
+    preselectedRoom?: string,
+    pieceType?: 'WATERFALL' | 'SPLASHBACK',
+    joinMethod?: 'MITRED'
+  ) => {
     setAddingInlinePiece(true);
     setAddingInlinePieceRoom(preselectedRoom || null);
+    setAddingInlinePieceType(pieceType ?? null);
+    setAddingInlinePieceJoinMethod(joinMethod ?? null);
     setSelectedPieceId(null);
     setIsAddingPiece(false);
   };
@@ -3591,7 +3600,7 @@ export default function QuoteDetailClient({
                 onSave={handleInlineSavePiece}
                 saving={saving}
                 isNew
-                onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); }}
+                onCancel={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); setAddingInlinePieceType(null); setAddingInlinePieceJoinMethod(null); pendingWaterfallParentRef.current = null; }}
                 pieceSuggestions={pieceSuggestions}
                 roomSuggestions={roomSuggestions}
                 grainMatchingSurchargePercent={serverData.grainMatchingSurchargePercent}
