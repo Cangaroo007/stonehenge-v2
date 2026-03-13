@@ -2243,7 +2243,14 @@ export default function PieceVisualEditor({
               profiles={edgeTypes}
               isMitred={isMitred}
               onSelect={(profileId) => {
-                onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+                if (selectedArcEdges.size > 0) {
+                  selectedArcEdges.forEach(edgeId => {
+                    onShapeEdgeChange(edgeId, profileId);
+                  });
+                  setSelectedArcEdges(new Set());
+                } else {
+                  onShapeEdgeChange(shapeEdgePopover.edgeId, profileId);
+                }
                 setShapeEdgePopover(null);
               }}
               onClose={() => setShapeEdgePopover(null)}
