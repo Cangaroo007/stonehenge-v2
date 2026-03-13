@@ -1,4 +1,4 @@
-import type { ArcEdgeConfig } from '@/lib/types/shapes'
+import type { ArcEdgeConfig, RadiusEndConfig } from '@/lib/types/shapes'
 
 /**
  * PRICING RULES ENGINE — Stone Henge v2
@@ -81,6 +81,8 @@ export interface EnginePiece {
   areaSqm?: number              // overrides (l*w)/1_000_000
   finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
   stripLm?: number              // all edges minus wall edges — for lamination strip cost
+  shapeType?: string             // e.g. RECTANGLE, FULL_CIRCLE, RADIUS_END, ROUNDED_RECT
+  shapeConfig?: unknown          // shape-specific configuration (RadiusEndConfig, etc.)
   arcLengthLm?: number          // curved arc length in Lm — set for ROUNDED_RECT, RADIUS_END, FULL_CIRCLE, CONCAVE_ARC
   arcEdgeConfig?: ArcEdgeConfig | null  // arc edge profile assignments — FULL_CIRCLE/RADIUS_END/ROUNDED_RECT
 }
@@ -259,6 +261,58 @@ export function ruleEdgeProfiles(
       : 0  // $0 = intentionally free profile (e.g. Arris, Pencil Round)
     items.push({ edgeTypeId: edge.edgeTypeId!, lm, rate, cost: lm * rate })
   }
+
+  // ARC EDGE PROFILES
+  if (piece.arcEdgeConfig && piece.arcLengthLm && piece.arcLengthLm > 0) {
+    const arcConfig = piece.arcEdgeConfig
+
+    const lookupArcRate = (edgeTypeIdStr: string | null | undefined): number => {
+      if (!edgeTypeIdStr) return 0
+      const edgeTypeId = Number(edgeTypeIdStr)
+      const catRate = edgeCategoryRates.find(
+        r => r.edgeTypeId === edgeTypeId && r.fabricationCategory === category
+      )
+      return catRate
+        ? (piece.thickness_mm >= 40 ? catRate.rate40mm : catRate.rate20mm)
+        : 0
+    }
+
+    // FULL_CIRCLE — one perimeter edge
+    if (piece.shapeType === 'FULL_CIRCLE' && arcConfig.perimeter) {
+      const lm = piece.arcLengthLm
+      const rate = lookupArcRate(arcConfig.perimeter)
+      items.push({ edgeTypeId: Number(arcConfig.perimeter), lm, rate, cost: lm * rate })
+    }
+
+    // RADIUS_END — one or two arc ends
+    if (piece.shapeType === 'RADIUS_END') {
+      const shapeConfig = piece.shapeConfig as RadiusEndConfig
+      const endCount = shapeConfig?.curved_ends === 'BOTH' ? 2 : 1
+      const lmPerEnd = piece.arcLengthLm / endCount
+
+      for (const key of ['arc_end_start', 'arc_end_end'] as const) {
+        const edgeTypeIdStr = arcConfig[key]
+        if (edgeTypeIdStr) {
+          const rate = lookupArcRate(edgeTypeIdStr)
+          items.push({ edgeTypeId: Number(edgeTypeIdStr), lm: lmPerEnd, rate, cost: lmPerEnd * rate })
+        }
+      }
+    }
+
+    // ROUNDED_RECT — per-corner
+    if (piece.shapeType === 'ROUNDED_RECT') {
+      const corners = ['corner_tl', 'corner_tr', 'corner_bl', 'corner_br'] as const
+      const activeCorners = corners.filter(c => arcConfig[c])
+      const lmPerCorner = activeCorners.length > 0 ? piece.arcLengthLm / activeCorners.length : 0
+
+      for (const corner of activeCorners) {
+        const edgeTypeIdStr = arcConfig[corner]!
+        const rate = lookupArcRate(edgeTypeIdStr)
+        items.push({ edgeTypeId: Number(edgeTypeIdStr), lm: lmPerCorner, rate, cost: lmPerCorner * rate })
+      }
+    }
+  }
+
   return {
     lm: items.reduce((s, i) => s + i.lm, 0),
     cost: items.reduce((s, i) => s + i.cost, 0),

@@ -1054,6 +1054,8 @@ export async function calculateQuotePrice(
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
+      shapeType: (piece as any).shape_type ?? 'RECTANGLE',
+      shapeConfig: (piece as any).shape_config as unknown,
       arcLengthLm: isCurvedShape((piece as any).shape_type)
         ? calcArcLengthM((piece as any).shape_type!, (piece as any).shape_config)
         : undefined,
