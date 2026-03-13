@@ -1560,30 +1560,6 @@ export default function PieceVisualEditor({
         </div>
       )}
 
-      {/* ── Edge Layout Presets (Rectangle + Rounded Rect) ─────────── */}
-      {isEditMode && onEdgesChange && (effectiveShapeType === 'RECTANGLE' || effectiveShapeType === 'ROUNDED_RECT') && (
-        <div className="flex flex-wrap items-center gap-1 mb-1 px-1">
-          <p className="text-xs font-medium text-gray-500 mr-1">Layout Presets</p>
-          {EDGE_PRESETS.map(preset => (
-            <button
-              key={preset.id}
-              onClick={() => handlePresetApply(preset)}
-              title={preset.label}
-              className="flex flex-col items-center gap-0.5 px-2 py-1.5 rounded border
-                         border-gray-200 hover:border-stone-400 hover:bg-stone-50
-                         transition-colors text-center"
-            >
-              <PresetThumbnail sides={preset.sides} />
-              <span className="text-[10px] text-gray-500 leading-tight whitespace-nowrap">
-                {preset.label}
-              </span>
-            </button>
-          ))}
-          {presetMessage && (
-            <p className="text-xs text-amber-600 ml-1">{presetMessage}</p>
-          )}
-        </div>
-      )}
 
       {/* ── Recents Strip (Quick Edge mode, above SVG) ─────────────── */}
       {isEditMode && !isMitred && editMode === 'quickEdge' && recentProfiles.length > 0 && (
