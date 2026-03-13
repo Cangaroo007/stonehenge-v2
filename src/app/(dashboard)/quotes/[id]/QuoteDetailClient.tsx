@@ -418,7 +418,10 @@ export default function QuoteDetailClient({
     isOpen: boolean;
     type: 'WATERFALL' | 'SPLASHBACK';
     parentPieceId: string | null;
-  }>({ isOpen: false, type: 'WATERFALL', parentPieceId: null });
+    parentLengthMm: number;
+    parentWidthMm: number;
+    parentThicknessMm: number;
+  }>({ isOpen: false, type: 'WATERFALL', parentPieceId: null, parentLengthMm: 0, parentWidthMm: 0, parentThicknessMm: 20 });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
@@ -3440,8 +3443,8 @@ export default function QuoteDetailClient({
             relationshipLabel={nestingProps?.relationshipLabel}
             grainMatch={nestingProps?.grainMatch}
             onDetach={nestingProps?.onDetach}
-            onAddWaterfall={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id) })}
-            onAddSplashback={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id) })}
+            onAddWaterfall={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
+            onAddSplashback={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
           />
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
@@ -4451,53 +4454,68 @@ export default function QuoteDetailClient({
         />
       )}
 
-      {/* Waterfall / Splashback connected piece modal */}
+      {/* Waterfall / Splashback edge-picker modal */}
       <WaterfallSplashbackModal
         isOpen={waterfallModal.isOpen}
-        edgeTypeName={waterfallModal.type === 'WATERFALL' ? 'Waterfall' : 'Splashback'}
-        otherPieces={effectivePieces
-          .map(p => ({ id: String(p.id), name: p.name || p.description || `Piece ${p.id}` }))}
-        onAdjoinPiece={async (targetPieceId) => {
-          const target = effectivePieces.find(p => String(p.id) === targetPieceId);
-          if (target) {
-            await handlePieceEdgeChange(targetPieceId, 'top', MITERED_EDGE_ID);
-          }
+        type={waterfallModal.type}
+        parentLengthMm={waterfallModal.parentLengthMm}
+        parentWidthMm={waterfallModal.parentWidthMm}
+        parentThicknessMm={waterfallModal.parentThicknessMm}
+        onConfirm={async (selectedEdge, lengthMm, widthMm, thicknessMm) => {
           const parentPieceId = waterfallModal.parentPieceId;
-          if (parentPieceId) {
-            try {
-              await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  sourcePieceId: parentPieceId,
-                  targetPieceId,
-                  relationType: waterfallModal.type,
-                  side: null,
-                  grainMatch: false,
-                }),
-              });
-              triggerRecalculate();
-            } catch {
-              // Non-fatal
-            }
-          }
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-        }}
-        onCreatePiece={() => {
-          const parentId = waterfallModal.parentPieceId;
           const type = waterfallModal.type;
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
-          handleAddPiece(undefined, type, 'MITRED');
+          if (!parentPieceId) return;
+          setWaterfallModal(prev => ({ ...prev, isOpen: false }));
+
+          // 1. Find parent piece for room ID
+          const parentPiece = effectivePieces.find(p => String(p.id) === parentPieceId);
+          if (!parentPiece) return;
+
+          // 2. Create child piece
+          const pieceRes = await fetch(`/api/quotes/${quoteId}/pieces`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              roomId: parentPiece.quote_rooms.id,
+              pieceType: type,
+              shapeType: 'RECTANGLE',
+              name: `${type === 'WATERFALL' ? 'Waterfall' : 'Splashback'} — ${selectedEdge.toUpperCase()} edge`,
+              lengthMm,
+              widthMm,
+              thicknessMm,
+              laminationMethod: type === 'WATERFALL' ? 'MITRED' : 'NONE',
+            }),
+          });
+          const pieceJson = await pieceRes.json();
+          const newPiece = pieceJson.piece ?? pieceJson;
+          if (!newPiece?.id) return;
+
+          // 3. Set joining edge to Mitered on parent
+          await handlePieceEdgeChange(parentPieceId, selectedEdge, MITERED_EDGE_ID);
+
+          // 4. Set opposing edge to Mitered on child
+          const oppositeEdge: Record<string, string> = {
+            top: 'bottom', bottom: 'top', left: 'right', right: 'left'
+          };
+          await handlePieceEdgeChange(String(newPiece.id), oppositeEdge[selectedEdge], MITERED_EDGE_ID);
+
+          // 5. Create piece relationship
+          await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              sourcePieceId: parseInt(parentPieceId),
+              targetPieceId: newPiece.id,
+              relationType: type,
+              side: selectedEdge,
+              grainMatch: false,
+            }),
+          });
+
+          // 6. Refresh quote
+          await fetchQuote();
         }}
-        onCreateStrip={() => {
-          const parentId = waterfallModal.parentPieceId;
-          const type = waterfallModal.type;
-          setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null });
-          pendingWaterfallParentRef.current = { parentPieceId: parentId, type };
-          handleAddPiece(undefined, type, 'MITRED');
-        }}
-        onClose={() => setWaterfallModal({ isOpen: false, type: waterfallModal.type, parentPieceId: null })}
+        onClose={() => setWaterfallModal(prev => ({ ...prev, isOpen: false }))}
       />
     </>
   );
