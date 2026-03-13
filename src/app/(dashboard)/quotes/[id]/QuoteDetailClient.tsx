@@ -2964,6 +2964,7 @@ export default function QuoteDetailClient({
                         shapeConfig: piece.shape_config ?? null,
                         requiresGrainMatch: piece.requiresGrainMatch ?? false,
                         noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
+                        overrideMaterialCost: (piece as any).override_material_cost ?? null,
                       }}
                       breakdown={pb}
                       mode="view"
@@ -3389,6 +3390,7 @@ export default function QuoteDetailClient({
               shapeConfig: p.shapeConfig ?? null,
               requiresGrainMatch: p.requiresGrainMatch ?? false,
               noStripEdges: (p.noStripEdges as string[]) ?? [],
+              overrideMaterialCost: p.overrideMaterialCost ?? null,
             }}
             breakdown={pb}
             machines={machines}

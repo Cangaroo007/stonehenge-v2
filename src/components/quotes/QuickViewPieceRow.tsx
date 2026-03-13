@@ -105,6 +105,7 @@ interface PieceData {
   requiresGrainMatch?: boolean;
   noStripEdges?: string[];
   laminationMethod?: string | null;
+  overrideMaterialCost?: number | null;
 }
 
 export interface QuickViewPieceRowProps {
@@ -947,6 +948,13 @@ export default function QuickViewPieceRow({
               <span className="text-xs text-gray-500 flex-shrink-0 truncate max-w-[160px]">{piece.materialName}</span>
             )
           )}
+          {piece.overrideMaterialCost === 0 ? (
+            <span className="ml-1 text-xs text-gray-400 italic">Labour only</span>
+          ) : piece.overrideMaterialCost != null ? (
+            <span className="ml-1 text-xs text-amber-600 font-medium">
+              ${Number(piece.overrideMaterialCost).toFixed(2)} override
+            </span>
+          ) : null}
 
           {/* Spacer + Price + Badges */}
           <div className="flex-1" />
