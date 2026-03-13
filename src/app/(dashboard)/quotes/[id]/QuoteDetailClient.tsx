@@ -1702,6 +1702,11 @@ export default function QuoteDetailClient({
       const newPieceId = newPiece.id;
       await fetchQuote();
       setSelectedPieceId(newPieceId);
+      // Scroll to new piece after React re-renders
+      setTimeout(() => {
+        const el = document.getElementById(`piece-${newPieceId}`);
+        if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      }, 150);
       setIsAddingPiece(false);
       triggerRecalculate();
       triggerOptimise();
@@ -2898,33 +2903,34 @@ export default function QuoteDetailClient({
               const renderViewPieceCard = (piece: typeof allViewPieces[0], pieceNumber: number) => {
                 const pb = viewBreakdownMap.get(piece.id);
                 return (
-                  <QuickViewPieceRow
-                    key={piece.id}
-                    pieceNumber={pieceNumber}
-                    piece={{
-                      id: piece.id,
-                      name: piece.name || 'Unnamed piece',
-                      description: piece.description,
-                      lengthMm: piece.length_mm,
-                      widthMm: piece.width_mm,
-                      thicknessMm: piece.thickness_mm,
-                      materialName: piece.materials?.name || piece.material_name || null,
-                      edgeTop: piece.edge_top ?? null,
-                      edgeBottom: piece.edge_bottom ?? null,
-                      edgeLeft: piece.edge_left ?? null,
-                      edgeRight: piece.edge_right ?? null,
-                      roomName: piece.roomName,
-                      shapeType: piece.shape_type ?? 'RECTANGLE',
-                      shapeConfig: piece.shape_config ?? null,
-                      requiresGrainMatch: piece.requiresGrainMatch ?? false,
-                      noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
-                    }}
-                    breakdown={pb}
-                    mode="view"
-                    onExpand={(pieceId) => {
-                      window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
-                    }}
-                  />
+                  <div key={piece.id} id={`piece-${piece.id}`}>
+                    <QuickViewPieceRow
+                      pieceNumber={pieceNumber}
+                      piece={{
+                        id: piece.id,
+                        name: piece.name || 'Unnamed piece',
+                        description: piece.description,
+                        lengthMm: piece.length_mm,
+                        widthMm: piece.width_mm,
+                        thicknessMm: piece.thickness_mm,
+                        materialName: piece.materials?.name || piece.material_name || null,
+                        edgeTop: piece.edge_top ?? null,
+                        edgeBottom: piece.edge_bottom ?? null,
+                        edgeLeft: piece.edge_left ?? null,
+                        edgeRight: piece.edge_right ?? null,
+                        roomName: piece.roomName,
+                        shapeType: piece.shape_type ?? 'RECTANGLE',
+                        shapeConfig: piece.shape_config ?? null,
+                        requiresGrainMatch: piece.requiresGrainMatch ?? false,
+                        noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
+                      }}
+                      breakdown={pb}
+                      mode="view"
+                      onExpand={(pieceId) => {
+                        window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
+                      }}
+                    />
+                  </div>
                 );
               };
 
@@ -3322,7 +3328,7 @@ export default function QuoteDetailClient({
       const pieceOverride = activeOverrideMap.get(p.id);
       const isNonBaseOption = quoteOptions.activeOption && !quoteOptions.activeOption.isBase;
       return (
-        <div key={p.id}>
+        <div key={p.id} id={`piece-${p.id}`}>
           <QuickViewPieceRow
             pieceNumber={pieceNumber}
             piece={{
