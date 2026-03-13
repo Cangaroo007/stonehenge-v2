@@ -159,6 +159,8 @@ export interface QuickViewPieceRowProps {
   onAddWaterfall?: () => void;
   /** WF-2f: per-piece attach splashback action */
   onAddSplashback?: () => void;
+  /** QF-4: callback to refetch materials list after creating a new material */
+  onMaterialsRefresh?: () => void;
 }
 
 // ── Strip Width Constants ───────────────────────────────────────────────────
@@ -483,6 +485,9 @@ export default function QuickViewPieceRow({
   const [materialSearch, setMaterialSearch] = useState('');
   const [showMaterialDropdown, setShowMaterialDropdown] = useState(false);
   const [showGrainWarning, setShowGrainWarning] = useState(false);
+  const [localOverrideCost, setLocalOverrideCost] = useState<string>(
+    piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+  );
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const materialRef = useRef<HTMLDivElement>(null);
   const cutoutRef = useRef<HTMLDivElement>(null);
@@ -492,7 +497,10 @@ export default function QuickViewPieceRow({
     setLocalLength(piece.lengthMm);
     setLocalWidth(piece.widthMm);
     setLocalName(piece.name);
-  }, [piece.lengthMm, piece.widthMm, piece.name]);
+    setLocalOverrideCost(
+      piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
+    );
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
