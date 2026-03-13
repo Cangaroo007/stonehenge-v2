@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, requireAuth } from '@/lib/auth';
 import { hasPermissionAsync, Permission } from '@/lib/permissions';
 import { createAuditLog, getClientIp, getUserAgent } from '@/lib/audit';
 import { hashPassword } from '@/lib/auth';
@@ -12,6 +12,11 @@ import { UserRole, CustomerUserRole, Prisma } from '@prisma/client';
  * Query params: customerId - filter by customer ID
  */
 export async function GET(request: NextRequest) {
+  const auth = await requireAuth();
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {
@@ -77,6 +82,11 @@ export async function GET(request: NextRequest) {
  * Create a new user (requires MANAGE_USERS permission)
  */
 export async function POST(request: NextRequest) {
+  const auth = await requireAuth();
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const currentUser = await getCurrentUser();
     if (!currentUser) {

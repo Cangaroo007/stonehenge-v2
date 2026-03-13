@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getCurrentUser } from '@/lib/auth';
+import { getCurrentUser, requireAuth } from '@/lib/auth';
 import { hasPermissionAsync, Permission } from '@/lib/permissions';
 import { createAuditLog, getClientIp, getUserAgent, getChanges } from '@/lib/audit';
 import { hashPassword } from '@/lib/auth';
@@ -14,6 +14,11 @@ export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { id } = await params;
     const currentUser = await getCurrentUser();
@@ -78,6 +83,11 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { id } = await params;
     const currentUser = await getCurrentUser();
@@ -214,6 +224,11 @@ export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const auth = await requireAuth();
+  if ('error' in auth) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status });
+  }
+
   try {
     const { id } = await params;
     const currentUser = await getCurrentUser();
