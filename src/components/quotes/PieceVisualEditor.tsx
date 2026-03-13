@@ -272,6 +272,7 @@ export default function PieceVisualEditor({
   // ── Multi-select & Quick Edge mode state ──────────────────────────────
   const [editMode, setEditMode] = useState<EdgeEditMode>('quickEdge');
   const [selectedEdges, setSelectedEdges] = useState<Set<EdgeSide>>(new Set());
+  const [selectedArcEdges, setSelectedArcEdges] = useState<Set<string>>(new Set());
   const [quickEdgeProfile, setQuickEdgeProfile] = useState<string | null>(null);
   const [flashEdge, setFlashEdge] = useState<EdgeSide | null>(null);
 
@@ -470,6 +471,7 @@ export default function PieceVisualEditor({
 
   const clearSelection = useCallback(() => {
     setSelectedEdges(new Set());
+    setSelectedArcEdges(new Set());
     setPopover(null);
   }, []);
 
@@ -1693,6 +1695,14 @@ export default function PieceVisualEditor({
                             updateRecents(quickEdgeProfile);
                             return;
                           }
+                          if (e.shiftKey) {
+                            setSelectedArcEdges(prev => {
+                              const next = new Set(prev);
+                              if (next.has(edge.side)) { next.delete(edge.side); } else { next.add(edge.side); }
+                              return next;
+                            });
+                            return;
+                          }
                           const svgRect = (e.currentTarget as SVGElement)
                             .closest('svg')
                             ?.getBoundingClientRect();
@@ -1716,6 +1726,14 @@ export default function PieceVisualEditor({
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                             onShapeEdgeChange(edge.side, quickEdgeProfile);
                             updateRecents(quickEdgeProfile);
+                            return;
+                          }
+                          if (e.shiftKey) {
+                            setSelectedArcEdges(prev => {
+                              const next = new Set(prev);
+                              if (next.has(edge.side)) { next.delete(edge.side); } else { next.add(edge.side); }
+                              return next;
+                            });
                             return;
                           }
                           const svgRect = (e.currentTarget as SVGElement)
@@ -1806,6 +1824,14 @@ export default function PieceVisualEditor({
                         if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                           onShapeEdgeChange(arc.side, quickEdgeProfile);
                           updateRecents(quickEdgeProfile);
+                          return;
+                        }
+                        if (e.shiftKey) {
+                          setSelectedArcEdges(prev => {
+                            const next = new Set(prev);
+                            if (next.has(arc.side)) { next.delete(arc.side); } else { next.add(arc.side); }
+                            return next;
+                          });
                           return;
                         }
                         const svgRect = (e.currentTarget as SVGElement)
