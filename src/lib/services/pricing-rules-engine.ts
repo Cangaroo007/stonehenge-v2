@@ -1,3 +1,5 @@
+import type { ArcEdgeConfig } from '@/lib/types/shapes'
+
 /**
  * PRICING RULES ENGINE — Stone Henge v2
  *
@@ -80,6 +82,7 @@ export interface EnginePiece {
   finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
   stripLm?: number              // all edges minus wall edges — for lamination strip cost
   arcLengthLm?: number          // curved arc length in Lm — set for ROUNDED_RECT, RADIUS_END, FULL_CIRCLE, CONCAVE_ARC
+  arcEdgeConfig?: ArcEdgeConfig | null  // arc edge profile assignments — FULL_CIRCLE/RADIUS_END/ROUNDED_RECT
 }
 
 export interface EngineMaterial {
