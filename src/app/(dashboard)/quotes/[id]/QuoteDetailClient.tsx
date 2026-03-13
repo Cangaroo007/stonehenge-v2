@@ -1238,7 +1238,7 @@ export default function QuoteDetailClient({
         ? {
             ...data,
             pieceType: pendingWaterfallParentRef.current.type,
-            laminationMethod: 'MITRED',
+            laminationMethod: 'NONE',
             joinMethod: 'MITRED',
           }
         : data;
@@ -4483,7 +4483,7 @@ export default function QuoteDetailClient({
               lengthMm,
               widthMm,
               thicknessMm,
-              laminationMethod: type === 'WATERFALL' ? 'MITRED' : 'NONE',
+              laminationMethod: 'NONE',
             }),
           });
           const pieceJson = await pieceRes.json();
@@ -4514,6 +4514,7 @@ export default function QuoteDetailClient({
 
           // 6. Refresh quote
           await fetchQuote();
+          await fetchRelationships();
         }}
         onClose={() => setWaterfallModal(prev => ({ ...prev, isOpen: false }))}
       />
