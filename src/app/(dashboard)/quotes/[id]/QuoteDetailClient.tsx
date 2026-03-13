@@ -1228,8 +1228,18 @@ export default function QuoteDetailClient({
         edge_right: (data.edgeRight as string | null) ?? oldPiece?.edgeRight ?? null,
         cutouts: resolvedCutoutsForDesc,
       });
+      // If creating a waterfall/splashback piece, override pieceType and laminationMethod
+      const effectiveData: Record<string, unknown> = (isCreate && pendingWaterfallParentRef.current)
+        ? {
+            ...data,
+            pieceType: pendingWaterfallParentRef.current.type,
+            laminationMethod: 'MITRED',
+            joinMethod: 'MITRED',
+          }
+        : data;
+
       // Only set auto-description if user hasn't manually edited it
-      const dataWithDesc = { ...data };
+      const dataWithDesc = { ...effectiveData };
       if (!data.description && autoDesc) {
         dataWithDesc.description = autoDesc;
       }
@@ -1264,6 +1274,28 @@ export default function QuoteDetailClient({
       const pieceName = (data.name as string) || oldPiece?.name || 'Piece';
       if (isCreate) {
         const newPieceId = savedPiece.id;
+
+        // Create piece_relationship if this piece was created from the waterfall modal
+        if (pendingWaterfallParentRef.current?.parentPieceId) {
+          const { parentPieceId, type } = pendingWaterfallParentRef.current;
+          pendingWaterfallParentRef.current = null;
+          try {
+            await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sourcePieceId: Number(parentPieceId),
+                targetPieceId: newPieceId,
+                relationType: type,
+                side: null,
+                grainMatch: false,
+              }),
+            });
+          } catch {
+            // Non-fatal — piece is created, relationship is best-effort
+          }
+        }
+
         pushAction({
           type: 'PIECE_CREATE',
           description: `Created ${pieceName}`,
