@@ -65,6 +65,17 @@ export async function POST(request: NextRequest) {
             updated_at: new Date(),
           },
         });
+
+        // Also save the cutting unit preference on pricing_settings
+        if (data.unit) {
+          await prisma.pricing_settings.update({
+            where: { id: pricingSettingsId },
+            data: {
+              cutting_unit: data.unit,
+              updated_at: new Date(),
+            },
+          });
+        }
         break;
       }
 

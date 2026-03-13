@@ -8,6 +8,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 interface CuttingData {
   rate20mm: number;
   rate40mm: number;
+  unit: 'LINEAR_METRE' | 'SQUARE_METRE';
 }
 
 interface EdgeProfileRate {
@@ -68,7 +69,7 @@ interface WizardState {
 }
 
 const DEFAULT_STATE: WizardState = {
-  cutting: { rate20mm: 17.5, rate40mm: 45.0 },
+  cutting: { rate20mm: 17.5, rate40mm: 45.0, unit: 'LINEAR_METRE' },
   edgeProfiles: {
     chargeExtra: true,
     profiles: [
@@ -186,6 +187,8 @@ function WizardStep1_Cutting({
   data: CuttingData;
   onChange: (d: CuttingData) => void;
 }) {
+  const unitLabel = data.unit === 'LINEAR_METRE' ? 'per lineal metre' : 'per square metre';
+
   return (
     <div className="space-y-6">
       <div>
@@ -194,9 +197,39 @@ function WizardStep1_Cutting({
           Cutting applies to all 4 sides of every piece.
         </p>
       </div>
+
+      {/* Unit toggle */}
+      <fieldset>
+        <legend className="text-sm font-medium text-gray-700 mb-2">Rate unit</legend>
+        <div className="flex rounded-lg border border-gray-300 overflow-hidden w-fit">
+          <button
+            type="button"
+            onClick={() => onChange({ ...data, unit: 'LINEAR_METRE' })}
+            className={`px-4 py-2 text-sm font-medium transition-colors ${
+              data.unit === 'LINEAR_METRE'
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Per lineal metre
+          </button>
+          <button
+            type="button"
+            onClick={() => onChange({ ...data, unit: 'SQUARE_METRE' })}
+            className={`px-4 py-2 text-sm font-medium border-l border-gray-300 transition-colors ${
+              data.unit === 'SQUARE_METRE'
+                ? 'bg-primary-600 text-white'
+                : 'bg-white text-gray-700 hover:bg-gray-50'
+            }`}
+          >
+            Per square metre
+          </button>
+        </div>
+      </fieldset>
+
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {currencyInput(data.rate20mm, (v) => onChange({ ...data, rate20mm: v }), '20mm rate (per lineal metre)')}
-        {currencyInput(data.rate40mm, (v) => onChange({ ...data, rate40mm: v }), '40mm rate (per lineal metre)')}
+        {currencyInput(data.rate20mm, (v) => onChange({ ...data, rate20mm: v }), `20mm rate (${unitLabel})`)}
+        {currencyInput(data.rate40mm, (v) => onChange({ ...data, rate40mm: v }), `40mm rate (${unitLabel})`)}
       </div>
     </div>
   );
@@ -688,6 +721,7 @@ export default function PricingWizard() {
         newState.cutting = {
           rate20mm: Number(cuttingRates[0].rate20mm) || DEFAULT_STATE.cutting.rate20mm,
           rate40mm: Number(cuttingRates[0].rate40mm) || DEFAULT_STATE.cutting.rate40mm,
+          unit: (settings.cuttingUnit === 'SQUARE_METRE' ? 'SQUARE_METRE' : 'LINEAR_METRE') as CuttingData['unit'],
         };
       }
 
