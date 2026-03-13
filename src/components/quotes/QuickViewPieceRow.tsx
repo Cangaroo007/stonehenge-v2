@@ -706,13 +706,9 @@ export default function QuickViewPieceRow({
 
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
     if (!fullPiece || !onSavePiece) return;
-    const currentConfig = (fullPiece as unknown as Record<string, unknown>).shapeConfig as Record<string, unknown> ?? {};
-    const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
-    const updatedConfig = {
-      ...currentConfig,
-      edges: { ...currentEdges, [edgeId]: profileId },
-    };
-    savePieceImmediate({ shapeConfig: updatedConfig });
+    const currentArcConfig = (fullPiece as unknown as Record<string, unknown>).edge_arc_config as Record<string, string | null> ?? {};
+    const updatedArcConfig = { ...currentArcConfig, [edgeId]: profileId };
+    savePieceImmediate({ edgeArcConfig: updatedArcConfig });
   }, [fullPiece, onSavePiece, savePieceImmediate]);
 
   const handleEdgesChange = useCallback(
@@ -1336,7 +1332,7 @@ export default function QuickViewPieceRow({
                 shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
                 shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
                 onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
-                shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
+                shapeConfigEdges={((fullPiece as unknown as Record<string, unknown>)?.edge_arc_config as Record<string, string | null>) ?? undefined}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
               />
