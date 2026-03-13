@@ -1234,6 +1234,20 @@ export default function InlinePieceEditor({
                 + New
               </button>
             </div>
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const overrideInput = document.getElementById(`override-cost-${piece.id}`);
+                if (overrideInput) {
+                  overrideInput.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                  (overrideInput as HTMLInputElement).focus();
+                }
+              }}
+              className="mt-1 text-xs text-primary-600 hover:text-primary-700 hover:underline"
+            >
+              Using a supplier quote? Override the price below ↓
+            </button>
             <div className="mt-2">
               {/* Labour only toggle */}
               <div className="flex items-center gap-2 mb-2">
@@ -1266,6 +1280,7 @@ export default function InlinePieceEditor({
               <div className="relative">
                 <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                 <input
+                  id={`override-cost-${piece.id}`}
                   type="number"
                   step="0.01"
                   min="0"
@@ -1444,6 +1459,7 @@ export default function InlinePieceEditor({
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                   <input
+                    id={`override-cost-${piece.id}`}
                     type="number"
                     step="0.01"
                     min="0"
@@ -1635,6 +1651,7 @@ export default function InlinePieceEditor({
                 <div className="relative">
                   <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
                   <input
+                    id={`override-cost-${piece.id}`}
                     type="number"
                     step="0.01"
                     min="0"
