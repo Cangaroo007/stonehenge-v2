@@ -53,7 +53,7 @@ export const EDGE_PRESETS: EdgePreset[] = [
   { id: 'front-return-left',    label: 'Front + Left Return',  sides: ['bottom', 'left'] },
   { id: 'front-both-returns',   label: 'Front + Both Returns', sides: ['bottom', 'left', 'right'] },
   { id: 'front-back',           label: 'Front + Back',         sides: ['bottom', 'top'] },
-  { id: 'island',               label: 'Island',               sides: ['top', 'bottom', 'left', 'right'] },
+  { id: 'island',               label: 'All',                   sides: ['top', 'bottom', 'left', 'right'] },
 ];
 
 export function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'left' | 'right'> }) {
