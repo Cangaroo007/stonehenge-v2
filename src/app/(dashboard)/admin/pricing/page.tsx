@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import EntityTable from './components/EntityTable';
 import EntityModal from './components/EntityModal';
 import EdgeTypeForm from './components/EdgeTypeForm';
@@ -145,7 +146,11 @@ function formatUsageType(type: string): string {
   return labels[type] || type;
 }
 
+type ViewMode = 'simple' | 'advanced';
+
 export default function PricingAdminPage() {
+  const router = useRouter();
+  const [viewMode, setViewMode] = useState<ViewMode>('advanced');
   const [activeTab, setActiveTab] = useState<TabKey>('edge-types');
   const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
@@ -299,6 +304,40 @@ export default function PricingAdminPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Pricing Management</h1>
+        <div className="flex items-center gap-3">
+          {/* Simple / Advanced toggle */}
+          <div className="inline-flex rounded-lg border border-gray-300 bg-white p-0.5">
+            <button
+              onClick={() => setViewMode('simple')}
+              className={cn(
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                viewMode === 'simple'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              Simple
+            </button>
+            <button
+              onClick={() => setViewMode('advanced')}
+              className={cn(
+                'px-3 py-1.5 text-sm font-medium rounded-md transition-colors',
+                viewMode === 'advanced'
+                  ? 'bg-primary-600 text-white'
+                  : 'text-gray-600 hover:text-gray-900'
+              )}
+            >
+              Advanced
+            </button>
+          </div>
+          {/* Recalibrate button */}
+          <button
+            onClick={() => router.push('/admin/pricing/wizard?mode=recalibrate')}
+            className="px-4 py-2 text-sm font-medium text-primary-700 border border-primary-300 rounded-lg hover:bg-primary-50 transition-colors"
+          >
+            Recalibrate Pricing
+          </button>
+        </div>
       </div>
 
       {/* Toast Notification */}
@@ -313,45 +352,64 @@ export default function PricingAdminPage() {
         </div>
       )}
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200">
-        <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
-          {tabs.map((tab) => (
-            <button
-              key={tab.key}
-              onClick={() => setActiveTab(tab.key)}
-              className={cn(
-                'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium',
-                activeTab === tab.key
-                  ? 'border-primary-500 text-primary-600'
-                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
-              )}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
-      </div>
+      {viewMode === 'simple' ? (
+        /* Simple mode — link to wizard */
+        <div className="card p-8 text-center space-y-4">
+          <h2 className="text-xl font-semibold text-gray-900">Quick Pricing Setup</h2>
+          <p className="text-gray-600 max-w-md mx-auto">
+            Use the guided wizard to set up or adjust your cutting, edge, installation,
+            and service rates in about 5 minutes.
+          </p>
+          <button
+            onClick={() => router.push('/admin/pricing/wizard?mode=recalibrate')}
+            className="px-6 py-3 bg-primary-600 text-white rounded-lg font-medium hover:bg-primary-700 transition-colors"
+          >
+            Open Pricing Wizard
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* Tabs */}
+          <div className="border-b border-gray-200">
+            <nav className="-mb-px flex space-x-8 overflow-x-auto" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.key}
+                  onClick={() => setActiveTab(tab.key)}
+                  className={cn(
+                    'whitespace-nowrap border-b-2 py-4 px-1 text-sm font-medium',
+                    activeTab === tab.key
+                      ? 'border-primary-500 text-primary-600'
+                      : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+                  )}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </nav>
+          </div>
 
-      {/* Content */}
-      <div className="card">
-        {activeTab === 'tiers' ? (
-          <TierManagement />
-        ) : activeTab === 'machines' ? (
-          <MachineManagement />
-        ) : (
-          <EntityTable
-            columns={columnConfigs[activeTab]}
-            data={data}
-            loading={loading}
-            error={error}
-            onAdd={handleAdd}
-            onEdit={handleEdit}
-            onDelete={(id) => setDeleteConfirmId(id)}
-            entityName={currentTab.label}
-          />
-        )}
-      </div>
+          {/* Content */}
+          <div className="card">
+            {activeTab === 'tiers' ? (
+              <TierManagement />
+            ) : activeTab === 'machines' ? (
+              <MachineManagement />
+            ) : (
+              <EntityTable
+                columns={columnConfigs[activeTab]}
+                data={data}
+                loading={loading}
+                error={error}
+                onAdd={handleAdd}
+                onEdit={handleEdit}
+                onDelete={(id) => setDeleteConfirmId(id)}
+                entityName={currentTab.label}
+              />
+            )}
+          </div>
+        </>
+      )}
 
       {/* Add/Edit Modal */}
       <EntityModal

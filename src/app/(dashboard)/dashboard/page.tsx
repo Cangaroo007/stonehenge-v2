@@ -6,6 +6,16 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel } from '@/li
 
 export const dynamic = 'force-dynamic';
 
+async function hasPricingSetup(companyId: number): Promise<boolean> {
+  const organisationId = `company-${companyId}`;
+  const settings = await prisma.pricing_settings.findUnique({
+    where: { organisation_id: organisationId },
+    select: { id: true, service_rates: { take: 1, select: { id: true } } },
+  });
+  // Wizard is "completed" if pricing_settings exists AND has at least one service_rate
+  return !!settings && settings.service_rates.length > 0;
+}
+
 async function getStats(companyId: number) {
   const now = new Date();
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -38,10 +48,31 @@ async function getStats(companyId: number) {
 export default async function DashboardPage() {
   const auth = await requireAuth();
   if ('error' in auth) redirect('/login');
-  const stats = await getStats(auth.user.companyId);
+  const [stats, pricingReady] = await Promise.all([
+    getStats(auth.user.companyId),
+    hasPricingSetup(auth.user.companyId),
+  ]);
 
   return (
     <div className="space-y-6">
+      {/* Pricing wizard banner */}
+      {!pricingReady && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 flex items-center justify-between">
+          <div>
+            <p className="font-semibold text-amber-900">Pricing not configured yet</p>
+            <p className="text-sm text-amber-700 mt-1">
+              Set up your cutting, edge, and installation rates so quotes calculate correctly.
+            </p>
+          </div>
+          <Link
+            href="/admin/pricing/wizard"
+            className="shrink-0 ml-4 px-4 py-2 bg-amber-600 text-white text-sm font-medium rounded-lg hover:bg-amber-700 transition-colors"
+          >
+            Set up pricing
+          </Link>
+        </div>
+      )}
+
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-gray-900">Dashboard</h1>
         <Link href="/quotes/new" className="btn-primary">
