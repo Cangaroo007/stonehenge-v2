@@ -214,3 +214,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** feat/edge-breakdown-1
 - **What:** Expanded collapsed "Edge Profiles" single line in QuickViewPieceRow.tsx cost breakdown to per-edge-type rows showing name, lineal metres, rate, and total. Display-only change — no calculator, API, or schema changes. Edges grouped by edgeTypeName, summing linearMeters and total across sides.
 
+## EDGE-ID-RESOLUTION
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-15
+- **Branch:** fix/edge-type-id-resolution
+- **What:** Fixed two bugs where raw edge_type CUIDs were displayed instead of resolved names. (1) PartsSection.tsx Apron Strips section: now resolves edge names from breakdownMap and shows per-edge strip dimensions (edge length x 40mm) instead of parent piece dimensions. (2) manufacturing-export.ts: added edgeTypeMap resolution (same pattern as optimize/route.ts) so parseEdge() and isMitred() receive resolved names instead of CUIDs — fixes mitre detection and edge profile labels in manufacturing export.
+

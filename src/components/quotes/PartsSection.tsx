@@ -1023,12 +1023,45 @@ export default function PartsSection({
         return (
           <div className="border-t border-gray-200 p-4">
             <h4 className="text-sm font-medium text-gray-700 mb-2">Apron Strips</h4>
-            {apronStrips.map((strip) => (
-              <div key={strip.id} className="flex justify-between text-sm py-1 border-b border-gray-50">
-                <span>{strip.name ?? 'Unnamed'} — {strip.length_mm} × {strip.width_mm}mm</span>
-                <span className="text-gray-500">{strip.edge_top ?? 'Raw'}</span>
-              </div>
-            ))}
+            {apronStrips.map((piece) => {
+              // Resolve edge names from pricing breakdown (edges[] contains edgeTypeName)
+              const bd = breakdownMap.get(piece.id);
+              const edgeNames = bd?.fabrication?.edges
+                ?.map((e) => e.edgeTypeName)
+                .filter((n) => n && !n.startsWith('Edge ')) ?? [];
+              const edgeLabel = Array.from(new Set(edgeNames)).join(', ') || 'Mitre';
+
+              // Derive per-edge strip dimensions: length = edge length, width = 40mm (mitre strip)
+              const noStripEdges = (piece.no_strip_edges as unknown as string[]) ?? [];
+              const stripDims: Array<{ label: string; lengthMm: number }> = [];
+              const edgeMap: Record<string, number> = {
+                top: piece.length_mm,
+                bottom: piece.length_mm,
+                left: piece.width_mm,
+                right: piece.width_mm,
+              };
+              for (const [edgeKey, lengthMm] of Object.entries(edgeMap)) {
+                if (noStripEdges.includes(edgeKey)) continue;
+                const edgeId = piece[`edge_${edgeKey}` as keyof QuotePiece] as string | null;
+                if (!edgeId) continue;
+                const sideLabel = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
+                stripDims.push({ label: sideLabel, lengthMm });
+              }
+
+              return stripDims.length > 0 ? (
+                stripDims.map((strip, idx) => (
+                  <div key={`${piece.id}-apron-${idx}`} className="flex justify-between text-sm py-1 border-b border-gray-50">
+                    <span>{piece.name ?? 'Unnamed'} — {strip.label} strip — {strip.lengthMm} × 40mm</span>
+                    <span className="text-gray-500">{edgeLabel}</span>
+                  </div>
+                ))
+              ) : (
+                <div key={piece.id} className="flex justify-between text-sm py-1 border-b border-gray-50">
+                  <span>{piece.name ?? 'Unnamed'} — {piece.length_mm} × 40mm</span>
+                  <span className="text-gray-500">{edgeLabel}</span>
+                </div>
+              );
+            })}
           </div>
         );
       })()}

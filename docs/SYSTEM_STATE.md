@@ -1014,6 +1014,8 @@ REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. ruleP
 
 EDGE-BREAKDOWN-1 (2026-03-14): QuickViewPieceRow.tsx cost breakdown now shows per-edge-type line items instead of a single collapsed "Edge Profiles" total. Each row: "Edge Profile: [Name]" with Lm x rate and total. Edges grouped by edgeTypeName. Display-only — no calculator or API changes.
 
+EDGE-ID-RESOLUTION (2026-03-15): Fixed edge_type CUID-vs-name bugs. PartsSection.tsx Apron Strips section now resolves edge names from breakdownMap and shows per-edge strip dimensions (edge length x 40mm) instead of parent piece dimensions. manufacturing-export.ts now resolves edge IDs to names via edgeTypeMap (matching optimize/route.ts pattern) before calling parseEdge() and isMitred() — fixes mitre detection and profile labels.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 
