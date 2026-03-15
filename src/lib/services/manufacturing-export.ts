@@ -91,6 +91,28 @@ export async function generateManufacturingExport(
     ? (latestOpt.laminationSummary as unknown as LaminationSummary)
     : null;
 
+  // ── 3b. Resolve edge type IDs to names ─────────────────────────────
+  const allEdgeTypeIds = new Set<string>();
+  for (const room of quote.quote_rooms) {
+    for (const piece of room.quote_pieces) {
+      if (piece.edge_top) allEdgeTypeIds.add(piece.edge_top);
+      if (piece.edge_bottom) allEdgeTypeIds.add(piece.edge_bottom);
+      if (piece.edge_left) allEdgeTypeIds.add(piece.edge_left);
+      if (piece.edge_right) allEdgeTypeIds.add(piece.edge_right);
+    }
+  }
+
+  const edgeTypeMap = new Map<string, string>();
+  if (allEdgeTypeIds.size > 0) {
+    const edgeTypes = await prisma.edge_types.findMany({
+      where: { id: { in: Array.from(allEdgeTypeIds) } },
+      select: { id: true, name: true },
+    });
+    for (const et of edgeTypes) {
+      edgeTypeMap.set(et.id, et.name);
+    }
+  }
+
   // ── 4. Determine primary material (from first piece with a material) ─
   const firstPieceWithMaterial = quote.quote_rooms
     .flatMap((r) => r.quote_pieces)
@@ -119,10 +141,10 @@ export async function generateManufacturingExport(
       totalCutLm += perimeterLm;
 
       // Parse edges
-      const edgeTop = parseEdge(piece.edge_top);
-      const edgeBottom = parseEdge(piece.edge_bottom);
-      const edgeLeft = parseEdge(piece.edge_left);
-      const edgeRight = parseEdge(piece.edge_right);
+      const edgeTop = parseEdge(edgeTypeMap.get(piece.edge_top ?? '') ?? null);
+      const edgeBottom = parseEdge(edgeTypeMap.get(piece.edge_bottom ?? '') ?? null);
+      const edgeLeft = parseEdge(edgeTypeMap.get(piece.edge_left ?? '') ?? null);
+      const edgeRight = parseEdge(edgeTypeMap.get(piece.edge_right ?? '') ?? null);
 
       // Polishing = only finished edges (not full perimeter)
       let polishLm = 0;
@@ -134,10 +156,10 @@ export async function generateManufacturingExport(
 
       // Mitring = mitred edges only
       let mitreLm = 0;
-      if (isMitred(piece.edge_top)) mitreLm += lengthMm / 1000;
-      if (isMitred(piece.edge_bottom)) mitreLm += lengthMm / 1000;
-      if (isMitred(piece.edge_left)) mitreLm += widthMm / 1000;
-      if (isMitred(piece.edge_right)) mitreLm += widthMm / 1000;
+      if (isMitred(edgeTop.profile)) mitreLm += lengthMm / 1000;
+      if (isMitred(edgeBottom.profile)) mitreLm += lengthMm / 1000;
+      if (isMitred(edgeLeft.profile)) mitreLm += widthMm / 1000;
+      if (isMitred(edgeRight.profile)) mitreLm += widthMm / 1000;
       totalMitreLm += mitreLm;
 
       // Cutouts
