@@ -226,3 +226,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** fix/parts-dedup-margin-method
 - **What:** Two fixes. (1) PartsSection.tsx: waterfall/splashback child pieces were appearing twice in the parts list — once as their own MAIN entry and once under the parent via waterfall derivation. Added filter to skip piece_type WATERFALL/SPLASHBACK from the main room iteration. (2) MarginSelector.tsx: material margin was not saving because the component sent method PATCH but the quotes API route only exports GET/PUT/DELETE. Changed to PUT — the partial-update path in PUT already handles material_margin_percent and material_margin_source.
 
+## APRON-1
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-15
+- **Branch:** feat/apron-1-face-strip
+- **What:** Added face strip (Piece B) to slab optimiser and parts list for MITRED pieces. The 40mm mitered effect requires 3 pieces per edge: main slab (A), 40mm face strip (B), 60mm return strip (C). Previously only the return strip was generated. Now MITRED pieces on mitre edges generate both face (stripSubType FACE) and return (stripSubType RETURN) strips. Added laminationMethod to OptimizationInput, MultiMaterialPiece, and optimize route. PartsSection displays face/return strip labels.
+

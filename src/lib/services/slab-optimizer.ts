@@ -93,6 +93,8 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   customJoinMm?: number;
   /** True area in m² for curved shapes — less than bounding box. Used by C6 for pricing. */
   trueArea_m2?: number;
+  /** Strip sub-type: FACE (40mm mitre face strip) or RETURN (60mm return strip) */
+  stripSubType?: 'FACE' | 'RETURN';
 };
 
 /**
@@ -148,6 +150,7 @@ function generateLaminationStrips(
   const strips: OptimizationPiece[] = [];
   const edgeNames = piece.edgeTypeNames;
   const noStripEdges = piece.noStripEdges ?? [];
+  const isMitrePiece = piece.laminationMethod === 'MITRED';
 
   // Helper: determine if an edge is a mitre edge
   const isMitreEdge = (name?: string): boolean => {
@@ -170,18 +173,39 @@ function generateLaminationStrips(
     const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
     const isMitre = isMitreEdge(edgeName);
     const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
+    const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
 
+    // Return strip (always generated — 60mm for standard, 40mm for mitre)
     strips.push({
       id: `${piece.id}-lam-${edgeKey}`,
       width: isWidth ? lengthMm : stripW,
       height: isWidth ? stripW : lengthMm,
       thickness: 20,
-      label: `${piece.label} (Strip-${edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1)}${edgeName ? ` ${edgeName}` : ''})`,
+      label: isMitrePiece && isMitre
+        ? `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''} Return)`
+        : `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
       pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+      stripSubType: isMitrePiece && isMitre ? 'RETURN' : undefined,
     });
+
+    // Face strip — only for MITRED pieces on mitre edges (40mm wide fixed)
+    if (isMitrePiece && isMitre) {
+      strips.push({
+        id: `${piece.id}-lam-${edgeKey}-face`,
+        width: isWidth ? lengthMm : 40,
+        height: isWidth ? 40 : lengthMm,
+        thickness: 20,
+        label: `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''} Face)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: edgeKey,
+        stripSubType: 'FACE',
+        pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+      });
+    }
   }
 
   return strips;
@@ -384,6 +408,7 @@ function generateLaminationSummary(
         position: s.stripPosition || 'unknown',
         lengthMm: isHorizontalEdge(s.stripPosition || '') ? s.width : s.height,
         widthMm: isHorizontalEdge(s.stripPosition || '') ? s.height : s.width,
+        stripSubType: s.stripSubType,
       }))
     });
   }
@@ -1125,6 +1150,8 @@ function placePiece(
     totalParts: piece.totalParts,
     // Curved shape true area for pricing (C6)
     trueArea_m2: piece.trueArea_m2 ?? undefined,
+    // Strip sub-type (face vs return for MITRED pieces)
+    stripSubType: piece.stripSubType,
   };
 
   slab.placements.push(placement);

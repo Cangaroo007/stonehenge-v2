@@ -38,6 +38,8 @@ export interface Placement {
   kerfWidthMm?: number;
   // Curved shape pricing — actual stone area (less than bounding box)
   trueArea_m2?: number; // set for curved shapes, undefined for rectangles
+  // Strip sub-type: FACE (40mm mitre face strip) or RETURN (60mm return strip)
+  stripSubType?: 'FACE' | 'RETURN';
 }
 
 export interface SlabResult {
@@ -61,6 +63,7 @@ export interface LaminationSummary {
       position: string;
       lengthMm: number;
       widthMm: number;
+      stripSubType?: 'FACE' | 'RETURN';
     }>;
   }>;
 }
@@ -112,6 +115,8 @@ export interface OptimizationInput {
     noStripEdges?: string[];
     // Per-edge strip width overrides (mm) — overrides tenant default per edge
     stripWidthOverrides?: Record<string, number> | null;
+    // Lamination method — 'MITRED' generates face + return strips, 'LAMINATED' generates return only
+    laminationMethod?: string | null;
   }>;
   slabWidth: number;
   slabHeight: number;
