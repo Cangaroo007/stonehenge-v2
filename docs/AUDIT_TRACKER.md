@@ -220,3 +220,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** fix/edge-type-id-resolution
 - **What:** Fixed two bugs where raw edge_type CUIDs were displayed instead of resolved names. (1) PartsSection.tsx Apron Strips section: now resolves edge names from breakdownMap and shows per-edge strip dimensions (edge length x 40mm) instead of parent piece dimensions. (2) manufacturing-export.ts: added edgeTypeMap resolution (same pattern as optimize/route.ts) so parseEdge() and isMitred() receive resolved names instead of CUIDs — fixes mitre detection and edge profile labels in manufacturing export.
 
+## PARTS-DEDUP-MARGIN
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-15
+- **Branch:** fix/parts-dedup-margin-method
+- **What:** Two fixes. (1) PartsSection.tsx: waterfall/splashback child pieces were appearing twice in the parts list — once as their own MAIN entry and once under the parent via waterfall derivation. Added filter to skip piece_type WATERFALL/SPLASHBACK from the main room iteration. (2) MarginSelector.tsx: material margin was not saving because the component sent method PATCH but the quotes API route only exports GET/PUT/DELETE. Changed to PUT — the partial-update path in PUT already handles material_margin_percent and material_margin_source.
+
