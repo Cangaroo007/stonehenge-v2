@@ -40,6 +40,8 @@ export interface MultiMaterialPiece {
   shapeConfigEdges?: Record<string, string | null>;
   /** Edges marked as wall edges — no lamination strip generated for these */
   noStripEdges?: string[];
+  /** Lamination method — 'MITRED' generates face + return strips */
+  laminationMethod?: string | null;
 }
 
 export interface MaterialInfo {
@@ -154,6 +156,7 @@ export async function optimizeMultiMaterial(
         grainMatched: p.grainMatched,
         shapeConfigEdges: p.shapeConfigEdges,
         noStripEdges: p.noStripEdges,
+        laminationMethod: p.laminationMethod,
       })),
       slabWidth: slabLength,   // optimizer "width" = slab length (longer dimension)
       slabHeight: slabWidth,   // optimizer "height" = slab width (shorter dimension)

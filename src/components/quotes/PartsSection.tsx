@@ -369,9 +369,14 @@ function derivePartsForPiece(
         const partSuffix = total > 1
           ? ` — Part ${occurrenceIndex + 1} of ${total}`
           : '';
+        const subTypeSuffix = strip.stripSubType === 'FACE'
+          ? ' face strip'
+          : strip.stripSubType === 'RETURN'
+            ? ' return strip'
+            : ' strip';
         const stripName = sideLabel
-          ? `${sideLabel} strip${partSuffix}`
-          : `${pieceName} — Strip${partSuffix}`;
+          ? `${sideLabel}${subTypeSuffix}${partSuffix}`
+          : `${pieceName} —${subTypeSuffix}${partSuffix}`;
         parts.push({
           type: 'LAMINATION_STRIP',
           name: stripName,
@@ -414,6 +419,7 @@ function derivePartsForPiece(
         }
       } else {
         // Rectangle: all 4 edges minus wall edges
+        const isMitrePiece = piece.lamination_method === 'MITRED';
         const rectEdges: Record<string, number> = {
           top: piece.length_mm,
           bottom: piece.length_mm,
@@ -425,9 +431,12 @@ function derivePartsForPiece(
           const sideLabel = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
           const edgeTypeId = piece[`edge_${edgeKey}` as keyof QuotePiece] as string | null;
           const isMitre = edgeTypeId?.toLowerCase().includes('mitre') ?? false;
+
+          // Return strip (always generated)
+          const returnLabel = isMitrePiece && isMitre ? `${sideLabel} return strip` : `${sideLabel} strip`;
           parts.push({
             type: 'LAMINATION_STRIP',
-            name: `${sideLabel} strip`,
+            name: returnLabel,
             lengthMm,
             widthMm: isMitre ? 40 : 60,
             thicknessMm: 20,
@@ -435,6 +444,20 @@ function derivePartsForPiece(
             stripPosition: edgeKey,
             parentPieceId: piece.id,
           });
+
+          // Face strip — only for MITRED pieces on mitre edges (40mm wide fixed)
+          if (isMitrePiece && isMitre) {
+            parts.push({
+              type: 'LAMINATION_STRIP',
+              name: `${sideLabel} face strip`,
+              lengthMm,
+              widthMm: 40,
+              thicknessMm: 20,
+              slab: findSlabForStrip(piece.id, edgeKey, placements),
+              stripPosition: edgeKey,
+              parentPieceId: piece.id,
+            });
+          }
         }
       }
     }
