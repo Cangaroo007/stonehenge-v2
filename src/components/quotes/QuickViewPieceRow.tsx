@@ -845,13 +845,16 @@ export default function QuickViewPieceRow({
   const miniLayout = useMemo(() => {
     const maxW = MINI_W - MINI_PAD * 2;
     const maxH = MINI_H - MINI_PAD * 2;
-    const aspect = piece.lengthMm / Math.max(piece.widthMm, 1);
+    // Child pieces (waterfall/splashback) may be taller than wide — swap so SVG renders portrait
+    const svgLengthMm = (relationshipLabel && piece.widthMm > piece.lengthMm) ? piece.widthMm : piece.lengthMm;
+    const svgWidthMm = (relationshipLabel && piece.widthMm > piece.lengthMm) ? piece.lengthMm : piece.widthMm;
+    const aspect = svgLengthMm / Math.max(svgWidthMm, 1);
     let w: number, h: number;
     if (aspect > maxW / maxH) { w = maxW; h = maxW / aspect; }
     else { h = maxH; w = maxH * aspect; }
     w = Math.max(w, 30); h = Math.max(h, 15);
     return { w, h, x: (MINI_W - w) / 2, y: (MINI_H - h) / 2 };
-  }, [piece.lengthMm, piece.widthMm]);
+  }, [piece.lengthMm, piece.widthMm, relationshipLabel]);
 
   const miniEdgeDefs = useMemo(() => {
     const { x, y, w, h } = miniLayout;
