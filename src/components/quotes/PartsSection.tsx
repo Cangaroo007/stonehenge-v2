@@ -1011,62 +1011,8 @@ export default function PartsSection({
         })}
       </div>
 
-      {/* WF-2c: Apron Strips — MITRED pieces with 40mm thickness */}
-      {(() => {
-        const allPieces = rooms.flatMap((r) => r.quote_pieces);
-        const apronStrips = allPieces.filter((p) => {
-          // Check lamination_method if available, or fall back to pricing breakdown
-          if (p.lamination_method === 'MITRED' && String(p.thickness_mm).includes('40')) return true;
-          const bd = breakdownMap.get(p.id);
-          if (bd?.fabrication?.lamination?.method === 'MITRED' && String(p.thickness_mm).includes('40')) return true;
-          return false;
-        });
-        if (apronStrips.length === 0) return null;
-        return (
-          <div className="border-t border-gray-200 p-4">
-            <h4 className="text-sm font-medium text-gray-700 mb-2">Apron Strips</h4>
-            {apronStrips.map((piece) => {
-              // Resolve edge names from pricing breakdown (edges[] contains edgeTypeName)
-              const bd = breakdownMap.get(piece.id);
-              const edgeNames = bd?.fabrication?.edges
-                ?.map((e) => e.edgeTypeName)
-                .filter((n) => n && !n.startsWith('Edge ')) ?? [];
-              const edgeLabel = Array.from(new Set(edgeNames)).join(', ') || 'Mitre';
-
-              // Derive per-edge strip dimensions: length = edge length, width = 40mm (mitre strip)
-              const noStripEdges = (piece.no_strip_edges as unknown as string[]) ?? [];
-              const stripDims: Array<{ label: string; lengthMm: number }> = [];
-              const edgeMap: Record<string, number> = {
-                top: piece.length_mm,
-                bottom: piece.length_mm,
-                left: piece.width_mm,
-                right: piece.width_mm,
-              };
-              for (const [edgeKey, lengthMm] of Object.entries(edgeMap)) {
-                if (noStripEdges.includes(edgeKey)) continue;
-                const edgeId = piece[`edge_${edgeKey}` as keyof QuotePiece] as string | null;
-                if (!edgeId) continue;
-                const sideLabel = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
-                stripDims.push({ label: sideLabel, lengthMm });
-              }
-
-              return stripDims.length > 0 ? (
-                stripDims.map((strip, idx) => (
-                  <div key={`${piece.id}-apron-${idx}`} className="flex justify-between text-sm py-1 border-b border-gray-50">
-                    <span>{piece.name ?? 'Unnamed'} — {strip.label} strip — {strip.lengthMm} × 40mm</span>
-                    <span className="text-gray-500">{edgeLabel}</span>
-                  </div>
-                ))
-              ) : (
-                <div key={piece.id} className="flex justify-between text-sm py-1 border-b border-gray-50">
-                  <span>{piece.name ?? 'Unnamed'} — {piece.length_mm} × 40mm</span>
-                  <span className="text-gray-500">{edgeLabel}</span>
-                </div>
-              );
-            })}
-          </div>
-        );
-      })()}
+      {/* WF-2c: Apron Strips section removed — strips already appear nested under
+          parent piece via lamination strip derivation in derivePartsForPiece() */}
 
       {/* WF-2c: Splashback Strips — SPLASHBACK pieces with width ≤ 300mm */}
       {(() => {

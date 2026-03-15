@@ -452,7 +452,7 @@ export default function QuoteDetailClient({
   const editDataLoaded = useRef(false);
   const addPieceRef = useRef<HTMLDivElement>(null);
   const actionBarRef = useRef<HTMLDivElement>(null);
-  const pendingWaterfallParentRef = useRef<{ parentPieceId: string | null; type: 'WATERFALL' | 'SPLASHBACK' } | null>(null);
+  const pendingWaterfallParentRef = useRef<{ parentPieceId: string | null; type: 'WATERFALL' | 'SPLASHBACK'; selectedEdge?: string | null } | null>(null);
 
   // ── Quote Options state ─────────────────────────────────────────────────
   const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
@@ -1282,7 +1282,7 @@ export default function QuoteDetailClient({
 
         // Create piece_relationship if this piece was created from the waterfall modal
         if (pendingWaterfallParentRef.current?.parentPieceId) {
-          const { parentPieceId, type } = pendingWaterfallParentRef.current;
+          const { parentPieceId, type, selectedEdge: pendingEdge } = pendingWaterfallParentRef.current;
           pendingWaterfallParentRef.current = null;
           try {
             await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
@@ -1292,7 +1292,7 @@ export default function QuoteDetailClient({
                 sourcePieceId: parentPieceId,
                 targetPieceId: newPieceId,
                 relationType: type,
-                side: null,
+                side: pendingEdge ?? null,
                 grainMatch: false,
               }),
             });
@@ -3443,8 +3443,8 @@ export default function QuoteDetailClient({
             relationshipLabel={nestingProps?.relationshipLabel}
             grainMatch={nestingProps?.grainMatch}
             onDetach={nestingProps?.onDetach}
-            onAddWaterfall={() => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
-            onAddSplashback={() => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm })}
+            onAddWaterfall={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? () => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm }) : undefined}
+            onAddSplashback={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? () => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm }) : undefined}
             onMaterialsRefresh={fetchMaterials}
           />
           {/* Override indicator + actions for non-base options */}
@@ -3819,7 +3819,7 @@ export default function QuoteDetailClient({
                                         return (
                                           <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
                                             {renderEditPieceCard(childPiece, globalIndex, {
-                                              relationshipLabel: `↳ ${rel.relationshipType} (${rel.joinPosition ?? 'N/A'})`,
+                                              relationshipLabel: `↳ ${rel.relationshipType}${rel.joinPosition ? ` (${rel.joinPosition})` : ''}`,
                                               grainMatch: rel.grainMatch,
                                               onDetach: () => handleDetachRelationship(rel.id),
                                             })}
@@ -3886,7 +3886,7 @@ export default function QuoteDetailClient({
                                     return (
                                       <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
                                         {renderEditPieceCard(childPiece, globalIndex, {
-                                          relationshipLabel: `↳ ${rel.relationshipType} (${rel.joinPosition ?? 'N/A'})`,
+                                          relationshipLabel: `↳ ${rel.relationshipType}${rel.joinPosition ? ` (${rel.joinPosition})` : ''}`,
                                           grainMatch: rel.grainMatch,
                                           onDetach: () => handleDetachRelationship(rel.id),
                                         })}
