@@ -1016,6 +1016,8 @@ EDGE-BREAKDOWN-1 (2026-03-14): QuickViewPieceRow.tsx cost breakdown now shows pe
 
 EDGE-ID-RESOLUTION (2026-03-15): Fixed edge_type CUID-vs-name bugs. PartsSection.tsx Apron Strips section now resolves edge names from breakdownMap and shows per-edge strip dimensions (edge length x 40mm) instead of parent piece dimensions. manufacturing-export.ts now resolves edge IDs to names via edgeTypeMap (matching optimize/route.ts pattern) before calling parseEdge() and isMitred() — fixes mitre detection and profile labels.
 
+PARTS-DEDUP-MARGIN (2026-03-15): PartsSection.tsx roomPartsData loop now skips piece_type WATERFALL/SPLASHBACK to prevent duplicate entries (child pieces already appear under parent via waterfall derivation). MarginSelector.tsx changed method PATCH to PUT — quotes API has no PATCH handler, margin was silently failing to save.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 

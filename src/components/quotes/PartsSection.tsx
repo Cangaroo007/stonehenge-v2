@@ -708,6 +708,8 @@ export default function PartsSection({
     return rooms.map((room) => {
       const parts: Array<{ piece: QuotePiece; parts: Part[] }> = [];
       for (const piece of room.quote_pieces) {
+        // Skip child pieces — they appear under their parent via waterfall derivation
+        if (piece.piece_type === 'WATERFALL' || piece.piece_type === 'SPLASHBACK') continue;
         const bd = breakdownMap.get(piece.id);
         const pieceParts = derivePartsForPiece(piece, bd, optimizerResult, allPieces, externalRelationships);
         parts.push({ piece, parts: pieceParts });

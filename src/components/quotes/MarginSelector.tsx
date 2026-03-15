@@ -107,7 +107,7 @@ export default function MarginSelector({ quoteId, marginInfo, onMarginChange }: 
     setIsSaving(true);
     try {
       const res = await fetch(`/api/quotes/${quoteId}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           material_margin_percent: selectedPercent,
