@@ -151,6 +151,7 @@ function generateLaminationStrips(
   const edgeNames = piece.edgeTypeNames;
   const noStripEdges = piece.noStripEdges ?? [];
   const isMitrePiece = piece.laminationMethod === 'MITRED';
+  console.error(`[APRON-DEBUG] piece="${piece.label}" laminationMethod="${piece.laminationMethod}" isMitrePiece=${isMitrePiece}`);
 
   // Helper: determine if an edge is a mitre edge
   const isMitreEdge = (name?: string): boolean => {
