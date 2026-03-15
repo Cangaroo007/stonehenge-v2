@@ -226,3 +226,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** fix/parts-dedup-margin-method
 - **What:** Two fixes. (1) PartsSection.tsx: waterfall/splashback child pieces were appearing twice in the parts list — once as their own MAIN entry and once under the parent via waterfall derivation. Added filter to skip piece_type WATERFALL/SPLASHBACK from the main room iteration. (2) MarginSelector.tsx: material margin was not saving because the component sent method PATCH but the quotes API route only exports GET/PUT/DELETE. Changed to PUT — the partial-update path in PUT already handles material_margin_percent and material_margin_source.
 
+## WF-6
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-15
+- **Branch:** feat/wf-6-waterfall-ux
+- **What:** Four waterfall/splashback UX fixes. (1) QuoteDetailClient.tsx: +Waterfall/+SplashBack buttons no longer shown on child pieces — gated by pieceType check. (2) PartsSection.tsx: removed redundant standalone Apron Strips section — strips already appear nested under parent via lamination derivation. (3) QuickViewPieceRow.tsx: child piece mini SVG now renders portrait when widthMm > lengthMm. (4) QuoteDetailClient.tsx: inline relationship creation now passes selectedEdge as side instead of null; display shows nothing instead of "N/A" when position is unset.
+

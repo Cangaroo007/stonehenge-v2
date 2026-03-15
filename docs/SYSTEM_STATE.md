@@ -1018,6 +1018,8 @@ EDGE-ID-RESOLUTION (2026-03-15): Fixed edge_type CUID-vs-name bugs. PartsSection
 
 PARTS-DEDUP-MARGIN (2026-03-15): PartsSection.tsx roomPartsData loop now skips piece_type WATERFALL/SPLASHBACK to prevent duplicate entries (child pieces already appear under parent via waterfall derivation). MarginSelector.tsx changed method PATCH to PUT — quotes API has no PATCH handler, margin was silently failing to save.
 
+WF-6 (2026-03-15): Four waterfall/splashback UX fixes. (1) QuoteDetailClient.tsx lines 3446-3447: onAddWaterfall/onAddSplashback gated by pieceType — child pieces no longer show attach buttons. (2) PartsSection.tsx: standalone Apron Strips section removed (redundant — strips nested under parent via lamination derivation). (3) QuickViewPieceRow.tsx miniLayout: child piece SVG swaps dimensions when widthMm > lengthMm for correct portrait rendering. (4) QuoteDetailClient.tsx: pendingWaterfallParentRef now stores selectedEdge, inline relationship creation passes it as side; display shows empty string instead of "N/A" when joinPosition is null.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 
