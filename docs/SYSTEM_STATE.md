@@ -1012,6 +1012,8 @@ FIX-1 + FIX-2: Supplier creation opened to all users. AI importer two-price ques
 
 REMOVE-POLISHING (2026-03-12): Polishing removed from calculator entirely. rulePolishing() and ruleCurvedPolishing() bypassed in pricing-rules-engine.ts (zeroed, not deleted). Polishing render blocks removed from QuickViewPieceRow.tsx, PieceRow.tsx, ExpandedPieceViewClient.tsx. ruleEdgeProfiles() is now sole edge cost mechanism. calculation_breakdown polishing fields zeroed but not removed. ruleLamination untouched — correctly uses polish rate for 40mm strip pricing.
 
+EDGE-BREAKDOWN-1 (2026-03-14): QuickViewPieceRow.tsx cost breakdown now shows per-edge-type line items instead of a single collapsed "Edge Profiles" total. Each row: "Edge Profile: [Name]" with Lm x rate and total. Edges grouped by edgeTypeName. Display-only — no calculator or API changes.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 

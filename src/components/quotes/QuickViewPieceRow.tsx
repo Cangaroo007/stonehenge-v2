@@ -1545,15 +1545,33 @@ export default function QuickViewPieceRow({
                 </div>
               )}
               {/* CURVED POLISHING REMOVED — deliberate pricing decision (March 2026) */}
-              {/* Edge Profiles */}
-              {breakdown.fabrication.edges && breakdown.fabrication.edges.length > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Edge Profiles</span>
-                  <span className="font-medium tabular-nums">
-                    {formatCurrency(breakdown.fabrication.edges.reduce((sum, e) => sum + e.total, 0))}
-                  </span>
-                </div>
-              )}
+              {/* Edge Profiles — one row per distinct edge type, Lm × rate shown */}
+              {breakdown.fabrication.edges && breakdown.fabrication.edges.length > 0 && (() => {
+                // Group edges by name, summing lm and cost across all sides
+                const grouped = breakdown.fabrication.edges.reduce<
+                  Record<string, { name: string; lm: number; rate: number; total: number }>
+                >((acc, e) => {
+                  const key = e.edgeTypeName;
+                  if (!acc[key]) {
+                    acc[key] = { name: e.edgeTypeName, lm: 0, rate: e.rate, total: 0 };
+                  }
+                  acc[key].lm += e.linearMeters;
+                  acc[key].total += e.total;
+                  return acc;
+                }, {});
+
+                return Object.values(grouped).map((group, idx) => (
+                  <div key={`edge-profile-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Edge Profile: {group.name}</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-400">
+                        {group.lm.toFixed(2)} Lm &times; {formatCurrency(group.rate)} per Lm
+                      </span>
+                      <span className="font-medium tabular-nums">{formatCurrency(group.total)}</span>
+                    </div>
+                  </div>
+                ));
+              })()}
               {/* Join (oversize) */}
               {breakdown.oversize?.isOversize && breakdown.oversize.joinCost > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">

@@ -208,3 +208,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Date:** 2026-03-12
 - **What:** Added edge_arc_config JSONB column to quote_pieces for arc edge profile storage. ArcEdgeConfig interface in shapes.ts. PATCH API accepts edgeArcConfig. Migration: 20260313000001_add_edge_arc_config. Schema + API only — no calculator or UI changes.
 
+## EDGE-BREAKDOWN-1
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-14
+- **Branch:** feat/edge-breakdown-1
+- **What:** Expanded collapsed "Edge Profiles" single line in QuickViewPieceRow.tsx cost breakdown to per-edge-type rows showing name, lineal metres, rate, and total. Display-only change — no calculator, API, or schema changes. Edges grouped by edgeTypeName, summing linearMeters and total across sides.
+
