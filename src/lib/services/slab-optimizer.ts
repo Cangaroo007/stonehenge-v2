@@ -151,7 +151,6 @@ function generateLaminationStrips(
   const edgeNames = piece.edgeTypeNames;
   const noStripEdges = piece.noStripEdges ?? [];
   const isMitrePiece = piece.laminationMethod === 'MITRED';
-  console.error(`[APRON-DEBUG] piece="${piece.label}" laminationMethod="${piece.laminationMethod}" isMitrePiece=${isMitrePiece}`);
 
   // Helper: determine if an edge is a mitre edge (checks for 'mitre' substring)
   const isMitreEdge = (name?: string): boolean => {
@@ -173,7 +172,6 @@ function generateLaminationStrips(
 
     const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
     const isMitre = isMitreEdge(edgeName);
-    console.error(`[APRON-DEBUG3] edge="${edgeKey}" edgeName type=${typeof edgeName} value=${JSON.stringify(edgeName)} lower=${edgeName?.toLowerCase()} includesResult=${edgeName?.toLowerCase()?.includes('mitre')}`);
     const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
     const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
 
