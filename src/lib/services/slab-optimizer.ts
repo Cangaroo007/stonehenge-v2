@@ -173,7 +173,7 @@ function generateLaminationStrips(
 
     const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
     const isMitre = isMitreEdge(edgeName);
-    console.error(`[APRON-DEBUG2] piece="${piece.label}" edge="${edgeKey}" edgeName="${edgeName}" isMitre=${isMitre} isMitrePiece=${piece.laminationMethod}`);
+    console.error(`[APRON-DEBUG3] edge="${edgeKey}" edgeName type=${typeof edgeName} value=${JSON.stringify(edgeName)} lower=${edgeName?.toLowerCase()} includesResult=${edgeName?.toLowerCase()?.includes('mitre')}`);
     const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
     const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
 
