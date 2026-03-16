@@ -339,7 +339,7 @@ function derivePartsForPiece(
   }
 
   // 2. Lamination strips (40mm+ with finished edges)
-  if (thicknessMm >= 40 && breakdown?.fabrication?.edges) {
+  if ((thicknessMm >= 40 || Object.keys((piece as unknown as { edgeBuildups?: Record<string, unknown> }).edgeBuildups ?? {}).length > 0) && breakdown?.fabrication?.edges) {
     // Use optimizer data if available for precise strip dimensions
     const stripsByParent = laminationSummary?.stripsByParent?.find(
       (sp) => sp.parentPieceId === String(piece.id)
