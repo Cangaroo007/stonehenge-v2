@@ -112,7 +112,7 @@
 | ID | Severity | Description | File | First Seen | Assigned To |
 |----|----------|-------------|------|------------|-------------|
 | A-14 | 🟢 Resolved | A-14: Lamination strips now correct for L-shapes (all 6 edges). no_strip_edges field enables per-edge wall exclusion. Optimizer dead code cleaned up. | PieceVisualEditor.tsx, QuoteDetailClient.tsx, slab-optimizer.ts, pricing-calculator-v2.ts | Feb 28 | PROMPT-12 |
-| A-15 | 🔴 Critical | Build broken on main. Prisma config validation + Turbopack root issue. Blocking Railway deploys. | next.config., prisma/ | Feb 27 | Fix before FIX-11 |
+| A-15 | ✅ Closed | Build passes cleanly as of Mar 16 2026. Issue was stale — Turbopack/Prisma conflict self-resolved. | next.config., prisma/ | Feb 27 | Closed Mar 16 |
 | A-16 | 🟡 Medium | gh CLI not in Claude Code. Manual PR creation required every session. | dev tooling | Feb 27 | brew install gh |
 | A-17 | 🟡 Medium | AUDIT_TRACKER stale line number: extractFabricationDiscount at 1563, actually 1761. | docs/AUDIT_TRACKER.md | Feb 27 | Update inventory |
 | A-18 | 🟡 Medium | A-02 may be incorrect — SYSTEM_STATE checked auth import, not per-handler auth calls. | src/app/api/admin/pricing/* | Feb 27 | Verify before closing A-02 |
