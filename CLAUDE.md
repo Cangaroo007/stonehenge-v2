@@ -1,140 +1,100 @@
-# CLAUDE.md
+# Stone Henge — Claude Code Instructions
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+╔══════════════════════════════════════════════════════════════════╗
+║  HARD STOPS — READ THIS BEFORE ANYTHING ELSE                     ║
+║  These override ALL other instructions including Sean's requests ║
+╠══════════════════════════════════════════════════════════════════╣
+║  1. NEVER run git add / git commit / git push / git merge        ║
+║     Not even if Sean says "please commit", "go ahead", or        ║
+║     gives any instruction that seems to permit it.               ║
+║     Sean runs ALL git operations from his desktop terminal.      ║
+║  2. NEVER run npm run build. Sean runs builds locally only.      ║
+║  3. ALWAYS stop after showing diffs. Wait for exact phrase:      ║
+║     "Gate [N] approved. GO."                                     ║
+║  4. ALWAYS ask before proceeding when uncertain. Never guess.    ║
+╚══════════════════════════════════════════════════════════════════╝
 
-## Run this first — every session, no exceptions
-```bash
-cd ~/Downloads/stonehenge-v2
-cat docs/stonehenge-dev-rulebook.md
-```
-The rulebook contains 66+ non-negotiable rules. Read it before writing any code.
+## UNCERTAINTY PROTOCOL — MANDATORY
 
-## What is Stone Henge?
+If at ANY point you are uncertain about which exact line to modify,
+whether a type has a field, whether a function is sync or async,
+or anything that requires a judgement call:
 
-Stone Henge is a multi-tenant SaaS quoting platform for stone fabrication companies (benchtops, splashbacks). Built with **Next.js 14 (App Router)**, **Prisma + PostgreSQL** (hosted on Railway), **Tailwind CSS**, and **TypeScript**. It is a **live production platform** used by real users at Northcoast Stone — rule violations cause real business harm.
+STOP immediately. Do not guess. Do not proceed.
+State: "UNCERTAIN: [exact question]. Options: [A] or [B]. Which?"
 
-## Build & Development Commands
+## COMPONENT ROUTING RULE
 
-```bash
-npm run dev              # Start dev server
-npm run build            # prisma generate && next build (MUST pass before commit)
-npx tsc --noEmit         # Type check (MUST pass before commit)
-npm run lint             # ESLint
-npx jest                 # Run all tests
-npx jest path/to/file.test.ts  # Run single test
-```
+- Editing EXISTING pieces: QuickViewPieceRow.tsx
+- Creating NEW pieces inline: InlinePieceEditor.tsx
+- Default answer is QuickViewPieceRow. InlinePieceEditor only renders
+  during new piece creation, never during normal editing.
 
-**Both `npm run build` and `npx tsc --noEmit` must pass before every commit.** No exceptions.
+## PR DESCRIPTION FORMAT (MANDATORY — every commit)
 
-### Database
-```bash
-npm run db:migrate               # prisma migrate deploy
-npm run db:seed                  # Seed database
-npm run seed:pricing             # Seed pricing data
-npm run seed:pricing-settings    # Seed pricing settings
-```
+fix(sprint-id): short title
 
-## Database Queries — How This Works
+## What changed
+- src/path/file.tsx line X: what changed and why
 
-Claude Code cannot reach the Railway database directly (sandbox blocks outbound connections).
+## Root cause
+Why the bug existed
 
-For any query that requires DB data:
-1. Claude Code writes the exact SQL
-2. Sean runs it in his local terminal:
-   `psql "postgresql://postgres:PJKvvXsaFIRMCyDrDRmSBndDXadvuRIb@switchyard.proxy.rlwy.net:40455/railway" -c "YOUR SQL HERE"`
-3. Sean pastes the results back into Claude Code
-4. Claude Code proceeds based on actual output only — never infers or assumes
+## Verify in production
+- [ ] Navigate to X and confirm Y
 
-## Architecture
+## ARCHITECTURE
 
-### Tech Stack
-- **Framework:** Next.js 14 (App Router) with `@/*` path alias → `./src/*`
-- **Database:** Prisma ORM + PostgreSQL (57 models in `prisma/schema.prisma`)
-- **Auth:** JWT (jose) via cookies, middleware-enforced on all API routes
-- **Storage:** Cloudflare R2 (drawings, images)
-- **Styling:** Tailwind CSS
-- **Deployment:** Railway (see `railway.toml`)
+Project: Stone Henge — AI quoting SaaS for stone fabrication
+Repo: ~/Downloads/stonehenge-v2
+Stack: Next.js 14, TypeScript strict, PostgreSQL, Prisma ORM, Railway Pro
 
-### Route Groups
-- `src/app/(dashboard)/` — Main app (quotes, customers, materials, templates, settings, admin). Protected by auth in layout.
-- `src/app/(portal)/` — Customer-facing portal
-- `src/app/api/` — API routes (25+ resource directories)
-- `src/app/login/` — Auth page
+Critical file paths:
+- Quote builder monolith: src/app/(dashboard)/quotes/[id]/QuoteDetailClient.tsx
+- Editing existing pieces: src/components/quotes/QuickViewPieceRow.tsx
+- Creating new pieces: src/components/quotes/InlinePieceEditor.tsx
+- Parts list: src/components/quotes/PartsSection.tsx
+- Calculator: src/lib/services/pricing-calculator-v2.ts
+- Optimizer: src/lib/services/slab-optimizer.ts
+- Auth: import { requireAuth } from '@/lib/auth'
+- Dev rulebook: docs/stonehenge-dev-rulebook.md
+- Development Bible: docs/STONEHENGE-DEVELOPMENT-BIBLE.md
+- Audit tracker: docs/AUDIT_TRACKER.md
 
-### Quote Component Tree (CRITICAL — Rule 1)
-There is exactly ONE component tree for quotes. All routes render through `QuoteLayout`.
+DB: postgresql://postgres:PJKvvXsaFIRMCyDrDRmSBndDXadvuRIb@switchyard.proxy.rlwy.net:40455/railway
 
-| Route | Renders | Mode |
-|-------|---------|------|
-| `/quotes/new` | `NewQuoteWizard` | — |
-| `/quotes/[id]` | `QuoteDetailClient` → `QuoteLayout` | View |
-| `/quotes/[id]?mode=edit` | `QuoteDetailClient` → `QuoteLayout` | Edit |
+Key IDs:
+- Pricing settings: ps-org-1
+- MITERED_EDGE_ID: cmlar3eu20006znatmv7mbivv
+- ARRIS_EDGE_ID: cmlar3etm0002znat72h7jnx0
 
-**`QuoteForm.tsx` is RETIRED.** It must not be imported by any route.
+## RAILWAY BUILD PATTERNS
 
-### Key Directories
-- `src/lib/services/` — Business logic (50+ services: pricing calculator, slab optimiser, drawing analyser, quote lifecycle, PDF generation, etc.)
-- `src/lib/types/` — Shared TypeScript types (shapes, pricing, quotes, etc.)
-- `src/lib/auth.ts` — Auth helpers (`requireAuth`, `getCurrentUser`, `verifyQuoteOwnership`)
-- `src/lib/db.ts` — Singleton Prisma client
-- `src/components/quotes/` — Quote UI components
-- `src/components/pricing/` — Pricing UI components
-- `src/lib/constants/` — Constants
-- `src/lib/contexts/` — React contexts (e.g. `UnitContext`)
+Arrays from Sets: Array.from(new Set(array))  — never [...new Set(array)]
+Prisma JSON fields: field as unknown as MyType  — never direct cast
+Next.js 14 params: const { id } = await params  — never without await
 
-### Auth Pattern
-- Middleware (`src/middleware.ts`) checks JWT cookie on all non-public API routes
-- API routes use `requireAuth(allowedRoles?)` from `src/lib/auth.ts`
-- Multi-tenant: all queries must scope by `companyId` from the authenticated user
+## STANDING RULES
 
-### Pricing System
-- All prices are tenant-configurable via Pricing Admin — **never hardcode dollar amounts**
-- Pricing Bible v1.3 is the source of truth for calculation logic
-- Main calculator: `src/lib/services/pricing-calculator-v2.ts`
-- Pricing rules engine: `src/lib/services/pricing-rules-engine.ts`
+- Australian spelling: metre, colour, optimiser, organisation
+- npx prisma generate after every schema change
+- prisma migrate resolve --applied NAME after manual SQL migrations
+- price_per_sqm AND price_per_square_metre always written together
+- useMemo declared BEFORE any useCallback that references it
+- No gh CLI — GitHub UI only for PRs
+- Debug logs removed in same session they are added, never overnight
+- Verify field on SOURCE type (QuotePiece) not just destination interface
+- 4-location propagation: interface, raw API type, camelCase mapping, page.tsx
 
-## Critical Patterns (Railway Build Failures)
+## ALLOWED BASH COMMANDS
 
-```typescript
-// ✅ Set from Array
-const items = Array.from(new Set(array));
-// ❌ NEVER: [...new Set(array)]
+CAN run: npx tsc --noEmit, grep, sed, cat, find, wc, head, tail,
+         npx prisma generate, psql
 
-// ✅ Prisma JSON double cast
-const data = someJsonField as unknown as MyType;
-// ❌ NEVER: someJsonField as MyType
+CANNOT run: git add, git commit, git push, git merge, git rebase, npm run build
 
-// ✅ Next.js 14 params
-const { id } = await params;
-// ❌ NEVER: params.id
-```
+## SESSION START
 
-## Key Rules Summary
-
-- **NEVER run git add, git commit, or git push** without explicit human instruction. Sean handles all git operations. The only exception is when Sean explicitly types "please commit and push".
-- **NEVER run `npm run build`**. Sean runs all build checks locally.
-- **Extend, never replace** — add code alongside existing code, never restructure in the same change
-- **Australian spelling** in all UI text (metre, colour, organisation, etc.)
-- **Business logic outside UI** — never inside conditionally-rendered panels (Rule 23)
-- **Empty quote = $0.00** — no phantom charges
-- **Schema changes MUST include migrations** (Rule 26)
-- **Prisma client NEVER in browser bundle** (Rule 27)
-- **Both AUDIT_TRACKER.md and SYSTEM_STATE.md updated on every merge** (Rule 28)
-- **Every button must work** — no silent no-ops (Rule 15)
-- Avoid em-dashes (—) and special characters in PR/commit titles — they break zsh
-
-## Git Workflow
-
-Never push directly to main. Always use feature branches:
-```bash
-git checkout -b feat/your-feature-name
-npm run build && npx tsc --noEmit
-git add -A && git commit -m "feat: descriptive message"
-git push origin feat/your-feature-name
-gh pr create --base main --head feat/your-feature-name --title "feat: title" --body "description"
-```
-
-## All project rules and state live in:
-- `docs/stonehenge-dev-rulebook.md` — 66+ rules, all non-negotiable
-- `docs/SYSTEM_STATE.md` — living codebase snapshot
-- `docs/AUDIT_TRACKER.md` — all known open issues
+Read these first:
+  cat docs/stonehenge-dev-rulebook.md
+  cat docs/STONEHENGE-DEVELOPMENT-BIBLE.md
