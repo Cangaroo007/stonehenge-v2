@@ -493,6 +493,7 @@ export default function QuickViewPieceRow({
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
+  const [buildupSaveState, setBuildupSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
   const [newMat, setNewMat] = useState({
     name: '',
@@ -682,7 +683,10 @@ export default function QuickViewPieceRow({
       delete next[edge];
     }
     setLocalEdgeBuildups(next);
+    setBuildupSaveState('saving');
     savePieceImmediate({ edgeBuildups: Object.keys(next).length > 0 ? next : null });
+    setBuildupSaveState('saved');
+    setTimeout(() => setBuildupSaveState('idle'), 2000);
   }, [localEdgeBuildups, savePieceImmediate]);
 
   const calculatedPricePerSqm = useMemo(() => {
@@ -877,8 +881,8 @@ export default function QuickViewPieceRow({
     return {
       top: { x1: x, y1: y, x2: x + w, y2: y, lx: x + w / 2, ly: y - 6, anchor: 'middle' as const },
       bottom: { x1: x, y1: y + h, x2: x + w, y2: y + h, lx: x + w / 2, ly: y + h + 9, anchor: 'middle' as const },
-      left: { x1: x, y1: y, x2: x, y2: y + h, lx: x - 4, ly: y + h / 2, anchor: 'end' as const },
-      right: { x1: x + w, y1: y, x2: x + w, y2: y + h, lx: x + w + 4, ly: y + h / 2, anchor: 'start' as const },
+      left: { x1: x, y1: y, x2: x, y2: y + h, lx: x - 8, ly: y + h / 2, anchor: 'end' as const },
+      right: { x1: x + w, y1: y, x2: x + w, y2: y + h, lx: x + w + 8, ly: y + h / 2, anchor: 'start' as const },
     };
   }, [miniLayout]);
 
@@ -984,34 +988,21 @@ export default function QuickViewPieceRow({
             </span>
           )}
 
-          {/* Thickness selector */}
-          {isEditMode ? (
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              {[20, 40].map(t => (
-                <button
-                  key={t}
-                  onClick={() => handleThicknessChange(t)}
-                  className={`px-2 py-0.5 text-[11px] font-medium rounded border transition-colours ${
-                    piece.thicknessMm === t
-                      ? 'bg-gray-900 text-white border-gray-900'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  {t}mm
-                </button>
-              ))}
-            </div>
-          ) : (
-            <span className="text-xs text-gray-500 flex-shrink-0">{piece.thicknessMm}mm</span>
-          )}
+          {/* Thickness (read-only — derived from material slab) */}
+          <span className="text-xs text-gray-500 flex-shrink-0">{piece.thicknessMm}mm</span>
 
           {/* Edge build-up pills (read-only) */}
-          {piece.edgeBuildups && Object.keys(piece.edgeBuildups).length > 0 && (
-            <span className="text-xs text-gray-400">
-              {Object.entries(piece.edgeBuildups as Record<string, { depth: number }>)
-                .map(([edge, cfg]) => `${edge.charAt(0).toUpperCase()}:${cfg.depth}`)
-                .join(' ')}
-            </span>
+          {piece.edgeBuildups && Object.keys(piece.edgeBuildups as Record<string, unknown>).length > 0 && (
+            <div className="flex gap-1 flex-shrink-0">
+              {Object.entries(piece.edgeBuildups as Record<string, { depth: number }>).map(([edge, cfg]) => (
+                <span
+                  key={edge}
+                  className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded border border-amber-200"
+                >
+                  {edge.charAt(0).toUpperCase()}:{cfg.depth}
+                </span>
+              ))}
+            </div>
           )}
 
           {/* Material dropdown */}
@@ -1127,7 +1118,21 @@ export default function QuickViewPieceRow({
           {isEditMode && (
             <div className="w-full mt-2">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-gray-600">Edge Build-Up</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-medium text-gray-600">Edge Build-Up</span>
+                  {buildupSaveState === 'saving' && (
+                    <span className="text-xs text-gray-400 flex items-center gap-1">
+                      <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>
+                      </svg>
+                      Saving...
+                    </span>
+                  )}
+                  {buildupSaveState === 'saved' && (
+                    <span className="text-xs text-green-600">&#10003; Saved</span>
+                  )}
+                </div>
                 <button
                   type="button"
                   onClick={(e) => {
@@ -1138,7 +1143,10 @@ export default function QuickViewPieceRow({
                       if (!wallEdges.includes(edge)) next[edge] = { depth: 40 };
                     });
                     setLocalEdgeBuildups(next);
+                    setBuildupSaveState('saving');
                     savePieceImmediate({ edgeBuildups: next });
+                    setBuildupSaveState('saved');
+                    setTimeout(() => setBuildupSaveState('idle'), 2000);
                   }}
                   className="text-xs text-primary-600 hover:underline"
                 >
@@ -1326,7 +1334,9 @@ export default function QuickViewPieceRow({
                       className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
                       fill={colour}
                     >
-                      {code}
+                      {code}{piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
+                        ? ` ${(piece.edgeBuildups as Record<string, { depth: number }>)[side].depth}mm`
+                        : ''}
                     </text>
                   </g>
                 );

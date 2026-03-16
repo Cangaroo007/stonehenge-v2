@@ -115,6 +115,7 @@ interface QuotePiece {
   requiresGrainMatch: boolean;
   overrideMaterialCost?: number | null;
   noStripEdges?: string[];
+  edgeBuildups?: Record<string, { depth: number }> | null;
   stripWidthOverrides?: Record<string, number> | null;
   cutouts: PieceCutout[];
   sortOrder: number;
@@ -296,6 +297,8 @@ export interface ServerQuoteData {
       piece_type: string | null;
       requiresGrainMatch: boolean;
   overrideMaterialCost?: number | null;
+      edge_buildups?: Record<string, { depth: number }> | null;
+      no_strip_edges?: string[] | null;
       piece_features: Array<{
         id: number;
         name: string;
@@ -3395,6 +3398,7 @@ export default function QuoteDetailClient({
               shapeConfig: p.shapeConfig ?? null,
               requiresGrainMatch: p.requiresGrainMatch ?? false,
               noStripEdges: (p.noStripEdges as string[]) ?? [],
+              edgeBuildups: (p as unknown as { edge_buildups?: Record<string, { depth: number }> }).edge_buildups ?? (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
               overrideMaterialCost: p.overrideMaterialCost ?? null,
             }}
             breakdown={pb}
@@ -3421,6 +3425,8 @@ export default function QuoteDetailClient({
               shapeType: p.shapeType || (p.shapeConfig?.shape as string) || 'RECTANGLE',
               shapeConfig: p.shapeConfig ?? null,
               stripWidthOverrides: p.stripWidthOverrides ?? null,
+              noStripEdges: (p.noStripEdges as string[]) ?? [],
+              edgeBuildups: (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
               piece_type: p.pieceType ?? 'BENCHTOP',
             }}
             editData={inlineEditData}

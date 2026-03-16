@@ -176,20 +176,28 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
             <div className="mt-3 flex flex-wrap gap-2">
               {slab.placements.map((p, i) => {
                 const isLamination = p.isLaminationStrip === true;
+                const isFrontStrip = isLamination && p.stripSubType === 'FACE';
+                const isSupportBlock = isLamination && p.stripSubType === 'SUPPORT';
                 const isSegment = p.isSegment === true;
                 return (
                   <span
                     key={p.pieceId}
                     className={`inline-flex items-center px-2 py-1 rounded text-xs ${
-                      isLamination
+                      isFrontStrip
+                        ? 'bg-amber-200 text-amber-800 border border-amber-400'
+                        : isSupportBlock
+                        ? 'bg-orange-200 text-orange-800 border border-orange-400'
+                        : isLamination
                         ? 'bg-gray-300 text-gray-700 border border-gray-400'
                         : isSegment
                         ? 'text-white border-2 border-dashed border-white/50'
                         : 'text-white'
                     }`}
-                    style={isLamination ? {} : { backgroundColor: PIECE_COLORS[i % PIECE_COLORS.length] }}
+                    style={isFrontStrip || isSupportBlock || isLamination ? {} : { backgroundColor: PIECE_COLORS[i % PIECE_COLORS.length] }}
                   >
-                    {isLamination && '▦ '}
+                    {isFrontStrip && '◈ '}
+                    {isSupportBlock && '▣ '}
+                    {!isFrontStrip && !isSupportBlock && isLamination && '▦ '}
                     {isSegment && '⊞ '}
                     {p.label} ({p.width}×{p.height})
                     {p.rotated && ' ↻'}
