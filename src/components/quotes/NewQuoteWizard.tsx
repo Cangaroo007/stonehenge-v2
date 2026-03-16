@@ -7,6 +7,7 @@ import TemplateSelector from './TemplateSelector';
 import MaterialAssignment from './MaterialAssignment';
 import DrawingUploadStep from './DrawingUploadStep';
 import { ManualQuoteWizard } from './ManualQuoteWizard';
+import { BlankQuoteBuilder } from './BlankQuoteBuilder';
 import RoomTypePicker from './RoomTypePicker';
 
 type WizardStep = 'choose' | 'drawing' | 'template' | 'manual' | 'manual-scratch' | 'material-assignment' | 'creating';
@@ -118,7 +119,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option B: From Template */}
           <button
-            onClick={() => setStep('manual')}
+            onClick={() => setStep('manual-scratch')}
             className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">
@@ -198,16 +199,10 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     );
   }
 
-  // Step: Template scratch — blank quote builder (existing flow)
+  // Step: Template scratch — blank quote builder with deferred save
   if (step === 'manual-scratch') {
     return (
-      <ManualQuoteWizard
-        onBack={() => setStep('choose')}
-        customerId={customerId}
-        onComplete={() => {
-          // No-op — ManualQuoteWizard step 4 handles batch-create + redirect
-        }}
-      />
+      <BlankQuoteBuilder customerId={customerId} />
     );
   }
 
