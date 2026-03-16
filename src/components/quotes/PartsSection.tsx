@@ -338,12 +338,17 @@ function derivePartsForPiece(
     });
   }
 
-  // 2. Lamination strips (40mm+ with finished edges)
-  if (thicknessMm >= 40 || Object.keys((piece as unknown as { edgeBuildups?: Record<string, unknown> }).edgeBuildups ?? {}).length > 0) {
-    // Use optimizer data if available for precise strip dimensions
-    const stripsByParent = laminationSummary?.stripsByParent?.find(
-      (sp) => sp.parentPieceId === String(piece.id)
-    );
+  // 2. Lamination strips — edge_buildups takes priority, optimizer data used for slab assignment only
+  const edgeBuildupsForStrips =
+    (piece as unknown as { edgeBuildups?: Record<string, { depth: number }> | null }).edgeBuildups ??
+    (piece as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ??
+    {};
+  const hasEdgeBuildups = Object.keys(edgeBuildupsForStrips).length > 0;
+
+  if (hasEdgeBuildups || thicknessMm >= 40) {
+    const stripsByParent = !hasEdgeBuildups
+      ? laminationSummary?.stripsByParent?.find((sp) => sp.parentPieceId === String(piece.id))
+      : null;
 
     if (stripsByParent && stripsByParent.strips.length > 0) {
       // Use real optimizer strip data
@@ -421,10 +426,7 @@ function derivePartsForPiece(
         }
       } else {
         // Rectangle: all 4 edges minus wall edges
-        const edgeBuildups =
-          (piece as unknown as { edgeBuildups?: Record<string, { depth: number }> | null }).edgeBuildups ??
-          (piece as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ??
-          {};
+        const edgeBuildups = edgeBuildupsForStrips;
         const isMitrePiece = piece.lamination_method === 'MITRED';
         const slabThickness = piece.thickness_mm;
         const rectEdges: Record<string, number> = {
