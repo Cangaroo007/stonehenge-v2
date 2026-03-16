@@ -64,6 +64,8 @@ export default async function FullJobViewPage({
       materialName: piece.material_name ?? piece.materials?.name ?? null,
       laminationMethod: piece.lamination_method,
       waterfallHeightMm: piece.waterfall_height_mm,
+      edge_buildups: piece.edge_buildups as Record<string, { depth: number }> | null ?? null,
+      no_strip_edges: piece.no_strip_edges as string[] | null ?? null,
       sortOrder: piece.sort_order,
       sourceRelationships: ((piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relation_type: string; side: string | null }> }).sourceRelationships ?? []).map((rel) => ({
         id: rel.id,

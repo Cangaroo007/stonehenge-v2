@@ -144,7 +144,8 @@ function generateLaminationStrips(
   mitreKerfWidth?: number,
   stripConfigs?: { standard: number; mitre: number; wide: number }
 ): OptimizationPiece[] {
-  if (!piece.thickness || piece.thickness < LAMINATION_THRESHOLD) return [];
+  const hasEdgeBuildups = Object.keys(piece.edgeBuildups ?? {}).length > 0;
+  if (!piece.thickness || (piece.thickness < LAMINATION_THRESHOLD && !hasEdgeBuildups)) return [];
 
   const strips: OptimizationPiece[] = [];
   const noStripEdges = piece.noStripEdges ?? [];
@@ -613,8 +614,9 @@ function preprocessOversizePieces(
           totalSegments,
         });
 
-        // Generate position-aware strips for this segment (only for 40mm+ pieces)
-        if (piece.thickness && piece.thickness >= LAMINATION_THRESHOLD) {
+        // Generate position-aware strips for this segment (40mm+ pieces OR pieces with edge buildups)
+        const hasBuildupsL = Object.keys(piece.edgeBuildups ?? {}).length > 0;
+        if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasBuildupsL)) {
           // TOP strip: only for segments on the top row (row === 0)
           if (isFirstRow && !noStripEdges.includes('top')) {
             const edgeName = edgeNames?.top;
@@ -748,7 +750,8 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
 
     // Generate lamination strips for L/U shapes BEFORE decomposition.
     // ALL edges get strips by default, minus any in noStripEdges (wall edges).
-    if (piece.thickness && piece.thickness >= LAMINATION_THRESHOLD) {
+    const hasBuildupsU = Object.keys(piece.edgeBuildups ?? {}).length > 0;
+    if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasBuildupsU)) {
       const edgeLengths = getShapeEdgeLengths(
         piece.shapeType as ShapeType,
         piece.shapeConfig as ShapeConfig,

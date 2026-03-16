@@ -675,8 +675,14 @@ export default function QuickViewPieceRow({
     });
   }, [savePieceImmediate]);
 
+  const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
+  const edgeFieldMap: Record<string, string> = {
+    top: 'edgeTop', bottom: 'edgeBottom', left: 'edgeLeft', right: 'edgeRight',
+  };
+
   const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
     const next = { ...localEdgeBuildups };
+    const profileField = edgeFieldMap[edge];
     if (active) {
       next[edge] = { depth };
     } else {
@@ -684,7 +690,10 @@ export default function QuickViewPieceRow({
     }
     setLocalEdgeBuildups(next);
     setBuildupSaveState('saving');
-    savePieceImmediate({ edgeBuildups: Object.keys(next).length > 0 ? next : null });
+    savePieceImmediate({
+      edgeBuildups: Object.keys(next).length > 0 ? next : null,
+      ...(profileField ? { [profileField]: active ? MITERED_EDGE_ID : null } : {}),
+    });
     setBuildupSaveState('saved');
     setTimeout(() => setBuildupSaveState('idle'), 2000);
   }, [localEdgeBuildups, savePieceImmediate]);
@@ -1139,12 +1148,16 @@ export default function QuickViewPieceRow({
                     e.stopPropagation();
                     const wallEdges = piece.noStripEdges ?? [];
                     const next: Record<string, { depth: number }> = {};
-                    ['top','bottom','left','right'].forEach(edge => {
-                      if (!wallEdges.includes(edge)) next[edge] = { depth: 40 };
+                    const profileOverrides: Record<string, string | null> = {};
+                    (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
+                      if (!wallEdges.includes(edge)) {
+                        next[edge] = { depth: 40 };
+                        profileOverrides[edgeFieldMap[edge]] = MITERED_EDGE_ID;
+                      }
                     });
                     setLocalEdgeBuildups(next);
                     setBuildupSaveState('saving');
-                    savePieceImmediate({ edgeBuildups: next });
+                    savePieceImmediate({ edgeBuildups: next, ...profileOverrides });
                     setBuildupSaveState('saved');
                     setTimeout(() => setBuildupSaveState('idle'), 2000);
                   }}

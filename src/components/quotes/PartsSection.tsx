@@ -421,7 +421,10 @@ function derivePartsForPiece(
         }
       } else {
         // Rectangle: all 4 edges minus wall edges
-        const edgeBuildups = (piece as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ?? {};
+        const edgeBuildups =
+          (piece as unknown as { edgeBuildups?: Record<string, { depth: number }> | null }).edgeBuildups ??
+          (piece as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ??
+          {};
         const isMitrePiece = piece.lamination_method === 'MITRED';
         const slabThickness = piece.thickness_mm;
         const rectEdges: Record<string, number> = {
