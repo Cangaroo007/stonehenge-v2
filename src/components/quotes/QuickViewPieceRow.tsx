@@ -490,6 +490,9 @@ export default function QuickViewPieceRow({
   const [localOverrideCost, setLocalOverrideCost] = useState<string>(
     piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
   );
+  const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
+    (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
+  );
   const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
   const [newMat, setNewMat] = useState({
     name: '',
@@ -514,7 +517,8 @@ export default function QuickViewPieceRow({
     setLocalOverrideCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
     );
-  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost]);
+    setLocalEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.edgeBuildups]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -669,6 +673,17 @@ export default function QuickViewPieceRow({
       overrideMaterialCost: checked ? 0 : null,
     });
   }, [savePieceImmediate]);
+
+  const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
+    const next = { ...localEdgeBuildups };
+    if (active) {
+      next[edge] = { depth };
+    } else {
+      delete next[edge];
+    }
+    setLocalEdgeBuildups(next);
+    savePieceImmediate({ edgeBuildups: Object.keys(next).length > 0 ? next : null });
+  }, [localEdgeBuildups, savePieceImmediate]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
@@ -1107,6 +1122,63 @@ export default function QuickViewPieceRow({
               ${Number(piece.overrideMaterialCost).toFixed(2)} override
             </span>
           ) : null}
+
+          {/* Edge Build-Up edit UI (edit mode only) */}
+          {isEditMode && (
+            <div className="w-full mt-2">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-gray-600">Edge Build-Up</span>
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    const wallEdges = piece.noStripEdges ?? [];
+                    const next: Record<string, { depth: number }> = {};
+                    ['top','bottom','left','right'].forEach(edge => {
+                      if (!wallEdges.includes(edge)) next[edge] = { depth: 40 };
+                    });
+                    setLocalEdgeBuildups(next);
+                    savePieceImmediate({ edgeBuildups: next });
+                  }}
+                  className="text-xs text-primary-600 hover:underline"
+                >
+                  Apply 40mm to all
+                </button>
+              </div>
+              <div className="flex gap-1 flex-wrap">
+                {(['top','bottom','left','right'] as const).map(edge => {
+                  const isWall = (piece.noStripEdges ?? []).includes(edge);
+                  const buildup = localEdgeBuildups[edge];
+                  return (
+                    <div key={edge} className={`flex items-center gap-1 ${isWall ? 'opacity-40' : ''}`}>
+                      <button
+                        type="button"
+                        disabled={isWall}
+                        onClick={(e) => { e.stopPropagation(); handleEdgeBuildup(edge, !buildup); }}
+                        className={`px-2 py-0.5 text-xs rounded border transition-colors ${
+                          buildup ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-500 border-gray-300'
+                        }`}
+                      >
+                        {edge.charAt(0).toUpperCase() + edge.slice(1)}
+                      </button>
+                      {buildup && (
+                        <input
+                          type="number"
+                          min={40}
+                          step={5}
+                          value={buildup.depth}
+                          onChange={(e) => { e.stopPropagation(); handleEdgeBuildup(edge, true, parseInt(e.target.value) || 40); }}
+                          onClick={(e) => e.stopPropagation()}
+                          className="w-12 px-1 py-0.5 text-xs border border-gray-300 rounded"
+                        />
+                      )}
+                      {buildup && <span className="text-xs text-gray-400">mm</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Spacer + Price + Badges */}
           <div className="flex-1" />
