@@ -119,7 +119,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option B: From Template */}
           <button
-            onClick={() => setStep('manual-scratch')}
+            onClick={() => setStep('template')}
             className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">
