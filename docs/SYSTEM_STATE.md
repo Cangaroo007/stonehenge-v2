@@ -1022,6 +1022,8 @@ WF-6 (2026-03-15): Four waterfall/splashback UX fixes. (1) QuoteDetailClient.tsx
 
 BUILDUPA-1 (2026-03-15): Per-edge build-up system. Added edge_buildups JSONB to quote_pieces (migration 20260315000001). InlinePieceEditor: removed 40mm/custom thickness toggle + LAMINATED/MITRED selector; replaced with per-edge build-up UI. QuickViewPieceRow: build-up pills display. slab-optimizer generateLaminationStrips: edge_buildups drives front strip (depth) + return strip (60mm) + support block (depth-2xslab when >40mm); legacy laminationMethod preserved. pricing-calculator-v2: stripLm driven by edge_buildups when present. PartsSection: front strip / return strip / support block labels. optimize/route + multi-material-optimizer: edge_buildups passed through.
 
+MANUAL-BLANK-1 (2026-03-15): Blank quote builder with deferred save. NewQuoteWizard Manual card skips template picker, renders BlankQuoteBuilder.tsx — local-state canvas with rooms/pieces. No DB writes until save threshold crossed (piece with length+width OR non-Raw edge). POST /api/quotes/create-draft extended to accept JSON body with rooms/pieces (existing query-param mode preserved). router.replace redirects to /quotes/[id]?mode=edit after first save.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 

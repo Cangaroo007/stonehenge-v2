@@ -7,12 +7,18 @@ import { createInitialVersion } from '@/lib/services/quote-version-service';
 /**
  * POST /api/quotes/create-draft
  *
- * Creates a minimal draft quote with one default room and returns the quoteId.
- * Used by the New Quote wizard for the Manual and Drawing flows.
+ * Creates a draft quote. Two modes:
  *
- * Query params:
+ * 1. JSON body with { projectName, rooms } — BlankQuoteBuilder deferred save.
+ *    Rooms may contain nested pieces with edge profiles and dimensions.
+ *
+ * 2. Query params only (no body / empty body) — existing wizard flow.
+ *    Creates a minimal draft with one default room.
+ *
+ * Query params (both modes):
  *   - customerId (optional): Pre-assign a customer
- *   - projectName (optional): Set project name
+ *   - contactId (optional): Pre-assign a contact
+ *   - projectName (optional): Set project name (query param fallback for mode 2)
  */
 export async function POST(request: NextRequest) {
   try {
@@ -30,11 +36,65 @@ export async function POST(request: NextRequest) {
     const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
     const contactId = contactIdParam ? parseInt(contactIdParam, 10) : null;
 
+    // Try to parse JSON body — may be empty for legacy query-param mode
+    let body: { projectName?: string | null; rooms?: Array<{
+      name: string;
+      sortOrder: number;
+      pieces: Array<{
+        description: string;
+        lengthMm: number;
+        widthMm: number;
+        thicknessMm: number;
+        sortOrder: number;
+        edgeTop: string | null;
+        edgeBottom: string | null;
+        edgeLeft: string | null;
+        edgeRight: string | null;
+      }>;
+    }> } | null = null;
+    try {
+      body = await request.json();
+    } catch {
+      // No JSON body — use query-param mode
+    }
+
+    const hasBodyRooms = body?.rooms && Array.isArray(body.rooms);
+
     const lastQuote = await prisma.quotes.findFirst({
-      orderBy: { quote_number: 'desc' },
+      where: { company_id: user.companyId },
+      orderBy: { created_at: 'desc' },
+      select: { quote_number: true },
     });
 
     const quoteNumber = generateQuoteNumber(lastQuote?.quote_number || null);
+
+    // Build room creation data
+    const roomsCreate = hasBodyRooms && body!.rooms!.length > 0
+      ? body!.rooms!.map((room) => ({
+          name: room.name || 'Kitchen',
+          sort_order: room.sortOrder ?? 0,
+          quote_pieces: {
+            create: (room.pieces ?? []).map((piece) => ({
+              name: piece.description || 'Piece',
+              description: piece.description || null,
+              length_mm: piece.lengthMm || 0,
+              width_mm: piece.widthMm || 0,
+              thickness_mm: piece.thicknessMm || 20,
+              area_sqm: ((piece.lengthMm || 0) * (piece.widthMm || 0)) / 1_000_000,
+              material_cost: 0,
+              features_cost: 0,
+              total_cost: 0,
+              material_id: null,
+              material_name: null,
+              sort_order: piece.sortOrder ?? 0,
+              edge_top: piece.edgeTop || null,
+              edge_bottom: piece.edgeBottom || null,
+              edge_left: piece.edgeLeft || null,
+              edge_right: piece.edgeRight || null,
+            })),
+          },
+        }))
+      : [{ name: 'Room 1', sort_order: 0 }];
 
     const quote = await prisma.quotes.create({
       data: {
@@ -42,7 +102,7 @@ export async function POST(request: NextRequest) {
         company_id: user.companyId,
         customer_id: customerId && !isNaN(customerId) ? customerId : null,
         contact_id: contactId && !isNaN(contactId) ? contactId : null,
-        project_name: projectNameParam || null,
+        project_name: (hasBodyRooms ? body?.projectName : projectNameParam) || 'Untitled Quote',
         status: 'draft',
         subtotal: 0,
         tax_rate: 10,
@@ -52,10 +112,7 @@ export async function POST(request: NextRequest) {
         created_by: user.id,
         updated_at: new Date(),
         quote_rooms: {
-          create: {
-            name: 'Room 1',
-            sort_order: 0,
-          },
+          create: roomsCreate,
         },
       },
     });
@@ -67,7 +124,7 @@ export async function POST(request: NextRequest) {
       // Non-blocking — version history is not critical for draft creation
     }
 
-    return NextResponse.json({ quoteId: quote.id }, { status: 201 });
+    return NextResponse.json({ id: quote.id, quoteId: quote.id, quoteNumber: quote.quote_number }, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create draft quote';
     return NextResponse.json({ error: message }, { status: 500 });
