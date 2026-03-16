@@ -1011,16 +1011,26 @@ export async function calculateQuotePrice(
         .filter(([key]) => !noStripEdges.includes(key))
         .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
     } else {
-      // Rectangle: all 4 edges minus wall edges — for lamination
+      // Rectangle: edges with build-up OR all edges minus wall edges for lamination
+      const edgeBuildups = (piece.edge_buildups as unknown as Record<string, { depth: number }>) ?? {};
+      const hasEdgeBuildups = Object.keys(edgeBuildups).length > 0;
       const rectEdgeLengths: Record<string, number> = {
         top: piece.length_mm,
         bottom: piece.length_mm,
         left: piece.width_mm,
         right: piece.width_mm,
       };
-      stripLm = Object.entries(rectEdgeLengths)
-        .filter(([key]) => !noStripEdges.includes(key))
-        .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      if (hasEdgeBuildups) {
+        // New model: only edges with build-up config contribute to strip Lm
+        stripLm = Object.entries(rectEdgeLengths)
+          .filter(([key]) => !noStripEdges.includes(key) && edgeBuildups[key])
+          .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      } else {
+        // Legacy: all edges minus wall edges
+        stripLm = Object.entries(rectEdgeLengths)
+          .filter(([key]) => !noStripEdges.includes(key))
+          .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      }
     }
 
     // Promoted apron strip: only one cut along its length (not full perimeter)
@@ -1035,8 +1045,10 @@ export async function calculateQuotePrice(
       isOversize,
       joinLength_Lm: joinLengthLm,
       requiresGrainMatch: isOversize,
-      // Lamination method is an explicit user choice — never inferred from thickness.
-      laminationMethod: piece.lamination_method === 'MITRED'
+      // Lamination method: edge_buildups is primary signal, lamination_method is backwards compat
+      laminationMethod: Object.keys((piece.edge_buildups as unknown as Record<string, unknown>) ?? {}).length > 0
+        ? 'MITRED'
+        : piece.lamination_method === 'MITRED'
         ? 'MITRED'
         : piece.lamination_method === 'LAMINATED'
         ? 'LAMINATED'

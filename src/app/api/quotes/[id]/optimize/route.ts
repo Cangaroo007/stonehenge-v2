@@ -334,6 +334,7 @@ export async function POST(
       no_strip_edges: unknown;
       strip_width_overrides: unknown;
       lamination_method: string | null;
+      edge_buildups: unknown;
       materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
     };
 
@@ -376,6 +377,7 @@ export async function POST(
         noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
         stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
         laminationMethod: piece.lamination_method ?? null,
+        edgeBuildups: (piece.edge_buildups as Record<string, { depth: number }> | null) ?? null,
         materialId: piece.material_id?.toString() ?? null,
         // Shape data for L/U decomposition in the optimizer
         shapeType: piece.shape_type ?? undefined,
@@ -429,7 +431,7 @@ export async function POST(
       );
 
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
           height: p.height,
@@ -440,6 +442,7 @@ export async function POST(
           shapeConfigEdges: p.shapeConfigEdges,
           noStripEdges: p.noStripEdges,
           laminationMethod: p.laminationMethod,
+          edgeBuildups: p.edgeBuildups,
           materialId: p.materialId,
           shapeType: p.shapeType,
           shapeConfig: p.shapeConfig,

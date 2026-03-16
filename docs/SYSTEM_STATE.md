@@ -1020,6 +1020,8 @@ PARTS-DEDUP-MARGIN (2026-03-15): PartsSection.tsx roomPartsData loop now skips p
 
 WF-6 (2026-03-15): Four waterfall/splashback UX fixes. (1) QuoteDetailClient.tsx lines 3446-3447: onAddWaterfall/onAddSplashback gated by pieceType — child pieces no longer show attach buttons. (2) PartsSection.tsx: standalone Apron Strips section removed (redundant — strips nested under parent via lamination derivation). (3) QuickViewPieceRow.tsx miniLayout: child piece SVG swaps dimensions when widthMm > lengthMm for correct portrait rendering. (4) QuoteDetailClient.tsx: pendingWaterfallParentRef now stores selectedEdge, inline relationship creation passes it as side; display shows empty string instead of "N/A" when joinPosition is null.
 
+BUILDUPA-1 (2026-03-15): Per-edge build-up system. Added edge_buildups JSONB to quote_pieces (migration 20260315000001). InlinePieceEditor: removed 40mm/custom thickness toggle + LAMINATED/MITRED selector; replaced with per-edge build-up UI. QuickViewPieceRow: build-up pills display. slab-optimizer generateLaminationStrips: edge_buildups drives front strip (depth) + return strip (60mm) + support block (depth-2xslab when >40mm); legacy laminationMethod preserved. pricing-calculator-v2: stripLm driven by edge_buildups when present. PartsSection: front strip / return strip / support block labels. optimize/route + multi-material-optimizer: edge_buildups passed through.
+
 ## fix/polishing-type
 - Hotfix: added explicit type casts to polishing bypass in pricing-rules-engine.ts to resolve TS2339 never error
 

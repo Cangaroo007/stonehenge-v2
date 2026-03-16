@@ -64,6 +64,8 @@ export interface InlinePieceData {
   stripWidthOverrides?: Record<string, number> | null;
   lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
   piece_type?: string | null;
+  edgeBuildups?: Record<string, { depth: number }> | null;
+  noStripEdges?: string[] | null;
 }
 
 export interface InlinePieceEditorProps {
@@ -444,13 +446,9 @@ export default function InlinePieceEditor({
   const [lengthMm, setLengthMm] = useState(piece.lengthMm.toString());
   const [widthMm, setWidthMm] = useState(piece.widthMm.toString());
   const [thicknessMm, setThicknessMm] = useState(piece.thicknessMm);
-  const [laminationMethod, setLaminationMethod] = useState<'NONE' | 'LAMINATED' | 'MITRED'>(piece.lamination_method ?? 'NONE');
-  const [thicknessMode, setThicknessMode] = useState<'20mm' | '40mm' | 'custom'>(() => {
-    const t = piece.thicknessMm;
-    if (t === 20) return '20mm';
-    if (t === 40) return '40mm';
-    return 'custom';
-  });
+  const [edgeBuildups, setEdgeBuildups] = useState<Record<string, { depth: number }>>(
+    (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
+  );
   const [customThickness, setCustomThickness] = useState<string>(() => {
     const t = piece.thicknessMm;
     return t !== 20 && t !== 40 ? t.toString() : '';
@@ -552,16 +550,7 @@ export default function InlinePieceEditor({
     setLengthMm(piece.lengthMm.toString());
     setWidthMm(piece.widthMm.toString());
     setThicknessMm(piece.thicknessMm);
-    if (piece.thicknessMm === 20) {
-      setThicknessMode('20mm');
-      setCustomThickness('');
-    } else if (piece.thicknessMm === 40) {
-      setThicknessMode('40mm');
-      setCustomThickness('');
-    } else {
-      setThicknessMode('custom');
-      setCustomThickness(piece.thicknessMm.toString());
-    }
+    setEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
     setMaterialId(piece.materialId);
     setOverrideMaterialCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
@@ -741,36 +730,7 @@ export default function InlinePieceEditor({
 
   // ── Handlers ────────────────────────────────────────────────────────────
 
-  const handleThicknessMode = (mode: '20mm' | '40mm' | 'custom') => {
-    setThicknessMode(mode);
-    if (mode === '20mm') {
-      setThicknessMm(20);
-      setCustomThickness('');
-    } else if (mode === '40mm') {
-      setThicknessMm(40);
-      setCustomThickness('');
-    }
-    setErrors((prev) => {
-      const next = { ...prev };
-      delete next.thicknessMm;
-      return next;
-    });
-  };
-
-  const handleCustomThicknessChange = (value: string) => {
-    setCustomThickness(value);
-    const num = parseInt(value);
-    if (!isNaN(num) && num >= 20) {
-      setThicknessMm(num);
-      if (num === 20) {
-        setThicknessMode('20mm');
-        setCustomThickness('');
-      } else if (num === 40) {
-        setThicknessMode('40mm');
-        setCustomThickness('');
-      }
-    }
-  };
+  // handleThicknessMode and handleCustomThicknessChange removed — thickness is now read-only from material slab thickness
 
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
@@ -808,14 +768,7 @@ export default function InlinePieceEditor({
       if (!rw || rw <= 0) newErrors.rightLegWidth = 'Required';
     }
 
-    if (thicknessMode === 'custom') {
-      const t = parseInt(customThickness);
-      if (!customThickness || isNaN(t)) {
-        newErrors.thicknessMm = 'Please enter a thickness value';
-      } else if (t < 20) {
-        newErrors.thicknessMm = 'Thickness must be at least 20mm';
-      }
-    }
+    // Thickness validation removed — thickness is read-only from slab
 
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
@@ -869,8 +822,8 @@ export default function InlinePieceEditor({
     const payload: Record<string, unknown> = {
       pieceType: localPieceType,
       thicknessMm,
-      laminationMethod,
       mitredCornerTreatment,
+      edgeBuildups: Object.keys(edgeBuildups).length > 0 ? edgeBuildups : null,
       materialId,
       materialName: selectedMaterial?.name || null,
       overrideMaterialCost: overrideMaterialCost !== ''
@@ -994,7 +947,7 @@ export default function InlinePieceEditor({
 
   const parsedLength = parseInt(lengthMm) || 0;
   const parsedWidth = parseInt(widthMm) || 0;
-  // laminationMethod is now managed as local state (line ~445), not derived from piece cast
+  // laminationMethod read from piece.lamination_method for backwards compat — edgeBuildups is the primary model
 
   // Dimension input helper — reused across shapes
   const dimInput = (
@@ -1123,86 +1076,80 @@ export default function InlinePieceEditor({
             {errors.widthMm && <p className="mt-0.5 text-xs text-red-500">{errors.widthMm}</p>}
           </div>
 
-          {/* Thickness */}
+          {/* Thickness (read-only from slab) */}
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">
-              Thickness
+              Slab Thickness
             </label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }}
-                  className={`px-2.5 py-1 text-xs font-medium transition-colors ${
-                    thicknessMode === '20mm'
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  20mm
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }}
-                  className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
-                    thicknessMode === '40mm'
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  40mm
-                </button>
-                <button
-                  type="button"
-                  onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }}
-                  className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${
-                    thicknessMode === 'custom'
-                      ? 'bg-gray-900 text-white'
-                      : 'bg-white text-gray-700 hover:bg-gray-50'
-                  }`}
-                >
-                  Custom
-                </button>
-              </div>
-              {thicknessMode === 'custom' && (
-                <input
-                  type="number"
-                  value={customThickness}
-                  onChange={(e) => handleCustomThicknessChange(e.target.value)}
-                  placeholder="e.g. 60"
-                  min={20}
-                  step={1}
-                  className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500 ${
-                    errors.thicknessMm ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  onClick={(e) => e.stopPropagation()}
-                />
-              )}
+            <span className="text-sm text-gray-800">{thicknessMm}mm</span>
+          </div>
+
+          {/* Edge Build-Up — per edge 40mm/custom depth effect */}
+          <div>
+            <div className="flex items-center justify-between mb-2">
+              <label className="text-xs font-medium text-gray-600">Edge Build-Up</label>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const wallEdges = piece.noStripEdges ?? [];
+                  const updated: Record<string, { depth: number }> = {};
+                  ['top', 'bottom', 'left', 'right'].forEach(edge => {
+                    if (!wallEdges.includes(edge)) updated[edge] = { depth: 40 };
+                  });
+                  setEdgeBuildups(updated);
+                }}
+                className="text-xs text-primary-600 hover:underline"
+              >
+                Apply 40mm to all
+              </button>
             </div>
-            {thicknessMm > 20 && (
-              <div className="mt-2">
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  40mm Build-up Method
-                </label>
-                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                  {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
+            <div className="grid grid-cols-2 gap-2">
+              {(['top', 'bottom', 'left', 'right'] as const).map(edge => {
+                const isWall = (piece.noStripEdges ?? []).includes(edge);
+                const buildup = edgeBuildups[edge];
+                return (
+                  <div key={edge} className={`flex items-center gap-1 ${isWall ? 'opacity-40' : ''}`}>
                     <button
-                      key={method}
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }}
-                      className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${
-                        laminationMethod === method
-                          ? 'bg-gray-900 text-white'
-                          : 'bg-white text-gray-700 hover:bg-gray-50'
+                      disabled={isWall}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (buildup) {
+                          const next = { ...edgeBuildups };
+                          delete next[edge];
+                          setEdgeBuildups(next);
+                        } else {
+                          setEdgeBuildups({ ...edgeBuildups, [edge]: { depth: 40 } });
+                        }
+                      }}
+                      className={`px-2 py-1 text-xs rounded border transition-colors ${
+                        buildup
+                          ? 'bg-primary-600 text-white border-primary-600'
+                          : 'bg-white text-gray-500 border-gray-300'
                       }`}
                     >
-                      {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
+                      {edge.charAt(0).toUpperCase() + edge.slice(1)}
                     </button>
-                  ))}
-                </div>
-              </div>
-            )}
-            {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+                    {buildup && (
+                      <input
+                        type="number"
+                        min={40}
+                        step={5}
+                        value={buildup.depth}
+                        onChange={e => setEdgeBuildups({
+                          ...edgeBuildups,
+                          [edge]: { depth: parseInt(e.target.value) || 40 }
+                        })}
+                        onClick={e => e.stopPropagation()}
+                        className="w-14 px-1 py-1 text-xs border border-gray-300 rounded"
+                      />
+                    )}
+                    {buildup && <span className="text-xs text-gray-400">mm</span>}
+                  </div>
+                );
+              })}
+            </div>
           </div>
 
           {/* Material */}
@@ -1302,7 +1249,7 @@ export default function InlinePieceEditor({
                 </p>
               )}
             </div>
-            {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+            {(thicknessMm >= 40 || Object.keys(edgeBuildups).length > 0 || piece.lamination_method === 'LAMINATED' || piece.lamination_method === 'MITRED') && (
               <PerEdgeStripWidthTable
                 piece={piece}
                 edgeSelections={edgeSelections}
@@ -1313,7 +1260,7 @@ export default function InlinePieceEditor({
                 onStripWidthChange={onStripWidthChange}
               />
             )}
-            {laminationMethod === 'MITRED' && (
+            {piece.lamination_method === 'MITRED' && (
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
                   Mitre Corner Treatment
@@ -1393,30 +1340,8 @@ export default function InlinePieceEditor({
           {/* Thickness + Material row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Thickness</label>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }} className={`px-2.5 py-1 text-xs font-medium transition-colors ${thicknessMode === '20mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>20mm</button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === '40mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>40mm</button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === 'custom' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>Custom</button>
-                </div>
-                {thicknessMode === 'custom' && (
-                  <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
-                )}
-              </div>
-              {thicknessMm > 20 && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
-                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
-                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
-                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+              <label className="block text-xs font-medium text-gray-600 mb-1">Slab Thickness</label>
+              <span className="text-sm text-gray-800">{thicknessMm}mm</span>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
@@ -1481,7 +1406,7 @@ export default function InlinePieceEditor({
                   </p>
                 )}
               </div>
-              {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+              {(thicknessMm >= 40 || Object.keys(edgeBuildups).length > 0 || piece.lamination_method === 'LAMINATED' || piece.lamination_method === 'MITRED') && (
                 <PerEdgeStripWidthTable
                   piece={piece}
                   edgeSelections={edgeSelections}
@@ -1492,7 +1417,7 @@ export default function InlinePieceEditor({
                   onStripWidthChange={onStripWidthChange}
                 />
               )}
-              {laminationMethod === 'MITRED' && (
+              {piece.lamination_method === 'MITRED' && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Mitre Corner Treatment
@@ -1585,30 +1510,8 @@ export default function InlinePieceEditor({
           {/* Thickness + Material row */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">Thickness</label>
-              <div className="flex items-center gap-2 flex-wrap">
-                <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('20mm'); }} className={`px-2.5 py-1 text-xs font-medium transition-colors ${thicknessMode === '20mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>20mm</button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('40mm'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === '40mm' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>40mm</button>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleThicknessMode('custom'); }} className={`px-2.5 py-1 text-xs font-medium border-l border-gray-300 transition-colors ${thicknessMode === 'custom' ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>Custom</button>
-                </div>
-                {thicknessMode === 'custom' && (
-                  <input type="number" value={customThickness} onChange={(e) => handleCustomThicknessChange(e.target.value)} placeholder="e.g. 60" min={20} step={1} className={`w-20 px-2 py-1 text-xs border rounded-lg focus:ring-2 focus:ring-primary-500 ${errors.thicknessMm ? 'border-red-500' : 'border-gray-300'}`} onClick={(e) => e.stopPropagation()} />
-                )}
-              </div>
-              {thicknessMm > 20 && (
-                <div className="mt-2">
-                  <label className="block text-xs font-medium text-gray-600 mb-1">40mm Build-up Method</label>
-                  <div className="inline-flex rounded-lg border border-gray-300 overflow-hidden">
-                    {(['NONE', 'LAMINATED', 'MITRED'] as const).map((method) => (
-                      <button key={method} type="button" onClick={(e) => { e.stopPropagation(); setLaminationMethod(method); }} className={`px-2.5 py-1 text-xs font-medium transition-colors border-l first:border-l-0 border-gray-300 ${laminationMethod === method ? 'bg-gray-900 text-white' : 'bg-white text-gray-700 hover:bg-gray-50'}`}>
-                        {method === 'NONE' ? 'None' : method === 'LAMINATED' ? 'Laminated' : 'Mitred'}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-              {errors.thicknessMm && <p className="mt-0.5 text-xs text-red-500">{errors.thicknessMm}</p>}
+              <label className="block text-xs font-medium text-gray-600 mb-1">Slab Thickness</label>
+              <span className="text-sm text-gray-800">{thicknessMm}mm</span>
             </div>
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
@@ -1673,7 +1576,7 @@ export default function InlinePieceEditor({
                   </p>
                 )}
               </div>
-              {(thicknessMm >= 40 || laminationMethod === 'LAMINATED' || laminationMethod === 'MITRED') && (
+              {(thicknessMm >= 40 || Object.keys(edgeBuildups).length > 0 || piece.lamination_method === 'LAMINATED' || piece.lamination_method === 'MITRED') && (
                 <PerEdgeStripWidthTable
                   piece={piece}
                   edgeSelections={edgeSelections}
@@ -1684,7 +1587,7 @@ export default function InlinePieceEditor({
                   onStripWidthChange={onStripWidthChange}
                 />
               )}
-              {laminationMethod === 'MITRED' && (
+              {piece.lamination_method === 'MITRED' && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">
                     Mitre Corner Treatment
@@ -1966,7 +1869,7 @@ export default function InlinePieceEditor({
             edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
             cutouts={[]}
             isEditMode={true}
-            isMitred={laminationMethod === 'MITRED'}
+            isMitred={piece.lamination_method === 'MITRED'}
             onEdgeChange={(side, profileId) => {
               const keyMap = { top: 'edgeTop', right: 'edgeRight', bottom: 'edgeBottom', left: 'edgeLeft' } as const;
               if (side in keyMap) {

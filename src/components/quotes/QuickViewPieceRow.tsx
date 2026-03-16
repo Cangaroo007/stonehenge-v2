@@ -106,6 +106,7 @@ interface PieceData {
   noStripEdges?: string[];
   laminationMethod?: string | null;
   overrideMaterialCost?: number | null;
+  edgeBuildups?: Record<string, { depth: number }> | null;
 }
 
 export interface QuickViewPieceRowProps {
@@ -987,6 +988,15 @@ export default function QuickViewPieceRow({
             </div>
           ) : (
             <span className="text-xs text-gray-500 flex-shrink-0">{piece.thicknessMm}mm</span>
+          )}
+
+          {/* Edge build-up pills (read-only) */}
+          {piece.edgeBuildups && Object.keys(piece.edgeBuildups).length > 0 && (
+            <span className="text-xs text-gray-400">
+              {Object.entries(piece.edgeBuildups as Record<string, { depth: number }>)
+                .map(([edge, cfg]) => `${edge.charAt(0).toUpperCase()}:${cfg.depth}`)
+                .join(' ')}
+            </span>
           )}
 
           {/* Material dropdown */}

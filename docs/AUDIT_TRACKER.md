@@ -232,3 +232,9 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** feat/wf-6-waterfall-ux
 - **What:** Four waterfall/splashback UX fixes. (1) QuoteDetailClient.tsx: +Waterfall/+SplashBack buttons no longer shown on child pieces — gated by pieceType check. (2) PartsSection.tsx: removed redundant standalone Apron Strips section — strips already appear nested under parent via lamination derivation. (3) QuickViewPieceRow.tsx: child piece mini SVG now renders portrait when widthMm > lengthMm. (4) QuoteDetailClient.tsx: inline relationship creation now passes selectedEdge as side instead of null; display shows nothing instead of "N/A" when position is unset.
 
+## BUILDUPA-1
+- **Status:** ✅ Resolved
+- **Date:** 2026-03-15
+- **Branch:** feat/buildupa-1-edge-buildup
+- **What:** Complete per-edge build-up system replacing the old 40mm thickness toggle. Added edge_buildups JSONB field to quote_pieces (per-edge depth config). New UI in InlinePieceEditor replaces 20mm/40mm/custom toggle with per-edge build-up toggles and depth inputs. slab-optimizer generateLaminationStrips now driven by edge_buildups — generates front strip (depth), return strip (60mm), support block (depth-2xslab when >40mm). Legacy laminationMethod path preserved for backwards compat. PartsSection and pricing calculator updated. Migration: 20260315000001_add_edge_buildups.
+
