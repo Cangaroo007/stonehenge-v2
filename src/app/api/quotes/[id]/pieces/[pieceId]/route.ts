@@ -556,6 +556,7 @@ export async function PUT(
       requiresGrainMatch: reqGrainMatch,
       shapeConfig: putShapeConfig,
       noStripEdges: putNoStripEdges,
+      edgeBuildups: putEdgeBuildups,
     } = data;
 
     // Get the current piece
@@ -730,6 +731,7 @@ export async function PUT(
         ...(scForCornersPut?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPut.corner_edge_br as string) ?? null }),
         // no_strip_edges: wall edges that don't need lamination strips
         ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
+        ...(putEdgeBuildups !== undefined && { edge_buildups: putEdgeBuildups as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,
