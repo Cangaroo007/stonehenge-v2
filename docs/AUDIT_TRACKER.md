@@ -245,3 +245,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 - **Branch:** feat/manual-blank-1
 - **What:** Blank quote builder with deferred save. Manual card on /quotes/new now skips template picker and goes straight to a local-state canvas (BlankQuoteBuilder.tsx). No DB writes until threshold crossed (piece with dimensions OR non-Raw edge). POST /api/quotes/create-draft extended to accept JSON body with rooms/pieces; existing query-param mode preserved. URL updates to /quotes/[id]?mode=edit via router.replace after first save.
 
+
+✅ MAT-FIX-1 (2026-03-16): Removed redundant materialMarginAdjustPercent / onMarginAdjustChange props from MaterialCostSection. Props interface, destructuring, and JSX block deleted from MaterialCostSection.tsx. Call site props deleted from QuoteDetailClient.tsx. MarginSelector remains the sole margin control. 2 files, 23 deletions.
