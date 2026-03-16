@@ -1,5 +1,5 @@
 'use client';
-
+//
 /**
  * QuickViewPieceRow — compact two-tier inline editing row for pieces.
  *
