@@ -163,6 +163,11 @@ Before writing a prompt, explicitly state:
 - Files that must NOT be touched
 - Whether a schema migration is required
 - Whether prisma migrate resolve --applied is required after manual SQL
+  IMPORTANT: After any manual SQL migration, ALWAYS run:
+    cd ~/Downloads/stonehenge-v2 && \
+    DATABASE_URL="postgresql://postgres:PJKvvXsaFIRMCyDrDRmSBndDXadvuRIb@switchyard.proxy.rlwy.net:40455/railway" \
+    npx prisma migrate resolve --applied MIGRATION_NAME_HERE
+  Skipping this caused a Railway crash loop. Non-negotiable.
 
 ---
 
