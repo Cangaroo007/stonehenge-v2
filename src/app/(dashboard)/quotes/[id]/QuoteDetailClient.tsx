@@ -3146,9 +3146,10 @@ export default function QuoteDetailClient({
         {/* ── 5. PARTS LIST — physical cut parts per room ── */}
         {serverData.quote_rooms.some(r => r.quote_pieces.length > 0) && (
           <PartsSection
-            quoteId={serverData.id}
+            quoteId={String(serverData.id)}
             rooms={serverData.quote_rooms}
             calcBreakdown={viewCalculation?.breakdown ?? null}
+            optimiserRefreshKey={optimisationRefreshKey}
           />
         )}
 
