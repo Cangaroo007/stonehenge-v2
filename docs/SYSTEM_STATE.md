@@ -1032,3 +1032,5 @@ MANUAL-BLANK-1 (2026-03-15): Blank quote builder with deferred save. NewQuoteWiz
 
 ## UX-FIX-4 (2026-03-12)
 - ExpandedPieceViewClient: editable diameter_mm, radius_mm, corner_radius_mm fields for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT curved pieces. Fields inside Dimensions card, conditional on shapeType + isEditMode. Write to editFields.shapeConfig via setEditFields. Existing handleSave includes shapeConfig in PATCH payload — no API or calculator changes.
+
+MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHENGE-DEVELOPMENT-BIBLE.md created.
