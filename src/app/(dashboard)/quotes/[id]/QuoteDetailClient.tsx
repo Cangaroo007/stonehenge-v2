@@ -4013,14 +4013,6 @@ export default function QuoteDetailClient({
               materials={calculation.breakdown.materials}
               pieceCount={effectivePieces.length}
               mode="edit"
-              materialMarginAdjustPercent={
-                Number(quoteOptions.activeOption?.material_margin_adjust_percent ?? 0)
-              }
-              onMarginAdjustChange={(percent) => {
-                if (quoteOptions.activeOption) {
-                  quoteOptions.updateMarginAdjustment(quoteOptions.activeOption.id, percent);
-                }
-              }}
             />
           ) : (
             <p className="text-xs text-gray-400 italic px-1">

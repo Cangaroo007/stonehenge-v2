@@ -12,10 +12,6 @@ interface MaterialCostSectionProps {
   pieceCount: number;
   /** Current mode — margin details are hidden in view mode */
   mode?: 'view' | 'edit';
-  /** Current per-quote-option material margin adjustment */
-  materialMarginAdjustPercent?: number;
-  /** Called when margin adjustment changes (edit mode only) */
-  onMarginAdjustChange?: (percent: number) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -242,8 +238,6 @@ export default function MaterialCostSection({
   materials,
   pieceCount,
   mode = 'view',
-  materialMarginAdjustPercent,
-  onMarginAdjustChange,
 }: MaterialCostSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const isEditMode = mode === 'edit';
@@ -315,15 +309,6 @@ export default function MaterialCostSection({
                 <span className="tabular-nums">{formatCurrency(total)}</span>
               </div>
             </div>
-          )}
-
-          {/* Margin adjustment input — edit mode only */}
-          {isEditMode && onMarginAdjustChange && (
-            <MarginAdjustmentInput
-              value={materialMarginAdjustPercent ?? 0}
-              onChange={onMarginAdjustChange}
-              margin={materials.margin}
-            />
           )}
         </div>
       )}

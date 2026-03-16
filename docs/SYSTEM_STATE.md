@@ -1034,3 +1034,5 @@ MANUAL-BLANK-1 (2026-03-15): Blank quote builder with deferred save. NewQuoteWiz
 - ExpandedPieceViewClient: editable diameter_mm, radius_mm, corner_radius_mm fields for FULL_CIRCLE, RADIUS_END, ROUNDED_RECT curved pieces. Fields inside Dimensions card, conditional on shapeType + isEditMode. Write to editFields.shapeConfig via setEditFields. Existing handleSave includes shapeConfig in PATCH payload — no API or calculator changes.
 
 MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHENGE-DEVELOPMENT-BIBLE.md created.
+
+✅ MAT-FIX-1 (2026-03-16): MaterialCostSection.tsx no longer accepts materialMarginAdjustPercent or onMarginAdjustChange props — removed from interface and all usages. MarginSelector (QuoteDetailClient.tsx lines ~3162 and ~4004) is the sole margin control.
