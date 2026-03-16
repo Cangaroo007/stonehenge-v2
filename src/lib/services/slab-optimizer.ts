@@ -93,8 +93,10 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   customJoinMm?: number;
   /** True area in m² for curved shapes — less than bounding box. Used by C6 for pricing. */
   trueArea_m2?: number;
-  /** Strip sub-type: FACE (40mm mitre face strip) or RETURN (60mm return strip) */
-  stripSubType?: 'FACE' | 'RETURN';
+  /** Strip sub-type: FACE (front strip) or RETURN (return strip) or SUPPORT (support block) */
+  stripSubType?: 'FACE' | 'RETURN' | 'SUPPORT';
+  /** Per-edge build-up config */
+  edgeBuildups?: Record<string, { depth: number }> | null;
 };
 
 /**
@@ -142,68 +144,113 @@ function generateLaminationStrips(
   mitreKerfWidth?: number,
   stripConfigs?: { standard: number; mitre: number; wide: number }
 ): OptimizationPiece[] {
-  // Only generate strips for 40mm+ pieces
-  if (!piece.thickness || piece.thickness < LAMINATION_THRESHOLD) {
-    return [];
-  }
+  if (!piece.thickness || piece.thickness < LAMINATION_THRESHOLD) return [];
 
   const strips: OptimizationPiece[] = [];
-  const edgeNames = piece.edgeTypeNames;
   const noStripEdges = piece.noStripEdges ?? [];
-  const isMitrePiece = piece.laminationMethod === 'MITRED';
+  const edgeBuildups = piece.edgeBuildups ?? {};
+  const slabThickness = piece.thickness; // e.g. 20
 
-  // Helper: determine if an edge is a mitre edge (checks for 'mitre' substring)
-  const isMitreEdge = (name?: string): boolean => {
-    if (!name) return false;
-    return name.toLowerCase().includes('mitre');
-  };
-
-  // Rectangle pieces: generate strips for all 4 edges minus no_strip_edges (wall edges)
   const rectEdgeLengths: Record<string, { lengthMm: number; isWidth: boolean }> = {
-    top:    { lengthMm: piece.width, isWidth: true },
-    bottom: { lengthMm: piece.width, isWidth: true },
+    top:    { lengthMm: piece.width,  isWidth: true },
+    bottom: { lengthMm: piece.width,  isWidth: true },
     left:   { lengthMm: piece.height, isWidth: false },
     right:  { lengthMm: piece.height, isWidth: false },
   };
 
   for (const [edgeKey, { lengthMm, isWidth }] of Object.entries(rectEdgeLengths)) {
-    // Skip wall edges
     if (noStripEdges.includes(edgeKey)) continue;
 
-    const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
-    const isMitre = isMitreEdge(edgeName);
-    const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
-    const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
+    const buildup = edgeBuildups[edgeKey];
+    if (!buildup) {
+      // No edge build-up — fall back to legacy lamination logic for backwards compat
+      const edgeNames = piece.edgeTypeNames;
+      const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
+      const isMitreEdge = edgeName?.toLowerCase().includes('mitre') ?? false;
+      const isMitrePiece = piece.laminationMethod === 'MITRED';
+      const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined);
+      const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
 
-    // Return strip (always generated — 60mm for standard, 40mm for mitre)
-    strips.push({
-      id: `${piece.id}-lam-${edgeKey}`,
-      width: isWidth ? lengthMm : stripW,
-      height: isWidth ? stripW : lengthMm,
-      thickness: 20,
-      label: isMitrePiece && isMitre
-        ? `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''} Return)`
-        : `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''})`,
-      isLaminationStrip: true,
-      parentPieceId: piece.id,
-      stripPosition: edgeKey,
-      pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-      stripSubType: isMitrePiece && isMitre ? 'RETURN' : undefined,
-    });
-
-    // Face strip — only for MITRED pieces on mitre edges (40mm wide fixed)
-    if (isMitrePiece && isMitre) {
       strips.push({
-        id: `${piece.id}-lam-${edgeKey}-face`,
-        width: isWidth ? lengthMm : 40,
-        height: isWidth ? 40 : lengthMm,
-        thickness: 20,
-        label: `${piece.label} (Strip-${cap}${edgeName ? ` ${edgeName}` : ''} Face)`,
+        id: `${piece.id}-lam-${edgeKey}`,
+        width: isWidth ? lengthMm : stripW,
+        height: isWidth ? stripW : lengthMm,
+        thickness: slabThickness,
+        label: isMitrePiece && isMitreEdge
+          ? `${piece.label} (${cap} return strip)`
+          : `${piece.label} (${cap} strip)`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edgeKey,
-        stripSubType: 'FACE',
-        pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+        pieceKerfWidth: isMitreEdge ? (mitreKerfWidth ?? kerfWidth) : undefined,
+        stripSubType: isMitrePiece && isMitreEdge ? 'RETURN' : undefined,
+      });
+
+      // Legacy face strip for MITRED pieces on mitre edges
+      if (isMitrePiece && isMitreEdge) {
+        strips.push({
+          id: `${piece.id}-lam-${edgeKey}-face`,
+          width: isWidth ? lengthMm : 40,
+          height: isWidth ? 40 : lengthMm,
+          thickness: slabThickness,
+          label: `${piece.label} (${cap} front strip)`,
+          isLaminationStrip: true,
+          parentPieceId: piece.id,
+          stripPosition: edgeKey,
+          stripSubType: 'FACE',
+          pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+        });
+      }
+      continue;
+    }
+
+    // Edge has build-up config — generate front strip, return strip, and optional support block
+    const depth = buildup.depth;
+    const cap = edgeKey.charAt(0).toUpperCase() + edgeKey.slice(1);
+    const returnWidth = (piece.stripWidthOverrides as Record<string, number> | null)?.[edgeKey] ?? stripConfigs?.standard ?? 60;
+
+    // Part B — Front strip (always)
+    strips.push({
+      id: `${piece.id}-front-${edgeKey}`,
+      width: isWidth ? lengthMm : depth,
+      height: isWidth ? depth : lengthMm,
+      thickness: slabThickness,
+      label: `${piece.label} (${cap} front strip)`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: edgeKey,
+      stripSubType: 'FACE',
+      pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+    });
+
+    // Part C — Return strip (always)
+    strips.push({
+      id: `${piece.id}-return-${edgeKey}`,
+      width: isWidth ? lengthMm : returnWidth,
+      height: isWidth ? returnWidth : lengthMm,
+      thickness: slabThickness,
+      label: `${piece.label} (${cap} return strip)`,
+      isLaminationStrip: true,
+      parentPieceId: piece.id,
+      stripPosition: edgeKey,
+      stripSubType: 'RETURN',
+      pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+    });
+
+    // Part D — Support block (only when depth > 2 × slab thickness)
+    const supportWidth = depth - (2 * slabThickness);
+    if (supportWidth > 0) {
+      strips.push({
+        id: `${piece.id}-support-${edgeKey}`,
+        width: isWidth ? lengthMm : supportWidth,
+        height: isWidth ? supportWidth : lengthMm,
+        thickness: slabThickness,
+        label: `${piece.label} (${cap} support block)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: edgeKey,
+        stripSubType: 'SUPPORT',
+        pieceKerfWidth: kerfWidth,
       });
     }
   }
