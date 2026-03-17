@@ -403,6 +403,7 @@ export default function QuoteDetailClient({
   const [customerSectionExpanded, setCustomerSectionExpanded] = useState(false);
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
+  const [slabPriceOverrides, setSlabPriceOverrides] = useState<Record<string, number | null>>({});
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
   const [refreshTrigger, setRefreshTrigger] = useState(0);
@@ -1143,6 +1144,29 @@ export default function QuoteDetailClient({
     markAsChanged();
     recalculateOptionsAfterPieceChange();
   }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
+
+  // Initialise slab price overrides from piece data
+  useEffect(() => {
+    const overrides: Record<string, number | null> = {};
+    for (const p of effectivePieces) {
+      if (p.materialId && p.overrideSlabPrice != null && !(String(p.materialId) in overrides)) {
+        overrides[String(p.materialId)] = p.overrideSlabPrice;
+      }
+    }
+    setSlabPriceOverrides(overrides);
+  }, [effectivePieces]);
+
+  const handleMaterialSlabOverride = useCallback(async (materialId: string, price: number | null) => {
+    setSlabPriceOverrides(prev => ({ ...prev, [materialId]: price }));
+    const piece = effectivePieces.find(p => String(p.materialId) === materialId);
+    if (!piece) return;
+    await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrideSlabPrice: price, applyToAllMaterial: true }),
+    });
+    triggerRecalculate();
+  }, [effectivePieces, quoteId, triggerRecalculate]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -4017,6 +4041,9 @@ export default function QuoteDetailClient({
               materials={calculation.breakdown.materials}
               pieceCount={effectivePieces.length}
               mode="edit"
+              quoteId={quoteIdStr}
+              slabPriceOverrides={slabPriceOverrides}
+              onSlabPriceOverride={handleMaterialSlabOverride}
             />
           ) : (
             <p className="text-xs text-gray-400 italic px-1">

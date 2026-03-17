@@ -494,7 +494,6 @@ export default function QuickViewPieceRow({
   const [localOverrideSlabPrice, setLocalOverrideSlabPrice] = useState<string>(
     piece.overrideSlabPrice != null ? String(piece.overrideSlabPrice) : ''
   );
-  const [overrideSlabPriceScope, setOverrideSlabPriceScope] = useState<'piece' | 'all'>('piece');
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
@@ -687,13 +686,12 @@ export default function QuickViewPieceRow({
     setLocalOverrideSlabPrice(val);
     savePieceImmediate({
       overrideSlabPrice: val === '' ? null : parseFloat(val),
-      applyToAllMaterial: overrideSlabPriceScope === 'all',
+      applyToAllMaterial: false,
     });
-  }, [savePieceImmediate, overrideSlabPriceScope]);
+  }, [savePieceImmediate]);
 
   const handleClearOverrideSlabPrice = useCallback(() => {
     setLocalOverrideSlabPrice('');
-    setOverrideSlabPriceScope('piece');
     savePieceImmediate({ overrideSlabPrice: null, applyToAllMaterial: false });
   }, [savePieceImmediate]);
 
@@ -1145,10 +1143,10 @@ export default function QuickViewPieceRow({
             </span>
           ) : null}
 
-          {/* Slab price override (edit mode) */}
+          {/* Slab price override — per-piece only (edit mode) */}
           {isEditMode && (
             <div className="w-full mt-2 space-y-1">
-              <label className="text-xs text-gray-500">Override slab price</label>
+              <label className="text-xs text-gray-500">Override this piece&apos;s slab price</label>
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400">$</span>
                 <input
@@ -1171,28 +1169,6 @@ export default function QuickViewPieceRow({
                   </button>
                 )}
               </div>
-              {localOverrideSlabPrice !== '' && (
-                <div className="flex gap-3">
-                  <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={`scope-${piece.id}`}
-                      checked={overrideSlabPriceScope === 'piece'}
-                      onChange={() => setOverrideSlabPriceScope('piece')}
-                    />
-                    This piece only
-                  </label>
-                  <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
-                    <input
-                      type="radio"
-                      name={`scope-${piece.id}`}
-                      checked={overrideSlabPriceScope === 'all'}
-                      onChange={() => setOverrideSlabPriceScope('all')}
-                    />
-                    All {piece.materialName ?? 'material'} pieces
-                  </label>
-                </div>
-              )}
             </div>
           )}
           {piece.overrideSlabPrice != null && (

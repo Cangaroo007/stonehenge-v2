@@ -1038,3 +1038,7 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ MAT-FIX-1 (2026-03-16): MaterialCostSection.tsx no longer accepts materialMarginAdjustPercent or onMarginAdjustChange props — removed from interface and all usages. MarginSelector (QuoteDetailClient.tsx lines ~3162 and ~4004) is the sole margin control.
 
 ✅ MAT-FIX-2 (2026-03-16): quote_pieces.override_slab_price Decimal? added (migration 20260316000001). Wired through full 7-location data chain. Calculator bypasses margin when set — cost = ceil(slabCount) x overrideSlabPrice. QuickViewPieceRow shows price input + scope radio (this piece / all material pieces) + amber pill when active.
+
+✅ MAT-FIX-2b (2026-03-16): MaterialCostSection accepts quoteId, slabPriceOverrides, onSlabPriceOverride props. Per-material override in edit mode. QuoteDetailClient wires handleMaterialSlabOverride. QVR overrideSlabPriceScope removed.
+
+✅ MAT-FIX-2b (2026-03-16): MaterialCostSection accepts quoteId, slabPriceOverrides, onSlabPriceOverride props. Per-material override in edit mode. QuoteDetailClient wires handleMaterialSlabOverride. QVR overrideSlabPriceScope removed.
