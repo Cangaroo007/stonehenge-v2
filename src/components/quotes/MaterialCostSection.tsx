@@ -370,6 +370,45 @@ export default function MaterialCostSection({
               {isSlab
                 ? <PerSlabDetail data={materials} showMargin={isEditMode} />
                 : <PerSqmDetail data={materials} showMargin={isEditMode} />}
+              {isEditMode && isSlab && onSlabPriceOverride && materials.byMaterial?.[0]?.materialId && (
+                <div className="mt-2 pt-2 border-t border-dashed border-gray-100 space-y-1">
+                  <label className="text-xs text-gray-500">
+                    Override slab price — all {materialName} pieces
+                  </label>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-gray-400">$</span>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      placeholder={`Catalogue: ${formatCurrency(materials.slabRate ?? 0)}`}
+                      value={slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null
+                        ? String(slabPriceOverrides![String(materials.byMaterial[0].materialId)])
+                        : ''}
+                      onChange={(e) => {
+                        const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                        onSlabPriceOverride(String(materials.byMaterial![0].materialId!),
+                          e.target.value === '' ? null : val);
+                      }}
+                      onBlur={(e) => {
+                        const val = e.target.value === '' ? null : parseFloat(e.target.value);
+                        onSlabPriceOverride(String(materials.byMaterial![0].materialId!), val);
+                      }}
+                      className="w-32 text-xs border border-gray-200 rounded px-2 py-1"
+                    />
+                    {slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null && (
+                      <button
+                        onClick={() => onSlabPriceOverride(String(materials.byMaterial![0].materialId!), null)}
+                        className="text-xs text-gray-400 hover:text-red-500"
+                      >Clear</button>
+                    )}
+                  </div>
+                  {slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null && (
+                    <p className="text-xs text-amber-600">
+                      ⚠️ Margin bypassed — all {materialName} pieces billed at override price
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="flex justify-between items-center pt-2 mt-2 border-t border-gray-200 text-sm font-bold text-gray-800">
                 <span>Total Material Cost</span>
                 <span className="tabular-nums">{formatCurrency(total)}</span>
