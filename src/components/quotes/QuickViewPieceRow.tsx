@@ -465,6 +465,7 @@ export default function QuickViewPieceRow({
   onExpand,
   relationships,
   allPiecesForRelationships,
+  quoteId,
   quoteIdStr,
   onRelationshipChange,
   onStripWidthChange,
@@ -683,21 +684,21 @@ export default function QuickViewPieceRow({
   const handleLabourOnlyToggle = useCallback(async (checked: boolean) => {
     const val = checked ? '0' : '';
     setLocalOverrideCost(val);
-    if (!quoteIdStr) return;
-    await fetch(`/api/quotes/${quoteIdStr}/pieces/${piece.id}`, {
+    if (!quoteId) return;
+    await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ overrideMaterialCost: checked ? 0 : null }),
     });
     onSavePiece?.(piece.id, { overrideMaterialCost: checked ? 0 : null }, piece.roomName ?? '');
-  }, [quoteIdStr, piece.id, piece.roomName, onSavePiece]);
+  }, [quoteId, piece.id, piece.roomName, onSavePiece]);
 
   const handleSaveOverrides = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!quoteIdStr) return;
+    if (!quoteId) return;
     setOverrideSaving('saving');
     try {
-      await fetch(`/api/quotes/${quoteIdStr}/pieces/${piece.id}`, {
+      await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -716,7 +717,7 @@ export default function QuickViewPieceRow({
     } catch {
       setOverrideSaving('idle');
     }
-  }, [quoteIdStr, piece.id, piece.roomName, localOverrideCost, localOverrideSlabPrice, localOverrideFabCost, onSavePiece]);
+  }, [quoteId, piece.id, piece.roomName, localOverrideCost, localOverrideSlabPrice, localOverrideFabCost, onSavePiece]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
   const edgeFieldMap: Record<string, string> = {

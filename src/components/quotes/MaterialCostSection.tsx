@@ -195,9 +195,8 @@ function MaterialSubSection({
               <div className="flex items-center gap-2">
                 <span className="text-xs text-gray-400">$</span>
                 <input
-                  type="number"
-                  min="0"
-                  step="0.01"
+                  type="text"
+                  inputMode="decimal"
                   placeholder={`Catalogue: ${formatCurrency(group.slabRate ?? 0)}`}
                   value={localOverride}
                   onChange={e => setLocalOverride(e.target.value)}
@@ -353,7 +352,7 @@ export default function MaterialCostSection({
                   group={group}
                   showMargin={isEditMode}
                   isEditMode={isEditMode}
-                  overridePrice={slabPriceOverrides?.[group.materialId ?? ''] ?? null}
+                  overridePrice={slabPriceOverrides?.[String(group.materialId)] ?? null}
                   onSlabPriceOverride={onSlabPriceOverride}
                 />
               ))}

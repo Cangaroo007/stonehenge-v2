@@ -1052,3 +1052,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ BUG-FIX-1 (2026-03-17): View mode piece prop now includes edgeBuildups. Calculator always populates byMaterial when length > 0. QVR batch apply label and strip width title updated.
 
 ✅ BUG-FIX-2 (2026-03-17): QVR override inputs moved to unified Price Overrides section in Cost Breakdown. handleSaveOverrides direct API fetch — no fullPiece dependency. overrideSaving state added. Labour Only toggle uses direct fetch. Override inputs use type=text inputMode=decimal.
+
+✅ HOTFIX-1 (2026-03-17): QVR handleSaveOverrides and handleLabourOnlyToggle now use quoteId not quoteIdStr. MaterialCostSection slabPriceOverrides lookup uses String(group.materialId). Override input type=text inputMode=decimal.
