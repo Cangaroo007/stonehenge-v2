@@ -217,7 +217,9 @@ function PieceRect({
   const { piece, x, y, w, h } = rect;
   const fill = FILL_COLOURS[piece.relationship] || '#f0f4f8';
   const isLaminated =
-    piece.dimensions.thicknessMm >= 40 || piece.relationship === 'LAMINATION';
+    piece.dimensions.thicknessMm >= 40 ||
+    Object.keys((piece as unknown as { edgeBuildups?: Record<string, unknown> }).edgeBuildups ?? {}).length > 0 ||
+    piece.relationship === 'LAMINATION';
 
   return (
     <g

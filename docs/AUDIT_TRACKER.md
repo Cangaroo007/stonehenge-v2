@@ -255,3 +255,7 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ MAT-FIX-2b (2026-03-16): Moved slab price override from QVR to MaterialCostSection. Per-material override input sets override_slab_price on all pieces via applyToAllMaterial=true. QVR simplified to per-piece only — scope radio removed. 3 files changed.
 
 ✅ FAB-OVERRIDE-1 (2026-03-17): Added override_fabrication_cost field to quote_pieces. Per-piece fabrication labour override — replaces cutting/edge/cutout costs, material unchanged. Wired through full 7-location data chain. Calculator bypass at line 1583. QVR UI at bottom of piece below edge build-up. 8 files changed.
+
+✅ ARCH-1a (2026-03-17): Fixed 4 threshold guards — edgeBuildups check added alongside thicknessMm >= 40 in QVR batch filter (line 255), QVR strip width controls (line 1725), InlinePieceEditor batch filter (line 328), MiniSpatialDiagram isLaminated (line 221). PieceForm.tsx line 510 skipped — legacy builder route, tracked as ARCH-1b. 3 files changed.
+
+✅ ARCH-1a (2026-03-17): Fixed 4 threshold guards — edgeBuildups check added alongside thicknessMm >= 40 in QVR batch filter (line 255), QVR strip width controls (line 1725), InlinePieceEditor batch filter (line 328), MiniSpatialDiagram isLaminated (line 221). PieceForm.tsx line 510 skipped — legacy builder route, tracked as ARCH-1b. 3 files changed.
