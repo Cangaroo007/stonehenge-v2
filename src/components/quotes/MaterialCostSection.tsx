@@ -12,6 +12,12 @@ interface MaterialCostSectionProps {
   pieceCount: number;
   /** Current mode — margin details are hidden in view mode */
   mode?: 'view' | 'edit';
+  /** Quote ID for API calls */
+  quoteId?: string;
+  /** Current override prices keyed by materialId */
+  slabPriceOverrides?: Record<string, number | null>;
+  /** Called when mason sets or clears a material-level slab override */
+  onSlabPriceOverride?: (materialId: string, price: number | null) => void;
 }
 
 // ── Chevron Icon ────────────────────────────────────────────────────────────
@@ -145,12 +151,27 @@ function PerSqmDetail({ data, showMargin }: { data: MaterialBreakdown | Material
 
 // ── Single Material Sub-Section ─────────────────────────────────────────────
 
-function MaterialSubSection({ group, showMargin }: { group: MaterialGroupBreakdown; showMargin?: boolean }) {
+function MaterialSubSection({
+  group,
+  showMargin,
+  isEditMode,
+  overridePrice,
+  onSlabPriceOverride,
+}: {
+  group: MaterialGroupBreakdown;
+  showMargin?: boolean;
+  isEditMode?: boolean;
+  overridePrice?: number | null;
+  onSlabPriceOverride?: (materialId: string, price: number | null) => void;
+}) {
   const [expanded, setExpanded] = useState(false);
   const isSlab = group.pricingBasis === 'PER_SLAB';
   const summaryText = isSlab
     ? `${group.slabCount ?? 0} slab${(group.slabCount ?? 0) !== 1 ? 's' : ''}`
     : `${(group.totalAreaM2 ?? 0).toFixed(2)} m\u00B2`;
+  const [localOverride, setLocalOverride] = useState<string>(
+    overridePrice != null ? String(overridePrice) : ''
+  );
 
   return (
     <div className="rounded-lg border border-gray-100 bg-gray-50/50">
@@ -168,6 +189,43 @@ function MaterialSubSection({ group, showMargin }: { group: MaterialGroupBreakdo
       {expanded && (
         <div className="px-3 pb-3 pt-1 border-t border-gray-100 text-xs text-gray-600">
           {isSlab ? <PerSlabDetail data={group} showMargin={showMargin} /> : <PerSqmDetail data={group} showMargin={showMargin} />}
+          {isEditMode && isSlab && onSlabPriceOverride && group.materialId && (
+            <div className="mt-2 pt-2 border-t border-dashed border-gray-100 space-y-1">
+              <label className="text-xs text-gray-500">Override slab price — all {group.materialName} pieces</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder={`Catalogue: ${formatCurrency(group.slabRate ?? 0)}`}
+                  value={localOverride}
+                  onChange={e => setLocalOverride(e.target.value)}
+                  onBlur={() => {
+                    const val = localOverride === '' ? null : parseFloat(localOverride);
+                    onSlabPriceOverride(String(group.materialId!), val);
+                  }}
+                  className="w-32 text-xs border border-gray-200 rounded px-2 py-1"
+                />
+                {localOverride !== '' && (
+                  <button
+                    onClick={() => {
+                      setLocalOverride('');
+                      onSlabPriceOverride(String(group.materialId!), null);
+                    }}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {localOverride !== '' && (
+                <p className="text-xs text-amber-600">
+                  ⚠️ Margin bypassed — all {group.materialName} pieces billed at override price
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -238,6 +296,8 @@ export default function MaterialCostSection({
   materials,
   pieceCount,
   mode = 'view',
+  slabPriceOverrides,
+  onSlabPriceOverride,
 }: MaterialCostSectionProps) {
   const [expanded, setExpanded] = useState(false);
   const isEditMode = mode === 'edit';
@@ -288,7 +348,14 @@ export default function MaterialCostSection({
             // Multiple materials: show sub-sections
             <div className="space-y-2">
               {materials.byMaterial!.map((group) => (
-                <MaterialSubSection key={group.materialId} group={group} showMargin={isEditMode} />
+                <MaterialSubSection
+                  key={group.materialId}
+                  group={group}
+                  showMargin={isEditMode}
+                  isEditMode={isEditMode}
+                  overridePrice={slabPriceOverrides?.[group.materialId ?? ''] ?? null}
+                  onSlabPriceOverride={onSlabPriceOverride}
+                />
               ))}
               <div className="flex justify-between items-center pt-2 border-t border-gray-200 text-sm font-bold text-gray-800">
                 <span>Total Material Cost</span>
