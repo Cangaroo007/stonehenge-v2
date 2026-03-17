@@ -325,8 +325,11 @@ function PerEdgeStripWidthTable({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number }> = await res.json();
-      const targets = allPieces.filter(p => p.thicknessMm >= 40 && p.id !== piece.id);
+      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, { depth: number }> | null }> = await res.json();
+      const targets = allPieces.filter(p =>
+        (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
+        p.id !== piece.id
+      );
       const overridePayload = Object.keys(stripWidthOverrides).length > 0 ? stripWidthOverrides : null;
 
       // Sequential PATCHes to avoid rate limiting

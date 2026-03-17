@@ -252,8 +252,11 @@ function AccordionStripWidths({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number }> = await res.json();
-      const targets = allPieces.filter(p => p.thicknessMm >= 40 && p.id !== piece.id);
+      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, { depth: number }> | null }> = await res.json();
+      const targets = allPieces.filter(p =>
+        (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
+        p.id !== piece.id
+      );
       const overridePayload = Object.keys(overrides).length > 0 ? overrides : null;
       for (const target of targets) {
         await fetch(`/api/quotes/${quoteId}/pieces/${target.id}`, {
@@ -1718,8 +1721,8 @@ export default function QuickViewPieceRow({
             </div>
           )}
 
-          {/* Per-edge strip width overrides (edit mode, 40mm+ pieces only) */}
-          {mode === 'edit' && quoteIdStr && fullPiece && (fullPiece.thicknessMm >= 40) && (
+          {/* Per-edge strip width overrides (edit mode, 40mm+ pieces or pieces with edge buildups) */}
+          {mode === 'edit' && quoteIdStr && fullPiece && (fullPiece.thicknessMm >= 40 || Object.keys(fullPiece.edgeBuildups ?? {}).length > 0) && (
             <AccordionStripWidths
               piece={fullPiece}
               quoteId={quoteIdStr}
