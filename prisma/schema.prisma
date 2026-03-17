@@ -556,6 +556,7 @@ model quote_pieces {
   joinLengthMm            Int?
   requiresGrainMatch      Boolean               @default(false)
   override_material_cost  Decimal?              @db.Decimal(10, 2)
+  override_slab_price     Decimal?              @db.Decimal(10, 2)
   /// Per-edge strip width overrides as JSON: { top?: number, bottom?: number, left?: number, right?: number, ... }
   /// Overrides the tenant strip_configurations default for this piece per edge.
   /// Only applies to LAMINATED/MITRED pieces (thickness >= 40mm).

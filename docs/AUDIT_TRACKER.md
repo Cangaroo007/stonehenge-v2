@@ -247,3 +247,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 
 
 ✅ MAT-FIX-1 (2026-03-16): Removed redundant materialMarginAdjustPercent / onMarginAdjustChange props from MaterialCostSection. Props interface, destructuring, and JSX block deleted from MaterialCostSection.tsx. Call site props deleted from QuoteDetailClient.tsx. MarginSelector remains the sole margin control. 2 files, 23 deletions.
+
+✅ MAT-FIX-2 (2026-03-16): Added override_slab_price field to quote_pieces. Mason can override catalogue slab price per-piece or across all pieces of same material in a quote. Override bypasses margin entirely. UI in QuickViewPieceRow with scope radio + amber pill. Calculator bypass before PER_SLAB recalculation. 8 files changed.
