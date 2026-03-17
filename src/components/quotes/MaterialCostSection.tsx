@@ -217,6 +217,15 @@ function MaterialSubSection({
                     Clear
                   </button>
                 )}
+                <button
+                  onClick={() => {
+                    const val = localOverride === '' ? null : parseFloat(localOverride);
+                    onSlabPriceOverride(String(group.materialId!), val);
+                  }}
+                  className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                >
+                  Update
+                </button>
               </div>
               {localOverride !== '' && (
                 <p className="text-xs text-amber-600">
@@ -299,6 +308,7 @@ export default function MaterialCostSection({
   onSlabPriceOverride,
 }: MaterialCostSectionProps) {
   const [expanded, setExpanded] = useState(false);
+  const [singleMatOverride, setSingleMatOverride] = useState('');
   const isEditMode = mode === 'edit';
 
   // Empty state: no pieces
@@ -381,26 +391,30 @@ export default function MaterialCostSection({
                       type="text"
                       inputMode="decimal"
                       placeholder={`Catalogue: ${formatCurrency(materials.slabRate ?? 0)}`}
-                      value={slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null
-                        ? String(slabPriceOverrides![String(materials.byMaterial[0].materialId)])
-                        : ''}
-                      onChange={(e) => {
-                        const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                        onSlabPriceOverride(String(materials.byMaterial![0].materialId!),
-                          e.target.value === '' ? null : val);
-                      }}
-                      onBlur={(e) => {
-                        const val = e.target.value === '' ? null : parseFloat(e.target.value);
-                        onSlabPriceOverride(String(materials.byMaterial![0].materialId!), val);
-                      }}
+                      value={singleMatOverride}
+                      onChange={(e) => setSingleMatOverride(e.target.value)}
                       className="w-32 text-xs border border-gray-200 rounded px-2 py-1"
                     />
-                    {slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null && (
+                    {singleMatOverride !== '' && (
                       <button
-                        onClick={() => onSlabPriceOverride(String(materials.byMaterial![0].materialId!), null)}
+                        onClick={() => {
+                          setSingleMatOverride('');
+                          onSlabPriceOverride(String(materials.byMaterial![0].materialId!), null);
+                        }}
                         className="text-xs text-gray-400 hover:text-red-500"
                       >Clear</button>
                     )}
+                    <button
+                      onClick={() => {
+                        const val = singleMatOverride === '' ? null : parseFloat(singleMatOverride);
+                        if (onSlabPriceOverride && materials.byMaterial?.[0]?.materialId) {
+                          onSlabPriceOverride(String(materials.byMaterial[0].materialId), val);
+                        }
+                      }}
+                      className="text-xs bg-blue-600 text-white px-2 py-1 rounded hover:bg-blue-700"
+                    >
+                      Update
+                    </button>
                   </div>
                   {slabPriceOverrides?.[String(materials.byMaterial[0].materialId)] != null && (
                     <p className="text-xs text-amber-600">
