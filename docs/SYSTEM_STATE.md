@@ -1048,3 +1048,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ ARCH-1a (2026-03-17): QVR and InlinePieceEditor batch filters now include edgeBuildups in type declaration and filter condition. QVR strip width controls gate updated. MiniSpatialDiagram isLaminated updated — cast on piece not piece.dimensions. PieceForm.tsx gap remains (ARCH-1b).
 
 ✅ ARCH-1a (2026-03-17): QVR and InlinePieceEditor batch filters now include edgeBuildups in type declaration and filter condition. QVR strip width controls gate updated. MiniSpatialDiagram isLaminated updated — cast on piece not piece.dimensions. PieceForm.tsx gap remains (ARCH-1b).
+
+✅ BUG-FIX-1 (2026-03-17): View mode piece prop now includes edgeBuildups. Calculator always populates byMaterial when length > 0. QVR batch apply label and strip width title updated.

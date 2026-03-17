@@ -278,7 +278,7 @@ function AccordionStripWidths({
 
   return (
     <div className="px-4 pb-3 pt-3 border-b border-gray-100">
-      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Strip Widths</p>
+      <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1.5">Return Strip Width Overrides</p>
       <table className="w-full text-xs border border-gray-200 rounded overflow-hidden">
         <thead>
           <tr className="bg-gray-50 text-gray-500 uppercase tracking-wider text-[10px]">
@@ -330,7 +330,7 @@ function AccordionStripWidths({
         disabled={applyingAll}
         className="mt-1.5 text-xs text-blue-600 hover:text-blue-800 disabled:text-gray-400 font-medium"
       >
-        {applyingAll ? 'Applying...' : 'Apply to all 40mm pieces'}
+        {applyingAll ? 'Applying...' : 'Apply to all pieces with build-ups'}
       </button>
       {applyMessage && (
         <p className="text-xs text-green-600 mt-0.5">{applyMessage}</p>

@@ -3003,6 +3003,7 @@ export default function QuoteDetailClient({
                         overrideMaterialCost: (piece as any).override_material_cost ?? null,
                         overrideSlabPrice: (piece as any).overrideSlabPrice ?? (piece as any).override_slab_price ?? null,
                         overrideFabricationCost: (piece as any).overrideFabricationCost ?? (piece as any).override_fabrication_cost ?? null,
+                        edgeBuildups: (piece as any).edgeBuildups ?? (piece as any).edge_buildups ?? null,
                       }}
                       breakdown={pb}
                       mode="view"
