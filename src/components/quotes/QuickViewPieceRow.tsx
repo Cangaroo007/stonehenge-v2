@@ -501,6 +501,7 @@ export default function QuickViewPieceRow({
   const [localOverrideFabCost, setLocalOverrideFabCost] = useState<string>(
     piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
   );
+  const [overrideSaving, setOverrideSaving] = useState<'idle' | 'saving' | 'saved'>('idle');
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
@@ -677,40 +678,45 @@ export default function QuickViewPieceRow({
     savePieceImmediate({ materialId: mat.id, materialName: mat.name });
   }, [savePieceImmediate]);
 
-  const handleOverrideCostChange = useCallback((val: string) => {
-    setLocalOverrideCost(val);
-    savePieceImmediate({
-      overrideMaterialCost: val === '' ? null : parseFloat(val),
-    });
-  }, [savePieceImmediate]);
+  // handleOverrideCostChange removed — replaced by handleSaveOverrides in Cost Breakdown
 
-  const handleLabourOnlyToggle = useCallback((checked: boolean) => {
+  const handleLabourOnlyToggle = useCallback(async (checked: boolean) => {
     const val = checked ? '0' : '';
     setLocalOverrideCost(val);
-    savePieceImmediate({
-      overrideMaterialCost: checked ? 0 : null,
+    if (!quoteIdStr) return;
+    await fetch(`/api/quotes/${quoteIdStr}/pieces/${piece.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ overrideMaterialCost: checked ? 0 : null }),
     });
-  }, [savePieceImmediate]);
+    onSavePiece?.(piece.id, { overrideMaterialCost: checked ? 0 : null }, piece.roomName ?? '');
+  }, [quoteIdStr, piece.id, piece.roomName, onSavePiece]);
 
-  const handleOverrideSlabPriceChange = useCallback((val: string) => {
-    setLocalOverrideSlabPrice(val);
-    savePieceImmediate({
-      overrideSlabPrice: val === '' ? null : parseFloat(val),
-      applyToAllMaterial: false,
-    });
-  }, [savePieceImmediate]);
-
-  const handleClearOverrideSlabPrice = useCallback(() => {
-    setLocalOverrideSlabPrice('');
-    savePieceImmediate({ overrideSlabPrice: null, applyToAllMaterial: false });
-  }, [savePieceImmediate]);
-
-  const handleOverrideFabCostChange = useCallback((val: string) => {
-    setLocalOverrideFabCost(val);
-    savePieceImmediate({
-      overrideFabricationCost: val === '' ? null : parseFloat(val),
-    });
-  }, [savePieceImmediate]);
+  const handleSaveOverrides = useCallback(async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!quoteIdStr) return;
+    setOverrideSaving('saving');
+    try {
+      await fetch(`/api/quotes/${quoteIdStr}/pieces/${piece.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          overrideMaterialCost: localOverrideCost === '' ? null : parseFloat(localOverrideCost),
+          overrideSlabPrice: localOverrideSlabPrice === '' ? null : parseFloat(localOverrideSlabPrice),
+          overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
+        }),
+      });
+      setOverrideSaving('saved');
+      onSavePiece?.(piece.id, {
+        overrideMaterialCost: localOverrideCost === '' ? null : parseFloat(localOverrideCost),
+        overrideSlabPrice: localOverrideSlabPrice === '' ? null : parseFloat(localOverrideSlabPrice),
+        overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
+      }, piece.roomName ?? '');
+      setTimeout(() => setOverrideSaving('idle'), 2000);
+    } catch {
+      setOverrideSaving('idle');
+    }
+  }, [quoteIdStr, piece.id, piece.roomName, localOverrideCost, localOverrideSlabPrice, localOverrideFabCost, onSavePiece]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
   const edgeFieldMap: Record<string, string> = {
@@ -1130,25 +1136,7 @@ export default function QuickViewPieceRow({
                   Labour only
                 </label>
               </div>
-              {localOverrideCost !== '0' && (
-                <div className="relative">
-                  <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={localOverrideCost}
-                    onChange={(e) => handleOverrideCostChange(e.target.value)}
-                    onClick={(e) => e.stopPropagation()}
-                    placeholder="Override price (optional)"
-                    className={`w-full pl-5 pr-2 py-1 text-xs border rounded focus:ring-1 focus:ring-primary-500 ${
-                      localOverrideCost !== ''
-                        ? 'border-amber-400 bg-amber-50'
-                        : 'border-gray-200'
-                    }`}
-                  />
-                </div>
-              )}
+              {/* Override material cost input moved to Cost Breakdown section */}
             </div>
           )}
 
@@ -1160,39 +1148,7 @@ export default function QuickViewPieceRow({
             </span>
           ) : null}
 
-          {/* Slab price override — per-piece only (edit mode) */}
-          {isEditMode && (
-            <div className="w-full mt-2 space-y-1">
-              <label className="text-xs text-gray-500">Override this piece&apos;s slab price</label>
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-gray-400">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 800.00"
-                  value={localOverrideSlabPrice}
-                  onChange={(e) => setLocalOverrideSlabPrice(e.target.value)}
-                  onBlur={() => handleOverrideSlabPriceChange(localOverrideSlabPrice)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-28 text-xs border border-gray-200 rounded px-2 py-1"
-                />
-                {localOverrideSlabPrice !== '' && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); handleClearOverrideSlabPrice(); }}
-                    className="text-xs text-gray-400 hover:text-red-500"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-            </div>
-          )}
-          {piece.overrideSlabPrice != null && (
-            <span className="ml-1 text-xs text-amber-600 font-medium">
-              ⚠️ ${Number(piece.overrideSlabPrice).toFixed(2)}/slab override — margin bypassed
-            </span>
-          )}
+          {/* Slab price override input moved to Cost Breakdown section */}
 
           {/* Edge Build-Up edit UI (edit mode only) */}
           {isEditMode && (
@@ -1272,48 +1228,7 @@ export default function QuickViewPieceRow({
             </div>
           )}
 
-          {/* Fabrication cost override — edit mode only */}
-          {isEditMode && (
-            <div className="w-full mt-3 pt-3 border-t border-gray-100 space-y-1">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-medium text-gray-600">Override fabrication cost</span>
-              </div>
-              <p className="text-xs text-gray-400">
-                Replaces cutting, edge and cutout costs. Material cost unchanged.
-              </p>
-              <div className="flex items-center gap-2 mt-1">
-                <span className="text-xs text-gray-400">$</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  placeholder="e.g. 250.00"
-                  value={localOverrideFabCost}
-                  onChange={(e) => setLocalOverrideFabCost(e.target.value)}
-                  onBlur={() => handleOverrideFabCostChange(localOverrideFabCost)}
-                  onClick={(e) => e.stopPropagation()}
-                  className="w-28 text-xs border border-gray-200 rounded px-2 py-1"
-                />
-                {localOverrideFabCost !== '' && (
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setLocalOverrideFabCost('');
-                      savePieceImmediate({ overrideFabricationCost: null });
-                    }}
-                    className="text-xs text-gray-400 hover:text-red-500"
-                  >
-                    Clear
-                  </button>
-                )}
-              </div>
-              {piece.overrideFabricationCost != null && (
-                <span className="text-xs text-amber-600 font-medium">
-                  ⚠️ Fabrication override: ${Number(piece.overrideFabricationCost).toFixed(2)} — cutting/edge/cutout costs replaced
-                </span>
-              )}
-            </div>
-          )}
+          {/* Fabrication cost override input moved to Cost Breakdown section */}
 
           {/* Spacer + Price + Badges */}
           <div className="flex-1" />
@@ -1873,6 +1788,122 @@ export default function QuickViewPieceRow({
                   <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.installation.total)}</span>
                 </div>
               )}
+              {/* ── Price Overrides ── */}
+              {isEditMode && (
+                <div className="mt-3 pt-3 border-t border-dashed border-gray-200 space-y-2">
+                  <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
+                    Price Overrides
+                  </p>
+
+                  {/* Override material cost */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500 w-40">Override material cost</span>
+                    <div className="flex items-center gap-1 flex-1">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 800.00"
+                        value={localOverrideCost === '0' && piece.overrideMaterialCost === 0 ? '' : localOverrideCost}
+                        onChange={(e) => setLocalOverrideCost(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-28 text-xs border border-gray-200 rounded px-2 py-1 appearance-none"
+                      />
+                      {localOverrideCost !== '' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLocalOverrideCost(''); }}
+                          className="text-xs text-gray-400 hover:text-red-500"
+                        >Clear</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Override slab price */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500 w-40">Override slab price</span>
+                    <div className="flex items-center gap-1 flex-1">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 800.00"
+                        value={localOverrideSlabPrice}
+                        onChange={(e) => setLocalOverrideSlabPrice(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-28 text-xs border border-gray-200 rounded px-2 py-1 appearance-none"
+                      />
+                      {localOverrideSlabPrice !== '' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLocalOverrideSlabPrice(''); }}
+                          className="text-xs text-gray-400 hover:text-red-500"
+                        >Clear</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Override fabrication cost */}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs text-gray-500 w-40">Override fabrication cost</span>
+                    <div className="flex items-center gap-1 flex-1">
+                      <span className="text-xs text-gray-400">$</span>
+                      <input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder="e.g. 250.00"
+                        value={localOverrideFabCost}
+                        onChange={(e) => setLocalOverrideFabCost(e.target.value)}
+                        onClick={(e) => e.stopPropagation()}
+                        className="w-28 text-xs border border-gray-200 rounded px-2 py-1 appearance-none"
+                      />
+                      {localOverrideFabCost !== '' && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); setLocalOverrideFabCost(''); }}
+                          className="text-xs text-gray-400 hover:text-red-500"
+                        >Clear</button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Update button + save state */}
+                  {(localOverrideCost !== '' || localOverrideSlabPrice !== '' || localOverrideFabCost !== '') && (
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        onClick={handleSaveOverrides}
+                        disabled={overrideSaving === 'saving'}
+                        className="text-xs bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700 disabled:opacity-50"
+                      >
+                        {overrideSaving === 'saving' ? 'Saving...' : 'Update overrides'}
+                      </button>
+                      {overrideSaving === 'saved' && (
+                        <span className="text-xs text-green-600">&#10003; Saved</span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Active override pills */}
+                  <div className="flex flex-wrap gap-1 pt-1">
+                    {piece.overrideMaterialCost === 0 && (
+                      <span className="text-xs text-gray-400 italic">Labour only active</span>
+                    )}
+                    {piece.overrideMaterialCost != null && piece.overrideMaterialCost !== 0 && (
+                      <span className="text-xs text-amber-600">
+                        ⚠️ Material override: ${Number(piece.overrideMaterialCost).toFixed(2)}
+                      </span>
+                    )}
+                    {piece.overrideSlabPrice != null && (
+                      <span className="text-xs text-amber-600">
+                        ⚠️ Slab override: ${Number(piece.overrideSlabPrice).toFixed(2)}/slab
+                      </span>
+                    )}
+                    {piece.overrideFabricationCost != null && (
+                      <span className="text-xs text-amber-600">
+                        ⚠️ Fabrication override: ${Number(piece.overrideFabricationCost).toFixed(2)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              )}
+
               <div className="flex items-center justify-between text-xs font-semibold text-gray-900 pt-1 border-t border-gray-100">
                 <span>Piece Total</span>
                 <span className="tabular-nums">{formatCurrency(pieceTotal)}</span>
