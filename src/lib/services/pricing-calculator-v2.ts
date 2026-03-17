@@ -485,7 +485,7 @@ export function calculateMaterialCost(
     slabLengthMm: slabLengthMm ?? undefined,
     slabWidthMm: slabWidthMm ?? undefined,
     slabCountFromOptimiser: slabCountFromOptimiser ?? false,
-    byMaterial: byMaterial.length > 1 ? byMaterial : undefined,
+    byMaterial: byMaterial.length > 0 ? byMaterial : undefined,
     marginResolution: {
       effectiveMarginPercent: roundToTwo(baseMarginPercent),
       marginSource,
