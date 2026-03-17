@@ -115,6 +115,7 @@ interface QuotePiece {
   requiresGrainMatch: boolean;
   overrideMaterialCost?: number | null;
   overrideSlabPrice?: number | null;
+  overrideFabricationCost?: number | null;
   noStripEdges?: string[];
   edgeBuildups?: Record<string, { depth: number }> | null;
   stripWidthOverrides?: Record<string, number> | null;
@@ -299,6 +300,7 @@ export interface ServerQuoteData {
       requiresGrainMatch: boolean;
   overrideMaterialCost?: number | null;
       overrideSlabPrice?: number | null;
+      overrideFabricationCost?: number | null;
       edge_buildups?: Record<string, { depth: number }> | null;
       no_strip_edges?: string[] | null;
       piece_features: Array<{
@@ -3000,6 +3002,7 @@ export default function QuoteDetailClient({
                         noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
                         overrideMaterialCost: (piece as any).override_material_cost ?? null,
                         overrideSlabPrice: (piece as any).overrideSlabPrice ?? (piece as any).override_slab_price ?? null,
+                        overrideFabricationCost: (piece as any).overrideFabricationCost ?? (piece as any).override_fabrication_cost ?? null,
                       }}
                       breakdown={pb}
                       mode="view"
@@ -3429,6 +3432,7 @@ export default function QuoteDetailClient({
               edgeBuildups: (p as unknown as { edge_buildups?: Record<string, { depth: number }> }).edge_buildups ?? (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
               overrideMaterialCost: p.overrideMaterialCost ?? null,
               overrideSlabPrice: p.overrideSlabPrice ?? null,
+              overrideFabricationCost: p.overrideFabricationCost ?? null,
             }}
             breakdown={pb}
             machines={machines}
