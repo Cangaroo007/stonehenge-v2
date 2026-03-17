@@ -1060,3 +1060,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ OVERRIDE-SAVES-FINAL: MaterialCostSection + QuickViewPieceRow override save fixes
 
 ✅ OVERRIDE-SAVES-V2: QuickViewPieceRow + MaterialCostSection + QuoteDetailClient override save fixes
+
+✅ SPATIAL-1: room-layout-engine.ts + RoomSpatialView.tsx spatial fixes
