@@ -174,6 +174,9 @@ export async function GET(
       overrideMaterialCost: piece.override_material_cost
         ? Number(piece.override_material_cost)
         : null,
+      overrideSlabPrice: piece.override_slab_price
+        ? Number(piece.override_slab_price)
+        : null,
       // CURVE-2a: Corner edge camelCase aliases
       cornerEdgeTl: p.corner_edge_tl ?? null,
       cornerEdgeTr: p.corner_edge_tr ?? null,
@@ -260,6 +263,8 @@ export async function PATCH(
       laminationMethod,
       requiresGrainMatch,
       overrideMaterialCost,
+      overrideSlabPrice,
+      applyToAllMaterial,
       shapeConfig,
       noStripEdges,
       stripWidthOverrides,
@@ -406,6 +411,9 @@ export async function PATCH(
         override_material_cost: overrideMaterialCost !== undefined
           ? overrideMaterialCost
           : undefined,
+        ...(overrideSlabPrice !== undefined && {
+          override_slab_price: overrideSlabPrice,
+        }),
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
@@ -427,6 +435,24 @@ export async function PATCH(
         quote_rooms: true,
       },
     });
+
+    // Apply override slab price to all pieces with same material in this quote
+    if (applyToAllMaterial && overrideSlabPrice !== undefined && updatedPiece.material_id) {
+      const allPiecesInQuote = await prisma.quote_pieces.findMany({
+        where: {
+          quote_rooms: { quote_id: quoteId },
+          material_id: updatedPiece.material_id,
+          id: { not: updatedPiece.id },
+        },
+        select: { id: true },
+      });
+      if (allPiecesInQuote.length > 0) {
+        await prisma.quote_pieces.updateMany({
+          where: { id: { in: allPiecesInQuote.map(p => p.id) } },
+          data: { override_slab_price: overrideSlabPrice },
+        });
+      }
+    }
 
     // Invalidate stale optimizer results — piece data has changed
     await prisma.slab_optimizations.deleteMany({
@@ -495,6 +521,9 @@ export async function PATCH(
       edgeArcConfig: pu.edge_arc_config ?? null,
       overrideMaterialCost: updatedPiece.override_material_cost
         ? Number(updatedPiece.override_material_cost)
+        : null,
+      overrideSlabPrice: updatedPiece.override_slab_price
+        ? Number(updatedPiece.override_slab_price)
         : null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (updatedPiece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,

@@ -288,6 +288,7 @@ export function calculateMaterialCost(
       } | null;
     } | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
+    overrideSlabPrice?: { toNumber: () => number } | null;
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
   slabCount?: number,
@@ -334,6 +335,16 @@ export function calculateMaterialCost(
         ?? piece.materials?.price_per_sqm.toNumber()
         ?? 0;
       calculatedCost += areaSqm * baseRate;
+    }
+  }
+
+  // Per-slab price override — bypasses catalogue price and margin entirely
+  if (pricingBasis === 'PER_SLAB' && slabCount !== undefined) {
+    const overridePiece = pieces.find(p => p.overrideSlabPrice);
+    if (overridePiece?.overrideSlabPrice) {
+      const overridePrice = overridePiece.overrideSlabPrice.toNumber();
+      overriddenCost += Math.ceil(slabCount) * overridePrice;
+      calculatedCost = 0; // Clear normal cost — override takes full effect
     }
   }
 
@@ -781,6 +792,7 @@ export async function calculateQuotePrice(
   const piecesWithOverride = allPieces.map((piece: any) => ({
     ...piece,
     overrideMaterialCost: piece.override_material_cost,
+    overrideSlabPrice: piece.override_slab_price,
   }));
 
   // Resolve quote-level and tier-level margin data for the hierarchy

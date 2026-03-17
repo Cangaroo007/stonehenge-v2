@@ -144,6 +144,9 @@ export default async function QuoteDetailPage({
         edge_buildups: piece.edge_buildups as Record<string, { depth: number }> | null ?? null,
         no_strip_edges: piece.no_strip_edges as string[] | null ?? null,
         lamination_method: piece.lamination_method ?? null,
+        overrideSlabPrice: piece.override_slab_price
+          ? Number(piece.override_slab_price)
+          : null,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

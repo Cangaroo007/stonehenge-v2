@@ -106,6 +106,7 @@ interface PieceData {
   noStripEdges?: string[];
   laminationMethod?: string | null;
   overrideMaterialCost?: number | null;
+  overrideSlabPrice?: number | null;
   edgeBuildups?: Record<string, { depth: number }> | null;
 }
 
@@ -490,6 +491,10 @@ export default function QuickViewPieceRow({
   const [localOverrideCost, setLocalOverrideCost] = useState<string>(
     piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
   );
+  const [localOverrideSlabPrice, setLocalOverrideSlabPrice] = useState<string>(
+    piece.overrideSlabPrice != null ? String(piece.overrideSlabPrice) : ''
+  );
+  const [overrideSlabPriceScope, setOverrideSlabPriceScope] = useState<'piece' | 'all'>('piece');
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
@@ -518,8 +523,11 @@ export default function QuickViewPieceRow({
     setLocalOverrideCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
     );
+    setLocalOverrideSlabPrice(
+      piece.overrideSlabPrice != null ? String(piece.overrideSlabPrice) : ''
+    );
     setLocalEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
-  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.edgeBuildups]);
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.edgeBuildups]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -673,6 +681,20 @@ export default function QuickViewPieceRow({
     savePieceImmediate({
       overrideMaterialCost: checked ? 0 : null,
     });
+  }, [savePieceImmediate]);
+
+  const handleOverrideSlabPriceChange = useCallback((val: string) => {
+    setLocalOverrideSlabPrice(val);
+    savePieceImmediate({
+      overrideSlabPrice: val === '' ? null : parseFloat(val),
+      applyToAllMaterial: overrideSlabPriceScope === 'all',
+    });
+  }, [savePieceImmediate, overrideSlabPriceScope]);
+
+  const handleClearOverrideSlabPrice = useCallback(() => {
+    setLocalOverrideSlabPrice('');
+    setOverrideSlabPriceScope('piece');
+    savePieceImmediate({ overrideSlabPrice: null, applyToAllMaterial: false });
   }, [savePieceImmediate]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
@@ -1122,6 +1144,62 @@ export default function QuickViewPieceRow({
               ${Number(piece.overrideMaterialCost).toFixed(2)} override
             </span>
           ) : null}
+
+          {/* Slab price override (edit mode) */}
+          {isEditMode && (
+            <div className="w-full mt-2 space-y-1">
+              <label className="text-xs text-gray-500">Override slab price</label>
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-400">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 800.00"
+                  value={localOverrideSlabPrice}
+                  onChange={(e) => setLocalOverrideSlabPrice(e.target.value)}
+                  onBlur={() => handleOverrideSlabPriceChange(localOverrideSlabPrice)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-28 text-xs border border-gray-200 rounded px-2 py-1"
+                />
+                {localOverrideSlabPrice !== '' && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleClearOverrideSlabPrice(); }}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {localOverrideSlabPrice !== '' && (
+                <div className="flex gap-3">
+                  <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`scope-${piece.id}`}
+                      checked={overrideSlabPriceScope === 'piece'}
+                      onChange={() => setOverrideSlabPriceScope('piece')}
+                    />
+                    This piece only
+                  </label>
+                  <label className="flex items-center gap-1 text-xs text-gray-500 cursor-pointer">
+                    <input
+                      type="radio"
+                      name={`scope-${piece.id}`}
+                      checked={overrideSlabPriceScope === 'all'}
+                      onChange={() => setOverrideSlabPriceScope('all')}
+                    />
+                    All {piece.materialName ?? 'material'} pieces
+                  </label>
+                </div>
+              )}
+            </div>
+          )}
+          {piece.overrideSlabPrice != null && (
+            <span className="ml-1 text-xs text-amber-600 font-medium">
+              ⚠️ ${Number(piece.overrideSlabPrice).toFixed(2)}/slab override — margin bypassed
+            </span>
+          )}
 
           {/* Edge Build-Up edit UI (edit mode only) */}
           {isEditMode && (
