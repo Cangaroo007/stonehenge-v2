@@ -698,19 +698,26 @@ export default function QuickViewPieceRow({
     if (!quoteId) return;
     setOverrideSaving('saving');
     try {
-      await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
         }),
       });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        console.error('[handleSaveOverrides] API error:', res.status, errBody);
+        setOverrideSaving('idle');
+        return;
+      }
       setOverrideSaving('saved');
       onSavePiece?.(piece.id, {
         overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
       }, piece.roomName ?? '');
       setTimeout(() => setOverrideSaving('idle'), 2000);
-    } catch {
+    } catch (err) {
+      console.error('[handleSaveOverrides] fetch error:', err);
       setOverrideSaving('idle');
     }
   }, [quoteId, piece.id, piece.roomName, localOverrideFabCost, onSavePiece]);
