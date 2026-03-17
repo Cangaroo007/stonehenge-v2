@@ -289,6 +289,7 @@ export function calculateMaterialCost(
     } | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
     overrideSlabPrice?: { toNumber: () => number } | null;
+    overrideFabricationCost?: { toNumber: () => number } | null;
   }>,
   pricingBasis: MaterialPricingBasis = 'PER_SLAB',
   slabCount?: number,
@@ -793,6 +794,7 @@ export async function calculateQuotePrice(
     ...piece,
     overrideMaterialCost: piece.override_material_cost,
     overrideSlabPrice: piece.override_slab_price,
+    overrideFabricationCost: piece.override_fabrication_cost,
   }));
 
   // Resolve quote-level and tier-level margin data for the hierarchy
@@ -1577,7 +1579,10 @@ export async function calculateQuotePrice(
         ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(curvedCuttingCostFinal) } } : {}),
         ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(curvedPolishingCostFinal) } } : {}),
       },
-      pieceTotal: fabricationSubtotal,
+      // Fabrication cost override — replaces all labour lines, material cost unchanged
+      pieceTotal: piece.override_fabrication_cost
+        ? (piece.override_fabrication_cost as unknown as { toNumber: () => number }).toNumber()
+        : fabricationSubtotal,
     };
 
     // Add oversize data from engine results

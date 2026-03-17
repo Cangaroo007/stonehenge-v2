@@ -1042,3 +1042,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ MAT-FIX-2b (2026-03-16): MaterialCostSection accepts quoteId, slabPriceOverrides, onSlabPriceOverride props. Per-material override in edit mode. QuoteDetailClient wires handleMaterialSlabOverride. QVR overrideSlabPriceScope removed.
 
 ✅ MAT-FIX-2b (2026-03-16): MaterialCostSection accepts quoteId, slabPriceOverrides, onSlabPriceOverride props. Per-material override in edit mode. QuoteDetailClient wires handleMaterialSlabOverride. QVR overrideSlabPriceScope removed.
+
+✅ FAB-OVERRIDE-1 (2026-03-17): quote_pieces.override_fabrication_cost Decimal? added (migration 20260317000001). Full 7-location data chain. Calculator replaces fabricationSubtotal at line 1583 when set — material share still added at line 1757. QVR shows input + amber pill at bottom of piece row.

@@ -177,6 +177,9 @@ export async function GET(
       overrideSlabPrice: piece.override_slab_price
         ? Number(piece.override_slab_price)
         : null,
+      overrideFabricationCost: piece.override_fabrication_cost
+        ? Number(piece.override_fabrication_cost)
+        : null,
       // CURVE-2a: Corner edge camelCase aliases
       cornerEdgeTl: p.corner_edge_tl ?? null,
       cornerEdgeTr: p.corner_edge_tr ?? null,
@@ -264,6 +267,7 @@ export async function PATCH(
       requiresGrainMatch,
       overrideMaterialCost,
       overrideSlabPrice,
+      overrideFabricationCost,
       applyToAllMaterial,
       shapeConfig,
       noStripEdges,
@@ -414,6 +418,9 @@ export async function PATCH(
         ...(overrideSlabPrice !== undefined && {
           override_slab_price: overrideSlabPrice,
         }),
+        ...(overrideFabricationCost !== undefined && {
+          override_fabrication_cost: overrideFabricationCost,
+        }),
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
@@ -524,6 +531,9 @@ export async function PATCH(
         : null,
       overrideSlabPrice: updatedPiece.override_slab_price
         ? Number(updatedPiece.override_slab_price)
+        : null,
+      overrideFabricationCost: updatedPiece.override_fabrication_cost
+        ? Number(updatedPiece.override_fabrication_cost)
         : null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (updatedPiece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,

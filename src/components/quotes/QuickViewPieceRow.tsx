@@ -107,6 +107,7 @@ interface PieceData {
   laminationMethod?: string | null;
   overrideMaterialCost?: number | null;
   overrideSlabPrice?: number | null;
+  overrideFabricationCost?: number | null;
   edgeBuildups?: Record<string, { depth: number }> | null;
 }
 
@@ -494,6 +495,9 @@ export default function QuickViewPieceRow({
   const [localOverrideSlabPrice, setLocalOverrideSlabPrice] = useState<string>(
     piece.overrideSlabPrice != null ? String(piece.overrideSlabPrice) : ''
   );
+  const [localOverrideFabCost, setLocalOverrideFabCost] = useState<string>(
+    piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
+  );
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
@@ -525,8 +529,11 @@ export default function QuickViewPieceRow({
     setLocalOverrideSlabPrice(
       piece.overrideSlabPrice != null ? String(piece.overrideSlabPrice) : ''
     );
+    setLocalOverrideFabCost(
+      piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
+    );
     setLocalEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
-  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.edgeBuildups]);
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -693,6 +700,13 @@ export default function QuickViewPieceRow({
   const handleClearOverrideSlabPrice = useCallback(() => {
     setLocalOverrideSlabPrice('');
     savePieceImmediate({ overrideSlabPrice: null, applyToAllMaterial: false });
+  }, [savePieceImmediate]);
+
+  const handleOverrideFabCostChange = useCallback((val: string) => {
+    setLocalOverrideFabCost(val);
+    savePieceImmediate({
+      overrideFabricationCost: val === '' ? null : parseFloat(val),
+    });
   }, [savePieceImmediate]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
@@ -1252,6 +1266,49 @@ export default function QuickViewPieceRow({
                   );
                 })}
               </div>
+            </div>
+          )}
+
+          {/* Fabrication cost override — edit mode only */}
+          {isEditMode && (
+            <div className="w-full mt-3 pt-3 border-t border-gray-100 space-y-1">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-medium text-gray-600">Override fabrication cost</span>
+              </div>
+              <p className="text-xs text-gray-400">
+                Replaces cutting, edge and cutout costs. Material cost unchanged.
+              </p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="text-xs text-gray-400">$</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  placeholder="e.g. 250.00"
+                  value={localOverrideFabCost}
+                  onChange={(e) => setLocalOverrideFabCost(e.target.value)}
+                  onBlur={() => handleOverrideFabCostChange(localOverrideFabCost)}
+                  onClick={(e) => e.stopPropagation()}
+                  className="w-28 text-xs border border-gray-200 rounded px-2 py-1"
+                />
+                {localOverrideFabCost !== '' && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setLocalOverrideFabCost('');
+                      savePieceImmediate({ overrideFabricationCost: null });
+                    }}
+                    className="text-xs text-gray-400 hover:text-red-500"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+              {piece.overrideFabricationCost != null && (
+                <span className="text-xs text-amber-600 font-medium">
+                  ⚠️ Fabrication override: ${Number(piece.overrideFabricationCost).toFixed(2)} — cutting/edge/cutout costs replaced
+                </span>
+              )}
             </div>
           )}
 

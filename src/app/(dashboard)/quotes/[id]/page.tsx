@@ -147,6 +147,9 @@ export default async function QuoteDetailPage({
         overrideSlabPrice: piece.override_slab_price
           ? Number(piece.override_slab_price)
           : null,
+        overrideFabricationCost: piece.override_fabrication_cost
+          ? Number(piece.override_fabrication_cost)
+          : null,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

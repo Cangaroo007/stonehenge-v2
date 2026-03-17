@@ -105,6 +105,9 @@ export async function GET(
           overrideSlabPrice: piece.override_slab_price
             ? Number(piece.override_slab_price)
             : null,
+          overrideFabricationCost: piece.override_fabrication_cost
+            ? Number(piece.override_fabrication_cost)
+            : null,
           stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
           edgeBuildups: piece.edge_buildups ?? null,
           // Pricing from calculation_breakdown (not runtime-calculated)
