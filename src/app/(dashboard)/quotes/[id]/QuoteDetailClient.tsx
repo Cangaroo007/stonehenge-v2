@@ -1165,7 +1165,19 @@ export default function QuoteDetailClient({
     await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ overrideSlabPrice: price, applyToAllMaterial: true }),
+      body: JSON.stringify({
+        lengthMm: piece.lengthMm,
+        widthMm: piece.widthMm,
+        thicknessMm: piece.thicknessMm,
+        materialId: piece.materialId,
+        materialName: piece.materialName,
+        edgeTop: piece.edgeTop,
+        edgeBottom: piece.edgeBottom,
+        edgeLeft: piece.edgeLeft,
+        edgeRight: piece.edgeRight,
+        overrideSlabPrice: price,
+        applyToAllMaterial: true,
+      }),
     });
     triggerRecalculate();
   }, [effectivePieces, quoteId, triggerRecalculate]);

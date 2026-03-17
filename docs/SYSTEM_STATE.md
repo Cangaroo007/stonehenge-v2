@@ -1058,3 +1058,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ HOTFIX-2 (2026-03-17): QVR Price Overrides section now shows only Override fabrication cost. Render gate changed to mode==='edit'. handleSaveOverrides sends overrideFabricationCost only. Material slab override in MaterialCostSection wired correctly via handleMaterialSlabOverride.
 
 ✅ OVERRIDE-SAVES-FINAL: MaterialCostSection + QuickViewPieceRow override save fixes
+
+✅ OVERRIDE-SAVES-V2: QuickViewPieceRow + MaterialCostSection + QuoteDetailClient override save fixes
