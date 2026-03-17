@@ -265,3 +265,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ BUG-FIX-2 (2026-03-17): Fixed override saves + moved all three override inputs to Cost Breakdown section + removed number spinners. handleSaveOverrides uses direct fetch with piece.id. handleLabourOnlyToggle converted to direct fetch. Unified Price Overrides section above Piece Total. type=text inputMode=decimal on all override inputs. 1 file changed.
 
 ✅ HOTFIX-1 (2026-03-17): Fixed override saves — handleSaveOverrides and handleLabourOnlyToggle changed from quoteIdStr (optional, undefined) to quoteId (number, always present). MaterialCostSection key lookup fixed from group.materialId (number) to String(group.materialId). Override input spinner removed. 2 files changed.
+
+✅ HOTFIX-2 (2026-03-17): Removed Override material cost and Override slab price from piece Cost Breakdown. Kept Override fabrication cost only. Fixed render gate from isEditMode to mode==='edit' so section renders before fullPiece loads. handleSaveOverrides simplified to only send overrideFabricationCost. Material slab override correctly wired — no change needed.

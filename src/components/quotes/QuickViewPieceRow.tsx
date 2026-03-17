@@ -702,22 +702,18 @@ export default function QuickViewPieceRow({
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          overrideMaterialCost: localOverrideCost === '' ? null : parseFloat(localOverrideCost),
-          overrideSlabPrice: localOverrideSlabPrice === '' ? null : parseFloat(localOverrideSlabPrice),
           overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
         }),
       });
       setOverrideSaving('saved');
       onSavePiece?.(piece.id, {
-        overrideMaterialCost: localOverrideCost === '' ? null : parseFloat(localOverrideCost),
-        overrideSlabPrice: localOverrideSlabPrice === '' ? null : parseFloat(localOverrideSlabPrice),
         overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
       }, piece.roomName ?? '');
       setTimeout(() => setOverrideSaving('idle'), 2000);
     } catch {
       setOverrideSaving('idle');
     }
-  }, [quoteId, piece.id, piece.roomName, localOverrideCost, localOverrideSlabPrice, localOverrideFabCost, onSavePiece]);
+  }, [quoteId, piece.id, piece.roomName, localOverrideFabCost, onSavePiece]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
   const edgeFieldMap: Record<string, string> = {
@@ -1790,57 +1786,11 @@ export default function QuickViewPieceRow({
                 </div>
               )}
               {/* ── Price Overrides ── */}
-              {isEditMode && (
+              {mode === 'edit' && (
                 <div className="mt-3 pt-3 border-t border-dashed border-gray-200 space-y-2">
                   <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider">
                     Price Overrides
                   </p>
-
-                  {/* Override material cost */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-gray-500 w-40">Override material cost</span>
-                    <div className="flex items-center gap-1 flex-1">
-                      <span className="text-xs text-gray-400">$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="e.g. 800.00"
-                        value={localOverrideCost === '0' && piece.overrideMaterialCost === 0 ? '' : localOverrideCost}
-                        onChange={(e) => setLocalOverrideCost(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-28 text-xs border border-gray-200 rounded px-2 py-1 appearance-none"
-                      />
-                      {localOverrideCost !== '' && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setLocalOverrideCost(''); }}
-                          className="text-xs text-gray-400 hover:text-red-500"
-                        >Clear</button>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Override slab price */}
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-xs text-gray-500 w-40">Override slab price</span>
-                    <div className="flex items-center gap-1 flex-1">
-                      <span className="text-xs text-gray-400">$</span>
-                      <input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder="e.g. 800.00"
-                        value={localOverrideSlabPrice}
-                        onChange={(e) => setLocalOverrideSlabPrice(e.target.value)}
-                        onClick={(e) => e.stopPropagation()}
-                        className="w-28 text-xs border border-gray-200 rounded px-2 py-1 appearance-none"
-                      />
-                      {localOverrideSlabPrice !== '' && (
-                        <button
-                          onClick={(e) => { e.stopPropagation(); setLocalOverrideSlabPrice(''); }}
-                          className="text-xs text-gray-400 hover:text-red-500"
-                        >Clear</button>
-                      )}
-                    </div>
-                  </div>
 
                   {/* Override fabrication cost */}
                   <div className="flex items-center justify-between gap-2">
@@ -1866,7 +1816,7 @@ export default function QuickViewPieceRow({
                   </div>
 
                   {/* Update button + save state */}
-                  {(localOverrideCost !== '' || localOverrideSlabPrice !== '' || localOverrideFabCost !== '') && (
+                  {localOverrideFabCost !== '' && (
                     <div className="flex items-center gap-2 pt-1">
                       <button
                         onClick={handleSaveOverrides}
@@ -1881,27 +1831,12 @@ export default function QuickViewPieceRow({
                     </div>
                   )}
 
-                  {/* Active override pills */}
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    {piece.overrideMaterialCost === 0 && (
-                      <span className="text-xs text-gray-400 italic">Labour only active</span>
-                    )}
-                    {piece.overrideMaterialCost != null && piece.overrideMaterialCost !== 0 && (
-                      <span className="text-xs text-amber-600">
-                        ⚠️ Material override: ${Number(piece.overrideMaterialCost).toFixed(2)}
-                      </span>
-                    )}
-                    {piece.overrideSlabPrice != null && (
-                      <span className="text-xs text-amber-600">
-                        ⚠️ Slab override: ${Number(piece.overrideSlabPrice).toFixed(2)}/slab
-                      </span>
-                    )}
-                    {piece.overrideFabricationCost != null && (
-                      <span className="text-xs text-amber-600">
-                        ⚠️ Fabrication override: ${Number(piece.overrideFabricationCost).toFixed(2)}
-                      </span>
-                    )}
-                  </div>
+                  {/* Active override pill */}
+                  {piece.overrideFabricationCost != null && (
+                    <span className="text-xs text-amber-600">
+                      ⚠️ Fabrication override: ${Number(piece.overrideFabricationCost).toFixed(2)}
+                    </span>
+                  )}
                 </div>
               )}
 
