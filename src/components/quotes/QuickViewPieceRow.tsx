@@ -699,7 +699,7 @@ export default function QuickViewPieceRow({
     setOverrideSaving('saving');
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           lengthMm: piece.lengthMm,
