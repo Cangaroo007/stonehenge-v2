@@ -275,3 +275,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ SPATIAL-1: horizontal layout for unrelated pieces + Position dropdown removed
 
 ✅ OVERRIDE-FAB-DIRECT: handleSaveOverrides now direct fetch with full piece fields — bypasses fullPiece guard
+
+✅ OVERRIDE-SLAB-METHOD: handleMaterialSlabOverride PUT→PATCH fix

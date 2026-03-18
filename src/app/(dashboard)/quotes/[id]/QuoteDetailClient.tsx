@@ -902,7 +902,7 @@ export default function QuoteDetailClient({
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
@@ -1046,7 +1046,7 @@ export default function QuoteDetailClient({
 
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updatesWithDesc),
       });
@@ -1069,7 +1069,7 @@ export default function QuoteDetailClient({
         description: `Edited ${pieceName} (${changedFields})`,
         forward: async () => {
           await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(updates),
           });
@@ -1078,7 +1078,7 @@ export default function QuoteDetailClient({
         },
         backward: async () => {
           await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-            method: 'PUT',
+            method: 'PATCH',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(oldValues),
           });
@@ -1163,7 +1163,7 @@ export default function QuoteDetailClient({
     const piece = effectivePieces.find(p => String(p.materialId) === materialId);
     if (!piece) return;
     await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         lengthMm: piece.lengthMm,
@@ -1368,7 +1368,7 @@ export default function QuoteDetailClient({
           description: `Edited ${pieceName}`,
           forward: async () => {
             await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-              method: 'PUT',
+              method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ ...data, roomName }),
             });
@@ -1377,7 +1377,7 @@ export default function QuoteDetailClient({
           },
           backward: async () => {
             await fetch(`/api/quotes/${quoteIdStr}/pieces/${pieceId}`, {
-              method: 'PUT',
+              method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify(oldValues),
             });
@@ -1826,7 +1826,7 @@ export default function QuoteDetailClient({
   const handleReorder = async (reorderedPieces: { id: number; sortOrder: number }[]) => {
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/reorder`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ pieces: reorderedPieces }),
       });
@@ -1852,7 +1852,7 @@ export default function QuoteDetailClient({
       if (!enabled) {
         // Disable delivery: zero out delivery fields
         await fetch(`/api/quotes/${quoteIdStr}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deliveryCost: 0,
@@ -1867,7 +1867,7 @@ export default function QuoteDetailClient({
         const quoteAny = editQuote as Record<string, unknown> | null;
         const fallbackAddress = quoteAny?.project_address || quoteAny?.deliveryAddress || null;
         await fetch(`/api/quotes/${quoteIdStr}`, {
-          method: 'PUT',
+          method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deliveryCost: null,
@@ -1889,7 +1889,7 @@ export default function QuoteDetailClient({
     try {
       // Save new delivery address and clear cost so calculator auto-calculates
       await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deliveryAddress: address,
@@ -1907,7 +1907,7 @@ export default function QuoteDetailClient({
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           saveCalculation: true,
@@ -1928,7 +1928,7 @@ export default function QuoteDetailClient({
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}/status`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: newStatus, declinedReason: options?.declinedReason }),
       });
@@ -2110,7 +2110,7 @@ export default function QuoteDetailClient({
     }));
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/reorder`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rooms: reordered }),
       });
@@ -2131,7 +2131,7 @@ export default function QuoteDetailClient({
     }));
     try {
       const res = await fetch(`/api/quotes/${quoteIdStr}/rooms/reorder`, {
-        method: 'PUT',
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ rooms: reordered }),
       });
