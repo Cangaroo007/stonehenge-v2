@@ -42,7 +42,8 @@ interface RelationshipInput {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const TARGET_SVG_WIDTH = 800;
+const MIN_SVG_WIDTH = 900;
+const MAX_SVG_WIDTH = 2400;
 const PADDING = 60;
 const PIECE_GAP = 40;          // Gap between unrelated pieces
 const SPLASHBACK_GAP = 20;     // Gap between splashback and benchtop
@@ -95,7 +96,7 @@ export function calculateRoomLayout(
   relationships: RelationshipInput[]
 ): RoomLayout {
   if (pieces.length === 0) {
-    return { pieces: [], viewBox: { width: TARGET_SVG_WIDTH, height: 200 }, scale: 1 };
+    return { pieces: [], viewBox: { width: MIN_SVG_WIDTH, height: 200 }, scale: 1 };
   }
 
   const pieceMap = new Map<string, PieceInput>();
@@ -116,7 +117,7 @@ export function calculateRoomLayout(
   // Find primary piece
   const primary = findPrimaryPiece(pieces);
   if (!primary) {
-    return { pieces: [], viewBox: { width: TARGET_SVG_WIDTH, height: 200 }, scale: 1 };
+    return { pieces: [], viewBox: { width: MIN_SVG_WIDTH, height: 200 }, scale: 1 };
   }
 
   // Position pieces in mm-space (we'll scale to SVG units later)
@@ -176,10 +177,31 @@ export function calculateRoomLayout(
     placedIds.add(child.id);
   }
 
-  // 4. Place remaining unrelated pieces side-by-side (horizontal)
+  // 4. Place remaining unrelated pieces
+  // But first: check if any unrelated piece is a child of another placed piece
   const unplaced = pieces.filter(p => !placedIds.has(p.id));
-  if (unplaced.length > 0) {
-    // Find the rightmost x of all placed pieces to start horizontal layout
+
+  for (const piece of unplaced) {
+    // Check if this piece is a child of an already-placed piece
+    const parentRel = relationships.find(r => r.childPieceId === piece.id);
+    if (parentRel && placedIds.has(parentRel.parentPieceId)) {
+      const parentPos = positioned.find(p => p.pieceId === parentRel.parentPieceId);
+      if (parentPos) {
+        const childPos = positionChild(
+          pieceMap.get(parentRel.parentPieceId)!,
+          piece,
+          parentRel.relationshipType,
+          parentRel.joinPosition
+        );
+        childPos.x += parentPos.x;
+        childPos.y += parentPos.y;
+        positioned.push(childPos);
+        placedIds.add(piece.id);
+        continue;
+      }
+    }
+
+    // Truly unrelated — place horizontally
     let stackX = 0;
     for (const pos of positioned) {
       const right = pos.x + pos.width;
@@ -187,19 +209,16 @@ export function calculateRoomLayout(
     }
     stackX += PIECE_GAP;
 
-    for (const piece of unplaced) {
-      positioned.push({
-        pieceId: piece.id,
-        x: stackX,
-        y: 0,
-        width: piece.length_mm,
-        height: piece.width_mm,
-        rotation: 0,
-        label: piece.description,
-      });
-      placedIds.add(piece.id);
-      stackX += piece.length_mm + UNRELATED_STACK_GAP;
-    }
+    positioned.push({
+      pieceId: piece.id,
+      x: stackX,
+      y: 0,
+      width: piece.length_mm,
+      height: piece.width_mm,
+      rotation: 0,
+      label: piece.description,
+    });
+    placedIds.add(piece.id);
   }
 
   // 5. Calculate bounding box and scale
@@ -218,8 +237,14 @@ export function calculateRoomLayout(
   const totalWidth = maxX - minX;
   const totalHeight = maxY - minY;
 
-  // Scale to fit target SVG width with padding
-  const availableWidth = TARGET_SVG_WIDTH - PADDING * 2;
+  // Dynamic SVG width based on content
+  const idealWidth = Math.max(
+    MIN_SVG_WIDTH,
+    Math.min(MAX_SVG_WIDTH, totalWidth / 10 + PADDING * 2)
+  );
+
+  // Scale to fit dynamic SVG width with padding
+  const availableWidth = idealWidth - PADDING * 2;
   const scale = totalWidth > 0 ? availableWidth / totalWidth : 1;
 
   // Calculate SVG height proportionally
@@ -239,7 +264,7 @@ export function calculateRoomLayout(
   return {
     pieces: svgPieces,
     viewBox: {
-      width: TARGET_SVG_WIDTH,
+      width: idealWidth,
       height: Math.max(svgHeight, 200),
     },
     scale,

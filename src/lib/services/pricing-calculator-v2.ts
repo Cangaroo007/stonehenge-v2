@@ -1579,9 +1579,9 @@ export async function calculateQuotePrice(
         ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(curvedCuttingCostFinal) } } : {}),
         ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(curvedPolishingCostFinal) } } : {}),
       },
-      // Fabrication cost override — replaces all labour lines, material cost unchanged
+      // Fabrication cost override — replaces labour lines only, installation still added
       pieceTotal: piece.override_fabrication_cost
-        ? (piece.override_fabrication_cost as unknown as { toNumber: () => number }).toNumber()
+        ? roundToTwo((piece.override_fabrication_cost as unknown as { toNumber: () => number }).toNumber() + (installationBreakdown?.total ?? 0))
         : fabricationSubtotal,
     };
 

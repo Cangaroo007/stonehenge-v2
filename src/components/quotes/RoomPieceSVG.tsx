@@ -158,8 +158,16 @@ export default function RoomPieceSVG({
   // Edge hit area width — at least 20px for reliable click targets
   const edgeHitWidth = 20;
 
+  // Rotation transform for the entire piece group (e.g. waterfalls at 90°)
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const rotateTransform = position.rotation !== 0
+    ? `rotate(${position.rotation}, ${cx}, ${cy})`
+    : undefined;
+
   return (
     <g
+      transform={rotateTransform}
       style={{ cursor: isEditMode ? 'pointer' : 'default' }}
       onClick={handleClick}
       onContextMenu={handleContextMenu}
