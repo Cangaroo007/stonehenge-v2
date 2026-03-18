@@ -5,7 +5,7 @@ import { calculateRoomLayout } from '@/lib/services/room-layout-engine';
 import { suggestRelationships } from '@/lib/services/relationship-suggest-service';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { RelationshipSuggestion } from '@/lib/types/piece-relationship';
-import { RELATIONSHIP_DISPLAY, JOIN_POSITIONS } from '@/lib/types/piece-relationship';
+import { RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
@@ -910,21 +910,7 @@ export default function RoomSpatialView({
                 ))}
               </select>
             </div>
-            {POSITION_TYPES.includes(popoverType) && (
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Position</label>
-                <select
-                  value={popoverPosition}
-                  onChange={e => setPopoverPosition(e.target.value)}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">None</option>
-                  {JOIN_POSITIONS.map(pos => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+            {/* Position dropdown removed — joinPosition inferred from edge selection */}
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
               <input

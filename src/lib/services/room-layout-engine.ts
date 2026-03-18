@@ -176,29 +176,29 @@ export function calculateRoomLayout(
     placedIds.add(child.id);
   }
 
-  // 4. Place remaining unrelated pieces stacked below
+  // 4. Place remaining unrelated pieces side-by-side (horizontal)
   const unplaced = pieces.filter(p => !placedIds.has(p.id));
   if (unplaced.length > 0) {
-    // Find the bottom of all currently placed pieces
-    let maxY = 0;
+    // Find the rightmost x of all placed pieces to start horizontal layout
+    let stackX = 0;
     for (const pos of positioned) {
-      const bottom = pos.y + pos.height;
-      if (bottom > maxY) maxY = bottom;
+      const right = pos.x + pos.width;
+      if (right > stackX) stackX = right;
     }
+    stackX += PIECE_GAP;
 
-    let stackY = maxY + PIECE_GAP;
     for (const piece of unplaced) {
       positioned.push({
         pieceId: piece.id,
-        x: 0,
-        y: stackY,
+        x: stackX,
+        y: 0,
         width: piece.length_mm,
         height: piece.width_mm,
         rotation: 0,
         label: piece.description,
       });
       placedIds.add(piece.id);
-      stackY += piece.width_mm + UNRELATED_STACK_GAP;
+      stackX += piece.length_mm + UNRELATED_STACK_GAP;
     }
   }
 
