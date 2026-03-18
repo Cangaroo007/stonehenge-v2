@@ -1068,3 +1068,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ OVERRIDE-SLAB-METHOD: QuoteDetailClient.tsx PUT→PATCH
 
 ✅ OVERRIDE-FAB-METHOD: QuickViewPieceRow.tsx handleSaveOverrides PUT→PATCH
+
+✅ CALC-OVERRIDE-1: route.ts + QuoteDetailClient.tsx override display fixes
