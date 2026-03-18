@@ -1079,3 +1079,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ FAB-OVERRIDE-INSTALL: pricing-calculator-v2.ts pieceTotal fix
 
 ✅ SUGGEST-KILL-1: RoomSpatialView.tsx — suggestions removed
+
+✅ SLAB-DISPLAY-1: pricing-calculator-v2.ts 3 slab override fixes

@@ -290,3 +290,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ FAB-OVERRIDE-INSTALL: installation added back to pieceTotal when fab override active
 
 ✅ SUGGEST-KILL-1: removed all automatic relationship suggestions from RoomSpatialView
+
+✅ SLAB-DISPLAY-1: slab override fixes all 3 problems — hasOverrides, byMaterial, quote total
