@@ -1083,3 +1083,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ SLAB-DISPLAY-1: pricing-calculator-v2.ts 3 slab override fixes
 
 ✅ SPATIAL-3: room-layout-engine.ts — Island standalone, proportional scale, safety pass
+
+✅ WF-7-STRIP-FIX: QuoteDetailClient.tsx waterfall onConfirm — build-up removal + noStripEdges

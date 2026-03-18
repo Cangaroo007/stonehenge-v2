@@ -294,3 +294,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ SLAB-DISPLAY-1: slab override fixes all 3 problems — hasOverrides, byMaterial, quote total
 
 ✅ SPATIAL-3: Island removed from PRIMARY_TYPES + proportional scale + all children placed
+
+✅ WF-7-STRIP-FIX: auto-remove build-up on joining edge + add to noStripEdges at waterfall creation

@@ -4545,6 +4545,38 @@ export default function QuoteDetailClient({
           // 3. Set joining edge to Mitered on parent
           await handlePieceEdgeChange(parentPieceId, selectedEdge, MITERED_EDGE_ID);
 
+          // 3.5. Auto-remove build-up on joining edge + suppress its return strip
+          const currentBuildups = (parentPiece.edgeBuildups as Record<string, { depth: number }> | null) ?? {};
+          const currentNoStrip = (parentPiece.noStripEdges as string[]) ?? [];
+          const hasBuildup = !!currentBuildups[selectedEdge];
+          const alreadyNoStrip = currentNoStrip.includes(selectedEdge);
+
+          if (hasBuildup || !alreadyNoStrip) {
+            const updatedBuildups = { ...currentBuildups };
+            delete updatedBuildups[selectedEdge];
+            const updatedNoStrip = alreadyNoStrip
+              ? currentNoStrip
+              : [...currentNoStrip, selectedEdge];
+
+            await fetch(`/api/quotes/${quoteId}/pieces/${parentPieceId}`, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                lengthMm: parentPiece.lengthMm,
+                widthMm: parentPiece.widthMm,
+                thicknessMm: parentPiece.thicknessMm,
+                materialId: parentPiece.materialId,
+                materialName: parentPiece.materialName,
+                edgeTop: parentPiece.edgeTop,
+                edgeBottom: parentPiece.edgeBottom,
+                edgeLeft: parentPiece.edgeLeft,
+                edgeRight: parentPiece.edgeRight,
+                edgeBuildups: updatedBuildups,
+                noStripEdges: updatedNoStrip,
+              }),
+            });
+          }
+
           // 4. Set opposing edge to Mitered on child
           const oppositeEdge: Record<string, string> = {
             top: 'bottom', bottom: 'top', left: 'right', right: 'left'
