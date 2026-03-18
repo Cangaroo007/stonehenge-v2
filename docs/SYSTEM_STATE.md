@@ -1064,3 +1064,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ SPATIAL-1: room-layout-engine.ts + RoomSpatialView.tsx spatial fixes
 
 ✅ OVERRIDE-FAB-DIRECT: QuickViewPieceRow.tsx handleSaveOverrides — async direct fetch
+
+✅ OVERRIDE-SLAB-METHOD: QuoteDetailClient.tsx PUT→PATCH
