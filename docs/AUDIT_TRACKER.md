@@ -296,3 +296,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ SPATIAL-3: Island removed from PRIMARY_TYPES + proportional scale + all children placed
 
 ✅ WF-7-STRIP-FIX: auto-remove build-up on joining edge + add to noStripEdges at waterfall creation
+
+✅ TEMPLATE-SEED-1: 25 starter templates + 6 edge profile templates seeded
