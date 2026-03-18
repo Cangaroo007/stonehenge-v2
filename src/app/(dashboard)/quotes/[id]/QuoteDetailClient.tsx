@@ -1179,8 +1179,9 @@ export default function QuoteDetailClient({
         applyToAllMaterial: true,
       }),
     });
+    await fetchQuote();
     triggerRecalculate();
-  }, [effectivePieces, quoteId, triggerRecalculate]);
+  }, [effectivePieces, quoteId, triggerRecalculate, fetchQuote]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
