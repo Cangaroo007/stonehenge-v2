@@ -277,3 +277,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ OVERRIDE-FAB-DIRECT: handleSaveOverrides now direct fetch with full piece fields — bypasses fullPiece guard
 
 ✅ OVERRIDE-SLAB-METHOD: handleMaterialSlabOverride PUT→PATCH fix
+
+✅ OVERRIDE-FAB-METHOD: handleSaveOverrides PUT→PATCH in QVR

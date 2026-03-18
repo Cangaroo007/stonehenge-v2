@@ -1066,3 +1066,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ OVERRIDE-FAB-DIRECT: QuickViewPieceRow.tsx handleSaveOverrides — async direct fetch
 
 ✅ OVERRIDE-SLAB-METHOD: QuoteDetailClient.tsx PUT→PATCH
+
+✅ OVERRIDE-FAB-METHOD: QuickViewPieceRow.tsx handleSaveOverrides PUT→PATCH
