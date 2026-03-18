@@ -50,7 +50,7 @@ const SPLASHBACK_GAP = 20;     // Gap between splashback and benchtop
 const UNRELATED_STACK_GAP = 30; // Vertical gap when stacking unrelated pieces
 
 // Piece types that are considered "primary" candidates
-const PRIMARY_TYPES = ['BENCHTOP', 'ISLAND', 'benchtop', 'island'];
+const PRIMARY_TYPES = ['BENCHTOP', 'benchtop'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -177,6 +177,21 @@ export function calculateRoomLayout(
     placedIds.add(child.id);
   }
 
+  // Safety pass: ensure all relationship children are placed
+  for (const rel of relationships) {
+    if (placedIds.has(rel.childPieceId)) continue;
+    const parentPiece = pieceMap.get(rel.parentPieceId);
+    const child = pieceMap.get(rel.childPieceId);
+    const parentPos = positioned.find(p => p.pieceId === rel.parentPieceId);
+    if (!parentPiece || !child || !parentPos) continue;
+
+    const childPos = positionChild(parentPiece, child, rel.relationshipType, rel.joinPosition);
+    childPos.x += parentPos.x;
+    childPos.y += parentPos.y;
+    positioned.push(childPos);
+    placedIds.add(rel.childPieceId);
+  }
+
   // 4. Place remaining unrelated pieces
   // But first: check if any unrelated piece is a child of another placed piece
   const unplaced = pieces.filter(p => !placedIds.has(p.id));
@@ -201,18 +216,18 @@ export function calculateRoomLayout(
       }
     }
 
-    // Truly unrelated — place horizontally
-    let stackX = 0;
+    // Truly unrelated — stack vertically (below) for visual separation
+    let stackY = 0;
     for (const pos of positioned) {
-      const right = pos.x + pos.width;
-      if (right > stackX) stackX = right;
+      const bottom = pos.y + pos.height;
+      if (bottom > stackY) stackY = bottom;
     }
-    stackX += PIECE_GAP;
+    stackY += PIECE_GAP;
 
     positioned.push({
       pieceId: piece.id,
-      x: stackX,
-      y: 0,
+      x: 0,
+      y: stackY,
       width: piece.length_mm,
       height: piece.width_mm,
       rotation: 0,
@@ -238,9 +253,11 @@ export function calculateRoomLayout(
   const totalHeight = maxY - minY;
 
   // Dynamic SVG width based on content
+  // Target: each mm = 0.3px for proportional rendering
+  const MM_TO_PX = 0.3;
   const idealWidth = Math.max(
     MIN_SVG_WIDTH,
-    Math.min(MAX_SVG_WIDTH, totalWidth / 10 + PADDING * 2)
+    Math.min(MAX_SVG_WIDTH, Math.ceil(totalWidth * MM_TO_PX) + PADDING * 2)
   );
 
   // Scale to fit dynamic SVG width with padding
