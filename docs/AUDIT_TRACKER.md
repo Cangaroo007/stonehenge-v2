@@ -288,3 +288,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 
 ✅ SPATIAL-2: dynamic canvas + child piece grouping + rotation transform
 ✅ FAB-OVERRIDE-INSTALL: installation added back to pieceTotal when fab override active
+
+✅ SUGGEST-KILL-1: removed all automatic relationship suggestions from RoomSpatialView
