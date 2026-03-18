@@ -356,7 +356,7 @@ export function calculateMaterialCost(
     if (materialWithSlabPrice) {
       const slabPrice = materialWithSlabPrice.materials!.price_per_slab!.toNumber();
       // Only override if no piece-level overrides were applied
-      const hasOverrides = pieces.some(p => p.overrideMaterialCost);
+      const hasOverrides = pieces.some(p => p.overrideMaterialCost || p.overrideSlabPrice);
       if (!hasOverrides) {
         calculatedCost = Math.ceil(slabCount) * slabPrice;
       }
@@ -443,7 +443,23 @@ export function calculateMaterialCost(
 
   // Build per-material groupings for multi-material quotes
   const hasNullMaterialPieces = pieces.some(p => !(p as any).material_id && !p.overrideMaterialCost);
-  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides, resolvedMarginOverride, hasNullMaterialPieces);
+
+  // Build slab price override map: materialId → override price
+  const slabPriceOverrideMap = new Map<number, number>();
+  for (const piece of pieces) {
+    const overrideVal = piece.overrideSlabPrice;
+    if (overrideVal != null) {
+      const matId = (piece.materials as unknown as { id?: number })?.id;
+      if (matId) {
+        const price = typeof overrideVal === 'number'
+          ? overrideVal
+          : (overrideVal as { toNumber: () => number }).toNumber();
+        slabPriceOverrideMap.set(matId, price);
+      }
+    }
+  }
+
+  const byMaterial = buildMaterialGroupings(pieces, pricingBasis, slabCount, wasteFactorPercent, slabCountFromOptimiser, slabLengthMm, slabWidthMm, materialMarginAdjustPercent, pieceAreaOverrides, resolvedMarginOverride, hasNullMaterialPieces, slabPriceOverrideMap.size > 0 ? slabPriceOverrideMap : undefined);
 
   // For multi-material quotes, the single-material calculation above
   // (slabCount × firstSlabPrice) is wrong — it uses one material's price for all slabs.
@@ -525,6 +541,7 @@ function buildMaterialGroupings(
   pieceAreaOverrides?: number[],
   resolvedMarginOverride?: { quoteMarginOverride: number | null; tierMarginPercent: number | null; tierName: string | null } | null,
   hasNullMaterialPieces?: boolean,
+  slabPriceOverrides?: Map<number, number>,
 ): MaterialGroupBreakdown[] {
   // Group pieces by materialId
   const groups = new Map<number, {
@@ -546,7 +563,8 @@ function buildMaterialGroupings(
     const matName = (mat as unknown as { name?: string }).name ?? 'Unknown';
     const slabLenMm = (mat as unknown as { slab_length_mm?: number | null }).slab_length_mm ?? undefined;
     const slabWMm = (mat as unknown as { slab_width_mm?: number | null }).slab_width_mm ?? undefined;
-    const slabPrice = mat.price_per_slab?.toNumber() ?? 0;
+    const catalogueSlabPrice = mat.price_per_slab?.toNumber() ?? 0;
+    const slabPrice = slabPriceOverrides?.get(matId) ?? catalogueSlabPrice;
     const ratePerSqm = mat.price_per_square_metre?.toNumber() ?? mat.price_per_sqm.toNumber() ?? 0;
     const areaSqm = pieceAreaOverrides?.[idx] ?? (piece.length_mm * piece.width_mm) / 1_000_000;
 
