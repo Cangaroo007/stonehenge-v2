@@ -292,3 +292,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ SUGGEST-KILL-1: removed all automatic relationship suggestions from RoomSpatialView
 
 ✅ SLAB-DISPLAY-1: slab override fixes all 3 problems — hasOverrides, byMaterial, quote total
+
+✅ SPATIAL-3: Island removed from PRIMARY_TYPES + proportional scale + all children placed
