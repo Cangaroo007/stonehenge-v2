@@ -343,7 +343,7 @@ export function calculateMaterialCost(
   if (pricingBasis === 'PER_SLAB' && slabCount !== undefined) {
     const overridePiece = pieces.find(p => p.overrideSlabPrice);
     if (overridePiece?.overrideSlabPrice) {
-      const overridePrice = overridePiece.overrideSlabPrice.toNumber();
+      const overridePrice = typeof overridePiece.overrideSlabPrice === "number" ? overridePiece.overrideSlabPrice : overridePiece.overrideSlabPrice.toNumber();
       overriddenCost += Math.ceil(slabCount) * overridePrice;
       calculatedCost = 0; // Clear normal cost — override takes full effect
     }
