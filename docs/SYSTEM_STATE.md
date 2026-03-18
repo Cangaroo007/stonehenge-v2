@@ -1072,3 +1072,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ CALC-OVERRIDE-1: route.ts + QuoteDetailClient.tsx override display fixes
 
 ✅ CALC-OVERRIDE-1: route.ts + QuoteDetailClient.tsx override display fixes
+
+✅ CALC-OVERRIDE-2: route.ts + calculator-v2.ts + QuoteDetailClient.tsx

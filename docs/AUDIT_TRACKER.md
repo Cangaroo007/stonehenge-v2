@@ -283,3 +283,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ CALC-OVERRIDE-1: override fields serialised in quote GET + fetchQuote added to handleMaterialSlabOverride
 
 ✅ CALC-OVERRIDE-1: override fields serialised in quote GET + fetchQuote added to handleMaterialSlabOverride
+
+✅ CALC-OVERRIDE-2: override fields serialised in quote GET + calculator handles plain number + fetchQuote in slab save
