@@ -273,3 +273,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ OVERRIDE-SAVES-V2: route fab override through savePieceImmediate; slab override Update button; QDC sends full piece data
 
 ✅ SPATIAL-1: horizontal layout for unrelated pieces + Position dropdown removed
+
+✅ OVERRIDE-FAB-DIRECT: handleSaveOverrides now direct fetch with full piece fields — bypasses fullPiece guard
