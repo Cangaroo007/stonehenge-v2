@@ -693,16 +693,42 @@ export default function QuickViewPieceRow({
     onSavePiece?.(piece.id, { overrideMaterialCost: checked ? 0 : null }, piece.roomName ?? '');
   }, [quoteId, piece.id, piece.roomName, onSavePiece]);
 
-  const handleSaveOverrides = useCallback((e: React.MouseEvent) => {
+  const handleSaveOverrides = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!fullPiece || !onSavePiece) return;
+    if (!quoteId) return;
     setOverrideSaving('saving');
-    savePieceImmediate({
-      overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
-    });
-    setOverrideSaving('saved');
-    setTimeout(() => setOverrideSaving('idle'), 2000);
-  }, [fullPiece, onSavePiece, savePieceImmediate, localOverrideFabCost]);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lengthMm: piece.lengthMm,
+          widthMm: piece.widthMm,
+          thicknessMm: piece.thicknessMm,
+          materialName: piece.materialName,
+          edgeTop: piece.edgeTop,
+          edgeBottom: piece.edgeBottom,
+          edgeLeft: piece.edgeLeft,
+          edgeRight: piece.edgeRight,
+          overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+        console.error('[handleSaveOverrides] failed:', res.status, err);
+        setOverrideSaving('idle');
+        return;
+      }
+      onSavePiece?.(piece.id, {
+        overrideFabricationCost: localOverrideFabCost === '' ? null : parseFloat(localOverrideFabCost),
+      }, piece.roomName ?? '');
+      setOverrideSaving('saved');
+      setTimeout(() => setOverrideSaving('idle'), 2000);
+    } catch (err) {
+      console.error('[handleSaveOverrides] fetch error:', err);
+      setOverrideSaving('idle');
+    }
+  }, [quoteId, piece.id, piece.lengthMm, piece.widthMm, piece.thicknessMm, piece.materialName, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.roomName, localOverrideFabCost, onSavePiece]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
   const edgeFieldMap: Record<string, string> = {
