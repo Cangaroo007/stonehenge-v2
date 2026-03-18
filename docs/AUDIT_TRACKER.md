@@ -279,3 +279,7 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ OVERRIDE-SLAB-METHOD: handleMaterialSlabOverride PUT→PATCH fix
 
 ✅ OVERRIDE-FAB-METHOD: handleSaveOverrides PUT→PATCH in QVR
+
+✅ CALC-OVERRIDE-1: override fields serialised in quote GET + fetchQuote added to handleMaterialSlabOverride
+
+✅ CALC-OVERRIDE-1: override fields serialised in quote GET + fetchQuote added to handleMaterialSlabOverride

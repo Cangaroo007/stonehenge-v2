@@ -458,6 +458,15 @@ function transformPieceForClient(piece: any) {
     areaSqm: Number(piece.area_sqm || 0),
     materialCost: Number(piece.material_cost || 0),
     featuresCost: Number(piece.features_cost || 0),
+    overrideFabricationCost: piece.override_fabrication_cost
+      ? Number(piece.override_fabrication_cost)
+      : null,
+    overrideSlabPrice: piece.override_slab_price
+      ? Number(piece.override_slab_price)
+      : null,
+    overrideMaterialCost: piece.override_material_cost
+      ? Number(piece.override_material_cost)
+      : null,
   };
 }
 
