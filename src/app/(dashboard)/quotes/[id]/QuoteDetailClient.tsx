@@ -1150,6 +1150,28 @@ export default function QuoteDetailClient({
     recalculateOptionsAfterPieceChange();
   }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
+  // Compare Material — creates a new option copying from base, activates it,
+  // then opens BulkMaterialDialog so Jay can assign a comparison material
+  const handleCompareWithMaterial = useCallback(async () => {
+    const baseOption = quoteOptions.options.find(o => o.isBase);
+    // Generate next option name: Option B, Option C, etc.
+    const letters = 'BCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const existingNames = new Set(quoteOptions.options.map(o => o.name));
+    let newName = 'Option B';
+    for (const letter of letters) {
+      const candidate = `Option ${letter}`;
+      if (!existingNames.has(candidate)) { newName = candidate; break; }
+    }
+    const newOption = await quoteOptions.createOption(
+      newName,
+      undefined,
+      baseOption?.id
+    );
+    if (!newOption) return;
+    quoteOptions.setActiveOptionId(newOption.id);
+    setShowBulkSwap(true);
+  }, [quoteOptions, setShowBulkSwap]);
+
   // Initialise slab price overrides from piece data
   useEffect(() => {
     const overrides: Record<string, number | null> = {};
@@ -4055,6 +4077,16 @@ export default function QuoteDetailClient({
             >
               Bulk Material
             </button>
+            {mode === 'edit' && (
+              <button
+                type="button"
+                onClick={handleCompareWithMaterial}
+                className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
+                title="Create a new option to compare a different material"
+              >
+                + Compare Material
+              </button>
+            )}
           </div>
           <BulkMaterialDialog
             isOpen={showBulkSwap}
