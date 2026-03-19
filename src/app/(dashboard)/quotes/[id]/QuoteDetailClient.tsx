@@ -192,6 +192,7 @@ interface Material {
   collection: string | null;
   pricePerSqm: number;
   fabricationCategory?: string;
+  supplier?: { id: string; name: string } | null;
 }
 
 interface EdgeType {

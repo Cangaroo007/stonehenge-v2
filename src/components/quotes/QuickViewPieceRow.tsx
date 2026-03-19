@@ -25,6 +25,7 @@ import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { InlinePieceData } from './InlinePieceEditor';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { EdgeScope } from './EdgeProfilePopover';
+import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
@@ -54,6 +55,7 @@ interface InlineEditMaterial {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  supplier?: { id: string; name: string } | null;
 }
 
 interface InlineEditEdgeType {
@@ -1069,59 +1071,24 @@ export default function QuickViewPieceRow({
             </div>
           )}
 
-          {/* Material dropdown */}
+          {/* Material picker */}
           {isEditMode ? (
-            <div className="relative flex-shrink-0" ref={materialRef}>
+            <div className="flex items-center gap-1 flex-shrink-0">
+              <MaterialPickerV2
+                materials={editData?.materials ?? []}
+                value={fullPiece?.materialId ?? null}
+                onChange={(_id, mat) => {
+                  if (mat) handleMaterialSelect(mat);
+                }}
+                placeholder={piece.materialName || 'Select material'}
+              />
               <button
-                onClick={() => setShowMaterialDropdown(!showMaterialDropdown)}
-                className="flex items-center gap-1 px-2 py-0.5 text-xs border border-gray-200 rounded bg-white hover:border-gray-300 max-w-[200px] truncate"
+                type="button"
+                onClick={() => setShowNewMaterialModal(true)}
+                className="text-xs text-primary-600 hover:text-primary-700 font-medium whitespace-nowrap"
               >
-                <span className="truncate">{piece.materialName || 'Select material'}</span>
-                <svg className="w-3 h-3 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                </svg>
+                + New
               </button>
-              {showMaterialDropdown && (
-                <div className="absolute top-full left-0 mt-1 z-50 bg-white border border-gray-200 rounded-lg shadow-lg w-[260px]">
-                  <div className="p-2 border-b border-gray-100">
-                    <input
-                      type="text"
-                      value={materialSearch}
-                      onChange={e => setMaterialSearch(e.target.value)}
-                      placeholder="Search materials..."
-                      className="w-full px-2 py-1 text-xs border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
-                      autoFocus
-                    />
-                  </div>
-                  <div className="px-2 py-1.5 border-b border-gray-100">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowMaterialDropdown(false);
-                        setShowNewMaterialModal(true);
-                      }}
-                      className="w-full text-left text-xs text-primary-600 hover:text-primary-700 font-medium"
-                    >
-                      + Add new material
-                    </button>
-                  </div>
-                  <div className="max-h-[200px] overflow-y-auto py-1">
-                    {filteredMaterials.map(mat => (
-                      <button
-                        key={mat.id}
-                        onClick={() => handleMaterialSelect(mat)}
-                        className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-50 transition-colours flex justify-between"
-                      >
-                        <span className="truncate">{mat.name}</span>
-                        <span className="text-gray-400 ml-2 flex-shrink-0">{formatCurrency(mat.pricePerSqm)}/m&sup2;</span>
-                      </button>
-                    ))}
-                    {filteredMaterials.length === 0 && (
-                      <div className="px-3 py-2 text-xs text-gray-400">No materials found</div>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           ) : (
             piece.materialName && (
