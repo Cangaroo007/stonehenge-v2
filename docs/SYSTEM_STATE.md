@@ -1087,3 +1087,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ WF-7-STRIP-FIX: QuoteDetailClient.tsx waterfall onConfirm — build-up removal + noStripEdges
 
 ✅ TEMPLATE-SEED-1: prisma/seed-production.js — idempotent upsert
+
+✅ SPATIAL-4: room-layout-engine.ts + RoomPieceSVG.tsx spatial rendering fixes

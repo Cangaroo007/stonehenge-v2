@@ -42,7 +42,7 @@ interface RelationshipInput {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const MIN_SVG_WIDTH = 900;
+const MIN_SVG_WIDTH = 1400;
 const MAX_SVG_WIDTH = 2400;
 const PADDING = 60;
 const PIECE_GAP = 40;          // Gap between unrelated pieces
@@ -320,9 +320,9 @@ function positionChild(
         pieceId: child.id,
         x: isRight ? parent.length_mm : -(child.width_mm),
         y: 0,
-        width: child.width_mm,   // After rotation: width becomes the horizontal extent
-        height: child.length_mm, // After rotation: length becomes the vertical extent
-        rotation: 90,
+        width: child.width_mm,   // horizontal extent = depth of waterfall panel
+        height: child.length_mm, // vertical extent = height of waterfall panel
+        rotation: 0,             // no SVG rotation needed — dimensions handle orientation
         label: child.description,
       };
     }
