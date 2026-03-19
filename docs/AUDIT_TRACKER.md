@@ -312,3 +312,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-2: collection-only material selection + amber warning + locked status block
 
 ✅ MAT-PICKER-3: + Compare Material button — creates option + opens BulkMaterialDialog
+
+✅ WF-7B: warn + confirm before removing build-up when waterfall/splashback added
