@@ -4575,6 +4575,19 @@ export default function QuoteDetailClient({
           const parentPieceId = waterfallModal.parentPieceId;
           const type = waterfallModal.type;
           if (!parentPieceId) return;
+
+          // Warn Jay if the joining edge has a build-up — removing it is required
+          // but should not happen silently (Jay confirmed this requirement)
+          const parentPieceForCheck = effectivePieces.find(p => String(p.id) === parentPieceId);
+          if (parentPieceForCheck) {
+            const existingBuildups = (parentPieceForCheck.edgeBuildups as Record<string, { depth: number }> | null) ?? {};
+            if (existingBuildups[selectedEdge]) {
+              const edgeLabel = selectedEdge.charAt(0).toUpperCase() + selectedEdge.slice(1);
+              const typeLabel = type === 'WATERFALL' ? 'waterfall' : 'splashback';
+              if (!confirm(`The ${edgeLabel} edge has a build-up applied. Adding a ${typeLabel} will remove this build-up. Continue?`)) return;
+            }
+          }
+
           setWaterfallModal(prev => ({ ...prev, isOpen: false }));
 
           // 1. Find parent piece for room ID

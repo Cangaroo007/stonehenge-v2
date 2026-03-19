@@ -1101,3 +1101,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-2: quote_pieces.material_collection_only + material_collection_name added
 
 ✅ MAT-PICKER-3: QuoteDetailClient.tsx — handleCompareWithMaterial wires existing systems
+
+✅ WF-7B: onConfirm handler — build-up removal now requires Jay confirmation
