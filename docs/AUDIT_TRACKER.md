@@ -310,3 +310,5 @@ TEMPLATE-MANAGE-1 done
 ✅ SEED-FIX-1: added missing company_id to seedMaterialSlabPrices create call
 
 ✅ MAT-PICKER-2: collection-only material selection + amber warning + locked status block
+
+✅ MAT-PICKER-3: + Compare Material button — creates option + opens BulkMaterialDialog
