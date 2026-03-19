@@ -591,6 +591,8 @@ model quote_pieces {
   targetRelationships     piece_relationships[] @relation("target_relationships")
   apronParent             quote_pieces?         @relation("apron_pieces", fields: [apron_parent_id], references: [id], onDelete: Cascade)
   apronChildren           quote_pieces[]        @relation("apron_pieces")
+  material_collection_only Boolean              @default(false)
+  material_collection_name String?
 }
 
 model quote_rooms {

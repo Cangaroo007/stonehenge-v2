@@ -150,6 +150,8 @@ export default async function QuoteDetailPage({
         overrideFabricationCost: piece.override_fabrication_cost
           ? Number(piece.override_fabrication_cost)
           : null,
+        materialCollectionOnly: piece.material_collection_only ?? false,
+        materialCollectionName: piece.material_collection_name ?? null,
         piece_features: piece.piece_features.map((f) => ({
           id: f.id,
           name: f.name,

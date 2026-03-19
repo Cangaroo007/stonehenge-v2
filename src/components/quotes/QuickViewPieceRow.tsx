@@ -111,6 +111,8 @@ interface PieceData {
   overrideSlabPrice?: number | null;
   overrideFabricationCost?: number | null;
   edgeBuildups?: Record<string, { depth: number }> | null;
+  materialCollectionOnly?: boolean;
+  materialCollectionName?: string | null;
 }
 
 export interface QuickViewPieceRowProps {
@@ -1077,10 +1079,26 @@ export default function QuickViewPieceRow({
               <MaterialPickerV2
                 materials={editData?.materials ?? []}
                 value={fullPiece?.materialId ?? null}
-                onChange={(_id, mat) => {
-                  if (mat) handleMaterialSelect(mat);
+                onChange={(_id, mat, collectionInfo) => {
+                  if (collectionInfo?.collectionOnly) {
+                    savePieceImmediate({
+                      materialId: mat?.id ?? null,
+                      materialName: mat?.name ?? null,
+                      materialCollectionOnly: true,
+                      materialCollectionName: collectionInfo.collectionName,
+                    });
+                  } else if (mat) {
+                    savePieceImmediate({
+                      materialId: mat.id,
+                      materialName: mat.name,
+                      materialCollectionOnly: false,
+                      materialCollectionName: null,
+                    });
+                  }
                 }}
                 placeholder={piece.materialName || 'Select material'}
+                collectionOnly={piece.materialCollectionOnly ?? false}
+                collectionName={piece.materialCollectionName ?? null}
               />
               <button
                 type="button"
