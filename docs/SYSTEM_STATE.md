@@ -1089,3 +1089,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 ✅ TEMPLATE-SEED-1: prisma/seed-production.js — idempotent upsert
 
 ✅ SPATIAL-4: room-layout-engine.ts + RoomPieceSVG.tsx spatial rendering fixes
+
+TEMPLATE-MANAGE-1 done
