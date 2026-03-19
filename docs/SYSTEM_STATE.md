@@ -1097,3 +1097,5 @@ TEMPLATE-MANAGE-1 done
 ✅ QUOTE-TOTAL-FIX-1: TotalBreakdownAccordion.tsx fixed
 
 ✅ SEED-FIX-1: seed-production.js runs to completion on fresh deploy
+
+✅ MAT-PICKER-2: quote_pieces.material_collection_only + material_collection_name added

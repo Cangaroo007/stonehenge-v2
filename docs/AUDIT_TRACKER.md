@@ -308,3 +308,5 @@ TEMPLATE-MANAGE-1 done
 ✅ QUOTE-TOTAL-FIX-1: removed double-counted Additional Costs
 
 ✅ SEED-FIX-1: added missing company_id to seedMaterialSlabPrices create call
+
+✅ MAT-PICKER-2: collection-only material selection + amber warning + locked status block

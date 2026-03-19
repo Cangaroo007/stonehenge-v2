@@ -125,6 +125,8 @@ interface QuotePiece {
   machineProfileId: string | null;
   /** Fabrication category from the assigned material (e.g. ENGINEERED, NATURAL_HARD) */
   fabricationCategory?: string;
+  materialCollectionOnly?: boolean;
+  materialCollectionName?: string | null;
   quote_rooms: {
     id: number;
     name: string;
@@ -1929,6 +1931,15 @@ export default function QuoteDetailClient({
   const handleStatusChange = async (newStatus: string, options?: { declinedReason?: string }) => {
     setSaving(true);
     try {
+      // Block locking if any piece has unconfirmed colour
+      if (newStatus === 'locked' && effectivePieces.some(p => p.materialCollectionOnly)) {
+        const count = effectivePieces.filter(p => p.materialCollectionOnly).length;
+        toast.error(
+          `Cannot lock — ${count} piece${count > 1 ? 's have' : ' has'} unconfirmed colour${count > 1 ? 's' : ''}. Select specific colours before locking.`
+        );
+        setSaving(false);
+        return;
+      }
       const response = await fetch(`/api/quotes/${quoteIdStr}/status`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -3037,8 +3048,20 @@ export default function QuoteDetailClient({
               const viewRooms = serverData.quote_rooms ?? [];
               const assignedRoomIds = new Set(viewRooms.map(r => r.id));
               const unassignedViewPieces = allViewPieces.filter(p => !assignedRoomIds.has(p.roomId));
+              const collectionOnlyCount = effectivePieces.filter(p => p.materialCollectionOnly).length;
               return (
                 <>
+                  {/* Collection-only material warning */}
+                  {collectionOnlyCount > 0 && (
+                    <div className="flex items-center gap-2 px-4 py-3 mb-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+                      <span>⚠️</span>
+                      <span>
+                        {collectionOnlyCount} piece{collectionOnlyCount > 1 ? 's have' : ' has'} unconfirmed
+                        colour{collectionOnlyCount > 1 ? 's' : ''} —
+                        collection-only material selected. Select a specific colour to confirm.
+                      </span>
+                    </div>
+                  )}
                   {viewRooms.map(room => {
                     const roomPieces = allViewPieces.filter(p => p.roomId === room.id);
                     if (roomPieces.length === 0) return null;
@@ -3448,6 +3471,8 @@ export default function QuoteDetailClient({
               overrideMaterialCost: p.overrideMaterialCost ?? null,
               overrideSlabPrice: p.overrideSlabPrice ?? null,
               overrideFabricationCost: p.overrideFabricationCost ?? null,
+              materialCollectionOnly: p.materialCollectionOnly ?? false,
+              materialCollectionName: p.materialCollectionName ?? null,
             }}
             breakdown={pb}
             machines={machines}

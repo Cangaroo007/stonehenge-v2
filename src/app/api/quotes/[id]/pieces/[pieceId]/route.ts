@@ -180,6 +180,8 @@ export async function GET(
       overrideFabricationCost: piece.override_fabrication_cost
         ? Number(piece.override_fabrication_cost)
         : null,
+      materialCollectionOnly: piece.material_collection_only ?? false,
+      materialCollectionName: piece.material_collection_name ?? null,
       // CURVE-2a: Corner edge camelCase aliases
       cornerEdgeTl: p.corner_edge_tl ?? null,
       cornerEdgeTr: p.corner_edge_tr ?? null,
@@ -275,6 +277,8 @@ export async function PATCH(
       pieceType,
       edgeArcConfig,
       edgeBuildups,
+      materialCollectionOnly,
+      materialCollectionName,
     } = data;
     const mitredCornerTreatment = data.mitredCornerTreatment as string | undefined;
 
@@ -431,6 +435,8 @@ export async function PATCH(
         // no_strip_edges: wall edges that don't need lamination strips
         ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
         ...(edgeBuildups !== undefined && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
+        ...(materialCollectionOnly !== undefined && { material_collection_only: materialCollectionOnly }),
+        ...(materialCollectionName !== undefined && { material_collection_name: materialCollectionName }),
         ...(pieceType !== undefined && { piece_type: pieceType }),
         ...(edgeArcConfig !== undefined && { edge_arc_config: edgeArcConfig as unknown as Prisma.InputJsonValue }),
         strip_width_overrides: stripWidthOverrides !== undefined
@@ -535,6 +541,8 @@ export async function PATCH(
       overrideFabricationCost: updatedPiece.override_fabrication_cost
         ? Number(updatedPiece.override_fabrication_cost)
         : null,
+      materialCollectionOnly: updatedPiece.material_collection_only ?? false,
+      materialCollectionName: updatedPiece.material_collection_name ?? null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (updatedPiece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
       mitredCornerTreatment: pu.mitred_corner_treatment ?? 'RAW',

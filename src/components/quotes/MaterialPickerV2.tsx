@@ -13,8 +13,14 @@ export interface MaterialPickerMaterial {
 interface MaterialPickerV2Props {
   materials: MaterialPickerMaterial[];
   value: number | null;
-  onChange: (materialId: number | null, material: MaterialPickerMaterial | null) => void;
+  onChange: (
+    materialId: number | null,
+    material: MaterialPickerMaterial | null,
+    collectionInfo?: { collectionOnly: true; collectionName: string } | null
+  ) => void;
   placeholder?: string;
+  collectionOnly?: boolean;
+  collectionName?: string | null;
 }
 
 function formatCurrency(amount: number): string {
@@ -26,6 +32,8 @@ export default function MaterialPickerV2({
   value,
   onChange,
   placeholder = 'Select material',
+  collectionOnly = false,
+  collectionName = null,
 }: MaterialPickerV2Props) {
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
@@ -115,13 +123,15 @@ export default function MaterialPickerV2({
   };
 
   const handleUseCollectionAvg = () => {
-    // TODO: MAT-PICKER-2 — collection-only selection with collectionOnly flag
-    // For now, select the first material in the collection
-    const first = colours[0];
-    if (first) {
-      onChange(first.id, first);
-      setOpen(false);
-    }
+    if (!selectedCollection) return;
+    const inCollection = materials.filter(m => m.collection === selectedCollection);
+    if (!inCollection.length) return;
+    const first = inCollection[0];
+    onChange(first.id, first, { collectionOnly: true, collectionName: selectedCollection });
+    setOpen(false);
+    setSearch('');
+    setSelectedSupplier(null);
+    setSelectedCollection(null);
   };
 
   return (
@@ -133,9 +143,11 @@ export default function MaterialPickerV2({
         className="flex items-center gap-1 px-2 py-0.5 text-xs border border-gray-200 rounded bg-white hover:border-gray-300 max-w-[200px] truncate"
       >
         <span className="truncate">
-          {selectedMaterial
-            ? `${selectedMaterial.name}${selectedMaterial.collection ? ` — ${selectedMaterial.collection}` : ''}`
-            : placeholder}
+          {collectionOnly && collectionName
+            ? <span className="italic text-amber-600">{collectionName} (collection)</span>
+            : selectedMaterial
+              ? `${selectedMaterial.name}${selectedMaterial.collection ? ` — ${selectedMaterial.collection}` : ''}`
+              : placeholder}
         </span>
         <svg className="w-3 h-3 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
