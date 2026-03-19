@@ -61,16 +61,9 @@ export default function TotalBreakdownAccordion({
     0
   );
 
-  // Delivery
   const deliveryTotal = calculation?.breakdown?.delivery?.finalCost ?? 0;
-
-  // Additional costs (services minus installation which is already counted)
-  const servicesTotal = calculation?.breakdown?.services?.total ?? 0;
-  // The services section may include installation already — use the services total directly
-  // as "additional costs" if there are non-installation service items
-  const additionalCosts = (calculation?.breakdown?.services?.items ?? [])
-    .filter(s => s.serviceType !== 'installation')
-    .reduce((sum, s) => sum + s.subtotal, 0);
+  const templatingTotal = calculation?.breakdown?.templating?.finalCost ?? 0;
+  const customChargesTotal = (calculation as any)?.customChargesTotal ?? 0;
 
   return (
     <div className="card overflow-hidden">
@@ -183,17 +176,29 @@ export default function TotalBreakdownAccordion({
             <span className="font-medium tabular-nums">{formatCurrency(installationTotal)}</span>
           </div>
 
-          {/* Delivery */}
-          <div className="flex items-center justify-between text-sm text-gray-700 px-1">
-            <span>Delivery</span>
-            <span className="font-medium tabular-nums">{formatCurrency(deliveryTotal)}</span>
-          </div>
+          {/* Delivery — hidden when zero */}
+          {deliveryTotal > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-700 px-1">
+              <span>Delivery</span>
+              <span className="font-medium tabular-nums">{formatCurrency(deliveryTotal)}</span>
+            </div>
+          )}
 
-          {/* Additional Costs */}
-          <div className="flex items-center justify-between text-sm text-gray-700 px-1">
-            <span>Additional Costs</span>
-            <span className="font-medium tabular-nums">{formatCurrency(additionalCosts)}</span>
-          </div>
+          {/* Templating — hidden when zero */}
+          {templatingTotal > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-700 px-1">
+              <span>Templating</span>
+              <span className="font-medium tabular-nums">{formatCurrency(templatingTotal)}</span>
+            </div>
+          )}
+
+          {/* Custom Charges — hidden when zero */}
+          {customChargesTotal > 0 && (
+            <div className="flex items-center justify-between text-sm text-gray-700 px-1">
+              <span>Custom Charges</span>
+              <span className="font-medium tabular-nums">{formatCurrency(customChargesTotal)}</span>
+            </div>
+          )}
 
           {/* Divider */}
           <div className="border-t border-gray-300 my-1" />

@@ -304,3 +304,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 TEMPLATE-MANAGE-1 done
 
 ✅ MAT-PICKER-1: new three-panel material picker (Supplier → Collection → Colour)
+
+✅ QUOTE-TOTAL-FIX-1: removed double-counted Additional Costs

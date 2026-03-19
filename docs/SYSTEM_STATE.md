@@ -1093,3 +1093,5 @@ MANUAL-BLANK-1 (2026-03-16): CLAUDE.md replaced with v2 hard stops. docs/STONEHE
 TEMPLATE-MANAGE-1 done
 
 ✅ MAT-PICKER-1: MaterialPickerV2.tsx created + wired into QuickViewPieceRow
+
+✅ QUOTE-TOTAL-FIX-1: TotalBreakdownAccordion.tsx fixed
