@@ -298,3 +298,5 @@ WF-1a — join_method (String?) added to quote_pieces. splashback_top_edge_id (V
 ✅ WF-7-STRIP-FIX: auto-remove build-up on joining edge + add to noStripEdges at waterfall creation
 
 ✅ TEMPLATE-SEED-1: 25 starter templates + 6 edge profile templates seeded
+
+✅ SPATIAL-4: waterfall double-rotation fixed + MIN_SVG_WIDTH 900→1400 + rotateTransform removed
