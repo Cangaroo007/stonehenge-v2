@@ -1095,3 +1095,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-1: MaterialPickerV2.tsx created + wired into QuickViewPieceRow
 
 ✅ QUOTE-TOTAL-FIX-1: TotalBreakdownAccordion.tsx fixed
+
+✅ SEED-FIX-1: seed-production.js runs to completion on fresh deploy

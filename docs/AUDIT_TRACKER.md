@@ -306,3 +306,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-1: new three-panel material picker (Supplier → Collection → Colour)
 
 ✅ QUOTE-TOTAL-FIX-1: removed double-counted Additional Costs
+
+✅ SEED-FIX-1: added missing company_id to seedMaterialSlabPrices create call

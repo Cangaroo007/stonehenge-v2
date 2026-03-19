@@ -240,6 +240,7 @@ async function seedMaterialSlabPrices() {
           slab_length_mm: SLAB_LENGTH_MM,
           slab_width_mm: SLAB_WIDTH_MM,
           updated_at: new Date(),
+          company_id: 1,
         },
       });
     }
