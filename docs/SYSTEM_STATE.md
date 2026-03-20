@@ -1103,3 +1103,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-3: QuoteDetailClient.tsx — handleCompareWithMaterial wires existing systems
 
 ✅ WF-7B: onConfirm handler — build-up removal now requires Jay confirmation
+
+✅ SHAPE-THUMB-1: getMiniShapePath now handles all 6 shape types

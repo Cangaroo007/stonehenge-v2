@@ -314,3 +314,5 @@ TEMPLATE-MANAGE-1 done
 ✅ MAT-PICKER-3: + Compare Material button — creates option + opens BulkMaterialDialog
 
 ✅ WF-7B: warn + confirm before removing build-up when waterfall/splashback added
+
+✅ SHAPE-THUMB-1: curved shape mini SVG thumbnails (RADIUS_END, FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT)

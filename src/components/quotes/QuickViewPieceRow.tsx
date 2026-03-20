@@ -27,7 +27,7 @@ import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/buil
 import type { EdgeScope } from './EdgeProfilePopover';
 import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
-import type { LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -382,6 +382,43 @@ function getMiniShapePath(
     const sInnerRightY = sRL - sBW;
     // U-shape: P0→P1→P2→P3→P4→P5→P6→P7 (same point order as PieceVisualEditor)
     return `M ${x},${y} L ${x + sLW},${y} L ${x + sLW},${y + sInnerLeftY} L ${x + w - sRW},${y + sInnerRightY} L ${x + w - sRW},${y} L ${x + w},${y} L ${x + w},${y + sRL} L ${x},${y + sLL} Z`;
+  }
+  // RADIUS_END — rectangle with one or both short ends replaced by arc
+  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+    const cfg = shapeConfig as unknown as RadiusEndConfig;
+    const rx = Math.min((cfg.radius_mm / cfg.length_mm) * w, w * 0.45);
+    const ry = Math.min((cfg.radius_mm / cfg.width_mm) * h, h * 0.45);
+    if (cfg.curved_ends === 'BOTH') {
+      // Both ends curved — pill shape
+      return `M ${x + rx},${y} L ${x + w - rx},${y} Q ${x + w},${y} ${x + w},${y + ry} L ${x + w},${y + h - ry} Q ${x + w},${y + h} ${x + w - rx},${y + h} L ${x + rx},${y + h} Q ${x},${y + h} ${x},${y + h - ry} L ${x},${y + ry} Q ${x},${y} ${x + rx},${y} Z`;
+    } else {
+      // One end curved (right end)
+      return `M ${x},${y} L ${x + w - rx},${y} Q ${x + w},${y} ${x + w},${y + ry} L ${x + w},${y + h - ry} Q ${x + w},${y + h} ${x + w - rx},${y + h} L ${x},${y + h} Z`;
+    }
+  }
+  // FULL_CIRCLE — ellipse (SVG path approximation via cubic bezier)
+  if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') {
+    const cx = x + w / 2;
+    const cy = y + h / 2;
+    const rx2 = w / 2;
+    const ry2 = h / 2;
+    const k = 0.5523;
+    return `M ${cx},${y} C ${cx + rx2 * k},${y} ${cx + rx2},${cy - ry2 * k} ${cx + rx2},${cy} C ${cx + rx2},${cy + ry2 * k} ${cx + rx2 * k},${y + h} ${cx},${y + h} C ${cx - rx2 * k},${y + h} ${x},${cy + ry2 * k} ${x},${cy} C ${x},${cy - ry2 * k} ${cx - rx2 * k},${y} ${cx},${y} Z`;
+  }
+  // CONCAVE_ARC — rectangle with a concave bite from one side
+  if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') {
+    const depth = Math.min(((shapeConfig as unknown as { depth_mm: number }).depth_mm ?? 0) / 1000, 1) * w * 0.3;
+    return `M ${x},${y} L ${x + w},${y} Q ${x + w - depth},${y + h / 2} ${x + w},${y + h} L ${x},${y + h} Z`;
+  }
+  // ROUNDED_RECT — rectangle with rounded corners
+  if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') {
+    const cfg = shapeConfig as unknown as RoundedRectConfig;
+    const r = Math.min(
+      (cfg.corner_radius_mm / Math.max(cfg.length_mm, 1)) * w,
+      (cfg.corner_radius_mm / Math.max(cfg.width_mm, 1)) * h,
+      w * 0.3, h * 0.3
+    );
+    return `M ${x + r},${y} L ${x + w - r},${y} Q ${x + w},${y} ${x + w},${y + r} L ${x + w},${y + h - r} Q ${x + w},${y + h} ${x + w - r},${y + h} L ${x + r},${y + h} Q ${x},${y + h} ${x},${y + h - r} L ${x},${y + r} Q ${x},${y} ${x + r},${y} Z`;
   }
   return null;
 }
