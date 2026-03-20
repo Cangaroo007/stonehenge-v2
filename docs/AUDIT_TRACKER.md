@@ -320,3 +320,5 @@ TEMPLATE-MANAGE-1 done
 ✅ SHAPE-EDIT-1: L/U shape per-leg dimension editing in QuickViewPieceRow
 
 ✅ SHAPE-THUMB-2: exaggerated arc thumbnail + ~R/○/▢ curved shape badges
+
+✅ OPT-NOMAT-1: optimizer excludes pieces with no material assigned
