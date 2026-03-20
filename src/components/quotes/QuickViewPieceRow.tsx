@@ -386,8 +386,8 @@ function getMiniShapePath(
   // RADIUS_END — rectangle with one or both short ends replaced by arc
   if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
     const cfg = shapeConfig as unknown as RadiusEndConfig;
-    const rx = Math.min((cfg.radius_mm / cfg.length_mm) * w, w * 0.45);
-    const ry = Math.min((cfg.radius_mm / cfg.width_mm) * h, h * 0.45);
+    const rx = Math.max(Math.min((cfg.radius_mm / cfg.length_mm) * w, w * 0.45), w * 0.25);
+    const ry = Math.max(Math.min((cfg.radius_mm / cfg.width_mm) * h, h * 0.45), h * 0.25);
     if (cfg.curved_ends === 'BOTH') {
       // Both ends curved — pill shape
       return `M ${x + rx},${y} L ${x + w - rx},${y} Q ${x + w},${y} ${x + w},${y + ry} L ${x + w},${y + h - ry} Q ${x + w},${y + h} ${x + w - rx},${y + h} L ${x + rx},${y + h} Q ${x},${y + h} ${x},${y + h - ry} L ${x},${y + ry} Q ${x},${y} ${x + rx},${y} Z`;
@@ -1427,6 +1427,22 @@ export default function QuickViewPieceRow({
                   GRAIN MATCH {!piece.requiresGrainMatch && isOversize ? '⚠' : ''}
                 </span>
               )
+            )}
+            {/* Curved shape badge */}
+            {piece.shapeType === 'RADIUS_END' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-700 border border-sky-300 flex-shrink-0">
+                ~R
+              </span>
+            )}
+            {piece.shapeType === 'FULL_CIRCLE' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-700 border border-sky-300 flex-shrink-0">
+                ○
+              </span>
+            )}
+            {piece.shapeType === 'ROUNDED_RECT' && (
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-sky-100 text-sky-700 border border-sky-300 flex-shrink-0">
+                ▢
+              </span>
             )}
             {savingPiece && (
               <span className="text-[10px] text-blue-500 animate-pulse">Saving...</span>

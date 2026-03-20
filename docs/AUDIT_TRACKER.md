@@ -318,3 +318,5 @@ TEMPLATE-MANAGE-1 done
 ✅ SHAPE-THUMB-1: curved shape mini SVG thumbnails (RADIUS_END, FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT)
 
 ✅ SHAPE-EDIT-1: L/U shape per-leg dimension editing in QuickViewPieceRow
+
+✅ SHAPE-THUMB-2: exaggerated arc thumbnail + ~R/○/▢ curved shape badges
