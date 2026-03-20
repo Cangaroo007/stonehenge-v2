@@ -1105,3 +1105,5 @@ TEMPLATE-MANAGE-1 done
 ✅ WF-7B: onConfirm handler — build-up removal now requires Jay confirmation
 
 ✅ SHAPE-THUMB-1: getMiniShapePath now handles all 6 shape types
+
+✅ SHAPE-EDIT-1: L/U shape pieces now show per-leg inputs in edit mode
