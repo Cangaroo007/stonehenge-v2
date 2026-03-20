@@ -322,3 +322,7 @@ TEMPLATE-MANAGE-1 done
 ✅ SHAPE-THUMB-2: exaggerated arc thumbnail + ~R/○/▢ curved shape badges
 
 ✅ OPT-NOMAT-1: optimizer excludes pieces with no material assigned
+
+✅ EDGE-LU-1: L/U shape edges now save to shapeConfig.edges (not edge_arc_config)
+
+✅ EDGE-LU-1: L/U shape edges now save to shapeConfig.edges (not edge_arc_config)
