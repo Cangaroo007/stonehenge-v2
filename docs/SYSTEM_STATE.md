@@ -1107,3 +1107,5 @@ TEMPLATE-MANAGE-1 done
 ✅ SHAPE-THUMB-1: getMiniShapePath now handles all 6 shape types
 
 ✅ SHAPE-EDIT-1: L/U shape pieces now show per-leg inputs in edit mode
+
+✅ SHAPE-THUMB-2: RADIUS_END/FULL_CIRCLE/ROUNDED_RECT badges in piece header
