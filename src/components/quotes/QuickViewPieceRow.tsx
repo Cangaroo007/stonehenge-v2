@@ -523,6 +523,9 @@ export default function QuickViewPieceRow({
   // ── Local state ─────────────────────────────────────────────────────────
   const [localLength, setLocalLength] = useState(piece.lengthMm);
   const [localWidth, setLocalWidth] = useState(piece.widthMm);
+  const [localShapeConfig, setLocalShapeConfig] = useState<Record<string, unknown> | null>(
+    piece.shapeConfig ?? null
+  );
   const [editingName, setEditingName] = useState(false);
   const [localName, setLocalName] = useState(piece.name);
   const [accordionOpen, setAccordionOpen] = useState(false);
@@ -704,6 +707,39 @@ export default function QuickViewPieceRow({
     setLocalWidth(val);
     savePiece({ widthMm: val });
   }, [savePiece]);
+
+  const handleShapeConfigChange = useCallback((
+    updatedConfig: Record<string, unknown>
+  ) => {
+    setLocalShapeConfig(updatedConfig);
+    if (piece.shapeType === 'L_SHAPE') {
+      const cfg = updatedConfig as unknown as LShapeConfig;
+      if (cfg.leg1 && cfg.leg2) {
+        const newLength = cfg.leg1.length_mm;
+        const newWidth = cfg.leg1.width_mm + cfg.leg2.length_mm;
+        setLocalLength(newLength);
+        setLocalWidth(newWidth);
+        savePieceImmediate({
+          shapeConfig: updatedConfig,
+          lengthMm: newLength,
+          widthMm: newWidth,
+        });
+      }
+    } else if (piece.shapeType === 'U_SHAPE') {
+      const cfg = updatedConfig as unknown as UShapeConfig;
+      if (cfg.leftLeg && cfg.back && cfg.rightLeg) {
+        const newLength = cfg.back.length_mm;
+        const newWidth = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
+        setLocalLength(newLength);
+        setLocalWidth(newWidth);
+        savePieceImmediate({
+          shapeConfig: updatedConfig,
+          lengthMm: newLength,
+          widthMm: newWidth,
+        });
+      }
+    }
+  }, [piece.shapeType, savePieceImmediate]);
 
   // ── Name handler ────────────────────────────────────────────────────────
   const handleNameSave = useCallback(() => {
@@ -1065,28 +1101,133 @@ export default function QuickViewPieceRow({
             </span>
           )}
 
-          {/* Dimension inputs */}
+          {/* Dimension inputs — shape-aware */}
           {isEditMode ? (
-            <div className="flex items-center gap-0.5 flex-shrink-0">
-              <input
-                type="number"
-                value={localLength}
-                onChange={e => handleLengthChange(Number(e.target.value))}
-                min={100}
-                step={50}
-                className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
-              />
-              <span className="text-xs text-gray-400">&times;</span>
-              <input
-                type="number"
-                value={localWidth}
-                onChange={e => handleWidthChange(Number(e.target.value))}
-                min={100}
-                step={50}
-                className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
-              />
-              <span className="text-xs text-gray-400 ml-0.5">mm</span>
-            </div>
+            <>
+              {/* Rectangle: standard length × width inputs */}
+              {(!piece.shapeType || piece.shapeType === 'RECTANGLE') && (
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <input
+                    type="number"
+                    value={localLength}
+                    onChange={e => handleLengthChange(Number(e.target.value))}
+                    min={100}
+                    step={50}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400">&times;</span>
+                  <input
+                    type="number"
+                    value={localWidth}
+                    onChange={e => handleWidthChange(Number(e.target.value))}
+                    min={100}
+                    step={50}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400 ml-0.5">mm</span>
+                </div>
+              )}
+
+              {/* L-Shape: per-leg inputs */}
+              {piece.shapeType === 'L_SHAPE' && localShapeConfig && (() => {
+                const cfg = localShapeConfig as unknown as LShapeConfig;
+                if (!cfg?.leg1 || !cfg?.leg2) return null;
+                return (
+                  <div className="flex flex-col gap-1 text-xs">
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 w-10">Leg 1:</span>
+                      <input type="number" value={cfg.leg1.length_mm} min={100} step={10}
+                        onChange={e => handleShapeConfigChange({
+                          ...localShapeConfig,
+                          leg1: { ...cfg.leg1, length_mm: Number(e.target.value) }
+                        })}
+                        className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-400">&times;</span>
+                      <input type="number" value={cfg.leg1.width_mm} min={100} step={10}
+                        onChange={e => handleShapeConfigChange({
+                          ...localShapeConfig,
+                          leg1: { ...cfg.leg1, width_mm: Number(e.target.value) }
+                        })}
+                        className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className="text-gray-400 w-10">Leg 2:</span>
+                      <input type="number" value={cfg.leg2.length_mm} min={100} step={10}
+                        onChange={e => handleShapeConfigChange({
+                          ...localShapeConfig,
+                          leg2: { ...cfg.leg2, length_mm: Number(e.target.value) }
+                        })}
+                        className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                      <span className="text-gray-400">&times;</span>
+                      <input type="number" value={cfg.leg2.width_mm} min={100} step={10}
+                        onChange={e => handleShapeConfigChange({
+                          ...localShapeConfig,
+                          leg2: { ...cfg.leg2, width_mm: Number(e.target.value) }
+                        })}
+                        className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      />
+                    </div>
+                    <span className="text-[10px] text-gray-400">mm</span>
+                  </div>
+                );
+              })()}
+
+              {/* U-Shape: per-leg inputs */}
+              {piece.shapeType === 'U_SHAPE' && localShapeConfig && (() => {
+                const cfg = localShapeConfig as unknown as UShapeConfig;
+                if (!cfg?.leftLeg || !cfg?.back || !cfg?.rightLeg) return null;
+                return (
+                  <div className="flex flex-col gap-1 text-xs">
+                    {[
+                      { key: 'leftLeg', label: 'Left:', data: cfg.leftLeg },
+                      { key: 'back', label: 'Back:', data: cfg.back },
+                      { key: 'rightLeg', label: 'Right:', data: cfg.rightLeg },
+                    ].map(({ key, label, data }) => (
+                      <div key={key} className="flex items-center gap-1">
+                        <span className="text-gray-400 w-10">{label}</span>
+                        <input type="number" value={data.length_mm} min={100} step={10}
+                          onChange={e => handleShapeConfigChange({
+                            ...localShapeConfig,
+                            [key]: { ...data, length_mm: Number(e.target.value) }
+                          })}
+                          className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                        <span className="text-gray-400">&times;</span>
+                        <input type="number" value={data.width_mm} min={100} step={10}
+                          onChange={e => handleShapeConfigChange({
+                            ...localShapeConfig,
+                            [key]: { ...data, width_mm: Number(e.target.value) }
+                          })}
+                          className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        />
+                      </div>
+                    ))}
+                    <span className="text-[10px] text-gray-400">mm</span>
+                  </div>
+                );
+              })()}
+
+              {/* Other shapes (RADIUS_END, FULL_CIRCLE etc) — bounding box only */}
+              {piece.shapeType && !['RECTANGLE', 'L_SHAPE', 'U_SHAPE'].includes(piece.shapeType) && (
+                <div className="flex items-center gap-0.5 flex-shrink-0">
+                  <input type="number" value={localLength}
+                    onChange={e => handleLengthChange(Number(e.target.value))}
+                    min={100} step={50}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400">&times;</span>
+                  <input type="number" value={localWidth}
+                    onChange={e => handleWidthChange(Number(e.target.value))}
+                    min={100} step={50}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400 ml-0.5">mm</span>
+                </div>
+              )}
+            </>
           ) : (
             <span className="text-xs text-gray-500 flex-shrink-0">
               {getPieceDimensionLabel(piece)}
