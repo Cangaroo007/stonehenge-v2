@@ -430,7 +430,7 @@ export async function POST(
         }
       );
 
-      const multiMaterialPieces: MultiMaterialPiece[] = pieces.map(
+      const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { materialId: string | null }) => !!p.materialId).map(
         (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
@@ -575,7 +575,7 @@ export async function POST(
 
     // ── Single-material optimisation path (existing, backward compatible) ──
     // Filter out zero/negative dimension pieces before optimization
-    const validPieces = pieces.filter((p: { width: number; height: number }) => p.width > 0 && p.height > 0);
+    const validPieces = pieces.filter((p: { width: number; height: number; materialId: string | null }) => p.width > 0 && p.height > 0 && !!p.materialId);
 
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
     const result = await optimizeSlabs({
