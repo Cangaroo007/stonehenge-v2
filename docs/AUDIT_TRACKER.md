@@ -326,3 +326,5 @@ TEMPLATE-MANAGE-1 done
 ✅ EDGE-LU-1: L/U shape edges now save to shapeConfig.edges (not edge_arc_config)
 
 ✅ EDGE-LU-1: L/U shape edges now save to shapeConfig.edges (not edge_arc_config)
+
+✅ EDGE-LU-2: calculator reads L/U shape edges from shapeConfig.edges using getFinishableEdgeLengthsMm

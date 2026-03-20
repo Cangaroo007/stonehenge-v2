@@ -20,6 +20,7 @@ import {
   type PricingEngineInput,
   type EngineSettings,
   type EngineServiceRate,
+  type EngineEdge,
   type EngineEdgeCategoryRate,
   type EngineCutoutRate,
   type EnginePiece,
@@ -1000,12 +1001,40 @@ export async function calculateQuotePrice(
       }
     }
 
-    const edges: EnginePiece['edges'] = [
-      { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm },
-      { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: edgeLengths.bottom_mm },
-      { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: edgeLengths.left_mm },
-      { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
-    ];
+    // Build edges array — RECTANGLE uses 4 DB columns, L/U uses shapeConfig.edges
+    const pieceShapeTypeForEdges = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
+    const isLOrUShapeForEdges = pieceShapeTypeForEdges === 'L_SHAPE' || pieceShapeTypeForEdges === 'U_SHAPE';
+
+    let edges: EnginePiece['edges'];
+
+    if (isLOrUShapeForEdges && piece.shape_config) {
+      // L/U shapes: use getFinishableEdgeLengthsMm for per-segment lengths
+      // and shapeConfig.edges for edge type assignments
+      const finishableLengths = getFinishableEdgeLengthsMm(
+        pieceShapeTypeForEdges,
+        piece.shape_config as unknown as ShapeConfig,
+        piece.length_mm ?? 0,
+        piece.width_mm ?? 0,
+      );
+      const shapeEdges = ((piece.shape_config as unknown as Record<string, unknown>).edges ?? {}) as Record<string, string | null>;
+      edges = Object.entries(finishableLengths).map(([key, length_mm]) => {
+        const edgeTypeStringId = shapeEdges[key] ?? null;
+        return {
+          position: key.toUpperCase() as EngineEdge['position'],
+          isFinished: !!edgeTypeStringId,
+          edgeTypeId: edgeTypeStringId ? (edgeTypeIdMap.get(edgeTypeStringId) ?? null) : null,
+          length_mm,
+        };
+      });
+    } else {
+      // RECTANGLE and other shapes: use 4 DB columns (original behaviour)
+      edges = [
+        { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm },
+        { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: edgeLengths.bottom_mm },
+        { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: edgeLengths.left_mm },
+        { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
+      ];
+    }
 
     // Get no_strip_edges for this piece (wall edges + promoted edges that don't need lamination strips)
     const storedNoStrip = (piece.no_strip_edges as unknown as string[]) ?? [];
