@@ -328,3 +328,6 @@ TEMPLATE-MANAGE-1 done
 ✅ EDGE-LU-1: L/U shape edges now save to shapeConfig.edges (not edge_arc_config)
 
 ✅ EDGE-LU-2: calculator reads L/U shape edges from shapeConfig.edges using getFinishableEdgeLengthsMm
+
+✅ DIM-INPUT-1: dimension inputs save on blur — fixes typing bug
+✅ EXPANDED-1: streamlined accordion — hides summary tier, compact dims, bottom collapse button
