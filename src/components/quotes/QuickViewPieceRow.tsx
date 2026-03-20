@@ -698,15 +698,29 @@ export default function QuickViewPieceRow({
   }, [fullPiece, onSavePiece, piece.id]);
 
   // ── Dimension handlers ──────────────────────────────────────────────────
+  // onChange: update local state only — no save
   const handleLengthChange = useCallback((val: number) => {
     setLocalLength(val);
-    savePiece({ lengthMm: val });
-  }, [savePiece]);
+  }, []);
 
+  // onBlur: save when user leaves the field
+  const handleLengthBlur = useCallback(() => {
+    if (localLength > 0) {
+      savePiece({ lengthMm: localLength });
+    }
+  }, [localLength, savePiece]);
+
+  // onChange: update local state only — no save
   const handleWidthChange = useCallback((val: number) => {
     setLocalWidth(val);
-    savePiece({ widthMm: val });
-  }, [savePiece]);
+  }, []);
+
+  // onBlur: save when user leaves the field
+  const handleWidthBlur = useCallback(() => {
+    if (localWidth > 0) {
+      savePiece({ widthMm: localWidth });
+    }
+  }, [localWidth, savePiece]);
 
   const handleShapeConfigChange = useCallback((
     updatedConfig: Record<string, unknown>
@@ -719,7 +733,7 @@ export default function QuickViewPieceRow({
         const newWidth = cfg.leg1.width_mm + cfg.leg2.length_mm;
         setLocalLength(newLength);
         setLocalWidth(newWidth);
-        savePieceImmediate({
+        savePiece({
           shapeConfig: updatedConfig,
           lengthMm: newLength,
           widthMm: newWidth,
@@ -732,14 +746,14 @@ export default function QuickViewPieceRow({
         const newWidth = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
         setLocalLength(newLength);
         setLocalWidth(newWidth);
-        savePieceImmediate({
+        savePiece({
           shapeConfig: updatedConfig,
           lengthMm: newLength,
           widthMm: newWidth,
         });
       }
     }
-  }, [piece.shapeType, savePieceImmediate]);
+  }, [piece.shapeType, savePiece]);
 
   // ── Name handler ────────────────────────────────────────────────────────
   const handleNameSave = useCallback(() => {
@@ -1114,6 +1128,17 @@ export default function QuickViewPieceRow({
             </span>
           )}
 
+          {/* Compact dims shown inline when accordion is open */}
+          {accordionOpen && (
+            <span className="text-xs text-gray-500 ml-2">
+              {getPieceDimensionLabel(piece)}
+              {piece.thicknessMm ? ` · ${piece.thicknessMm}mm` : ''}
+              {piece.materialName ? ` · ${piece.materialName}` : ''}
+            </span>
+          )}
+
+          {/* Summary content — hidden when accordion is open to avoid duplication */}
+          <div className={`contents ${accordionOpen ? 'hidden' : ''}`}>
           {/* Dimension inputs — shape-aware */}
           {isEditMode ? (
             <>
@@ -1124,6 +1149,7 @@ export default function QuickViewPieceRow({
                     type="number"
                     value={localLength}
                     onChange={e => handleLengthChange(Number(e.target.value))}
+                    onBlur={handleLengthBlur}
                     min={100}
                     step={50}
                     className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
@@ -1133,6 +1159,7 @@ export default function QuickViewPieceRow({
                     type="number"
                     value={localWidth}
                     onChange={e => handleWidthChange(Number(e.target.value))}
+                    onBlur={handleWidthBlur}
                     min={100}
                     step={50}
                     className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
@@ -1154,6 +1181,7 @@ export default function QuickViewPieceRow({
                           ...localShapeConfig,
                           leg1: { ...cfg.leg1, length_mm: Number(e.target.value) }
                         })}
+                        onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                         className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <span className="text-gray-400">&times;</span>
@@ -1162,6 +1190,7 @@ export default function QuickViewPieceRow({
                           ...localShapeConfig,
                           leg1: { ...cfg.leg1, width_mm: Number(e.target.value) }
                         })}
+                        onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                         className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
@@ -1172,6 +1201,7 @@ export default function QuickViewPieceRow({
                           ...localShapeConfig,
                           leg2: { ...cfg.leg2, length_mm: Number(e.target.value) }
                         })}
+                        onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                         className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                       <span className="text-gray-400">&times;</span>
@@ -1180,6 +1210,7 @@ export default function QuickViewPieceRow({
                           ...localShapeConfig,
                           leg2: { ...cfg.leg2, width_mm: Number(e.target.value) }
                         })}
+                        onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                         className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                       />
                     </div>
@@ -1206,6 +1237,7 @@ export default function QuickViewPieceRow({
                             ...localShapeConfig,
                             [key]: { ...data, length_mm: Number(e.target.value) }
                           })}
+                          onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                           className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                         <span className="text-gray-400">&times;</span>
@@ -1214,6 +1246,7 @@ export default function QuickViewPieceRow({
                             ...localShapeConfig,
                             [key]: { ...data, width_mm: Number(e.target.value) }
                           })}
+                          onBlur={() => { if (localShapeConfig) handleShapeConfigChange(localShapeConfig as Record<string, unknown>); }}
                           className="w-[60px] px-1 py-0.5 border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500"
                         />
                       </div>
@@ -1228,12 +1261,14 @@ export default function QuickViewPieceRow({
                 <div className="flex items-center gap-0.5 flex-shrink-0">
                   <input type="number" value={localLength}
                     onChange={e => handleLengthChange(Number(e.target.value))}
+                    onBlur={handleLengthBlur}
                     min={100} step={50}
                     className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
                   />
                   <span className="text-xs text-gray-400">&times;</span>
                   <input type="number" value={localWidth}
                     onChange={e => handleWidthChange(Number(e.target.value))}
+                    onBlur={handleWidthBlur}
                     min={100} step={50}
                     className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
                   />
@@ -1519,10 +1554,11 @@ export default function QuickViewPieceRow({
               ×
             </button>
           )}
+          </div>
         </div>
 
         {/* ── Line 2: Mini SVG · Quick Edge · Cutouts ── */}
-        <div className="flex items-start gap-3 mt-2">
+        <div className={`flex items-start gap-3 mt-2 ${accordionOpen ? 'hidden' : ''}`}>
           {/* Mini SVG diagram */}
           <div className="flex-shrink-0" style={{ width: MINI_W, height: MINI_H }}>
             <svg viewBox={`0 0 ${MINI_W} ${MINI_H}`} width={MINI_W} height={MINI_H} className="w-full h-full">
@@ -1795,7 +1831,7 @@ export default function QuickViewPieceRow({
         <div className="border-t border-gray-100">
           {/* Full PieceVisualEditor SVG */}
           <PieceEditorErrorBoundary pieceName={piece.name}>
-            <div className="px-4 py-3 border-b border-gray-100">
+            <div className="px-4 py-3 border-b border-gray-100 min-h-[320px]">
               <PieceVisualEditor
                 lengthMm={piece.lengthMm}
                 widthMm={piece.widthMm}
@@ -2053,6 +2089,17 @@ export default function QuickViewPieceRow({
               </div>
             </div>
           )}
+          {/* Bottom collapse button — so Jay doesn't have to scroll to top */}
+          <div className="px-4 py-3 border-t border-gray-100 flex justify-center">
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setAccordionOpen(false); }}
+              className="text-xs text-gray-500 hover:text-gray-700 flex items-center gap-1"
+            >
+              <span>↑</span>
+              <span>Collapse full view</span>
+            </button>
+          </div>
         </div>
       )}
     </div>

@@ -1117,3 +1117,5 @@ TEMPLATE-MANAGE-1 done
 ✅ EDGE-LU-1: handleShapeEdgeChange routes by shapeType — L/U to shapeConfig, curved to edge_arc_config
 
 ✅ EDGE-LU-2: L/U shape edge profiles now correctly priced in calculator
+
+✅ DIM-INPUT-1 + EXPANDED-1: QuickViewPieceRow dimension input and accordion UX fixes
