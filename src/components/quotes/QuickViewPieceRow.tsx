@@ -952,10 +952,23 @@ export default function QuickViewPieceRow({
 
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
     if (!fullPiece || !onSavePiece) return;
-    const currentArcConfig = (fullPiece as unknown as Record<string, unknown>).edge_arc_config as Record<string, string | null> ?? {};
-    const updatedArcConfig = { ...currentArcConfig, [edgeId]: profileId };
-    savePieceImmediate({ edgeArcConfig: updatedArcConfig });
-  }, [fullPiece, onSavePiece, savePieceImmediate]);
+
+    const shapeType = piece.shapeType;
+
+    if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
+      // L/U shapes: store edges in shapeConfig.edges sub-object
+      const currentConfig = (fullPiece.shapeConfig as unknown as Record<string, unknown>) ?? {};
+      const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
+      const updatedEdges = { ...currentEdges, [edgeId]: profileId };
+      const updatedConfig = { ...currentConfig, edges: updatedEdges };
+      savePieceImmediate({ shapeConfig: updatedConfig });
+    } else {
+      // ROUNDED_RECT and other curved shapes: store in edge_arc_config (original behaviour)
+      const currentArcConfig = (fullPiece as unknown as Record<string, unknown>).edge_arc_config as Record<string, string | null> ?? {};
+      const updatedArcConfig = { ...currentArcConfig, [edgeId]: profileId };
+      savePieceImmediate({ edgeArcConfig: updatedArcConfig });
+    }
+  }, [fullPiece, piece.shapeType, onSavePiece, savePieceImmediate]);
 
   const handleEdgesChange = useCallback(
     (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => {

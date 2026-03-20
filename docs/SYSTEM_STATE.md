@@ -1111,3 +1111,7 @@ TEMPLATE-MANAGE-1 done
 ✅ SHAPE-THUMB-2: RADIUS_END/FULL_CIRCLE/ROUNDED_RECT badges in piece header
 
 ✅ OPT-NOMAT-1: optimize/route.ts filters materialId null before optimizer
+
+✅ EDGE-LU-1: handleShapeEdgeChange routes by shapeType — L/U to shapeConfig, curved to edge_arc_config
+
+✅ EDGE-LU-1: handleShapeEdgeChange routes by shapeType — L/U to shapeConfig, curved to edge_arc_config
