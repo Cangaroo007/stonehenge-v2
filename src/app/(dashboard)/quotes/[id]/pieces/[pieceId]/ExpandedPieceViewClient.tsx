@@ -355,8 +355,24 @@ export default function ExpandedPieceViewClient({
     []
   );
 
-  // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT)
+  // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT, L/U shapes)
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
+    // L/U shape edges → write to shapeConfig.edges
+    if (editFields?.shapeType === 'L_SHAPE' || editFields?.shapeType === 'U_SHAPE') {
+      const currentConfig = (editFields.shapeConfig as unknown as Record<string, unknown>) ?? {};
+      const updatedConfig = {
+        ...currentConfig,
+        edges: {
+          ...((currentConfig.edges as Record<string, unknown>) ?? {}),
+          [edgeId]: profileId,
+        },
+      };
+      setEditFields((prev: EditableFields | null) => {
+        if (!prev) return prev;
+        return { ...prev, shapeConfig: updatedConfig as unknown as ShapeConfig };
+      });
+      return;
+    }
     // Corner edges map to cornerEdge fields
     const cornerMap: Record<string, keyof EditableFields> = {
       corner_tl: 'cornerEdgeTl',
@@ -377,7 +393,7 @@ export default function ExpandedPieceViewClient({
     if (straightKey) {
       updateField(straightKey, profileId as EditableFields[typeof straightKey]);
     }
-  }, [updateField]);
+  }, [updateField, editFields]);
 
   const handleCutoutAdd = useCallback((cutoutTypeId: string) => {
     setEditFields((prev: EditableFields | null) => {
@@ -492,9 +508,14 @@ export default function ExpandedPieceViewClient({
   const isMitred = editFields.laminationMethod === 'MITRED';
   const isPromotedStrip = isMitred && promotionThresholdMm != null && editFields.widthMm > promotionThresholdMm;
 
-  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT)
+  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT, L/U shapes)
   const effectiveShapeType = (editFields.shapeType ?? 'RECTANGLE') as ShapeType;
   const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
+    if (effectiveShapeType === 'L_SHAPE' || effectiveShapeType === 'U_SHAPE') {
+      const cfg = editFields.shapeConfig as unknown as Record<string, unknown>;
+      const edges = (cfg?.edges as Record<string, string | null>) ?? {};
+      return { ...edges };
+    }
     if (effectiveShapeType !== 'ROUNDED_RECT') return {} as Record<string, string | null>;
     return {
       top: editFields.edgeTop,
@@ -506,7 +527,7 @@ export default function ExpandedPieceViewClient({
       corner_bl: editFields.cornerEdgeBl,
       corner_br: editFields.cornerEdgeBr,
     };
-  }, [effectiveShapeType, editFields.edgeTop, editFields.edgeRight, editFields.edgeBottom, editFields.edgeLeft, editFields.cornerEdgeTl, editFields.cornerEdgeTr, editFields.cornerEdgeBl, editFields.cornerEdgeBr]);
+  }, [effectiveShapeType, editFields.shapeConfig, editFields.edgeTop, editFields.edgeRight, editFields.edgeBottom, editFields.edgeLeft, editFields.cornerEdgeTl, editFields.cornerEdgeTr, editFields.cornerEdgeBl, editFields.cornerEdgeBr]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -590,7 +611,13 @@ export default function ExpandedPieceViewClient({
               cutoutTypes={cutoutTypes.filter((c) => c.isActive)}
               shapeType={effectiveShapeType}
               shapeConfig={editFields.shapeConfig ?? undefined}
-              shapeConfigEdges={effectiveShapeType === 'ROUNDED_RECT' ? shapeConfigEdges : undefined}
+              shapeConfigEdges={
+                (effectiveShapeType === 'ROUNDED_RECT' ||
+                 effectiveShapeType === 'L_SHAPE' ||
+                 effectiveShapeType === 'U_SHAPE')
+                  ? shapeConfigEdges
+                  : undefined
+              }
               onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
               quoteId={quoteId}
               pieceId={pieceData?.id}

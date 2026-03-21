@@ -331,3 +331,11 @@ TEMPLATE-MANAGE-1 done
 
 ✅ DIM-INPUT-1: dimension inputs save on blur — fixes typing bug
 ✅ EXPANDED-1: streamlined accordion — hides summary tier, compact dims, bottom collapse button
+
+## EDGE-LU-3 — 2026-03-20
+- ExpandedPieceViewClient: L/U edge handler writes to shapeConfig.edges
+- shapeConfigEdges memo now extracts L/U edges for display
+- shapeConfigEdges prop now passed for L_SHAPE and U_SHAPE
+
+## EDGE-LU-3 — 2026-03-20
+- ExpandedPieceViewClient: L/U edges now save to shapeConfig.edges and display
