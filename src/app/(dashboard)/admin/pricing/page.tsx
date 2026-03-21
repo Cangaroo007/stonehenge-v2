@@ -47,7 +47,6 @@ const columnConfigs: Record<TabKey, Column[]> = {
   'edge-types': [
     { key: 'name', label: 'Name' },
     { key: 'category', label: 'Category' },
-    { key: 'baseRate', label: 'Base Rate', render: (v) => `$${Number(v).toFixed(2)}/m` },
     { key: 'sortOrder', label: 'Sort Order' },
     { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
   ],

@@ -339,3 +339,8 @@ TEMPLATE-MANAGE-1 done
 
 ## EDGE-LU-3 — 2026-03-20
 - ExpandedPieceViewClient: L/U edges now save to shapeConfig.edges and display
+
+## PRICING-ADMIN-1 — 2026-03-20
+- Removed baseRate, rate20mm, rate40mm from Edge Types form UI
+- DB columns untouched — UI only
+- Calculator unaffected

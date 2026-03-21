@@ -19,7 +19,6 @@ export default function EdgeTypeForm({ initialData, onSave, onCancel }: EdgeType
     name: (initialData?.name as string) || '',
     description: (initialData?.description as string) || '',
     category: (initialData?.category as string) || 'polish',
-    baseRate: (initialData?.baseRate as number) || 0,
     sortOrder: (initialData?.sortOrder as number) || 0,
     isActive: initialData?.isActive !== false,
   });
@@ -31,10 +30,6 @@ export default function EdgeTypeForm({ initialData, onSave, onCancel }: EdgeType
 
     if (!formData.name.trim()) {
       newErrors.name = 'Name is required';
-    }
-
-    if (formData.baseRate < 0) {
-      newErrors.baseRate = 'Base rate must be 0 or greater';
     }
 
     setErrors(newErrors);
@@ -101,22 +96,6 @@ export default function EdgeTypeForm({ initialData, onSave, onCancel }: EdgeType
             </option>
           ))}
         </select>
-      </div>
-
-      <div>
-        <label htmlFor="baseRate" className="block text-sm font-medium text-gray-700">
-          Base Rate ($/m)
-        </label>
-        <input
-          type="number"
-          id="baseRate"
-          step="0.01"
-          min="0"
-          value={formData.baseRate}
-          onChange={(e) => setFormData({ ...formData, baseRate: parseFloat(e.target.value) || 0 })}
-          className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm border px-3 py-2"
-        />
-        {errors.baseRate && <p className="mt-1 text-sm text-red-600">{errors.baseRate}</p>}
       </div>
 
       <div>
