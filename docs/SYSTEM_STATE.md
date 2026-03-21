@@ -1126,3 +1126,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-20 PRICING-ADMIN-1
 - edge_types.baseRate/rate20mm/rate40mm hidden from admin UI
 - Correct pricing system: edge_type_category_rates (unchanged)
+
+## 2026-03-20 PARTS-FIX-1
+- PartsSection.tsx: non-MITRED pieces with no build-up generate zero strips
+- PartsSection.tsx: Splashback Strips section removed

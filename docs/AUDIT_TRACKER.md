@@ -344,3 +344,7 @@ TEMPLATE-MANAGE-1 done
 - Removed baseRate, rate20mm, rate40mm from Edge Types form UI
 - DB columns untouched — UI only
 - Calculator unaffected
+
+## PARTS-FIX-1 — 2026-03-20
+- Bug 1: Legacy strip fallback now gated on isMitrePiece — phantom strips eliminated
+- Bug 2: Splashback Strips section removed — SPLASHBACK pieces no longer duplicated
