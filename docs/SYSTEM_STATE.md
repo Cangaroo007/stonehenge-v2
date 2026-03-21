@@ -1122,3 +1122,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-20 EDGE-LU-3
 - ExpandedPieceViewClient.tsx: L/U shape edges save and display in separate-tab view
+
+## 2026-03-20 PRICING-ADMIN-1
+- edge_types.baseRate/rate20mm/rate40mm hidden from admin UI
+- Correct pricing system: edge_type_category_rates (unchanged)
