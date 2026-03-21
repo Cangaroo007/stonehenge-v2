@@ -1119,3 +1119,6 @@ TEMPLATE-MANAGE-1 done
 ✅ EDGE-LU-2: L/U shape edge profiles now correctly priced in calculator
 
 ✅ DIM-INPUT-1 + EXPANDED-1: QuickViewPieceRow dimension input and accordion UX fixes
+
+## 2026-03-20 EDGE-LU-3
+- ExpandedPieceViewClient.tsx: L/U shape edges save and display in separate-tab view
