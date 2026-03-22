@@ -4638,21 +4638,34 @@ export default function QuoteDetailClient({
                 thicknessMm: parentPiece.thicknessMm,
                 materialId: parentPiece.materialId,
                 materialName: parentPiece.materialName,
-                edgeTop: parentPiece.edgeTop,
-                edgeBottom: parentPiece.edgeBottom,
-                edgeLeft: parentPiece.edgeLeft,
-                edgeRight: parentPiece.edgeRight,
+                edgeTop: selectedEdge === 'top' ? MITERED_EDGE_ID : parentPiece.edgeTop,
+                edgeBottom: selectedEdge === 'bottom' ? MITERED_EDGE_ID : parentPiece.edgeBottom,
+                edgeLeft: selectedEdge === 'left' ? MITERED_EDGE_ID : parentPiece.edgeLeft,
+                edgeRight: selectedEdge === 'right' ? MITERED_EDGE_ID : parentPiece.edgeRight,
                 edgeBuildups: updatedBuildups,
                 noStripEdges: updatedNoStrip,
               }),
             });
           }
 
-          // 4. Set opposing edge to Mitered on child
+          // 4. Set opposing edge to Mitered on child (direct fetch — new piece not in effectivePieces yet)
           const oppositeEdge: Record<string, string> = {
             top: 'bottom', bottom: 'top', left: 'right', right: 'left'
           };
-          await handlePieceEdgeChange(String(newPiece.id), oppositeEdge[selectedEdge], MITERED_EDGE_ID);
+          const childOppositeEdge = oppositeEdge[selectedEdge];
+          await fetch(`/api/quotes/${quoteId}/pieces/${newPiece.id}`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lengthMm,
+              widthMm,
+              thicknessMm,
+              edgeTop: childOppositeEdge === 'top' ? MITERED_EDGE_ID : null,
+              edgeBottom: childOppositeEdge === 'bottom' ? MITERED_EDGE_ID : null,
+              edgeLeft: childOppositeEdge === 'left' ? MITERED_EDGE_ID : null,
+              edgeRight: childOppositeEdge === 'right' ? MITERED_EDGE_ID : null,
+            }),
+          });
 
           // 5. Create piece relationship
           await fetch(`/api/quotes/${quoteId}/piece-relationships`, {

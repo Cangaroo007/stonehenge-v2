@@ -1134,3 +1134,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-22 PRICING-ADMIN-2
 - gaps/route.ts: SERVICE_TYPES trimmed to 8 active types
+
+## 2026-03-22 WF-8
+- QuoteDetailClient.tsx: waterfall/splashback onConfirm now correctly sets
+  mitered edge on both parent joining edge and child opposite edge
