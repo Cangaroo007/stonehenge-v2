@@ -348,3 +348,13 @@ TEMPLATE-MANAGE-1 done
 ## PARTS-FIX-1 — 2026-03-20
 - Bug 1: Legacy strip fallback now gated on isMitrePiece — phantom strips eliminated
 - Bug 2: Splashback Strips section removed — SPLASHBACK pieces no longer duplicated
+
+## PRICING-ADMIN-2 — 2026-03-22
+- Removed CURVED_POLISHING, RADIUS_SETUP, CURVED_MIN_LM from SERVICE_TYPES
+- These 3 types caused 15 false gaps in Configuration Health
+- Gap count should now reflect only real missing rates
+
+## SHAPE-EDIT-2 — 2026-03-22
+- QuickViewPieceRow: RADIUS_END radius_mm, FULL_CIRCLE diameter_mm,
+  ROUNDED_RECT corner_radius_mm now editable in accordion QuickView
+- FULL_CIRCLE diameter change syncs localLength + localWidth
