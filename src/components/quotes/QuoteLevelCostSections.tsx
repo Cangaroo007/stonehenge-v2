@@ -102,6 +102,7 @@ export default function QuoteLevelCostSections({
 }: QuoteLevelCostSectionsProps) {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [deliveryExpanded, setDeliveryExpanded] = useState(false);
+  const [templatingExpanded, setTemplatingExpanded] = useState(false);
   const [localDeliveryAddress, setLocalDeliveryAddress] = useState(
     calculation.breakdown?.delivery?.address || ''
   );
@@ -293,45 +294,65 @@ export default function QuoteLevelCostSections({
 
       {/* Templating */}
       {templating && (
-        <SectionRow
-          label="Templating"
-          total={templating.finalCost}
-          hasData={hasTemplatingData}
-        >
-          {mode === 'edit' && onTemplatingToggle ? (
-            <div className="flex items-center gap-2">
-              <label className="text-gray-500 text-[11px]">Required:</label>
+        <div className={`rounded-lg border ${templating.finalCost === 0 ? 'border-gray-100 bg-gray-50/50' : 'border-gray-200 bg-white'}`}>
+          <button
+            onClick={() => hasTemplatingData && setTemplatingExpanded(!templatingExpanded)}
+            className={`w-full flex items-center gap-3 px-4 py-3 text-sm transition-colors ${hasTemplatingData ? 'hover:bg-gray-50/50 cursor-pointer' : 'cursor-default'}`}
+          >
+            {hasTemplatingData ? (
+              <ChevronIcon expanded={templatingExpanded} />
+            ) : (
+              <span className="w-3.5" />
+            )}
+            <span className={`font-medium ${templating.finalCost === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+              Templating
+            </span>
+            {/* Toggle always visible in edit mode */}
+            {isEditMode && onTemplatingToggle && (
               <button
-                onClick={() => onTemplatingToggle(!templating.required)}
-                className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors ${
-                  templating.required
-                    ? 'bg-green-50 border-green-300 text-green-700'
-                    : 'bg-gray-50 border-gray-300 text-gray-500'
+                type="button"
+                role="switch"
+                aria-checked={templating.required}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onTemplatingToggle(!templating.required);
+                }}
+                className={`ml-2 relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+                  templating.required ? 'bg-primary-600' : 'bg-gray-200'
                 }`}
               >
-                {templating.required ? 'Yes' : 'No'}
+                <span
+                  className={`pointer-events-none inline-block h-4 w-4 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
+                    templating.required ? 'translate-x-4' : 'translate-x-0'
+                  }`}
+                />
               </button>
+            )}
+            <span className={`ml-auto font-medium tabular-nums ${templating.finalCost === 0 ? 'text-gray-400' : 'text-gray-900'}`}>
+              {formatCurrency(templating.finalCost)}
+            </span>
+          </button>
+          {templatingExpanded && hasTemplatingData && (
+            <div className="px-4 pb-3 pt-1 border-t border-gray-100 space-y-2 text-xs text-gray-600">
+              {templating.distanceKm != null && (
+                <DetailRow label="Distance" value={`${Number(templating.distanceKm).toFixed(1)} km`} />
+              )}
+              {templating.calculatedCost != null && (
+                <DetailRow label="Calculated Cost" value={formatCurrency(templating.calculatedCost)} />
+              )}
+              {templating.overrideCost != null && (
+                <DetailRow
+                  label="Override Applied"
+                  value={<span className="text-amber-600">{formatCurrency(templating.overrideCost)}</span>}
+                />
+              )}
+              <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
+                <span>Final Templating Cost</span>
+                <span className="tabular-nums">{formatCurrency(templating.finalCost)}</span>
+              </div>
             </div>
-          ) : (
-            <DetailRow label="Required" value={templating.required ? 'Yes' : 'No'} />
           )}
-          {templating.distanceKm != null && (
-            <DetailRow label="Distance" value={`${Number(templating.distanceKm).toFixed(1)} km`} />
-          )}
-          {templating.calculatedCost != null && (
-            <DetailRow label="Calculated Cost" value={formatCurrency(templating.calculatedCost)} />
-          )}
-          {templating.overrideCost != null && (
-            <DetailRow
-              label="Override Applied"
-              value={<span className="text-amber-600">{formatCurrency(templating.overrideCost)}</span>}
-            />
-          )}
-          <div className="flex justify-between items-center pt-1 border-t border-gray-100 font-medium text-gray-800">
-            <span>Final Templating Cost</span>
-            <span className="tabular-nums">{formatCurrency(templating.finalCost)}</span>
-          </div>
-        </SectionRow>
+        </div>
       )}
 
       {/* Installation */}

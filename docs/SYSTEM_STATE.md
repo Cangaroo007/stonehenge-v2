@@ -1146,3 +1146,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-22 ADDRESS-AUTOCOMPLETE-1
 - QuoteLevelCostSections.tsx: Places Autocomplete on delivery address input
 - Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Railway env vars
+
+## 2026-03-22 TEMPLATING-TOGGLE-FIX
+- QuoteLevelCostSections.tsx: templating toggle shown in header in edit mode
