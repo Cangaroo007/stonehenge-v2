@@ -19,9 +19,6 @@ const SERVICE_TYPES = [
   'DELIVERY',
   'JOIN',
   'CURVED_CUTTING',
-  'CURVED_POLISHING',
-  'RADIUS_SETUP',
-  'CURVED_MIN_LM',
 ] as const;
 
 // GET /api/admin/pricing/gaps — Scan rate configuration for missing combinations
