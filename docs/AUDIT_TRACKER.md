@@ -356,3 +356,11 @@ TEMPLATE-MANAGE-1 done
 ## DELIVERY-FIX-1 — 2026-03-22
 - QuoteLevelCostSections: controlled address input + save-before-recalculate
 - QuoteDetailClient: handleTemplatingToggle wired up
+
+## DELIVERY-FIX-1 — 2026-03-22
+- QuoteLevelCostSections: controlled address input + save-before-recalculate
+- QuoteDetailClient: handleTemplatingToggle wired up
+
+## ADDRESS-AUTOCOMPLETE-1 — 2026-03-22
+- QuoteLevelCostSections: Google Places Autocomplete on delivery address input
+- Graceful degradation if NEXT_PUBLIC_GOOGLE_MAPS_API_KEY not set

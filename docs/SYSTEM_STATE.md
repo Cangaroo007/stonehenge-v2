@@ -1138,3 +1138,11 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-22 DELIVERY-FIX-1
 - QuoteLevelCostSections.tsx: controlled delivery address input
 - QuoteDetailClient.tsx: handleTemplatingToggle added and passed
+
+## 2026-03-22 DELIVERY-FIX-1
+- QuoteLevelCostSections.tsx: controlled delivery address input
+- QuoteDetailClient.tsx: handleTemplatingToggle added and passed
+
+## 2026-03-22 ADDRESS-AUTOCOMPLETE-1
+- QuoteLevelCostSections.tsx: Places Autocomplete on delivery address input
+- Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Railway env vars

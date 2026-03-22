@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { setOptions, importLibrary } from '@googlemaps/js-api-loader';
 import { formatCurrency } from '@/lib/utils';
 import type { CalculationResult } from '@/lib/types/pricing';
 
@@ -105,6 +106,8 @@ export default function QuoteLevelCostSections({
     calculation.breakdown?.delivery?.address || ''
   );
 
+  const addressInputRef = useRef<HTMLInputElement>(null);
+
   const handleRecalculateDelivery = async () => {
     if (!quoteId || isRecalculating) return;
     setIsRecalculating(true);
@@ -144,6 +147,46 @@ export default function QuoteLevelCostSections({
 
   const isEditMode = mode === 'edit';
   const showDeliveryToggle = isEditMode && onDeliveryEnabledChange;
+
+  useEffect(() => {
+    const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    if (!apiKey || !isEditMode || !onDeliveryAddressChange) return;
+
+    setOptions({ key: apiKey, v: 'weekly' });
+
+    let autocomplete: google.maps.places.Autocomplete | null = null;
+
+    (async () => {
+      try {
+        const places = await importLibrary('places');
+        if (!addressInputRef.current) return;
+        autocomplete = new places.Autocomplete(
+          addressInputRef.current,
+          {
+            types: ['address'],
+            componentRestrictions: { country: 'au' },
+            fields: ['formatted_address'],
+          }
+        );
+        autocomplete.addListener('place_changed', () => {
+          const place = autocomplete!.getPlace();
+          const address = place.formatted_address || '';
+          if (address) {
+            setLocalDeliveryAddress(address);
+            onDeliveryAddressChange(address);
+          }
+        });
+      } catch {
+        // API key invalid or network error — input works as plain text
+      }
+    })();
+
+    return () => {
+      // Cleanup: remove pac-container dropdown if it exists
+      const pacContainers = document.querySelectorAll('.pac-container');
+      pacContainers.forEach(el => el.remove());
+    };
+  }, [isEditMode, onDeliveryAddressChange]);
 
   // In edit mode, always show the section (for the delivery toggle)
   // In view mode, only show if there's data
@@ -211,6 +254,7 @@ export default function QuoteLevelCostSections({
                   <div>
                     <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
                     <input
+                      ref={addressInputRef}
                       type="text"
                       value={localDeliveryAddress}
                       onChange={(e) => setLocalDeliveryAddress(e.target.value)}
