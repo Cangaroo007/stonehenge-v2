@@ -1909,6 +1909,19 @@ export default function QuoteDetailClient({
     }
   };
 
+  const handleTemplatingToggle = async (required: boolean) => {
+    try {
+      await fetch(`/api/quotes/${quoteIdStr}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ templatingRequired: required }),
+      });
+      await fetchQuote();
+      triggerRecalculate();
+    } catch (err) {
+      console.error('Failed to update templating toggle:', err);
+    }
+  };
   const handleDeliveryAddressChange = async (address: string) => {
     if (!address.trim()) return;
     markAsChanged();
@@ -4176,7 +4189,7 @@ export default function QuoteDetailClient({
               onDeliveryAddressChange={handleDeliveryAddressChange}
               quoteId={quoteIdStr}
               onRecalculate={triggerRecalculate}
-            />
+              onTemplatingToggle={handleTemplatingToggle}            />
             {/* Quote Adjustments — Custom Charges + Discount */}
             <QuoteAdjustments
               quoteId={parseInt(quoteIdStr)}

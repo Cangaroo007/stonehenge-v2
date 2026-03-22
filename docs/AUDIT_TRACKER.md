@@ -353,6 +353,6 @@ TEMPLATE-MANAGE-1 done
 ## PRICING-ADMIN-2 — 2026-03-22
 - Removed CURVED_POLISHING, RADIUS_SETUP, CURVED_MIN_LM from SERVICE_TYPES
 
-## WF-8 — 2026-03-22
-- Fixed: parent joining edge mitered assignment no longer overwritten by step 3.5
-- Fixed: child piece mitered edge now set via direct fetch (bypasses effectivePieces lookup)
+## DELIVERY-FIX-1 — 2026-03-22
+- QuoteLevelCostSections: controlled address input + save-before-recalculate
+- QuoteDetailClient: handleTemplatingToggle wired up

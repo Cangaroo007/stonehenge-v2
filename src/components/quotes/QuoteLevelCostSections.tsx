@@ -101,11 +101,18 @@ export default function QuoteLevelCostSections({
 }: QuoteLevelCostSectionsProps) {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [deliveryExpanded, setDeliveryExpanded] = useState(false);
+  const [localDeliveryAddress, setLocalDeliveryAddress] = useState(
+    calculation.breakdown?.delivery?.address || ''
+  );
 
   const handleRecalculateDelivery = async () => {
     if (!quoteId || isRecalculating) return;
     setIsRecalculating(true);
     try {
+      // Save current address first so calculator can use it
+      if (onDeliveryAddressChange && localDeliveryAddress) {
+        onDeliveryAddressChange(localDeliveryAddress);
+      }
       const res = await fetch(`/api/quotes/${quoteId}/calculate`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -205,7 +212,8 @@ export default function QuoteLevelCostSections({
                     <label className="text-gray-500 text-[11px] block mb-1">Delivery Address</label>
                     <input
                       type="text"
-                      defaultValue={delivery?.address || ''}
+                      value={localDeliveryAddress}
+                      onChange={(e) => setLocalDeliveryAddress(e.target.value)}
                       onBlur={(e) => onDeliveryAddressChange(e.target.value)}
                       placeholder="Enter delivery address..."
                       className="w-full px-2 py-1 border border-gray-300 rounded text-xs focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
