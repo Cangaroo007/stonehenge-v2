@@ -1147,5 +1147,13 @@ TEMPLATE-MANAGE-1 done
 - QuoteLevelCostSections.tsx: Places Autocomplete on delivery address input
 - Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Railway env vars
 
+<<<<<<< Updated upstream
+## 2026-03-22 TEMPLATING-TOGGLE-FIX
+- QuoteLevelCostSections.tsx: templating toggle shown in header in edit mode
+=======
 ## 2026-03-22 STRIP-CONFIG-AUTH
 - strip-configurations API: requireAuth() no role filter (matches all other admin routes)
+
+## 2026-03-22 PRICING-ADMIN-3
+- pricing/layout.tsx: nav trimmed to 5 tabs (removed Configuration + Strip Configurations)
+>>>>>>> Stashed changes

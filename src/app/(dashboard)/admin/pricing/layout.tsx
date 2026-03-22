@@ -11,8 +11,6 @@ const tabs = [
   { name: 'Service Rates', href: '/admin/pricing/services' },
   { name: 'Cutout Rates', href: '/admin/pricing/cutouts' },
   { name: 'Edge Rates', href: '/admin/pricing/edges' },
-  { name: 'Configuration', href: '/admin/pricing' },
-  { name: 'Strip Configurations', href: '/admin/pricing/strip-configurations' },
 ];
 
 export default function PricingLayout({
