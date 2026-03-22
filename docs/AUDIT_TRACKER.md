@@ -365,6 +365,5 @@ TEMPLATE-MANAGE-1 done
 - QuoteLevelCostSections: Google Places Autocomplete on delivery address input
 - Graceful degradation if NEXT_PUBLIC_GOOGLE_MAPS_API_KEY not set
 
-## TEMPLATING-TOGGLE-FIX — 2026-03-22
-- Templating toggle now always visible in edit mode regardless of finalCost
-- Matches Delivery toggle pattern
+## STRIP-CONFIG-AUTH — 2026-03-22
+- strip-configurations route: removed role restriction from requireAuth
