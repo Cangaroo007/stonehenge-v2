@@ -1275,6 +1275,87 @@ export default function QuickViewPieceRow({
                   <span className="text-xs text-gray-400 ml-0.5">mm</span>
                 </div>
               )}
+
+              {/* RADIUS_END — edit arc radius */}
+              {piece.shapeType === 'RADIUS_END' && isEditMode && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-gray-500 w-14 shrink-0">Radius</span>
+                  <input
+                    type="number"
+                    value={(localShapeConfig as Record<string, unknown>)?.radius_mm as number ?? ''}
+                    onChange={e => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setLocalShapeConfig(prev => prev ? { ...prev, radius_mm: val } : prev);
+                    }}
+                    onBlur={() => {
+                      if (localShapeConfig) {
+                        savePiece({ shapeConfig: localShapeConfig });
+                      }
+                    }}
+                    min={10}
+                    step={10}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400 ml-0.5">mm</span>
+                </div>
+              )}
+
+              {/* FULL_CIRCLE — edit diameter */}
+              {piece.shapeType === 'FULL_CIRCLE' && isEditMode && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-gray-500 w-14 shrink-0">Diameter</span>
+                  <input
+                    type="number"
+                    value={(localShapeConfig as Record<string, unknown>)?.diameter_mm as number ?? ''}
+                    onChange={e => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setLocalShapeConfig(prev => prev ? { ...prev, diameter_mm: val } : prev);
+                      if (val !== '') {
+                        setLocalLength(val as number);
+                        setLocalWidth(val as number);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (localShapeConfig) {
+                        const diam = (localShapeConfig as Record<string, unknown>).diameter_mm as number;
+                        savePiece({
+                          shapeConfig: localShapeConfig,
+                          lengthMm: diam,
+                          widthMm: diam,
+                        });
+                      }
+                    }}
+                    min={100}
+                    step={50}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400 ml-0.5">mm</span>
+                </div>
+              )}
+
+              {/* ROUNDED_RECT — edit corner radius */}
+              {piece.shapeType === 'ROUNDED_RECT' && isEditMode && (
+                <div className="flex items-center gap-1 mt-1">
+                  <span className="text-xs text-gray-500 w-14 shrink-0">Corner R</span>
+                  <input
+                    type="number"
+                    value={(localShapeConfig as Record<string, unknown>)?.corner_radius_mm as number ?? ''}
+                    onChange={e => {
+                      const val = e.target.value === '' ? '' : Number(e.target.value);
+                      setLocalShapeConfig(prev => prev ? { ...prev, corner_radius_mm: val } : prev);
+                    }}
+                    onBlur={() => {
+                      if (localShapeConfig) {
+                        savePiece({ shapeConfig: localShapeConfig });
+                      }
+                    }}
+                    min={5}
+                    step={5}
+                    className="w-[70px] px-1.5 py-0.5 text-xs border border-gray-200 rounded text-right tabular-nums focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-300"
+                  />
+                  <span className="text-xs text-gray-400 ml-0.5">mm</span>
+                </div>
+              )}
             </>
           ) : (
             <span className="text-xs text-gray-500 flex-shrink-0">

@@ -1130,3 +1130,11 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-20 PARTS-FIX-1
 - PartsSection.tsx: non-MITRED pieces with no build-up generate zero strips
 - PartsSection.tsx: Splashback Strips section removed
+
+## 2026-03-22 PRICING-ADMIN-2
+- gaps/route.ts: SERVICE_TYPES trimmed to 8 active types
+- CURVED_POLISHING/RADIUS_SETUP/CURVED_MIN_LM removed from gap checking
+
+## 2026-03-22 SHAPE-EDIT-2
+- QuickViewPieceRow.tsx: curved shape-specific dimensions now editable inline
+- Pattern: onChange→local state, onBlur→savePiece (matches DIM-INPUT-1)
