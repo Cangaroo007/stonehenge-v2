@@ -22,6 +22,7 @@
     "@aws-sdk/s3-request-presigner": "^3.978.0",
     "@fontsource-variable/inter": "^5.2.8",
     "@googlemaps/google-maps-services-js": "^3.4.0",
+    "@googlemaps/js-api-loader": "^2.0.2",
     "@napi-rs/canvas": "^0.1.89",
     "@prisma/adapter-pg": "^7.3.0",
     "@react-pdf/renderer": "^3.4.4",
