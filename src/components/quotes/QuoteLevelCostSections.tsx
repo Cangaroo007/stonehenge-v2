@@ -113,9 +113,17 @@ export default function QuoteLevelCostSections({
     if (!quoteId || isRecalculating) return;
     setIsRecalculating(true);
     try {
-      // Save current address first so calculator can use it
-      if (onDeliveryAddressChange && localDeliveryAddress) {
-        onDeliveryAddressChange(localDeliveryAddress);
+      // Save address via PUT first — ensures DB has it before calculate fires
+      if (localDeliveryAddress) {
+        await fetch(`/api/quotes/${quoteId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            deliveryAddress: localDeliveryAddress,
+            deliveryCost: null,
+            deliveryDistanceKm: null,
+          }),
+        });
       }
       const res = await fetch(`/api/quotes/${quoteId}/calculate`, {
         method: 'POST',
