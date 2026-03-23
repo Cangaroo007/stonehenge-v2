@@ -373,6 +373,6 @@ TEMPLATE-MANAGE-1 done
 ## STRIP-CONFIG-AUTH — 2026-03-22
 - strip-configurations route: removed role restriction from requireAuth
 
-## TEMPLATE-SKIP-MATERIAL — 2026-03-22
-- NewQuoteWizard: template selection now creates quote immediately, skips material assignment step
-- apply route: materialAssignments now optional (defaults to empty object)
+## PRICING-API-DYNAMIC — 2026-03-22
+- Added force-dynamic to edge-category-rates, cutout-category-rates, edge-compatibility routes
+- Fixes: edge/cutout rate saves appeared to succeed but reverted on refresh

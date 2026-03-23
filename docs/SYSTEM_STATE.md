@@ -1154,6 +1154,5 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-22 STRIP-CONFIG-AUTH
 - strip-configurations API: requireAuth() no role filter (matches all other admin routes)
 
-## 2026-03-22 TEMPLATE-SKIP-MATERIAL
-- NewQuoteWizard.tsx: handleTemplateSelect now async, calls apply API directly
-- starter-templates/[id]/apply/route.ts: materialAssignments no longer required
+## 2026-03-22 PRICING-API-DYNAMIC
+- 3 pricing API routes now force-dynamic (no Next.js GET caching)
