@@ -2750,10 +2750,17 @@ export default function QuoteDetailClient({
         ? `${serverData.customers.name} (${serverData.customers.company})`
         : serverData.customers?.name ?? null);
 
-  // Calculated total for header
-  const headerTotal = calculation
-    ? calculation.total * 1.1  // Include GST
-    : null;
+  // Calculated total for header — single source of truth:
+  // • Non-base option active → use option's cached total (already incl. GST)
+  // • Base option active → use live calculation totalIncGst
+  // • Fallback → null (loading)
+  const headerTotal = (() => {
+    const activeOpt = quoteOptions.activeOption;
+    if (activeOpt && !activeOpt.isBase && activeOpt.total != null) {
+      return activeOpt.total;
+    }
+    return calculation?.totalIncGst ?? null;
+  })();
 
   // Read-only status check — quotes in these statuses cannot be edited
   const READ_ONLY_STATUSES = ['sent', 'accepted', 'in_production', 'completed', 'archived'];

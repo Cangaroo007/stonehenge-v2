@@ -412,3 +412,8 @@ TEMPLATE-MANAGE-1 done
 - mergeRoles() combines roles across all selected templates
 - 7 category tabs: All + kitchen, bathroom, ensuite, laundry, butlers_pantry, outdoor
 - company_id: 1, Pencil Round edge ID: cmlar3etc0000znatkbilb48y
+
+## HEADER-TOTAL-FIX-1 — 2026-03-23
+- headerTotal now reads from activeOption.total for non-base options
+- Falls back to calculation.totalIncGst for base option
+- Old calculation.total * 1.1 removed

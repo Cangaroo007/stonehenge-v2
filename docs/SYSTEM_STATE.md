@@ -1189,3 +1189,7 @@ TEMPLATE-MANAGE-1 done
 - selectedIds: Set<string> for multi-template selection
 - mergeRoles() merges material roles across selected templates
 - DM Sans/Serif fonts, amber accents, card grid layout
+
+## 2026-03-23 HEADER-TOTAL-FIX-1
+- QuoteDetailClient.tsx: headerTotal uses activeOption.total for non-base options
+- Base option uses calculation.totalIncGst (was calculation.total * 1.1)
