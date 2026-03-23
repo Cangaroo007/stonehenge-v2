@@ -405,4 +405,10 @@ TEMPLATE-MANAGE-1 done
 ## TEMPLATE-RESEED-1 — 2026-03-23
 - Deleted 24 existing built-in starter templates
 - Inserted 12 new templates across 6 categories: kitchen, butlers_pantry, laundry, bathroom, ensuite, outdoor
+
+## TEMPLATE-UX-1 — 2026-03-23
+- FromTemplateSheet: complete rewrite with multi-select and dark stone aesthetic
+- Multi-select via Set<string>, two-phase flow (selection → material assignment → apply)
+- mergeRoles() combines roles across all selected templates
+- 7 category tabs: All + kitchen, bathroom, ensuite, laundry, butlers_pantry, outdoor
 - company_id: 1, Pencil Round edge ID: cmlar3etc0000znatkbilb48y
