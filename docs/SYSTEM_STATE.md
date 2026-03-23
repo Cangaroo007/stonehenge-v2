@@ -1178,3 +1178,8 @@ TEMPLATE-MANAGE-1 done
 - PieceVisualEditor.tsx: 'WALL' → 'N-STR' in edge labels (3 occurrences)
 - RelationshipEditor.tsx: Position dropdown removed from both forms
 - QuickViewPieceRow.tsx: name field no longer reset during recalculation
+
+## 2026-03-23 TEMPLATE-RESEED-1
+- starter_templates: 12 built-in templates (was 24)
+- Categories: kitchen, butlers_pantry, laundry, bathroom, ensuite, outdoor
+- Each category has Compact + Standard variant
