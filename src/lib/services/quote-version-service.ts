@@ -7,7 +7,7 @@ export type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_C
 // Type for the snapshot data structure
 export interface QuoteSnapshot {
   // Quote header info
-  quote_number: string;
+  quote_number: string | null;
   status: string;
   client_types: string | null;
   client_tiers: string | null;

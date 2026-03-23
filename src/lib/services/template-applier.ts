@@ -75,26 +75,6 @@ async function resolveEdgeString(
 }
 
 /**
- * Generate a unique quote number.
- */
-async function generateQuoteNumber(): Promise<string> {
-  const latest = await prisma.quotes.findFirst({
-    orderBy: { id: 'desc' },
-    select: { quote_number: true },
-  });
-
-  if (latest?.quote_number) {
-    const match = latest.quote_number.match(/(\d+)/);
-    if (match) {
-      const nextNum = parseInt(match[1], 10) + 1;
-      return `Q-${String(nextNum).padStart(5, '0')}`;
-    }
-  }
-
-  return 'Q-00001';
-}
-
-/**
  * Apply a starter template to create pieces on a quote.
  * If no quoteId is provided, creates a new quote.
  */
@@ -157,10 +137,10 @@ export async function applyTemplateToQuote(
 
     // Create new quote if needed
     if (actualQuoteId === -1) {
-      const quoteNumber = await generateQuoteNumber();
+      // quote_number left null — assigned when user clicks "Save Quote"
       const newQuote = await tx.quotes.create({
         data: {
-          quote_number: quoteNumber,
+          quote_number: null,
           company_id: template.companyId,
           customer_id: customerId!,
           contact_id: contactId || null,

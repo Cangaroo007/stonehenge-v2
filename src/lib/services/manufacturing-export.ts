@@ -270,7 +270,7 @@ export async function generateManufacturingExport(
   // ── 6. Assemble final export ────────────────────────────────────────
   const exportPayload: ManufacturingExport = {
     quoteId: quote.id.toString(),
-    quoteNumber: quote.quote_number,
+    quoteNumber: quote.quote_number ?? '',
     exportedAt: new Date().toISOString(),
     material: {
       name: primaryMaterial?.name ?? 'Unknown',

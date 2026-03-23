@@ -6,7 +6,7 @@ import { formatCurrency, formatDate, getStatusColor, getStatusLabel, getStatusIc
 
 interface QuoteRow {
   id: number;
-  quote_number: string;
+  quote_number: string | null;
   project_name: string | null;
   status: string;
   total: number;

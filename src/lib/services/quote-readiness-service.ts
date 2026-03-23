@@ -25,7 +25,7 @@ export interface ReadinessCheck {
 
 export interface ReadinessResult {
   quoteId: number;
-  quoteNumber: string;
+  quoteNumber: string | null;
   checks: ReadinessCheck[];
   canGenerate: boolean;
   failCount: number;

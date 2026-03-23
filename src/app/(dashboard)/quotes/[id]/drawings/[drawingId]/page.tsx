@@ -49,7 +49,7 @@ export default async function DrawingViewPage({
     url,
     quote: {
       id: drawing.quotes.id,
-      quoteNumber: drawing.quotes.quote_number,
+      quoteNumber: drawing.quotes.quote_number ?? '',
       projectName: drawing.quotes.project_name,
     },
   };

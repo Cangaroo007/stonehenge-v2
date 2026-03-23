@@ -133,7 +133,7 @@ export default async function CustomerQuoteDetailPage({
       {canApprove ? (
         <QuoteSignatureSection
           quoteId={quote.id}
-          quoteNumber={quote.quote_number}
+          quoteNumber={quote.quote_number ?? ''}
           customerName={quote.customers?.company || quote.customers?.name || 'Customer'}
           totalAmount={formatCurrency(Number(quote.total))}
           status={quote.status}

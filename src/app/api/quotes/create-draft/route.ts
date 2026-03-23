@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
-import { generateQuoteNumber } from '@/lib/utils';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
 
 /**
@@ -60,13 +59,7 @@ export async function POST(request: NextRequest) {
 
     const hasBodyRooms = body?.rooms && Array.isArray(body.rooms);
 
-    const lastQuote = await prisma.quotes.findFirst({
-      where: { company_id: user.companyId },
-      orderBy: { created_at: 'desc' },
-      select: { quote_number: true },
-    });
-
-    const quoteNumber = generateQuoteNumber(lastQuote?.quote_number || null);
+    // quote_number left null — assigned when user clicks "Save Quote"
 
     // Build room creation data
     const roomsCreate = hasBodyRooms && body!.rooms!.length > 0
@@ -98,7 +91,7 @@ export async function POST(request: NextRequest) {
 
     const quote = await prisma.quotes.create({
       data: {
-        quote_number: quoteNumber,
+        quote_number: null,
         company_id: user.companyId,
         customer_id: customerId && !isNaN(customerId) ? customerId : null,
         contact_id: contactId && !isNaN(contactId) ? contactId : null,

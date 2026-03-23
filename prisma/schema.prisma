@@ -640,7 +640,7 @@ model quote_views {
 
 model quotes {
   id                     Int                      @id @default(autoincrement())
-  quote_number           String                   @unique
+  quote_number           String?                   @unique
   revision               Int                      @default(1)
   customer_id            Int?
   contact_id             Int?
