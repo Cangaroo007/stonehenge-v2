@@ -401,3 +401,8 @@ TEMPLATE-MANAGE-1 done
 - PieceVisualEditor: replaced 'WALL' display code with 'N-STR' (No Strip)
 - RelationshipEditor: removed Position dropdown from new and edit forms
 - QuickViewPieceRow: guarded setLocalName reset with !editingName
+
+## TEMPLATE-RESEED-1 — 2026-03-23
+- Deleted 24 existing built-in starter templates
+- Inserted 12 new templates across 6 categories: kitchen, butlers_pantry, laundry, bathroom, ensuite, outdoor
+- company_id: 1, Pencil Round edge ID: cmlar3etc0000znatkbilb48y
