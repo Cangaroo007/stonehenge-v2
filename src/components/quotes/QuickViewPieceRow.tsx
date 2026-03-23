@@ -1137,8 +1137,8 @@ export default function QuickViewPieceRow({
             </span>
           )}
 
-          {/* Summary content — hidden when accordion is open to avoid duplication */}
-          <div className={`contents ${accordionOpen ? 'hidden' : ''}`}>
+          {/* Summary content — always visible above expanded diagram */}
+          <div className="contents">
           {/* Dimension inputs — shape-aware */}
           {isEditMode ? (
             <>
@@ -1639,7 +1639,7 @@ export default function QuickViewPieceRow({
         </div>
 
         {/* ── Line 2: Mini SVG · Quick Edge · Cutouts ── */}
-        <div className={`flex items-start gap-3 mt-2 ${accordionOpen ? 'hidden' : ''}`}>
+        <div className="flex items-start gap-3 mt-2">
           {/* Mini SVG diagram */}
           <div className="flex-shrink-0" style={{ width: MINI_W, height: MINI_H }}>
             <svg viewBox={`0 0 ${MINI_W} ${MINI_H}`} width={MINI_W} height={MINI_H} className="w-full h-full">

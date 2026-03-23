@@ -389,3 +389,7 @@ TEMPLATE-MANAGE-1 done
 ## EDGE-SYNC-1 — 2026-03-23
 - PieceVisualEditor: added initialQuickEdgeProfile prop to sync from summary row
 - QuickViewPieceRow: passes quickEdgeProfileId to PieceVisualEditor
+
+## VIEW-SYNC-1 — 2026-03-23
+- Removed two `accordionOpen ? 'hidden'` conditions from summary content
+- Summary row (dims, edges, price, buttons) now stays visible above expanded diagram

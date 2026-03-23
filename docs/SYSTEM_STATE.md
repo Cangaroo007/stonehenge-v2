@@ -1169,3 +1169,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 EDGE-SYNC-1
 - PieceVisualEditor.tsx: initialQuickEdgeProfile prop syncs Quick Edge selection
 - QuickViewPieceRow.tsx: passes quickEdgeProfileId to expanded editor
+
+## 2026-03-23 VIEW-SYNC-1
+- QuickViewPieceRow.tsx: summary row always visible when accordion is open
