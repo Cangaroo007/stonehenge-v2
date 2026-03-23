@@ -1193,3 +1193,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 HEADER-TOTAL-FIX-1
 - QuoteDetailClient.tsx: headerTotal uses activeOption.total for non-base options
 - Base option uses calculation.totalIncGst (was calculation.total * 1.1)
+
+## 2026-03-23 COMPARE-1
+- QuoteDetailClient.tsx: Compare Material button toggles read-only panel (no option creation)
+- handleCompareWithMaterial simplified to toggle, placeholder panel added

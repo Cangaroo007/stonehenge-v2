@@ -417,3 +417,8 @@ TEMPLATE-MANAGE-1 done
 - headerTotal now reads from activeOption.total for non-base options
 - Falls back to calculation.totalIncGst for base option
 - Old calculation.total * 1.1 removed
+
+## COMPARE-1 — 2026-03-23
+- handleCompareWithMaterial no longer creates Options — toggles comparison panel
+- Added showComparisonPanel state + placeholder panel (COMPARE-2 will replace)
+- quoteOptions.createOption no longer called from Compare Material button

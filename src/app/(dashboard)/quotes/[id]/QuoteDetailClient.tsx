@@ -408,6 +408,7 @@ export default function QuoteDetailClient({
   const [customerSectionExpanded, setCustomerSectionExpanded] = useState(false);
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
+  const [showComparisonPanel, setShowComparisonPanel] = useState(false);
   const [slabPriceOverrides, setSlabPriceOverrides] = useState<Record<string, number | null>>({});
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
@@ -1174,27 +1175,10 @@ export default function QuoteDetailClient({
     recalculateOptionsAfterPieceChange();
   }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
 
-  // Compare Material — creates a new option copying from base, activates it,
-  // then opens BulkMaterialDialog so Jay can assign a comparison material
-  const handleCompareWithMaterial = useCallback(async () => {
-    const baseOption = quoteOptions.options.find(o => o.isBase);
-    // Generate next option name: Option B, Option C, etc.
-    const letters = 'BCDEFGHIJKLMNOPQRSTUVWXYZ';
-    const existingNames = new Set(quoteOptions.options.map(o => o.name));
-    let newName = 'Option B';
-    for (const letter of letters) {
-      const candidate = `Option ${letter}`;
-      if (!existingNames.has(candidate)) { newName = candidate; break; }
-    }
-    const newOption = await quoteOptions.createOption(
-      newName,
-      undefined,
-      baseOption?.id
-    );
-    if (!newOption) return;
-    quoteOptions.setActiveOptionId(newOption.id);
-    setShowBulkSwap(true);
-  }, [quoteOptions, setShowBulkSwap]);
+  // Compare Material — opens the material comparison panel (read-only, no option created)
+  const handleCompareWithMaterial = useCallback(() => {
+    setShowComparisonPanel(prev => !prev);
+  }, []);
 
   // Initialise slab price overrides from piece data
   useEffect(() => {
@@ -4126,10 +4110,26 @@ export default function QuoteDetailClient({
                 type="button"
                 onClick={handleCompareWithMaterial}
                 className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-md hover:bg-primary-700 transition-colors"
-                title="Create a new option to compare a different material"
+                title="Compare prices for different materials without changing the quote"
               >
                 + Compare Material
               </button>
+            )}
+            {/* Material comparison panel — COMPARE-2 will replace this placeholder */}
+            {showComparisonPanel && (
+              <div className="mt-2 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
+                <p className="font-medium mb-1">Material Comparison</p>
+                <p className="text-xs text-blue-600">
+                  Side-by-side material price comparison coming soon.
+                  This panel will show price differences without changing the quote.
+                </p>
+                <button
+                  onClick={() => setShowComparisonPanel(false)}
+                  className="mt-2 text-xs text-blue-500 hover:text-blue-700 underline"
+                >
+                  Close
+                </button>
+              </div>
             )}
           </div>
           <BulkMaterialDialog
