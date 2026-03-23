@@ -647,7 +647,7 @@ export default function QuickViewPieceRow({
   useMemo(() => {
     setLocalLength(piece.lengthMm);
     setLocalWidth(piece.widthMm);
-    setLocalName(piece.name);
+    if (!editingName) setLocalName(piece.name);
     setLocalOverrideCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
     );

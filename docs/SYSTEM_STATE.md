@@ -1173,3 +1173,8 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 EDGE-SYNC-3
 - QuickViewPieceRow.tsx: RADIUS_END arc edge rendered as Q-bezier in mini SVG
 - Reads from edge_arc_config.arc_end, clicks route to handleShapeEdgeChange
+
+## 2026-03-23 UX-FIX-1
+- PieceVisualEditor.tsx: 'WALL' → 'N-STR' in edge labels (3 occurrences)
+- RelationshipEditor.tsx: Position dropdown removed from both forms
+- QuickViewPieceRow.tsx: name field no longer reset during recalculation

@@ -1637,7 +1637,7 @@ export default function PieceVisualEditor({
               const name = isWallEdge ? undefined : (profileId ? resolveEdgeName(profileId) : undefined);
               const isFinished = !isWallEdge && !!profileId;
               const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'WALL' : edgeCode(name);
+              const code = isWallEdge ? 'N-STR' : edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
               const isHovered = hoveredEdge === edge.side;
 
@@ -1926,7 +1926,7 @@ export default function PieceVisualEditor({
               const name = isWallEdge ? undefined : edgeNames[side];
               const isFinished = !isWallEdge && !!edgeIds[side];
               const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'WALL' : edgeCode(name);
+              const code = isWallEdge ? 'N-STR' : edgeCode(name);
               const isHorizontal = side === 'top' || side === 'bottom';
               const isHovered = hoveredEdge === side;
               const isSelected = selectedEdges.has(side);
@@ -2007,7 +2007,7 @@ export default function PieceVisualEditor({
                   >
                     <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
                     {isWallEdge
-                      ? 'WALL'
+                      ? 'N-STR'
                       : (isFinished
                         ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
                         : 'RAW')}

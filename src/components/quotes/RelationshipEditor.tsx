@@ -317,7 +317,7 @@ export default function RelationshipEditor({
                 {/* Inline Edit Form */}
                 {isEditing && (
                   <div className="px-3 pb-3 pt-1 border-t border-gray-100 space-y-2">
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 gap-2">
                       <div>
                         <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Type</label>
                         <select
@@ -330,21 +330,6 @@ export default function RelationshipEditor({
                           ))}
                         </select>
                       </div>
-                      {POSITION_TYPES.includes(editType) && (
-                        <div>
-                          <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Position</label>
-                          <select
-                            value={editPosition}
-                            onChange={e => setEditPosition(e.target.value)}
-                            className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
-                          >
-                            <option value="">None</option>
-                            {JOIN_POSITIONS.map(pos => (
-                              <option key={pos} value={pos}>{pos}</option>
-                            ))}
-                          </select>
-                        </div>
-                      )}
                     </div>
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
@@ -429,8 +414,8 @@ export default function RelationshipEditor({
             </div>
           </div>
 
-          {/* Type + Position */}
-          <div className="grid grid-cols-2 gap-2">
+          {/* Type */}
+          <div className="grid grid-cols-1 gap-2">
             <div>
               <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Type</label>
               <select
@@ -443,21 +428,6 @@ export default function RelationshipEditor({
                 ))}
               </select>
             </div>
-            {POSITION_TYPES.includes(newType) && (
-              <div>
-                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Position</label>
-                <select
-                  value={newPosition}
-                  onChange={e => setNewPosition(e.target.value)}
-                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
-                >
-                  <option value="">None</option>
-                  {JOIN_POSITIONS.map(pos => (
-                    <option key={pos} value={pos}>{pos}</option>
-                  ))}
-                </select>
-              </div>
-            )}
           </div>
 
           {/* Notes */}

@@ -396,3 +396,8 @@ TEMPLATE-MANAGE-1 done
 - Clicks on arc save to arc_end via handleShapeEdgeChange
 - BOTH-ended (pill) variant: both arcs rendered and clickable
 - Straight edges (top/bottom/left) unchanged
+
+## UX-FIX-1 — 2026-03-23
+- PieceVisualEditor: replaced 'WALL' display code with 'N-STR' (No Strip)
+- RelationshipEditor: removed Position dropdown from new and edit forms
+- QuickViewPieceRow: guarded setLocalName reset with !editingName
