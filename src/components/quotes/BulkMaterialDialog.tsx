@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import MaterialPickerV2, { type MaterialPickerMaterial } from '@/components/quotes/MaterialPickerV2';
 
 // ── Types (mirrors parent's interfaces — kept local to avoid coupling) ──
 
@@ -20,6 +21,7 @@ interface DialogMaterial {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  supplier?: { id: string; name: string } | null;
 }
 
 interface BulkMaterialDialogProps {
@@ -43,7 +45,7 @@ export default function BulkMaterialDialog({
 }: BulkMaterialDialogProps) {
   // ── Internal state (all owned by the dialog, NOT the parent) ──
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<number>>(new Set());
-  const [selectedMaterialId, setSelectedMaterialId] = useState<string>('');
+  const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('ALL');
   const [isApplying, setIsApplying] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
@@ -52,7 +54,7 @@ export default function BulkMaterialDialog({
   useEffect(() => {
     if (isOpen) {
       setSelectedPieceIds(new Set());
-      setSelectedMaterialId('');
+      setSelectedMaterialId(null);
       setActiveFilter('ALL');
       setShowOverwriteWarning(false);
       setIsApplying(false);
@@ -136,16 +138,15 @@ export default function BulkMaterialDialog({
   // ── Pieces that will be overwritten ──
   const piecesWithOverwrite = useMemo(() => {
     if (!selectedMaterialId) return [];
-    const matId = parseInt(selectedMaterialId);
     return pieces.filter(
-      p => selectedPieceIds.has(p.id) && p.materialId !== null && p.materialId !== matId
+      p => selectedPieceIds.has(p.id) && p.materialId !== null && p.materialId !== selectedMaterialId
     );
   }, [pieces, selectedPieceIds, selectedMaterialId]);
 
   // ── Price preview ──
   const assignPreview = useMemo(() => {
     if (!selectedMaterialId || selectedPieceIds.size === 0) return null;
-    const toMaterial = materials.find(m => m.id.toString() === selectedMaterialId);
+    const toMaterial = materials.find(m => m.id === selectedMaterialId);
     if (!toMaterial) return null;
 
     let oldMaterialTotal = 0;
@@ -191,10 +192,9 @@ export default function BulkMaterialDialog({
 
     setIsApplying(true);
     try {
-      const matId = parseInt(selectedMaterialId);
       const changes = Array.from(selectedPieceIds).map(pieceId => ({
         pieceId,
-        toMaterialId: matId,
+        toMaterialId: selectedMaterialId as number,
       }));
       await onApply(changes);
       onClose();
@@ -207,7 +207,7 @@ export default function BulkMaterialDialog({
   }, [selectedMaterialId, selectedPieceIds, piecesWithOverwrite, showOverwriteWarning, onApply, onClose]);
 
   const selectedMaterialName = selectedMaterialId
-    ? materials.find(m => m.id.toString() === selectedMaterialId)?.name ?? ''
+    ? materials.find(m => m.id === selectedMaterialId)?.name ?? ''
     : '';
 
   const formatCost = (n: number) => `$${n.toFixed(2)}`;
@@ -228,24 +228,18 @@ export default function BulkMaterialDialog({
         </button>
       </div>
 
-      {/* Material dropdown — at the top per target UX */}
+      {/* Material picker — Supplier → Collection → Colour hierarchy */}
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Material</label>
-        <select
+        <MaterialPickerV2
+          materials={materials as MaterialPickerMaterial[]}
           value={selectedMaterialId}
-          onChange={(e) => {
-            setSelectedMaterialId(e.target.value);
+          onChange={(materialId, _mat, _collectionInfo) => {
+            setSelectedMaterialId(materialId);
             setShowOverwriteWarning(false);
           }}
-          className="w-full border border-gray-300 rounded-md px-3 py-2 text-sm"
-        >
-          <option value="">Select material...</option>
-          {materials.map(m => (
-            <option key={m.id} value={m.id}>
-              {m.name}{m.collection ? ` (${m.collection})` : ''} — ${m.pricePerSqm}/m²
-            </option>
-          ))}
-        </select>
+          placeholder="Select material..."
+        />
       </div>
 
       {/* Filter buttons */}
