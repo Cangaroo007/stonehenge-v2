@@ -29,21 +29,10 @@ export async function POST(
     const body = await request.json();
     const { materialAssignments, quoteId, customerId, contactId, projectName } = body;
 
-    // Validate materialAssignments
-    if (!materialAssignments || typeof materialAssignments !== 'object') {
-      return NextResponse.json(
-        { error: 'materialAssignments is required' },
-        { status: 400 }
-      );
-    }
-
-    // Validate at least PRIMARY_BENCHTOP is assigned
-    if (!materialAssignments.PRIMARY_BENCHTOP) {
-      return NextResponse.json(
-        { error: 'materialAssignments must include PRIMARY_BENCHTOP' },
-        { status: 400 }
-      );
-    }
+    // materialAssignments is optional — pieces created without material if not provided
+    const resolvedAssignments = (materialAssignments && typeof materialAssignments === 'object')
+      ? materialAssignments
+      : {};
 
     // If quoteId provided, verify it exists
     if (quoteId) {
@@ -65,7 +54,7 @@ export async function POST(
 
     const result = await applyTemplateToQuote({
       templateId: id,
-      materialAssignments: materialAssignments as Record<MaterialRole, number>,
+      materialAssignments: resolvedAssignments as Record<MaterialRole, number>,
       quoteId: quoteId ? Number(quoteId) : undefined,
       customerId: customerId ? Number(customerId) : undefined,
       contactId: contactId ? Number(contactId) : undefined,

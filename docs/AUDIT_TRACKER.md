@@ -373,7 +373,6 @@ TEMPLATE-MANAGE-1 done
 ## STRIP-CONFIG-AUTH — 2026-03-22
 - strip-configurations route: removed role restriction from requireAuth
 
-## PRICING-ADMIN-3 — 2026-03-22
-- Removed Configuration and Strip Configurations tabs from pricing nav
-- Jay now sees only the 5 tabs he needs: Config Health, Settings, Service Rates, Cutout Rates, Edge Rates
->>>>>>> Stashed changes
+## TEMPLATE-SKIP-MATERIAL — 2026-03-22
+- NewQuoteWizard: template selection now creates quote immediately, skips material assignment step
+- apply route: materialAssignments now optional (defaults to empty object)
