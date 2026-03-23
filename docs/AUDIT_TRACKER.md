@@ -422,3 +422,8 @@ TEMPLATE-MANAGE-1 done
 - handleCompareWithMaterial no longer creates Options — toggles comparison panel
 - Added showComparisonPanel state + placeholder panel (COMPARE-2 will replace)
 - quoteOptions.createOption no longer called from Compare Material button
+
+## TEMPLATE-SELECTOR-REDESIGN-1 — 2026-03-23
+- TemplateSelector: complete rewrite with dark stone aesthetic matching FromTemplateSheet
+- Category tabs: kitchen, bathroom, ensuite, laundry, butlers_pantry, outdoor (removed stale "other")
+- Multi-select, manage mode, sticky footer preserved
