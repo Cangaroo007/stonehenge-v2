@@ -1183,3 +1183,9 @@ TEMPLATE-MANAGE-1 done
 - starter_templates: 12 built-in templates (was 24)
 - Categories: kitchen, butlers_pantry, laundry, bathroom, ensuite, outdoor
 - Each category has Compact + Standard variant
+
+## 2026-03-23 TEMPLATE-UX-1
+- FromTemplateSheet.tsx: complete rewrite — multi-select, dark aesthetic, 2-phase flow
+- selectedIds: Set<string> for multi-template selection
+- mergeRoles() merges material roles across selected templates
+- DM Sans/Serif fonts, amber accents, card grid layout
