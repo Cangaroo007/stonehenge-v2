@@ -1165,3 +1165,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-23 TEMPLATE-APPLIER-CUSTOMER
 - template-applier.ts: customerId now truly optional (null if not provided)
+
+## 2026-03-23 EDGE-SYNC-2
+- QuickViewPieceRow.tsx: getMiniShapeEdges helper for L/U polygon edge segments
+- Mini SVG branches: L/U uses polygon segments from shapeConfig.edges; rectangles unchanged

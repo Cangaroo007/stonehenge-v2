@@ -385,3 +385,8 @@ TEMPLATE-MANAGE-1 done
 
 ## TEMPLATE-APPLIER-CUSTOMER — 2026-03-23
 - template-applier: removed customerId required check + fixed ! assertion
+
+## EDGE-SYNC-2 — 2026-03-23
+- Mini SVG now renders correct polygon edge segments for L/U shapes
+- L/U edge clicks in mini SVG save to shapeConfig.edges via handleShapeEdgeChange
+- U_SHAPE uses correct DB keys: top_left, inner_left, back_inner, inner_right, top_right, outer_right, bottom, outer_left
