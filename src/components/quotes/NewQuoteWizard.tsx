@@ -55,10 +55,24 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     fetchRecent();
   }, []);
 
-  // Template selected — move to material assignment
-  const handleTemplateSelect = (template: TemplateSummary) => {
-    setSelectedTemplate(template);
-    setStep('material-assignment');
+  // Template selected — create quote directly, skip material assignment
+  const handleTemplateSelect = async (template: TemplateSummary) => {
+    setStep('creating');
+    try {
+      const res = await fetch(`/api/starter-templates/${template.id}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          materialAssignments: {},
+          customerId: customerId || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error('Failed to create quote from template');
+      const result = await res.json();
+      router.push(`/quotes/${result.quoteId}?mode=edit`);
+    } catch {
+      setStep('template');
+    }
   };
 
   // Quote created from template apply — redirect
