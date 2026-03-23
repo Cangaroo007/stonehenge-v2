@@ -375,3 +375,7 @@ TEMPLATE-MANAGE-1 done
 
 ## DELIVERY-RECALCULATE-RACE — 2026-03-23
 - Recalculate now awaits PUT to save address before calculate fires
+
+## WIZARD-TEMPLATE-NO-CUSTOMER — 2026-03-23
+- apply route: removed customerId required validation
+- Template quotes now work without pre-selecting a customer

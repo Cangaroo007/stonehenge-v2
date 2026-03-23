@@ -1156,3 +1156,6 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-23 DELIVERY-RECALCULATE-RACE
 - QuoteLevelCostSections.tsx: handleRecalculateDelivery uses awaited PUT
+
+## 2026-03-23 WIZARD-TEMPLATE-NO-CUSTOMER
+- starter-templates/[id]/apply: customerId now truly optional

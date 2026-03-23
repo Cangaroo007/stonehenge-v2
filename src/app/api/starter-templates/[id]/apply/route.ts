@@ -44,13 +44,7 @@ export async function POST(
       }
     }
 
-    // If no quoteId, customerId is required
-    if (!quoteId && !customerId) {
-      return NextResponse.json(
-        { error: 'customerId is required when creating a new quote' },
-        { status: 400 }
-      );
-    }
+    // customerId is optional — can be assigned later in the quote builder
 
     const result = await applyTemplateToQuote({
       templateId: id,
