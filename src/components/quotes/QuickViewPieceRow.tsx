@@ -423,6 +423,82 @@ function getMiniShapePath(
   return null;
 }
 
+// ── Mini SVG edge segment definitions for L/U shapes ─────────────────────────
+// Returns the polygon edge segments for use in the mini SVG hit areas + display.
+// Side keys match shapeConfig.edges keys used by handleShapeEdgeChange.
+function getMiniShapeEdges(
+  shapeType: string | null | undefined,
+  shapeConfig: Record<string, unknown> | null | undefined,
+  x: number, y: number, w: number, h: number,
+): Array<{
+  side: string;
+  label: string;
+  x1: number; y1: number; x2: number; y2: number;
+  lx: number; ly: number;
+  anchor: 'middle' | 'start' | 'end';
+}> | null {
+  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+    const cfg = shapeConfig as unknown as LShapeConfig;
+    const boundW = cfg.leg1.length_mm;
+    const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
+    const sL1L = (cfg.leg1.length_mm / boundW) * w;
+    const sL1W = (cfg.leg1.width_mm / boundH) * h;
+    const sL2W = (cfg.leg2.width_mm / boundW) * w;
+    const sL2L = (cfg.leg2.length_mm / boundH) * h;
+
+    const p0 = { x, y };
+    const p1 = { x: x + sL1L, y };
+    const p2 = { x: x + sL1L, y: y + sL1W };
+    const p3 = { x: x + sL2W, y: y + sL1W };
+    const p4 = { x: x + sL2W, y: y + sL1W + sL2L };
+    const p5 = { x, y: y + sL1W + sL2L };
+
+    return [
+      { side: 'top',   label: 'TOP',   x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, lx: (p0.x + p1.x) / 2, ly: p0.y - 6, anchor: 'middle' },
+      { side: 'r_top', label: 'R-TOP', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, lx: p1.x + 8,           ly: (p1.y + p2.y) / 2, anchor: 'start' },
+      { side: 'inner', label: 'INN',   x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y, lx: (p2.x + p3.x) / 2, ly: p2.y - 6, anchor: 'middle' },
+      { side: 'r_btm', label: 'R-BTM', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y, lx: p3.x + 8,           ly: (p3.y + p4.y) / 2, anchor: 'start' },
+      { side: 'bottom',label: 'BTM',   x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y, lx: (p4.x + p5.x) / 2, ly: p4.y + 9, anchor: 'middle' },
+      { side: 'left',  label: 'LEFT',  x1: p5.x, y1: p5.y, x2: p0.x, y2: p0.y, lx: p5.x - 8,           ly: (p5.y + p0.y) / 2, anchor: 'end' },
+    ];
+  }
+
+  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+    const cfg = shapeConfig as unknown as UShapeConfig;
+    const boundW = cfg.back.length_mm;
+    const boundH = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
+    const sLW = (cfg.leftLeg.width_mm / boundW) * w;
+    const sLL = (cfg.leftLeg.length_mm / boundH) * h;
+    const sBW = (cfg.back.width_mm / boundH) * h;
+    const sRW = (cfg.rightLeg.width_mm / boundW) * w;
+    const sRL = (cfg.rightLeg.length_mm / boundH) * h;
+    const sInnerLeftY = sLL - sBW;
+    const sInnerRightY = sRL - sBW;
+
+    const p0 = { x,           y };
+    const p1 = { x: x + sLW,  y };
+    const p2 = { x: x + sLW,  y: y + sInnerLeftY };
+    const p3 = { x: x + w - sRW, y: y + sInnerRightY };
+    const p4 = { x: x + w - sRW, y };
+    const p5 = { x: x + w,    y };
+    const p6 = { x: x + w,    y: y + sRL };
+    const p7 = { x,           y: y + sLL };
+
+    return [
+      { side: 'top_left',    label: 'T-L',   x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, lx: (p0.x+p1.x)/2, ly: p0.y - 6,         anchor: 'middle' as const },
+      { side: 'inner_left',  label: 'IN-L',  x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, lx: p1.x + 8,       ly: (p1.y+p2.y)/2,    anchor: 'start' as const },
+      { side: 'back_inner',  label: 'BACK',  x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y, lx: (p2.x+p3.x)/2, ly: Math.max(p2.y, p3.y) + 9, anchor: 'middle' as const },
+      { side: 'inner_right', label: 'IN-R',  x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y, lx: p4.x - 8,       ly: (p3.y+p4.y)/2,    anchor: 'end' as const },
+      { side: 'top_right',   label: 'T-R',   x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y, lx: (p4.x+p5.x)/2, ly: p4.y - 6,         anchor: 'middle' as const },
+      { side: 'outer_right', label: 'RIGHT', x1: p5.x, y1: p5.y, x2: p6.x, y2: p6.y, lx: p5.x + 8,       ly: (p5.y+p6.y)/2,    anchor: 'start' as const },
+      { side: 'bottom',      label: 'BTM',   x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y, lx: (p6.x+p7.x)/2, ly: Math.max(p6.y, p7.y) + 9, anchor: 'middle' as const },
+      { side: 'outer_left',  label: 'LEFT',  x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y, lx: p7.x - 8,       ly: (p7.y+p0.y)/2,    anchor: 'end' as const },
+    ];
+  }
+
+  return null;
+}
+
 // ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
 function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
   const cfg = piece.shapeConfig as unknown as Record<string, unknown>;
@@ -530,7 +606,7 @@ export default function QuickViewPieceRow({
   const [localName, setLocalName] = useState(piece.name);
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
-  const [flashEdge, setFlashEdge] = useState<MiniEdgeSide | null>(null);
+  const [flashEdge, setFlashEdge] = useState<string | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<MiniEdgeSide | null>(null);
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
   const [showCutoutPopover, setShowCutoutPopover] = useState(false);
@@ -1661,49 +1737,114 @@ export default function QuickViewPieceRow({
                   : <rect x={miniLayout.x} y={miniLayout.y} width={miniLayout.w} height={miniLayout.h} fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1} />;
               })()}
 
-              {/* Edges */}
-              {sides.map(side => {
-                const def = miniEdgeDefs[side];
-                const edgeId = resolvedEdges[edgeKeyMap[side]];
-                const name = resolveEdgeName(edgeId);
-                const isFinished = !!edgeId;
-                const colour = edgeColour(name);
-                const code = edgeCode(name);
-                const isHovered = hoveredEdge === side && isEditMode;
-                const isFlashing = flashEdge === side;
-
-                return (
-                  <g key={side}>
-                    {isHovered && (
-                      <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
-                        stroke="#3b82f6" strokeWidth={8} strokeOpacity={0.15} strokeLinecap="round" />
-                    )}
-                    <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
-                      stroke={isFlashing ? '#22c55e' : colour}
-                      strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
-                      strokeDasharray={isFinished ? undefined : '2 1.5'}
-                      className={isFlashing ? 'qv-edge-flash' : undefined}
-                    />
-                    {isEditMode && (
-                      <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
-                        stroke="transparent" strokeWidth={EDGE_HIT}
-                        style={{ cursor: 'pointer' }}
-                        onClick={e => handleMiniEdgeClick(side, e)}
-                        onMouseEnter={() => setHoveredEdge(side)}
-                        onMouseLeave={() => setHoveredEdge(null)}
-                      />
-                    )}
-                    <text x={def.lx} y={def.ly} textAnchor={def.anchor} dominantBaseline="middle"
-                      className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
-                      fill={colour}
-                    >
-                      {code}{piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
-                        ? ` ${(piece.edgeBuildups as Record<string, { depth: number }>)[side].depth}mm`
-                        : ''}
-                    </text>
-                  </g>
+              {/* Edges — L/U shapes use polygon segments; rectangles use bounding box */}
+              {(() => {
+                const shapeEdges = getMiniShapeEdges(
+                  piece.shapeType,
+                  piece.shapeConfig as Record<string, unknown> | null | undefined,
+                  miniLayout.x, miniLayout.y, miniLayout.w, miniLayout.h
                 );
-              })}
+
+                if (shapeEdges) {
+                  // L/U shape: render polygon edge segments
+                  const shapeEdgeMap = (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE')
+                    ? ((piece.shapeConfig as Record<string, unknown> | null)?.edges as Record<string, string | null> | undefined) ?? {}
+                    : {};
+
+                  return shapeEdges.map(seg => {
+                    const edgeId = shapeEdgeMap[seg.side] ?? null;
+                    const name = resolveEdgeName(edgeId);
+                    const isFinished = !!edgeId;
+                    const colour = edgeColour(name);
+                    const code = edgeCode(name);
+                    const isFlashing = flashEdge === seg.side;
+
+                    return (
+                      <g key={seg.side}>
+                        <line
+                          x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                          stroke={isFlashing ? '#22c55e' : colour}
+                          strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
+                          strokeDasharray={isFinished ? undefined : '2 1.5'}
+                        />
+                        {isEditMode && (
+                          <line
+                            x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
+                            stroke="transparent"
+                            strokeWidth={EDGE_HIT}
+                            style={{ cursor: 'pointer' }}
+                            onClick={e => {
+                              e.stopPropagation();
+                              let profileToApply = quickEdgeProfileId;
+                              if (isMitred && profileToApply) {
+                                const pencilId = editData?.edgeTypes.find(et =>
+                                  et.name.toLowerCase().includes('pencil'))?.id;
+                                if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
+                              }
+                              handleShapeEdgeChange(seg.side, profileToApply);
+                              setFlashEdge(seg.side);
+                              setTimeout(() => setFlashEdge(null), 200);
+                            }}
+                          />
+                        )}
+                        <text
+                          x={seg.lx} y={seg.ly}
+                          textAnchor={seg.anchor}
+                          dominantBaseline="middle"
+                          className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                          fill={colour}
+                        >
+                          {code || seg.label}
+                        </text>
+                      </g>
+                    );
+                  });
+                }
+
+                // Rectangle (and all other shapes): original 4-side bounding box rendering
+                return sides.map(side => {
+                  const def = miniEdgeDefs[side];
+                  const edgeId = resolvedEdges[edgeKeyMap[side]];
+                  const name = resolveEdgeName(edgeId);
+                  const isFinished = !!edgeId;
+                  const colour = edgeColour(name);
+                  const code = edgeCode(name);
+                  const isHovered = hoveredEdge === side && isEditMode;
+                  const isFlashing = flashEdge === side;
+
+                  return (
+                    <g key={side}>
+                      {isHovered && (
+                        <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
+                          stroke="#3b82f6" strokeWidth={8} strokeOpacity={0.15} strokeLinecap="round" />
+                      )}
+                      <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
+                        stroke={isFlashing ? '#22c55e' : colour}
+                        strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
+                        strokeDasharray={isFinished ? undefined : '2 1.5'}
+                        className={isFlashing ? 'qv-edge-flash' : undefined}
+                      />
+                      {isEditMode && (
+                        <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
+                          stroke="transparent" strokeWidth={EDGE_HIT}
+                          style={{ cursor: 'pointer' }}
+                          onClick={e => handleMiniEdgeClick(side, e)}
+                          onMouseEnter={() => setHoveredEdge(side)}
+                          onMouseLeave={() => setHoveredEdge(null)}
+                        />
+                      )}
+                      <text x={def.lx} y={def.ly} textAnchor={def.anchor} dominantBaseline="middle"
+                        className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                        fill={colour}
+                      >
+                        {code}{piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
+                          ? ` ${(piece.edgeBuildups as Record<string, { depth: number }>)[side].depth}mm`
+                          : ''}
+                      </text>
+                    </g>
+                  );
+                });
+              })()}
             </svg>
           </div>
 
