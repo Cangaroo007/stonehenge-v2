@@ -1169,3 +1169,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 EDGE-SYNC-2
 - QuickViewPieceRow.tsx: getMiniShapeEdges helper for L/U polygon edge segments
 - Mini SVG branches: L/U uses polygon segments from shapeConfig.edges; rectangles unchanged
+
+## 2026-03-23 EDGE-SYNC-3
+- QuickViewPieceRow.tsx: RADIUS_END arc edge rendered as Q-bezier in mini SVG
+- Reads from edge_arc_config.arc_end, clicks route to handleShapeEdgeChange
