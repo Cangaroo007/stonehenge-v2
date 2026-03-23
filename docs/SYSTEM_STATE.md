@@ -1197,3 +1197,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 COMPARE-1
 - QuoteDetailClient.tsx: Compare Material button toggles read-only panel (no option creation)
 - handleCompareWithMaterial simplified to toggle, placeholder panel added
+
+## 2026-03-23 TEMPLATE-SELECTOR-REDESIGN-1
+- TemplateSelector.tsx: complete rewrite — dark stone aesthetic, correct 6 categories
+- Removed stale "other" catch-all category and filter logic

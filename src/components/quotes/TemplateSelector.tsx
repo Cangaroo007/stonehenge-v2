@@ -20,26 +20,26 @@ interface TemplateSelectorProps {
 }
 
 const CATEGORY_TABS = [
-  { key: 'all', label: 'All' },
-  { key: 'kitchen', label: 'Kitchen' },
-  { key: 'bathroom', label: 'Bathroom' },
-  { key: 'other', label: 'Other' },
-  { key: 'laundry', label: 'Laundry' },
+  { key: 'all',            label: 'All' },
+  { key: 'kitchen',        label: 'Kitchen' },
+  { key: 'bathroom',       label: 'Bathroom' },
+  { key: 'ensuite',        label: 'Ensuite' },
+  { key: 'laundry',        label: 'Laundry' },
+  { key: 'butlers_pantry', label: "Butler's Pantry" },
+  { key: 'outdoor',        label: 'Outdoor' },
 ];
 
-const CATEGORY_ICONS: Record<string, string> = {
-  kitchen: '\uD83C\uDF73',
-  bathroom: '\uD83D\uDEBF',
-  laundry: '\uD83E\uDDF2',
-  ensuite: '\uD83D\uDEBF',
-  study: '\uD83D\uDCDA',
-  'full-unit': '\uD83C\uDFE0',
-  'multi-room': '\uD83C\uDFE0',
-  other: '\uD83D\uDCCB',
+const CATEGORY_LABELS: Record<string, string> = {
+  kitchen:        'Kitchen',
+  bathroom:       'Bathroom',
+  ensuite:        'Ensuite',
+  laundry:        'Laundry',
+  butlers_pantry: "Butler's Pantry",
+  outdoor:        'Outdoor',
 };
 
-function getCategoryIcon(category: string): string {
-  return CATEGORY_ICONS[category.toLowerCase()] || '\uD83D\uDCCB';
+function getCategoryLabel(category: string): string {
+  return CATEGORY_LABELS[category.toLowerCase()] ?? category;
 }
 
 export default function TemplateSelector({ onBack, onSelect, onApply }: TemplateSelectorProps) {
@@ -51,30 +51,16 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
   const [manageMode, setManageMode] = useState(false);
 
   useEffect(() => {
-    async function fetchTemplates() {
-      try {
-        const res = await fetch('/api/starter-templates?isActive=true');
-        if (!res.ok) throw new Error('Failed to load templates');
-        const data = await res.json();
-        setTemplates(data);
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load templates');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-    fetchTemplates();
+    fetch('/api/starter-templates?isActive=true')
+      .then(r => r.ok ? r.json() : Promise.reject('Failed to load'))
+      .then(setTemplates)
+      .catch(err => setError(typeof err === 'string' ? err : 'Failed to load templates'))
+      .finally(() => setIsLoading(false));
   }, []);
 
   const filtered = activeCategory === 'all'
     ? templates
-    : templates.filter(t => {
-        const cat = t.category.toLowerCase();
-        if (activeCategory === 'other') {
-          return !['kitchen', 'bathroom', 'laundry'].includes(cat);
-        }
-        return cat === activeCategory;
-      });
+    : templates.filter(t => t.category.toLowerCase() === activeCategory.toLowerCase());
 
   const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Delete template "${name}"? This cannot be undone.`)) return;
@@ -107,197 +93,365 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
   };
 
   return (
-    <div className="max-w-4xl mx-auto pb-24">
-      {/* Header */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-4">
-          <button
-            onClick={onBack}
-            className="text-gray-500 hover:text-gray-700"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-          </button>
-          <h1 className="text-2xl font-bold text-gray-900">Choose a Template</h1>
-        </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => setManageMode(!manageMode)}
-            className={`text-sm px-3 py-1.5 rounded-lg border transition-colors ${
-              manageMode
-                ? 'bg-gray-900 text-white border-gray-900'
-                : 'bg-white text-gray-600 border-gray-300 hover:bg-gray-50'
-            }`}
-          >
-            {manageMode ? 'Done' : 'Manage'}
-          </button>
-          <a href="/templates/new" className="btn-primary text-sm px-3 py-1.5">
-            + New Template
-          </a>
-        </div>
-      </div>
+    <>
+      <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Serif+Display:ital@0;1&display=swap');
 
-      {/* Category filter tabs */}
-      <div className="flex gap-2 mb-6 flex-wrap items-center">
-        {CATEGORY_TABS.map(tab => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveCategory(tab.key)}
-            className={`px-4 py-2 rounded-full text-sm font-medium transition-colors ${
-              activeCategory === tab.key
-                ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200 border border-transparent'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-        {!manageMode && filtered.length > 0 && (
-          <button
-            onClick={() => setSelected(prev => {
-              const next = new Set(prev);
-              filtered.forEach(t => next.add(t.id));
-              return next;
-            })}
-            className="text-xs text-amber-600 hover:text-amber-700 ml-auto"
-          >
-            Select all{activeCategory !== 'all' ? ` ${activeCategory}` : ''}
-          </button>
-        )}
-      </div>
+        .tpl-sel {
+          font-family: 'DM Sans', sans-serif;
+          min-height: 100vh;
+          background: #0c0a09;
+          color: #e7e5e4;
+          padding: 40px 24px 120px;
+        }
+        .tpl-sel-title {
+          font-family: 'DM Serif Display', serif;
+          font-size: 28px;
+          color: #fafaf9;
+          letter-spacing: -0.02em;
+        }
+        @keyframes tplFadeUp {
+          from { transform: translateY(16px); opacity: 0; }
+          to   { transform: translateY(0);    opacity: 1; }
+        }
+        .tpl-fade-up { animation: tplFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
-      {/* Loading */}
-      {isLoading && (
-        <div className="text-center py-12 text-gray-500">Loading templates...</div>
-      )}
+        .tpl-sel-card {
+          background: #1c1917;
+          border: 1.5px solid #292524;
+          border-radius: 14px;
+          cursor: pointer;
+          transition: border-color 0.15s, transform 0.12s, background 0.15s;
+          position: relative;
+          overflow: hidden;
+          padding: 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+        .tpl-sel-card::before {
+          content: '';
+          position: absolute;
+          inset: 0;
+          background: linear-gradient(135deg, rgba(217,119,6,0.07) 0%, transparent 60%);
+          opacity: 0;
+          transition: opacity 0.2s;
+        }
+        .tpl-sel-card:hover::before { opacity: 1; }
+        .tpl-sel-card:hover { border-color: #44403c; transform: translateY(-2px); }
+        .tpl-sel-card.selected {
+          border-color: #d97706;
+          background: #1c1410;
+        }
+        .tpl-sel-card.selected::before { opacity: 1; }
 
-      {/* Error */}
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-6">
-          {error}
-        </div>
-      )}
+        .tpl-sel-check {
+          width: 22px; height: 22px;
+          border-radius: 7px;
+          border: 1.5px solid #44403c;
+          display: flex; align-items: center; justify-content: center;
+          flex-shrink: 0;
+          transition: all 0.15s;
+        }
+        .tpl-sel-check.checked {
+          background: #d97706;
+          border-color: #d97706;
+        }
 
-      {/* Empty state */}
-      {!isLoading && !error && filtered.length === 0 && (
-        <div className="text-center py-12 card">
-          <p className="text-gray-500 mb-2">No templates available{activeCategory !== 'all' ? ` in ${activeCategory}` : ''}.</p>
-          <a
-            href="/admin/pricing"
-            className="text-amber-600 hover:text-amber-700 text-sm font-medium"
-          >
-            Manage templates in Pricing Admin
-          </a>
-        </div>
-      )}
+        .tpl-sel-tab {
+          padding: 6px 16px;
+          border-radius: 20px;
+          font-size: 12px;
+          font-weight: 500;
+          cursor: pointer;
+          transition: all 0.15s;
+          border: 1px solid transparent;
+          white-space: nowrap;
+          color: #a8a29e;
+          background: transparent;
+          font-family: 'DM Sans', sans-serif;
+        }
+        .tpl-sel-tab:hover { color: #e7e5e4; background: #1c1917; }
+        .tpl-sel-tab.active {
+          color: #fbbf24;
+          background: rgba(217,119,6,0.15);
+          border-color: rgba(217,119,6,0.3);
+        }
 
-      {/* Template grid */}
-      {!isLoading && filtered.length > 0 && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {filtered.map(template => (
-            <div
-              key={template.id}
-              className={`card p-5 flex flex-col relative transition-colors ${
-                selected.has(template.id) ? 'border-2 border-amber-400' : ''
-              }`}
-            >
-              {/* Top-right controls: checkbox or manage icons */}
-              {manageMode ? (
-                <div className="absolute top-3 right-3 flex gap-1">
-                  {!template.isBuiltIn ? (
-                    <>
-                      <a
-                        href={`/templates/${template.id}/edit`}
-                        className="p-1.5 rounded bg-gray-100 hover:bg-gray-200 text-gray-600"
-                        title="Edit"
-                      >
-                        ✏️
-                      </a>
-                      <button
-                        onClick={() => handleDelete(template.id, template.name)}
-                        className="p-1.5 rounded bg-gray-100 hover:bg-red-100 text-gray-600 hover:text-red-600"
-                        title="Delete"
-                      >
-                        🗑️
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-xs text-gray-400 px-2 py-1 bg-gray-50 rounded">
-                      🔒 Built-in
-                    </span>
-                  )}
-                </div>
-              ) : (
-                <div className="absolute top-3 right-3">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(template.id)}
-                    onChange={() => toggleSelect(template.id)}
-                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
-                  />
-                </div>
-              )}
+        .tpl-sel-badge {
+          display: inline-flex;
+          align-items: center;
+          padding: 2px 9px;
+          border-radius: 10px;
+          font-size: 10px;
+          font-weight: 600;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+        }
 
-              <div className="flex items-start gap-3 mb-3">
-                <span className="text-2xl">{getCategoryIcon(template.category)}</span>
-                <div className="flex-1 min-w-0">
-                  <h3 className="font-semibold text-gray-900 truncate">{template.name}</h3>
-                  {template.description && (
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
-                  )}
-                </div>
+        .tpl-sel-btn-primary {
+          background: #d97706;
+          color: #fff;
+          border: none;
+          border-radius: 10px;
+          padding: 10px 24px;
+          font-size: 14px;
+          font-weight: 600;
+          font-family: 'DM Sans', sans-serif;
+          cursor: pointer;
+          transition: background 0.15s, transform 0.1s;
+          letter-spacing: 0.01em;
+        }
+        .tpl-sel-btn-primary:hover { background: #b45309; transform: translateY(-1px); }
+
+        .tpl-sel-btn-ghost {
+          background: transparent;
+          color: #a8a29e;
+          border: 1px solid #292524;
+          border-radius: 10px;
+          padding: 8px 16px;
+          font-size: 13px;
+          font-weight: 500;
+          font-family: 'DM Sans', sans-serif;
+          cursor: pointer;
+          transition: all 0.15s;
+        }
+        .tpl-sel-btn-ghost:hover { color: #e7e5e4; border-color: #44403c; background: #1c1917; }
+
+        .tpl-sel-footer {
+          position: fixed;
+          bottom: 0; left: 0; right: 0;
+          background: #0c0a09;
+          border-top: 1px solid #1c1917;
+          padding: 16px 32px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          z-index: 50;
+        }
+      `}</style>
+
+      <div className="tpl-sel">
+        <div style={{ maxWidth: '960px', margin: '0 auto' }}>
+
+          {/* Header */}
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '32px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+              <button
+                onClick={onBack}
+                style={{ color: '#78716c', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
+              >
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+              <div>
+                <h1 className="tpl-sel-title">Choose a Template</h1>
+                <p style={{ fontSize: '13px', color: '#78716c', marginTop: '3px' }}>
+                  Select one or more room templates to start your quote
+                </p>
               </div>
-
-              <div className="text-sm text-gray-600 space-y-1 mb-4 flex-1">
-                <p>{template.pieceCount} piece{template.pieceCount !== 1 ? 's' : ''}</p>
-                <p>~{template.estimatedAreaSqm}m&sup2;</p>
-                <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
-                  template.isBuiltIn
-                    ? 'bg-blue-100 text-blue-700'
-                    : 'bg-gray-100 text-gray-600'
-                }`}>
-                  {template.category}
-                </span>
-              </div>
-
-              {!manageMode && (
-                <button
-                  onClick={() => toggleSelect(template.id)}
-                  className={`w-full text-sm py-2 rounded-lg font-medium transition-colors ${
-                    selected.has(template.id)
-                      ? 'bg-amber-100 text-amber-800 border border-amber-300'
-                      : 'btn-primary'
-                  }`}
-                >
-                  {selected.has(template.id) ? '✓ Selected' : 'Select'}
-                </button>
-              )}
             </div>
-          ))}
-        </div>
-      )}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <button
+                onClick={() => setManageMode(!manageMode)}
+                className="tpl-sel-btn-ghost"
+              >
+                {manageMode ? 'Done' : 'Manage'}
+              </button>
+              <a
+                href="/templates/new"
+                style={{
+                  background: '#292524', color: '#e7e5e4', border: '1px solid #44403c',
+                  borderRadius: '10px', padding: '8px 16px', fontSize: '13px',
+                  fontWeight: 500, textDecoration: 'none', fontFamily: 'DM Sans, sans-serif',
+                  transition: 'all 0.15s', display: 'inline-block',
+                }}
+              >
+                + New Template
+              </a>
+            </div>
+          </div>
 
-      {/* Sticky footer when templates selected */}
+          {/* Category tabs */}
+          <div style={{ display: 'flex', gap: '8px', marginBottom: '28px', flexWrap: 'wrap', alignItems: 'center' }}>
+            {CATEGORY_TABS.map(tab => (
+              <button
+                key={tab.key}
+                onClick={() => setActiveCategory(tab.key)}
+                className={`tpl-sel-tab${activeCategory === tab.key ? ' active' : ''}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+            {!manageMode && filtered.length > 0 && (
+              <button
+                onClick={() => setSelected(prev => {
+                  const next = new Set(prev);
+                  filtered.forEach(t => next.add(t.id));
+                  return next;
+                })}
+                style={{ marginLeft: 'auto', fontSize: '12px', color: '#d97706', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'DM Sans, sans-serif' }}
+              >
+                Select all
+              </button>
+            )}
+          </div>
+
+          {/* Loading */}
+          {isLoading && (
+            <div style={{ textAlign: 'center', padding: '64px 0', color: '#57534e', fontSize: '14px' }}>
+              Loading templates…
+            </div>
+          )}
+
+          {/* Error */}
+          {error && (
+            <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '10px', padding: '12px 16px', color: '#fca5a5', fontSize: '13px', marginBottom: '20px' }}>
+              {error}
+            </div>
+          )}
+
+          {/* Empty */}
+          {!isLoading && !error && filtered.length === 0 && (
+            <div style={{ textAlign: 'center', padding: '64px 0', color: '#57534e', fontSize: '14px' }}>
+              No templates in this category yet.
+            </div>
+          )}
+
+          {/* Card grid */}
+          {!isLoading && filtered.length > 0 && (
+            <div className="tpl-fade-up" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '12px' }}>
+              {filtered.map((template, i) => {
+                const isSelected = selected.has(template.id);
+                return (
+                  <div
+                    key={template.id}
+                    className={`tpl-sel-card${isSelected ? ' selected' : ''}`}
+                    style={{ animationDelay: `${i * 25}ms` }}
+                    onClick={() => !manageMode && toggleSelect(template.id)}
+                  >
+                    {/* Top row */}
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                      <span
+                        className="tpl-sel-badge"
+                        style={{
+                          background: isSelected ? 'rgba(217,119,6,0.2)' : '#292524',
+                          color: isSelected ? '#fbbf24' : '#78716c',
+                        }}
+                      >
+                        {getCategoryLabel(template.category)}
+                      </span>
+
+                      {manageMode ? (
+                        <div style={{ display: 'flex', gap: '6px' }}>
+                          {!template.isBuiltIn ? (
+                            <>
+                              <a
+                                href={`/templates/${template.id}/edit`}
+                                onClick={e => e.stopPropagation()}
+                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#292524', color: '#a8a29e', fontSize: '11px', textDecoration: 'none' }}
+                              >
+                                Edit
+                              </a>
+                              <button
+                                onClick={e => { e.stopPropagation(); handleDelete(template.id, template.name); }}
+                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#292524', color: '#f87171', fontSize: '11px', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                              >
+                                Delete
+                              </button>
+                            </>
+                          ) : (
+                            <span style={{ fontSize: '10px', color: '#57534e', padding: '4px 8px', background: '#1c1917', borderRadius: '6px' }}>
+                              Built-in
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <div className={`tpl-sel-check${isSelected ? ' checked' : ''}`}>
+                          {isSelected && (
+                            <svg width="12" height="12" fill="none" viewBox="0 0 24 24" stroke="#fff" strokeWidth={3}>
+                              <polyline points="20 6 9 17 4 12" />
+                            </svg>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Name + description */}
+                    <div>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#fafaf9', marginBottom: '4px', lineHeight: 1.3 }}>
+                        {template.name}
+                      </p>
+                      {template.description && (
+                        <p style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.5 }}>
+                          {template.description}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Stats */}
+                    <div style={{ display: 'flex', gap: '14px', marginTop: '2px' }}>
+                      <span style={{ fontSize: '11px', color: '#57534e' }}>
+                        {template.pieceCount} piece{template.pieceCount !== 1 ? 's' : ''}
+                      </span>
+                      {template.estimatedAreaSqm > 0 && (
+                        <span style={{ fontSize: '11px', color: '#57534e' }}>
+                          ~{template.estimatedAreaSqm.toFixed(1)} m²
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Select button — only shown when not in manage mode */}
+                    {!manageMode && (
+                      <button
+                        onClick={e => { e.stopPropagation(); toggleSelect(template.id); }}
+                        style={{
+                          marginTop: '4px',
+                          width: '100%',
+                          padding: '8px',
+                          borderRadius: '8px',
+                          fontSize: '12px',
+                          fontWeight: 600,
+                          fontFamily: 'DM Sans, sans-serif',
+                          border: isSelected ? '1px solid rgba(217,119,6,0.4)' : 'none',
+                          background: isSelected ? 'rgba(217,119,6,0.15)' : '#d97706',
+                          color: isSelected ? '#fbbf24' : '#fff',
+                          cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                      >
+                        {isSelected ? '✓ Selected' : 'Select'}
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Sticky footer */}
       {selected.size > 0 && !manageMode && (
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 px-6 py-4 flex items-center justify-between shadow-lg z-50">
-          <div className="text-sm text-gray-700">
-            <span className="font-semibold">{selected.size}</span> template{selected.size !== 1 ? 's' : ''} selected
+        <div className="tpl-sel-footer">
+          <div style={{ fontSize: '13px', color: '#a8a29e', display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <span>
+              <span style={{ fontWeight: 600, color: '#fbbf24' }}>{selected.size}</span>
+              {' '}template{selected.size !== 1 ? 's' : ''} selected
+            </span>
             <button
               onClick={() => setSelected(new Set())}
-              className="ml-3 text-gray-400 hover:text-gray-600 text-xs underline"
+              style={{ fontSize: '11px', color: '#57534e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
             >
-              Clear all
+              Clear
             </button>
           </div>
-          <button
-            onClick={handleApply}
-            className="btn-primary px-6 py-2"
-          >
+          <button className="tpl-sel-btn-primary" onClick={handleApply}>
             Create Quote →
           </button>
         </div>
       )}
-    </div>
+    </>
   );
 }
