@@ -1745,6 +1745,139 @@ export default function QuickViewPieceRow({
                   miniLayout.x, miniLayout.y, miniLayout.w, miniLayout.h
                 );
 
+                // RADIUS_END: straight edges (top/bottom/left) work correctly via bounding box.
+                // Only the arc_end needs special handling — replace right-side line with Q-bezier.
+                if (piece.shapeType === 'RADIUS_END' && piece.shapeConfig) {
+                  const cfg = piece.shapeConfig as unknown as {
+                    radius_mm: number; length_mm: number; width_mm: number; curved_ends?: string;
+                  };
+                  const { x, y, w, h } = miniLayout;
+                  const rx = Math.max(Math.min((cfg.radius_mm / cfg.length_mm) * w, w * 0.45), w * 0.25);
+                  const ry = Math.max(Math.min((cfg.radius_mm / cfg.width_mm) * h, h * 0.45), h * 0.25);
+                  const bothEnds = cfg.curved_ends === 'BOTH';
+
+                  // Read arc_end profile from edge_arc_config
+                  const arcConfig = (fullPiece as unknown as Record<string, unknown>)
+                    ?.edge_arc_config as Record<string, string | null> | null | undefined;
+                  const arcEndId = arcConfig?.arc_end ?? null;
+                  const arcName = resolveEdgeName(arcEndId);
+                  const arcIsFinished = !!arcEndId;
+                  const arcColour = edgeColour(arcName);
+                  const arcCode = edgeCode(arcName);
+                  const arcFlashing = flashEdge === 'arc_end';
+
+                  // Arc path for right end (Q bezier matching getMiniShapePath)
+                  const rightArcPath = `M ${x + w - rx},${y} Q ${x + w},${y} ${x + w},${y + ry} L ${x + w},${y + h - ry} Q ${x + w},${y + h} ${x + w - rx},${y + h}`;
+                  // Arc path for left end (BOTH only)
+                  const leftArcPath = `M ${x + rx},${y + h} Q ${x},${y + h} ${x},${y + h - ry} L ${x},${y + ry} Q ${x},${y} ${x + rx},${y}`;
+
+                  const handleArcClick = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    let profileToApply = quickEdgeProfileId;
+                    if (isMitred && profileToApply) {
+                      const pencilId = editData?.edgeTypes.find(et =>
+                        et.name.toLowerCase().includes('pencil'))?.id;
+                      if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
+                    }
+                    handleShapeEdgeChange('arc_end', profileToApply);
+                    setFlashEdge('arc_end');
+                    setTimeout(() => setFlashEdge(null), 200);
+                  };
+
+                  // Straight edges: top, bottom, left (and right-straight for single-end)
+                  const straightEdges = bothEnds
+                    ? [
+                        { side: 'top'    as MiniEdgeSide, def: { x1: x + rx, y1: y,     x2: x + w - rx, y2: y,     lx: x + w / 2,  ly: y - 6      } },
+                        { side: 'bottom' as MiniEdgeSide, def: { x1: x + rx, y1: y + h, x2: x + w - rx, y2: y + h, lx: x + w / 2,  ly: y + h + 9  } },
+                      ]
+                    : [
+                        { side: 'top'    as MiniEdgeSide, def: { x1: x,      y1: y,     x2: x + w - rx, y2: y,     lx: x + (w - rx) / 2, ly: y - 6      } },
+                        { side: 'bottom' as MiniEdgeSide, def: { x1: x,      y1: y + h, x2: x + w - rx, y2: y + h, lx: x + (w - rx) / 2, ly: y + h + 9  } },
+                        { side: 'left'   as MiniEdgeSide, def: { x1: x,      y1: y,     x2: x,          y2: y + h, lx: x - 8,            ly: y + h / 2  } },
+                      ];
+
+                  return (
+                    <>
+                      {/* Straight edges — read from edgeTop/edgeBottom/edgeLeft as normal */}
+                      {straightEdges.map(({ side, def }) => {
+                        const edgeId = resolvedEdges[edgeKeyMap[side]];
+                        const name = resolveEdgeName(edgeId);
+                        const isFinished = !!edgeId;
+                        const colour = edgeColour(name);
+                        const code = edgeCode(name);
+                        const isFlashing = flashEdge === side;
+                        return (
+                          <g key={side}>
+                            <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
+                              stroke={isFlashing ? '#22c55e' : colour}
+                              strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
+                              strokeDasharray={isFinished ? undefined : '2 1.5'}
+                            />
+                            {isEditMode && (
+                              <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
+                                stroke="transparent" strokeWidth={EDGE_HIT}
+                                style={{ cursor: 'pointer' }}
+                                onClick={e => handleMiniEdgeClick(side, e)}
+                                onMouseEnter={() => setHoveredEdge(side)}
+                                onMouseLeave={() => setHoveredEdge(null)}
+                              />
+                            )}
+                            <text x={def.lx} y={def.ly}
+                              textAnchor="middle" dominantBaseline="middle"
+                              className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                              fill={colour}
+                            >{code || side.charAt(0).toUpperCase()}</text>
+                          </g>
+                        );
+                      })}
+
+                      {/* Right arc (arc_end) */}
+                      <g>
+                        <path d={rightArcPath} fill="none"
+                          stroke={arcFlashing ? '#22c55e' : arcColour}
+                          strokeWidth={arcFlashing ? 3 : (arcIsFinished ? 2 : 0.75)}
+                          strokeDasharray={arcIsFinished ? undefined : '2 1.5'}
+                        />
+                        {isEditMode && (
+                          <path d={rightArcPath} fill="none"
+                            stroke="transparent" strokeWidth={EDGE_HIT}
+                            style={{ cursor: 'pointer' }}
+                            onClick={handleArcClick}
+                          />
+                        )}
+                        <text x={x + w + 8} y={y + h / 2}
+                          textAnchor="start" dominantBaseline="middle"
+                          className={`select-none ${arcIsFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                          fill={arcColour}
+                        >{arcCode || 'ARC'}</text>
+                      </g>
+
+                      {/* Left arc (BOTH ends only — same arc_end key) */}
+                      {bothEnds && (
+                        <g>
+                          <path d={leftArcPath} fill="none"
+                            stroke={arcFlashing ? '#22c55e' : arcColour}
+                            strokeWidth={arcFlashing ? 3 : (arcIsFinished ? 2 : 0.75)}
+                            strokeDasharray={arcIsFinished ? undefined : '2 1.5'}
+                          />
+                          {isEditMode && (
+                            <path d={leftArcPath} fill="none"
+                              stroke="transparent" strokeWidth={EDGE_HIT}
+                              style={{ cursor: 'pointer' }}
+                              onClick={handleArcClick}
+                            />
+                          )}
+                          <text x={x - 8} y={y + h / 2}
+                            textAnchor="end" dominantBaseline="middle"
+                            className={`select-none ${arcIsFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                            fill={arcColour}
+                          >{arcCode || 'ARC'}</text>
+                        </g>
+                      )}
+                    </>
+                  );
+                }
+
                 if (shapeEdges) {
                   // L/U shape: render polygon edge segments
                   const shapeEdgeMap = (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE')
