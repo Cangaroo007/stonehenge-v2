@@ -124,10 +124,7 @@ export async function applyTemplateToQuote(
     }
     targetQuoteId = quoteId;
   } else {
-    // Need customerId to create new quote
-    if (!customerId) {
-      throw new Error('customerId is required when creating a new quote');
-    }
+    // customerId is optional — quote can be assigned a customer later
     targetQuoteId = -1; // Will be set inside transaction
   }
 
@@ -142,7 +139,7 @@ export async function applyTemplateToQuote(
         data: {
           quote_number: null,
           company_id: template.companyId,
-          customer_id: customerId!,
+          customer_id: customerId || null,
           contact_id: contactId || null,
           project_name: projectName || template.name,
           status: 'draft',

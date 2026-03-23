@@ -1162,3 +1162,6 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-23 MANUAL-DIRECT-CREATE
 - NewQuoteWizard: Manual button calls create-draft and redirects directly
+
+## 2026-03-23 TEMPLATE-APPLIER-CUSTOMER
+- template-applier.ts: customerId now truly optional (null if not provided)

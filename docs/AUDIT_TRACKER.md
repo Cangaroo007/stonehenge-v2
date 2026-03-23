@@ -382,3 +382,6 @@ TEMPLATE-MANAGE-1 done
 
 ## MANUAL-DIRECT-CREATE — 2026-03-23
 - Manual quote now creates immediately and redirects to quote builder
+
+## TEMPLATE-APPLIER-CUSTOMER — 2026-03-23
+- template-applier: removed customerId required check + fixed ! assertion
