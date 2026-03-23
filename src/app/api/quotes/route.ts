@@ -87,7 +87,7 @@ export async function GET() {
     const { companyId } = auth.user;
 
     const quotes = await prisma.quotes.findMany({
-      where: { company_id: companyId },
+      where: { company_id: companyId, quote_number: { not: null } },
       orderBy: { created_at: 'desc' },
       include: { customers: true },
     });

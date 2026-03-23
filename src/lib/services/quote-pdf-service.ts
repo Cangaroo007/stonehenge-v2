@@ -61,7 +61,7 @@ export interface QuotePdfRoom {
 
 export interface QuotePdfData {
   quoteId: number;
-  quoteNumber: string;
+  quoteNumber: string | null;
   revision: number;
   status: string;
   /** Formatted Australian date "18 February 2026" */

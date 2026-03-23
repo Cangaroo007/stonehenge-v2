@@ -8,8 +8,10 @@ export type QuoteMode = 'view' | 'edit';
 export type QuoteTab = 'pieces' | 'optimiser' | 'history' | 'views';
 
 interface QuoteLayoutProps {
-  /** Quote number e.g. "Q-0042" */
-  quoteNumber: string;
+  /** Quote number e.g. "Q-0042" — null for unsaved drafts */
+  quoteNumber: string | null;
+  /** Callback to save (assign number to) an unsaved draft */
+  onSaveQuote?: () => void;
   /** Quote ID for API calls */
   quoteId?: string;
   /** Project name */
@@ -80,6 +82,7 @@ interface QuoteLayoutProps {
 
 export default function QuoteLayout({
   quoteNumber,
+  onSaveQuote,
   quoteId,
   projectName,
   status,
@@ -123,7 +126,23 @@ export default function QuoteLayout({
           {/* Left: Quote info */}
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-3 flex-wrap">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{quoteNumber}</h1>
+              {quoteNumber ? (
+                <h1 className="text-xl font-bold text-gray-900 truncate">{quoteNumber}</h1>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
+                    Unsaved Draft — No Quote Number
+                  </span>
+                  {onSaveQuote && (
+                    <button
+                      onClick={onSaveQuote}
+                      className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
+                    >
+                      Save Quote
+                    </button>
+                  )}
+                </div>
+              )}
               <StatusBadge
                 status={status}
                 quoteId={quoteId || ''}

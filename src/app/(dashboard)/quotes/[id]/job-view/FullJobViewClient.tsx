@@ -54,7 +54,7 @@ interface RoomData {
 
 interface FullJobViewData {
   id: number;
-  quoteNumber: string;
+  quoteNumber: string | null;
   projectName: string | null;
   status: string;
   subtotal: number;

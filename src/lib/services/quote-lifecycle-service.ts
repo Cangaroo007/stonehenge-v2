@@ -242,7 +242,7 @@ export async function duplicateQuote(
   sourceQuoteId: number,
   userId: string,
   options?: { asRevision?: boolean; newTitle?: string }
-): Promise<{ id: number; quote_number: string }> {
+): Promise<{ id: number; quote_number: string | null }> {
   return prisma.$transaction(async (tx) => {
     // 1. Fetch the source quote with all nested data
     const source = await tx.quotes.findUnique({

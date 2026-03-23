@@ -46,7 +46,7 @@ export default async function PieceDetailPage({
     <ExpandedPieceViewClient
       quoteId={String(quoteIdNum)}
       pieceId={String(pieceIdNum)}
-      quoteNumber={quote.quote_number}
+      quoteNumber={quote.quote_number ?? ''}
       initialMode={initialMode as 'view' | 'edit'}
     />
   );

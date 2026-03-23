@@ -143,7 +143,7 @@ interface QuoteRoom {
 
 interface EditQuote {
   id: number;
-  quote_number: string;
+  quote_number: string | null;
   project_name: string | null;
   project_address: string | null;
   notes: string | null;
@@ -245,7 +245,7 @@ interface RawResults {
 
 export interface ServerQuoteData {
   id: number;
-  quote_number: string;
+  quote_number: string | null;
   grainMatchingSurchargePercent: number;
   project_name: string | null;
   project_address: string | null;
@@ -581,6 +581,19 @@ export default function QuoteDetailClient({
     }
   }, [quoteIdStr, flattenPieces]);
 
+  const handleAssignQuoteNumber = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/quotes/${quoteIdStr}/save`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+      if (!res.ok) throw new Error('Failed to save quote');
+      await fetchQuote();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save quote');
+    }
+  }, [quoteIdStr, fetchQuote]);
+
   const fetchMaterials = useCallback(async () => {
     try {
       const response = await fetch('/api/materials');
@@ -740,6 +753,17 @@ export default function QuoteDetailClient({
   useEffect(() => {
     fetch(`/api/quotes/${serverData.id}/track-view`, { method: 'POST' }).catch(() => {});
   }, [serverData.id]);
+
+  // Navigation warning when quote has no number (unsaved draft)
+  useEffect(() => {
+    if (serverData.quote_number) return;
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = 'This quote has no Quote Number yet. Are you sure you want to leave?';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [serverData.quote_number]);
 
   // Fetch autocomplete suggestions for room/piece names
   useEffect(() => {
@@ -2929,7 +2953,7 @@ export default function QuoteDetailClient({
       {['locked', 'accepted', 'in_production'].includes(serverData.status.toLowerCase()) && (
         <ManufacturingExportButton
           quoteId={serverData.id}
-          quoteNumber={serverData.quote_number}
+          quoteNumber={serverData.quote_number ?? ''}
         />
       )}
       <DeleteQuoteButton quoteId={serverData.id} />
@@ -3409,7 +3433,7 @@ export default function QuoteDetailClient({
         {/* Signature Section */}
         <QuoteSignatureSection
           quoteId={serverData.id}
-          quoteNumber={serverData.quote_number}
+          quoteNumber={serverData.quote_number ?? ''}
           customerName={serverData.customers?.company || serverData.customers?.name || 'Customer'}
           totalAmount={formatCurrency(serverData.total)}
           status={serverData.status}
@@ -4368,6 +4392,7 @@ export default function QuoteDetailClient({
 
       <QuoteLayout
         quoteNumber={displayQuoteNumber}
+        onSaveQuote={!displayQuoteNumber ? handleAssignQuoteNumber : undefined}
         quoteId={quoteIdStr}
         projectName={displayProjectName}
         status={displayStatus}
@@ -4462,7 +4487,7 @@ export default function QuoteDetailClient({
       {showReadinessCheck && (
         <QuoteReadinessChecker
           quoteId={quoteIdStr}
-          quoteNumber={editQuote?.quote_number ?? serverData.quote_number}
+          quoteNumber={editQuote?.quote_number ?? serverData.quote_number ?? ''}
           onClose={() => setShowReadinessCheck(false)}
           onGeneratePdf={async () => {
             setShowReadinessCheck(false);
