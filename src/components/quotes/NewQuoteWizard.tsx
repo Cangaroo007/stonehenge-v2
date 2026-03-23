@@ -75,6 +75,22 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     }
   };
 
+  // Manual quote — create immediately and redirect
+  const handleManualCreate = async () => {
+    setStep('creating');
+    try {
+      const url = customerId
+        ? `/api/quotes/create-draft?customerId=${customerId}`
+        : '/api/quotes/create-draft';
+      const res = await fetch(url, { method: 'POST' });
+      if (!res.ok) throw new Error('Failed to create quote');
+      const result = await res.json();
+      router.push(`/quotes/${result.id || result.quoteId}?mode=edit`);
+    } catch {
+      setStep('choose');
+    }
+  };
+
   // Quote created from template apply — redirect
   const handleQuoteCreated = (quoteId: number) => {
     router.push(`/quotes/${quoteId}?mode=edit`);
@@ -152,7 +168,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
 
           {/* Option C: Template */}
           <button
-            onClick={() => setStep('manual-scratch')}
+            onClick={handleManualCreate}
             className="card p-6 text-left hover:border-amber-300 hover:shadow-md transition-all group"
           >
             <div className="text-3xl mb-3">

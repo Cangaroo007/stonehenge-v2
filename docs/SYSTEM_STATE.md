@@ -1160,9 +1160,5 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 WIZARD-TEMPLATE-NO-CUSTOMER
 - starter-templates/[id]/apply: customerId now truly optional
 
-## 2026-03-23 QUOTE-SAVE-FLOW
-- DB: quotes.quote_number nullable
-- create-draft: quote_number set to null on creation
-- apply: quote_number set to null on creation
-- quotes list API: filters out null quote_number
-- QuoteDetailClient: Save Quote button + beforeunload warning
+## 2026-03-23 MANUAL-DIRECT-CREATE
+- NewQuoteWizard: Manual button calls create-draft and redirects directly
