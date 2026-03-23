@@ -380,9 +380,5 @@ TEMPLATE-MANAGE-1 done
 - apply route: removed customerId required validation
 - Template quotes now work without pre-selecting a customer
 
-## QUOTE-SAVE-FLOW — 2026-03-23
-- quote_number now nullable — assigned only when user clicks Save Quote
-- Quote list hides unsaved drafts (null quote_number)
-- Quote detail shows Unsaved Draft banner + Save Quote button
-- Navigation warning when leaving unsaved quote
-- New POST /api/quotes/[id]/save route
+## MANUAL-DIRECT-CREATE — 2026-03-23
+- Manual quote now creates immediately and redirects to quote builder
