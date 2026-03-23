@@ -373,6 +373,5 @@ TEMPLATE-MANAGE-1 done
 ## STRIP-CONFIG-AUTH — 2026-03-22
 - strip-configurations route: removed role restriction from requireAuth
 
-## PRICING-API-DYNAMIC — 2026-03-22
-- Added force-dynamic to edge-category-rates, cutout-category-rates, edge-compatibility routes
-- Fixes: edge/cutout rate saves appeared to succeed but reverted on refresh
+## DELIVERY-RECALCULATE-RACE — 2026-03-23
+- Recalculate now awaits PUT to save address before calculate fires
