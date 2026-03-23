@@ -1925,6 +1925,7 @@ export default function QuickViewPieceRow({
                 joinAtMm={joinAtMm}
                 isEditMode={isEditMode}
                 isMitred={isMitred}
+                initialQuickEdgeProfile={isEditMode ? quickEdgeProfileId : undefined}
                 onEdgeChange={isEditMode ? handleEdgeChange : undefined}
                 onEdgesChange={isEditMode ? handleEdgesChange : undefined}
                 onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}

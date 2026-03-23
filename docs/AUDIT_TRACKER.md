@@ -385,3 +385,7 @@ TEMPLATE-MANAGE-1 done
 
 ## TEMPLATE-APPLIER-CUSTOMER — 2026-03-23
 - template-applier: removed customerId required check + fixed ! assertion
+
+## EDGE-SYNC-1 — 2026-03-23
+- PieceVisualEditor: added initialQuickEdgeProfile prop to sync from summary row
+- QuickViewPieceRow: passes quickEdgeProfileId to PieceVisualEditor

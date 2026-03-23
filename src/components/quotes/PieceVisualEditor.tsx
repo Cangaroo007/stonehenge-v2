@@ -126,6 +126,9 @@ export interface PieceVisualEditorProps {
   /** Whether lamination method is mitred */
   isMitred?: boolean;
 
+  /** Initial quick edge profile to pre-select when the editor mounts (syncs from summary row) */
+  initialQuickEdgeProfile?: string | null;
+
   /** Called when an edge profile changes (edit mode) */
   onEdgeChange?: (side: EdgeSide, profileId: string | null) => void;
 
@@ -231,6 +234,7 @@ export default function PieceVisualEditor({
   joinAtMm,
   isEditMode,
   isMitred = false,
+  initialQuickEdgeProfile,
   onEdgeChange,
   onEdgesChange,
   onCutoutAdd,
@@ -273,7 +277,7 @@ export default function PieceVisualEditor({
   const [editMode, setEditMode] = useState<EdgeEditMode>('quickEdge');
   const [selectedEdges, setSelectedEdges] = useState<Set<EdgeSide>>(new Set());
   const [selectedArcEdges, setSelectedArcEdges] = useState<Set<string>>(new Set());
-  const [quickEdgeProfile, setQuickEdgeProfile] = useState<string | null>(null);
+  const [quickEdgeProfile, setQuickEdgeProfile] = useState<string | null>(initialQuickEdgeProfile ?? null);
   const [flashEdge, setFlashEdge] = useState<EdgeSide | null>(null);
 
   // ── Template state ────────────────────────────────────────────────────

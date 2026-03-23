@@ -1165,3 +1165,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-23 TEMPLATE-APPLIER-CUSTOMER
 - template-applier.ts: customerId now truly optional (null if not provided)
+
+## 2026-03-23 EDGE-SYNC-1
+- PieceVisualEditor.tsx: initialQuickEdgeProfile prop syncs Quick Edge selection
+- QuickViewPieceRow.tsx: passes quickEdgeProfileId to expanded editor
