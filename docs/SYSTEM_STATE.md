@@ -1213,3 +1213,9 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-24 RADIUS-EDGE-FIX-1
 - QuickViewPieceRow.tsx: RADIUS_END straight edges save to DB columns, arc_end to edge_arc_config
 - Quick Edge buttons filtered by isActive (inactive types hidden)
+
+## 2026-03-24 COMPARE-2a
+- DB: quotes.comparison_slots JSONB added (up to 3 material comparison slots)
+- New API: POST /api/quotes/[id]/estimate-material (update-calculate-restore pattern)
+- New API: DELETE /api/quotes/[id]/estimate-material (clear slot)
+- GET /api/quotes/[id] automatically includes comparison_slots via spread

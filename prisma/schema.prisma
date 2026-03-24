@@ -662,6 +662,7 @@ model quotes {
   calculated_at          DateTime?
   calculated_total       Decimal?                 @db.Decimal(10, 2)
   calculation_breakdown  Json?
+  comparison_slots       Json?                    @default("[]")
   tenant                 companies                @relation(fields: [company_id], references: [id])
   drawings               drawings[]
   quote_drawing_analyses quote_drawing_analyses?
