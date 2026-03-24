@@ -1147,12 +1147,14 @@ TEMPLATE-MANAGE-1 done
 - QuoteLevelCostSections.tsx: Places Autocomplete on delivery address input
 - Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Railway env vars
 
-<<<<<<< Updated upstream
 ## 2026-03-22 TEMPLATING-TOGGLE-FIX
 - QuoteLevelCostSections.tsx: templating toggle shown in header in edit mode
-=======
+
 ## 2026-03-22 STRIP-CONFIG-AUTH
 - strip-configurations API: requireAuth() no role filter (matches all other admin routes)
+
+## 2026-03-22 PRICING-ADMIN-3
+- pricing/layout.tsx: nav trimmed to 5 tabs (removed Configuration + Strip Configurations)
 
 ## 2026-03-23 DELIVERY-RECALCULATE-RACE
 - QuoteLevelCostSections.tsx: handleRecalculateDelivery uses awaited PUT
@@ -1182,22 +1184,20 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 TEMPLATE-RESEED-1
 - starter_templates: 12 built-in templates (was 24)
 - Categories: kitchen, butlers_pantry, laundry, bathroom, ensuite, outdoor
-- Each category has Compact + Standard variant
 
 ## 2026-03-23 TEMPLATE-UX-1
 - FromTemplateSheet.tsx: complete rewrite — multi-select, dark aesthetic, 2-phase flow
-- selectedIds: Set<string> for multi-template selection
-- mergeRoles() merges material roles across selected templates
-- DM Sans/Serif fonts, amber accents, card grid layout
 
 ## 2026-03-23 HEADER-TOTAL-FIX-1
 - QuoteDetailClient.tsx: headerTotal uses activeOption.total for non-base options
-- Base option uses calculation.totalIncGst (was calculation.total * 1.1)
 
 ## 2026-03-23 COMPARE-1
-- QuoteDetailClient.tsx: Compare Material button toggles read-only panel (no option creation)
-- handleCompareWithMaterial simplified to toggle, placeholder panel added
+- QuoteDetailClient.tsx: Compare Material button toggles read-only panel
 
 ## 2026-03-23 TEMPLATE-SELECTOR-REDESIGN-1
 - TemplateSelector.tsx: complete rewrite — dark stone aesthetic, correct 6 categories
-- Removed stale "other" catch-all category and filter logic
+
+## 2026-03-24 LABEL-FIX-2
+- PieceVisualEditor.tsx: edgeBuildups + attachedPieceTypes props added
+- Edge labels: MIT 40mm (depth), WF (waterfall), SB (splashback)
+- QuickViewPieceRow.tsx: passes both new props to expanded editor
