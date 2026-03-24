@@ -4635,16 +4635,32 @@ export default function QuoteDetailClient({
 
           setWaterfallModal(prev => ({ ...prev, isOpen: false }));
 
-          // 1. Find parent piece for room ID
+          // 1. Find parent piece for room ID — fetch fresh to avoid stale effectivePieces
           const parentPiece = effectivePieces.find(p => String(p.id) === parentPieceId);
           if (!parentPiece) return;
+
+          // Fetch fresh room ID directly from API to avoid stale React state
+          let roomId: number | undefined;
+          try {
+            const parentRes = await fetch(`/api/quotes/${quoteId}/pieces/${parentPieceId}`);
+            if (parentRes.ok) {
+              const freshParent = await parentRes.json();
+              roomId = freshParent.roomId ?? freshParent.quote_rooms?.id ?? parentPiece.quote_rooms?.id;
+            } else {
+              roomId = parentPiece.quote_rooms?.id;
+            }
+          } catch {
+            roomId = parentPiece.quote_rooms?.id;
+          }
+
+          if (!roomId) return;
 
           // 2. Create child piece
           const pieceRes = await fetch(`/api/quotes/${quoteId}/pieces`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              roomId: parentPiece.quote_rooms.id,
+              roomId,
               pieceType: type,
               shapeType: 'RECTANGLE',
               name: `${type === 'WATERFALL' ? 'Waterfall' : 'Splashback'} — ${selectedEdge.toUpperCase()} edge`,

@@ -432,3 +432,10 @@ TEMPLATE-MANAGE-1 done
 - PieceVisualEditor: added edgeBuildups + attachedPieceTypes props
 - Edge labels now show MIT 40mm (with depth), WF (waterfall), SB (splashback)
 - Replaces verbose "M — Mitered" and generic "N-STR" labels
+- Multi-select, manage mode, sticky footer preserved
+
+## WF-ROOM-FIX-1 — 2026-03-24
+  - QuoteDetailClient: waterfall/splashback creation now fetches fresh parent piece
+    data from API before creating child piece
+  - Falls back to effectivePieces room ID if fresh fetch fails
+✅ WF-ROOM-FIX-1 — waterfall/splashback room assignment race condition fixed

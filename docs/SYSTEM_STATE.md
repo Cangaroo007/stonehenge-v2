@@ -1201,3 +1201,7 @@ TEMPLATE-MANAGE-1 done
 - PieceVisualEditor.tsx: edgeBuildups + attachedPieceTypes props added
 - Edge labels: MIT 40mm (depth), WF (waterfall), SB (splashback)
 - QuickViewPieceRow.tsx: passes both new props to expanded editor
+- Removed stale "other" catch-all category and filter logic
+
+## 2026-03-24 WF-ROOM-FIX-1
+  - QuoteDetailClient.tsx: fresh room ID fetch before waterfall/splashback creation
