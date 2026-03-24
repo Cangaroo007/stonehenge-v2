@@ -1640,7 +1640,15 @@ export default function PieceVisualEditor({
             {shapeLayout.edges.map((edge) => {
               // For shaped pieces: ALL edges read from shapeConfigEdges
               const isWallEdge = noStripEdges.includes(edge.side);
-              const profileId = shapeConfigEdges?.[edge.side] ?? null;
+              const profileId = (() => {
+                // RADIUS_END: arc_end comes from shapeConfigEdges (edge_arc_config).
+                // Straight edges (top, bottom, left, right) come from rectangle edge columns.
+                if (shapeType === 'RADIUS_END' && edge.side !== 'arc_end') {
+                  const rectEdges: Record<string, string | null> = { top: edgeTop, bottom: edgeBottom, left: edgeLeft, right: edgeRight };
+                  return rectEdges[edge.side] ?? null;
+                }
+                return shapeConfigEdges?.[edge.side] ?? null;
+              })();
               const name = isWallEdge ? undefined : (profileId ? resolveEdgeName(profileId) : undefined);
               const isFinished = !isWallEdge && !!profileId;
               const colour = isWallEdge ? '#78716c' : edgeColour(name);
