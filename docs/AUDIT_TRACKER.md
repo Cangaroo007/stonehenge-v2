@@ -439,3 +439,8 @@ TEMPLATE-MANAGE-1 done
     data from API before creating child piece
   - Falls back to effectivePieces room ID if fresh fetch fails
 ✅ WF-ROOM-FIX-1 — waterfall/splashback room assignment race condition fixed
+
+## PDF-TOTAL-FIX-1 — 2026-03-24
+- quote-pdf-service: subtotalExGst/gstAmount/totalIncGst now read from calcBreakdown
+- Removed hardcoded GST_RATE = 0.10 — uses calcBreakdown.gstRate from pricing_settings
+- Stale quote.subtotal/quote.total no longer used for PDF totals

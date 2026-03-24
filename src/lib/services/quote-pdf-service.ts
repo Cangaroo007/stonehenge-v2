@@ -242,10 +242,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     throw new Error('QUOTE_NOT_FOUND');
   }
 
-  // 2. Read subtotal (readiness checker validates pricing client-side)
-  const subtotal = toNumber(quote.subtotal);
-
-  // 3. Fetch all cutout types for resolution
+  // 2. Fetch all cutout types for resolution
   const cutoutTypes = await prisma.cutout_types.findMany({
     select: { id: true, name: true },
   });
@@ -395,18 +392,16 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
   let discountAmount = 0;
   if (discountType && discountValue) {
     if (discountType === 'PERCENTAGE') {
-      discountAmount = subtotal * (discountValue / 100);
+      discountAmount = calcBreakdown.subtotal * (discountValue / 100);
     } else if (discountType === 'ABSOLUTE') {
       discountAmount = discountValue;
     }
   }
 
-  // 7. Calculate totals
-  // GST hardcoded at 10% for now. TODO: read from pricing_settings after MT2
-  const GST_RATE = 0.10;
-  const subtotalExGst = subtotal;
-  const gstAmount = toNumber(quote.tax_amount) || subtotalExGst * GST_RATE;
-  const totalIncGst = toNumber(quote.total) || subtotalExGst + gstAmount;
+  // 7. Calculate totals — use fresh calculator values, not stale DB snapshot
+  const subtotalExGst = calcBreakdown.subtotal;
+  const gstAmount = calcBreakdown.gstAmount;
+  const totalIncGst = calcBreakdown.totalIncGst;
 
   // 8. Format dates as Australian (en-AU: "18 February 2026")
   const formatAustralianDate = (date: Date | null | undefined): string | null => {
@@ -485,7 +480,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     subtotalExGst,
     gstAmount,
     totalIncGst,
-    gstRate: GST_RATE,
+    gstRate: calcBreakdown.gstRate,
 
     calculationBreakdown: calcBreakdown,
   };
