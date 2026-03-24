@@ -2212,7 +2212,14 @@ export default function QuickViewPieceRow({
                 shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
                 shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
                 onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
-                shapeConfigEdges={((fullPiece as unknown as Record<string, unknown>)?.edge_arc_config as Record<string, string | null>) ?? undefined}
+                shapeConfigEdges={(() => {
+                  const st = piece.shapeType;
+                  if (st === 'L_SHAPE' || st === 'U_SHAPE') {
+                    const sc = (fullPiece?.shapeConfig as { edges?: Record<string, string | null> } | null | undefined);
+                    return sc?.edges ?? undefined;
+                  }
+                  return ((fullPiece as unknown as Record<string, unknown>)?.edge_arc_config as Record<string, string | null>) ?? undefined;
+                })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
               />
