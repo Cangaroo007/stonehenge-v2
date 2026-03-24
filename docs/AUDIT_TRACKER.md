@@ -444,3 +444,8 @@ TEMPLATE-MANAGE-1 done
 - quote-pdf-service: subtotalExGst/gstAmount/totalIncGst now read from calcBreakdown
 - Removed hardcoded GST_RATE = 0.10 — uses calcBreakdown.gstRate from pricing_settings
 - Stale quote.subtotal/quote.total no longer used for PDF totals
+
+## RADIUS-EDGE-FIX-1 — 2026-03-24
+- handleShapeEdgeChange: RADIUS_END straight edges (top/bottom/left) now save to edgeTop/etc DB columns
+- arc_end still saves to edge_arc_config correctly
+- Quick Edge buttons now filtered by isActive — Waterfall and Curved Finished Edge hidden
