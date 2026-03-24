@@ -177,6 +177,11 @@ export interface PieceVisualEditorProps {
   /** Edges marked as wall edges (no lamination strip) */
   noStripEdges?: string[];
 
+  /** Build-up depth per edge side — used to show e.g. "MIT 40mm" in labels */
+  edgeBuildups?: Record<string, { depth: number }> | null;
+  /** Relationship type per edge side — used to show WF or SB instead of N-STR */
+  attachedPieceTypes?: Record<string, 'WATERFALL' | 'SPLASHBACK'>;
+
   /** Called when wall edge state changes for the piece */
   onNoStripEdgesChange?: (noStripEdges: string[]) => void;
 
@@ -250,6 +255,8 @@ export default function PieceVisualEditor({
   onShapeEdgeChange,
   shapeConfigEdges,
   noStripEdges = [],
+  edgeBuildups,
+  attachedPieceTypes,
   onNoStripEdgesChange,
   pieceId,
   pieceName,
@@ -1775,7 +1782,18 @@ export default function PieceVisualEditor({
                       fill={colour}
                     >
                       <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
-                      {isWallEdge ? `WALL ${edge.label}` : (isFinished ? `${code} ${edge.label}` : `RAW ${edge.label}`)}
+                      {(() => {
+                        if (isWallEdge) {
+                          const attachedType = attachedPieceTypes?.[edge.side];
+                          if (attachedType === 'WATERFALL') return `WF ${edge.label}`;
+                          if (attachedType === 'SPLASHBACK') return `SB ${edge.label}`;
+                          return `N-STR ${edge.label}`;
+                        }
+                        if (!isFinished) return `RAW ${edge.label}`;
+                        const depth = edgeBuildups?.[edge.side]?.depth;
+                        if (depth) return `${code} ${depth}mm`;
+                        return `${code} ${edge.label}`;
+                      })()}
                     </text>
                   </g>
                 </g>
@@ -2006,11 +2024,18 @@ export default function PieceVisualEditor({
                     fill={colour}
                   >
                     <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
-                    {isWallEdge
-                      ? 'N-STR'
-                      : (isFinished
-                        ? (isCompact ? code : `${code} — ${edgeNames[side]}`)
-                        : 'RAW')}
+                    {(() => {
+                      if (isWallEdge) {
+                        const attachedType = attachedPieceTypes?.[side];
+                        if (attachedType === 'WATERFALL') return 'WF';
+                        if (attachedType === 'SPLASHBACK') return 'SB';
+                        return 'N-STR';
+                      }
+                      if (!isFinished) return 'RAW';
+                      const depth = edgeBuildups?.[side]?.depth;
+                      if (depth) return `${code} ${depth}mm`;
+                      return isCompact ? code : `${code} — ${edgeNames[side]}`;
+                    })()}
                   </text>
                 </g>
               );

@@ -365,13 +365,16 @@ TEMPLATE-MANAGE-1 done
 - QuoteLevelCostSections: Google Places Autocomplete on delivery address input
 - Graceful degradation if NEXT_PUBLIC_GOOGLE_MAPS_API_KEY not set
 
-<<<<<<< Updated upstream
 ## TEMPLATING-TOGGLE-FIX — 2026-03-22
 - Templating toggle now always visible in edit mode regardless of finalCost
 - Matches Delivery toggle pattern
-=======
+
 ## STRIP-CONFIG-AUTH — 2026-03-22
 - strip-configurations route: removed role restriction from requireAuth
+
+## PRICING-ADMIN-3 — 2026-03-22
+- Removed Configuration and Strip Configurations tabs from pricing nav
+- Jay now sees only the 5 tabs he needs: Config Health, Settings, Service Rates, Cutout Rates, Edge Rates
 
 ## DELIVERY-RECALCULATE-RACE — 2026-03-23
 - Recalculate now awaits PUT to save address before calculate fires
@@ -411,7 +414,6 @@ TEMPLATE-MANAGE-1 done
 - Multi-select via Set<string>, two-phase flow (selection → material assignment → apply)
 - mergeRoles() combines roles across all selected templates
 - 7 category tabs: All + kitchen, bathroom, ensuite, laundry, butlers_pantry, outdoor
-- company_id: 1, Pencil Round edge ID: cmlar3etc0000znatkbilb48y
 
 ## HEADER-TOTAL-FIX-1 — 2026-03-23
 - headerTotal now reads from activeOption.total for non-base options
@@ -421,11 +423,15 @@ TEMPLATE-MANAGE-1 done
 ## COMPARE-1 — 2026-03-23
 - handleCompareWithMaterial no longer creates Options — toggles comparison panel
 - Added showComparisonPanel state + placeholder panel (COMPARE-2 will replace)
-- quoteOptions.createOption no longer called from Compare Material button
 
 ## TEMPLATE-SELECTOR-REDESIGN-1 — 2026-03-23
 - TemplateSelector: complete rewrite with dark stone aesthetic matching FromTemplateSheet
 - Category tabs: kitchen, bathroom, ensuite, laundry, butlers_pantry, outdoor (removed stale "other")
+
+## LABEL-FIX-2 — 2026-03-24
+- PieceVisualEditor: added edgeBuildups + attachedPieceTypes props
+- Edge labels now show MIT 40mm (with depth), WF (waterfall), SB (splashback)
+- Replaces verbose "M — Mitered" and generic "N-STR" labels
 - Multi-select, manage mode, sticky footer preserved
 
 ## WF-ROOM-FIX-1 — 2026-03-24
