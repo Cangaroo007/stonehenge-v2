@@ -1201,3 +1201,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-23 TEMPLATE-SELECTOR-REDESIGN-1
 - TemplateSelector.tsx: complete rewrite — dark stone aesthetic, correct 6 categories
 - Removed stale "other" catch-all category and filter logic
+
+## 2026-03-24 WF-ROOM-FIX-1
+  - QuoteDetailClient.tsx: fresh room ID fetch before waterfall/splashback creation
