@@ -1205,3 +1205,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-03-24 WF-ROOM-FIX-1
   - QuoteDetailClient.tsx: fresh room ID fetch before waterfall/splashback creation
+
+## 2026-03-24 PDF-TOTAL-FIX-1
+- quote-pdf-service.ts: PDF totals from fresh calcBreakdown, not stale DB snapshot
+- GST_RATE hardcode removed — uses calcBreakdown.gstRate
