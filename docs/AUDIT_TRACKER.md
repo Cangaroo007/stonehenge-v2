@@ -449,3 +449,10 @@ TEMPLATE-MANAGE-1 done
 - handleShapeEdgeChange: RADIUS_END straight edges (top/bottom/left) now save to edgeTop/etc DB columns
 - arc_end still saves to edge_arc_config correctly
 - Quick Edge buttons now filtered by isActive — Waterfall and Curved Finished Edge hidden
+
+## COMPARE-2a — 2026-03-24
+- New POST /api/quotes/[id]/estimate-material endpoint
+- Runs full recalculation with alternative material (update-calculate-restore pattern)
+- Results saved to quotes.comparison_slots JSONB (up to 3 slots)
+- DELETE endpoint clears a slot
+- Schema: added comparison_slots Json? field to quotes
