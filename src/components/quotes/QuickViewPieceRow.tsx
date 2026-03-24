@@ -680,7 +680,9 @@ export default function QuickViewPieceRow({
   }, [piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, breakdown]);
 
   const resolvedEdgeTypes = useMemo(() => {
-    if (editData?.edgeTypes && editData.edgeTypes.length > 0) return editData.edgeTypes;
+    if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
+      return editData.edgeTypes.filter(et => et.isActive !== false);
+    }
     if (!breakdown?.fabrication?.edges) return [];
     const seen = new Set<string>();
     return breakdown.fabrication.edges
@@ -1052,8 +1054,20 @@ export default function QuickViewPieceRow({
       const updatedEdges = { ...currentEdges, [edgeId]: profileId };
       const updatedConfig = { ...currentConfig, edges: updatedEdges };
       savePieceImmediate({ shapeConfig: updatedConfig });
+    } else if (shapeType === 'RADIUS_END' && edgeId !== 'arc_end') {
+      // Straight edges on RADIUS_END (top/bottom/left) save to rectangle
+      // edge columns — same path as regular rectangles.
+      // arc_end still goes to edge_arc_config (handled by the final else).
+      const sideMap: Record<string, string> = {
+        top: 'edgeTop',
+        bottom: 'edgeBottom',
+        left: 'edgeLeft',
+        right: 'edgeRight',
+      };
+      const colKey = sideMap[edgeId];
+      if (colKey) savePieceImmediate({ [colKey]: profileId });
     } else {
-      // ROUNDED_RECT and other curved shapes: store in edge_arc_config (original behaviour)
+      // arc_end on RADIUS_END, and all other curved shapes → edge_arc_config
       const currentArcConfig = (fullPiece as unknown as Record<string, unknown>).edge_arc_config as Record<string, string | null> ?? {};
       const updatedArcConfig = { ...currentArcConfig, [edgeId]: profileId };
       savePieceImmediate({ edgeArcConfig: updatedArcConfig });
