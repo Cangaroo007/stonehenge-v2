@@ -484,3 +484,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ "All edges" button + 'a' shortcut now include arc edges
 - ✅ scopeApplyInfo banner has "This piece" option
 - ✅ Removed r={3} dot circles from arc edge labels
+
+## EDGE-UNIFY-1 + EDGE-CLICK-FIX
+- ✅ Centralised edge apply via getAllEdgeSides()
+- ✅ SVG arc hit areas use pointerEvents: stroke

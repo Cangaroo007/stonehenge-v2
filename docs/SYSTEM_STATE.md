@@ -1233,3 +1233,7 @@ TEMPLATE-MANAGE-1 done
 - PieceVisualEditor.getAllEdgeSides(): returns { rect, arc } for any ShapeType
 - All edge apply paths (presets, scope, "All edges", Quick Edge) use this utility
 - scopeApplyInfo banner: "This piece" | "All in {room}" | "All in quote" | "Dismiss"
+
+## EDGE-UNIFY-1 + EDGE-CLICK-FIX
+- getAllEdgeSides() utility for all edge apply paths
+- Arc hit areas: pointerEvents stroke
