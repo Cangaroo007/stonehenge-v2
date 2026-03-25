@@ -494,3 +494,6 @@ TEMPLATE-MANAGE-1 done
 
 ## MATERIAL-PICKER-INLINE-1 — 2026-03-25
 - InlinePieceEditor: replaced <select> with MaterialPickerV2
+
+## TEMPLATE-SELECTOR-LIGHT-1 — 2026-03-25
+- TemplateSelector.tsx: dark tpl-sel-* styles converted to light equivalents

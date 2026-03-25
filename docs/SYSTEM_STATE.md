@@ -1243,3 +1243,6 @@ TEMPLATE-MANAGE-1 done
 
 ## MATERIAL-PICKER-INLINE-1 — 2026-03-25
 - InlinePieceEditor.tsx: material selector now uses MaterialPickerV2
+
+## TEMPLATE-SELECTOR-LIGHT-1 — 2026-03-25
+- TemplateSelector.tsx: light theme applied to /quotes/new template picker
