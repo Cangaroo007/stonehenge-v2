@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
             })),
           },
         }))
-      : [{ name: 'Room 1', sort_order: 0 }];
+      : [];
 
     const quote = await prisma.quotes.create({
       data: {

@@ -1237,3 +1237,6 @@ TEMPLATE-MANAGE-1 done
 ## EDGE-UNIFY-1 + EDGE-CLICK-FIX
 - getAllEdgeSides() utility for all edge apply paths
 - Arc hit areas: pointerEvents stroke
+
+## BLANK-ROOM-FIX-1 — 2026-03-25
+- create-draft route: no longer auto-creates Room 1 on manual quote creation

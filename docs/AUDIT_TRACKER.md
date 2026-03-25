@@ -488,3 +488,6 @@ TEMPLATE-MANAGE-1 done
 ## EDGE-UNIFY-1 + EDGE-CLICK-FIX
 - ✅ Centralised edge apply via getAllEdgeSides()
 - ✅ SVG arc hit areas use pointerEvents: stroke
+
+## BLANK-ROOM-FIX-1 — 2026-03-25
+- create-draft/route.ts line 90: removed auto Room 1 fallback
