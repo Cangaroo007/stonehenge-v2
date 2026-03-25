@@ -4,6 +4,7 @@ import { useState, useEffect, useMemo } from 'react';
 import CutoutSelector from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import PieceVisualEditor from './PieceVisualEditor';
+import MaterialPickerV2, { type MaterialPickerMaterial } from './MaterialPickerV2';
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
 import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
@@ -15,6 +16,8 @@ interface Material {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  isActive?: boolean;
+  supplier?: { id: string; name: string } | null;
 }
 
 interface EdgeType {
@@ -1186,20 +1189,15 @@ export default function InlinePieceEditor({
               Material
             </label>
             <div className="flex items-center gap-1">
-              <select
-                value={materialId || ''}
-                onChange={(e) => setMaterialId(e.target.value ? parseInt(e.target.value) : null)}
-                onClick={(e) => e.stopPropagation()}
-                className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
-              >
-                <option value="">Select material (optional)</option>
-                {materials.map((material) => (
-                  <option key={material.id} value={material.id}>
-                    {material.name}
-                    {material.collection ? ` - ${material.collection}` : ''}
-                  </option>
-                ))}
-              </select>
+              <div className="flex-1">
+                <MaterialPickerV2
+                  materials={materials as MaterialPickerMaterial[]}
+                  value={materialId}
+                  onChange={(id) => {
+                    setMaterialId(id);
+                  }}
+                />
+              </div>
               <button
                 type="button"
                 onClick={(e) => { e.stopPropagation(); setShowNewMaterialModal(true); }}
