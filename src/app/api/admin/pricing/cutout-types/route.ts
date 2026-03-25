@@ -48,6 +48,23 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
+    // Check for duplicate cutout type names (case-insensitive)
+    const existingCutoutType = await prisma.cutout_types.findFirst({
+      where: {
+        name: {
+          equals: data.name,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (existingCutoutType) {
+      return NextResponse.json(
+        { error: `Cutout type "${data.name}" already exists` },
+        { status: 409 }
+      );
+    }
+
     const cutoutType = await prisma.cutout_types.create({
       data: {
         id: crypto.randomUUID(),

@@ -27,6 +27,7 @@ export async function GET() {
       baseRate: Number(et.baseRate),
       isActive: et.isActive ?? true, // Default to true if null/undefined
       isMitred: et.isMitred ?? false,
+      isCurved: et.isCurved ?? false,
       sortOrder: et.sortOrder,
       // Include fabrication categories that have configured rates (non-zero)
       configuredCategories: et.categoryRates
@@ -50,6 +51,23 @@ export async function POST(request: NextRequest) {
 
     const data = await request.json();
 
+    // Check for duplicate edge type names (case-insensitive)
+    const existingEdgeType = await prisma.edge_types.findFirst({
+      where: {
+        name: {
+          equals: data.name,
+          mode: 'insensitive'
+        }
+      }
+    });
+
+    if (existingEdgeType) {
+      return NextResponse.json(
+        { error: `Edge type "${data.name}" already exists` },
+        { status: 409 }
+      );
+    }
+
     const edgeType = await prisma.edge_types.create({
       data: {
         id: crypto.randomUUID(),
@@ -59,6 +77,8 @@ export async function POST(request: NextRequest) {
         baseRate: data.baseRate || 0,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        isMitred: data.isMitred ?? false,
+        isCurved: data.isCurved ?? false,
         updatedAt: new Date(),
       },
     });

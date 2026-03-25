@@ -50,6 +50,8 @@ export async function PUT(
         baseRate: data.baseRate || 0,
         sortOrder: data.sortOrder || 0,
         isActive: data.isActive ?? true,
+        isMitred: data.isMitred ?? false,
+        isCurved: data.isCurved ?? false,
       },
     });
 
