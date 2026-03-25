@@ -456,3 +456,10 @@ TEMPLATE-MANAGE-1 done
 - Results saved to quotes.comparison_slots JSONB (up to 3 slots)
 - DELETE endpoint clears a slot
 - Schema: added comparison_slots Json? field to quotes
+
+## COMPARE-2b — 2026-03-24
+- New MaterialComparisonPanel component (260 lines)
+- Up to 3 slots: MaterialPickerV2 + Estimate button per slot
+- Current material as baseline column, delta in green/red
+- Switch button calls handleBulkMaterialApply, Clear button DELETEs slot
+- Replaces blue placeholder panel in QuoteDetailClient
