@@ -100,14 +100,14 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
         .tpl-sel {
           font-family: 'DM Sans', sans-serif;
           min-height: 100vh;
-          background: #0c0a09;
-          color: #e7e5e4;
+          background: #f9fafb;
+          color: #111827;
           padding: 40px 24px 120px;
         }
         .tpl-sel-title {
           font-family: 'DM Serif Display', serif;
           font-size: 28px;
-          color: #fafaf9;
+          color: #111827;
           letter-spacing: -0.02em;
         }
         @keyframes tplFadeUp {
@@ -117,8 +117,8 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
         .tpl-fade-up { animation: tplFadeUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
         .tpl-sel-card {
-          background: #1c1917;
-          border: 1.5px solid #292524;
+          background: #ffffff;
+          border: 1.5px solid #e5e7eb;
           border-radius: 14px;
           cursor: pointer;
           transition: border-color 0.15s, transform 0.12s, background 0.15s;
@@ -138,17 +138,17 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
           transition: opacity 0.2s;
         }
         .tpl-sel-card:hover::before { opacity: 1; }
-        .tpl-sel-card:hover { border-color: #44403c; transform: translateY(-2px); }
+        .tpl-sel-card:hover { border-color: #d1d5db; transform: translateY(-2px); }
         .tpl-sel-card.selected {
           border-color: #d97706;
-          background: #1c1410;
+          background: #fffbf5;
         }
         .tpl-sel-card.selected::before { opacity: 1; }
 
         .tpl-sel-check {
           width: 22px; height: 22px;
           border-radius: 7px;
-          border: 1.5px solid #44403c;
+          border: 1.5px solid #d1d5db;
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
           transition: all 0.15s;
@@ -167,15 +167,15 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
           transition: all 0.15s;
           border: 1px solid transparent;
           white-space: nowrap;
-          color: #a8a29e;
+          color: #6b7280;
           background: transparent;
           font-family: 'DM Sans', sans-serif;
         }
-        .tpl-sel-tab:hover { color: #e7e5e4; background: #1c1917; }
+        .tpl-sel-tab:hover { color: #111827; background: #f3f4f6; }
         .tpl-sel-tab.active {
-          color: #fbbf24;
-          background: rgba(217,119,6,0.15);
-          border-color: rgba(217,119,6,0.3);
+          color: #d97706;
+          background: rgba(217,119,6,0.12);
+          border-color: rgba(217,119,6,0.25);
         }
 
         .tpl-sel-badge {
@@ -206,8 +206,8 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
 
         .tpl-sel-btn-ghost {
           background: transparent;
-          color: #a8a29e;
-          border: 1px solid #292524;
+          color: #6b7280;
+          border: 1px solid #e5e7eb;
           border-radius: 10px;
           padding: 8px 16px;
           font-size: 13px;
@@ -216,13 +216,13 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
           cursor: pointer;
           transition: all 0.15s;
         }
-        .tpl-sel-btn-ghost:hover { color: #e7e5e4; border-color: #44403c; background: #1c1917; }
+        .tpl-sel-btn-ghost:hover { color: #111827; border-color: #d1d5db; background: #f3f4f6; }
 
         .tpl-sel-footer {
           position: fixed;
           bottom: 0; left: 0; right: 0;
-          background: #0c0a09;
-          border-top: 1px solid #1c1917;
+          background: #ffffff;
+          border-top: 1px solid #e5e7eb;
           padding: 16px 32px;
           display: flex;
           align-items: center;
@@ -239,7 +239,7 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
             <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
               <button
                 onClick={onBack}
-                style={{ color: '#78716c', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
+                style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', display: 'flex' }}
               >
                 <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
@@ -247,7 +247,7 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
               </button>
               <div>
                 <h1 className="tpl-sel-title">Choose a Template</h1>
-                <p style={{ fontSize: '13px', color: '#78716c', marginTop: '3px' }}>
+                <p style={{ fontSize: '13px', color: '#9ca3af', marginTop: '3px' }}>
                   Select one or more room templates to start your quote
                 </p>
               </div>
@@ -262,7 +262,7 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
               <a
                 href="/templates/new"
                 style={{
-                  background: '#292524', color: '#e7e5e4', border: '1px solid #44403c',
+                  background: '#f3f4f6', color: '#111827', border: '1px solid #e5e7eb',
                   borderRadius: '10px', padding: '8px 16px', fontSize: '13px',
                   fontWeight: 500, textDecoration: 'none', fontFamily: 'DM Sans, sans-serif',
                   transition: 'all 0.15s', display: 'inline-block',
@@ -300,21 +300,21 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
 
           {/* Loading */}
           {isLoading && (
-            <div style={{ textAlign: 'center', padding: '64px 0', color: '#57534e', fontSize: '14px' }}>
+            <div style={{ textAlign: 'center', padding: '64px 0', color: '#9ca3af', fontSize: '14px' }}>
               Loading templates…
             </div>
           )}
 
           {/* Error */}
           {error && (
-            <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '10px', padding: '12px 16px', color: '#fca5a5', fontSize: '13px', marginBottom: '20px' }}>
+            <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '10px', padding: '12px 16px', color: '#dc2626', fontSize: '13px', marginBottom: '20px' }}>
               {error}
             </div>
           )}
 
           {/* Empty */}
           {!isLoading && !error && filtered.length === 0 && (
-            <div style={{ textAlign: 'center', padding: '64px 0', color: '#57534e', fontSize: '14px' }}>
+            <div style={{ textAlign: 'center', padding: '64px 0', color: '#9ca3af', fontSize: '14px' }}>
               No templates in this category yet.
             </div>
           )}
@@ -336,8 +336,8 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
                       <span
                         className="tpl-sel-badge"
                         style={{
-                          background: isSelected ? 'rgba(217,119,6,0.2)' : '#292524',
-                          color: isSelected ? '#fbbf24' : '#78716c',
+                          background: isSelected ? 'rgba(217,119,6,0.12)' : '#f3f4f6',
+                          color: isSelected ? '#d97706' : '#6b7280',
                         }}
                       >
                         {getCategoryLabel(template.category)}
@@ -350,19 +350,19 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
                               <a
                                 href={`/templates/${template.id}/edit`}
                                 onClick={e => e.stopPropagation()}
-                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#292524', color: '#a8a29e', fontSize: '11px', textDecoration: 'none' }}
+                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#f3f4f6', color: '#6b7280', fontSize: '11px', textDecoration: 'none' }}
                               >
                                 Edit
                               </a>
                               <button
                                 onClick={e => { e.stopPropagation(); handleDelete(template.id, template.name); }}
-                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#292524', color: '#f87171', fontSize: '11px', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
+                                style={{ padding: '4px 8px', borderRadius: '6px', background: '#fef2f2', color: '#f87171', fontSize: '11px', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}
                               >
                                 Delete
                               </button>
                             </>
                           ) : (
-                            <span style={{ fontSize: '10px', color: '#57534e', padding: '4px 8px', background: '#1c1917', borderRadius: '6px' }}>
+                            <span style={{ fontSize: '10px', color: '#9ca3af', padding: '4px 8px', background: '#f3f4f6', borderRadius: '6px' }}>
                               Built-in
                             </span>
                           )}
@@ -380,11 +380,11 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
 
                     {/* Name + description */}
                     <div>
-                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#fafaf9', marginBottom: '4px', lineHeight: 1.3 }}>
+                      <p style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '4px', lineHeight: 1.3 }}>
                         {template.name}
                       </p>
                       {template.description && (
-                        <p style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.5 }}>
+                        <p style={{ fontSize: '12px', color: '#9ca3af', lineHeight: 1.5 }}>
                           {template.description}
                         </p>
                       )}
@@ -392,11 +392,11 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
 
                     {/* Stats */}
                     <div style={{ display: 'flex', gap: '14px', marginTop: '2px' }}>
-                      <span style={{ fontSize: '11px', color: '#57534e' }}>
+                      <span style={{ fontSize: '11px', color: '#9ca3af' }}>
                         {template.pieceCount} piece{template.pieceCount !== 1 ? 's' : ''}
                       </span>
                       {template.estimatedAreaSqm > 0 && (
-                        <span style={{ fontSize: '11px', color: '#57534e' }}>
+                        <span style={{ fontSize: '11px', color: '#9ca3af' }}>
                           ~{template.estimatedAreaSqm.toFixed(1)} m²
                         </span>
                       )}
@@ -416,7 +416,7 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
                           fontFamily: 'DM Sans, sans-serif',
                           border: isSelected ? '1px solid rgba(217,119,6,0.4)' : 'none',
                           background: isSelected ? 'rgba(217,119,6,0.15)' : '#d97706',
-                          color: isSelected ? '#fbbf24' : '#fff',
+                          color: isSelected ? '#d97706' : '#fff',
                           cursor: 'pointer',
                           transition: 'all 0.15s',
                         }}
@@ -435,14 +435,14 @@ export default function TemplateSelector({ onBack, onSelect, onApply }: Template
       {/* Sticky footer */}
       {selected.size > 0 && !manageMode && (
         <div className="tpl-sel-footer">
-          <div style={{ fontSize: '13px', color: '#a8a29e', display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ fontSize: '13px', color: '#6b7280', display: 'flex', alignItems: 'center', gap: '12px' }}>
             <span>
-              <span style={{ fontWeight: 600, color: '#fbbf24' }}>{selected.size}</span>
+              <span style={{ fontWeight: 600, color: '#d97706' }}>{selected.size}</span>
               {' '}template{selected.size !== 1 ? 's' : ''} selected
             </span>
             <button
               onClick={() => setSelected(new Set())}
-              style={{ fontSize: '11px', color: '#57534e', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
+              style={{ fontSize: '11px', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', textDecoration: 'underline', fontFamily: 'inherit' }}
             >
               Clear
             </button>
