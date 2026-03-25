@@ -1219,3 +1219,8 @@ TEMPLATE-MANAGE-1 done
 - New API: POST /api/quotes/[id]/estimate-material (update-calculate-restore pattern)
 - New API: DELETE /api/quotes/[id]/estimate-material (clear slot)
 - GET /api/quotes/[id] automatically includes comparison_slots via spread
+
+## 2026-03-24 COMPARE-2b
+- MaterialComparisonPanel.tsx: NEW — 3-slot material comparison UI
+- QuoteDetailClient.tsx: blue placeholder replaced with real panel
+- comparisonSlots state initialised from serverData.comparison_slots

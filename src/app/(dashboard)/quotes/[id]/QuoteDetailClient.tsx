@@ -52,6 +52,7 @@ import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 import BulkMaterialDialog from '@/components/quotes/BulkMaterialDialog';
+import MaterialComparisonPanel, { type ComparisonSlot } from '@/components/quotes/MaterialComparisonPanel';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
@@ -409,6 +410,11 @@ export default function QuoteDetailClient({
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [showComparisonPanel, setShowComparisonPanel] = useState(false);
+  const [comparisonSlots] = useState<(ComparisonSlot | null)[]>(() => {
+    const saved = (serverData as unknown as Record<string, unknown>)?.comparison_slots;
+    if (Array.isArray(saved)) return saved as (ComparisonSlot | null)[];
+    return [null, null, null];
+  });
   const [slabPriceOverrides, setSlabPriceOverrides] = useState<Record<string, number | null>>({});
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<string>>(new Set());
   const [contextMenu, setContextMenu] = useState<{ isOpen: boolean; pieceId: string; pieceName: string; position: { x: number; y: number } }>({ isOpen: false, pieceId: '', pieceName: '', position: { x: 0, y: 0 } });
@@ -4115,21 +4121,23 @@ export default function QuoteDetailClient({
                 + Compare Material
               </button>
             )}
-            {/* Material comparison panel — COMPARE-2 will replace this placeholder */}
+            {/* Material comparison panel */}
             {showComparisonPanel && (
-              <div className="mt-2 p-4 bg-blue-50 border border-blue-200 rounded-lg text-sm text-blue-700">
-                <p className="font-medium mb-1">Material Comparison</p>
-                <p className="text-xs text-blue-600">
-                  Side-by-side material price comparison coming soon.
-                  This panel will show price differences without changing the quote.
-                </p>
-                <button
-                  onClick={() => setShowComparisonPanel(false)}
-                  className="mt-2 text-xs text-blue-500 hover:text-blue-700 underline"
-                >
-                  Close
-                </button>
-              </div>
+              <MaterialComparisonPanel
+                quoteId={quoteIdStr}
+                materials={materials}
+                currentMaterialName={effectivePieces[0]?.materialName ?? null}
+                currentTotal={calculation?.totalIncGst ?? null}
+                currentMaterialCost={calculation?.breakdown?.materials?.subtotal ?? null}
+                currentFabCost={calculation?.breakdown?.services?.subtotal ?? null}
+                savedSlots={comparisonSlots}
+                onSwitchMaterial={handleBulkMaterialApply}
+                piecesForSwitch={effectivePieces.map(p => ({
+                  id: p.id,
+                  materialId: p.materialId ?? null,
+                }))}
+                onClose={() => setShowComparisonPanel(false)}
+              />
             )}
           </div>
           <BulkMaterialDialog
