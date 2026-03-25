@@ -503,3 +503,6 @@ TEMPLATE-MANAGE-1 done
 
 ## TEMPLATE-SELECTOR-LIGHT-1 — 2026-03-25 (clean branch)
 - TemplateSelector.tsx: dark styles converted to light
+
+## PRICING-ADMIN-1 — 2026-03-25
+- Added ServiceRateForm.tsx component to pricing admin

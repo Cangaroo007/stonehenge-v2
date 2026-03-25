@@ -1252,3 +1252,6 @@ TEMPLATE-MANAGE-1 done
 
 ## TEMPLATE-SELECTOR-LIGHT-1 — 2026-03-25
 - TemplateSelector.tsx: light theme applied
+
+## PRICING-ADMIN-1 — 2026-03-25
+- ServiceRateForm.tsx added to pricing admin components
