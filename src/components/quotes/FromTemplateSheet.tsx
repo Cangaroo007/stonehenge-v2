@@ -259,8 +259,8 @@ export default function FromTemplateSheet({
         .tpl-fade-up   { animation: tplFadeUp  0.22s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
 
         .tpl-card {
-          background: #1c1917;
-          border: 1px solid #292524;
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
           border-radius: 12px;
           cursor: pointer;
           transition: border-color 0.15s, transform 0.12s;
@@ -276,17 +276,17 @@ export default function FromTemplateSheet({
           transition: opacity 0.2s;
         }
         .tpl-card:hover::before { opacity: 1; }
-        .tpl-card:hover { border-color: #44403c; transform: translateY(-1px); }
+        .tpl-card:hover { border-color: #d1d5db; transform: translateY(-1px); }
         .tpl-card.selected {
           border-color: #d97706;
-          background: #1c1410;
+          background: #fffbf5;
         }
         .tpl-card.selected::before { opacity: 1; }
 
         .tpl-check {
           width: 20px; height: 20px;
           border-radius: 6px;
-          border: 1.5px solid #44403c;
+          border: 1.5px solid #d1d5db;
           display: flex; align-items: center; justify-content: center;
           flex-shrink: 0;
           transition: all 0.15s;
@@ -307,14 +307,14 @@ export default function FromTemplateSheet({
           transition: all 0.15s;
           border: 1px solid transparent;
           white-space: nowrap;
-          color: #a8a29e;
+          color: #6b7280;
           background: transparent;
         }
-        .tpl-tab:hover { color: #e7e5e4; background: #292524; }
+        .tpl-tab:hover { color: #111827; background: #f3f4f6; }
         .tpl-tab.active {
-          color: #fbbf24;
-          background: rgba(217,119,6,0.15);
-          border-color: rgba(217,119,6,0.3);
+          color: #d97706;
+          background: rgba(217,119,6,0.12);
+          border-color: rgba(217,119,6,0.25);
         }
 
         .tpl-btn-primary {
@@ -335,8 +335,8 @@ export default function FromTemplateSheet({
 
         .tpl-btn-ghost {
           background: transparent;
-          color: #a8a29e;
-          border: 1px solid #292524;
+          color: #6b7280;
+          border: 1px solid #e5e7eb;
           border-radius: 8px;
           padding: 9px 16px;
           font-size: 13px;
@@ -345,19 +345,19 @@ export default function FromTemplateSheet({
           cursor: pointer;
           transition: all 0.15s;
         }
-        .tpl-btn-ghost:hover { color: #e7e5e4; border-color: #44403c; background: #292524; }
+        .tpl-btn-ghost:hover { color: #111827; border-color: #d1d5db; background: #f3f4f6; }
 
         .tpl-select {
           width: 100%;
-          background: #1c1917;
-          border: 1px solid #292524;
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
           border-radius: 8px;
-          color: #e7e5e4;
+          color: #111827;
           padding: 8px 12px;
           font-size: 13px;
           font-family: 'DM Sans', sans-serif;
           appearance: none;
-          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%23a8a29e' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+          background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
           background-repeat: no-repeat;
           background-position: right 10px center;
           padding-right: 32px;
@@ -365,12 +365,12 @@ export default function FromTemplateSheet({
           transition: border-color 0.15s;
         }
         .tpl-select:focus { outline: none; border-color: #d97706; }
-        .tpl-select option { background: #1c1917; }
-        .tpl-select optgroup { color: #a8a29e; font-size: 11px; }
+        .tpl-select option { background: #ffffff; }
+        .tpl-select optgroup { color: #6b7280; font-size: 11px; }
 
         .tpl-role-card {
-          background: #1c1917;
-          border: 1px solid #292524;
+          background: #ffffff;
+          border: 1px solid #e5e7eb;
           border-radius: 10px;
           padding: 14px;
         }
@@ -391,7 +391,7 @@ export default function FromTemplateSheet({
         {/* Overlay */}
         <div
           className="absolute inset-0"
-          style={{ background: 'rgba(0,0,0,0.65)', backdropFilter: 'blur(2px)' }}
+          style={{ background: 'rgba(0,0,0,0.4)', backdropFilter: 'blur(2px)' }}
           onClick={onClose}
         />
 
@@ -402,19 +402,19 @@ export default function FromTemplateSheet({
           style={{
             width: '100%',
             maxWidth: '580px',
-            background: '#0c0a09',
-            borderLeft: '1px solid #1c1917',
-            boxShadow: '-20px 0 60px rgba(0,0,0,0.5)',
+            background: '#ffffff',
+            borderLeft: '1px solid #e5e7eb',
+            boxShadow: '-20px 0 60px rgba(0,0,0,0.1)',
           }}
         >
           {/* Header */}
-          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #1c1917' }}>
+          <div style={{ padding: '20px 24px 16px', borderBottom: '1px solid #e5e7eb' }}>
             <div className="flex items-start justify-between gap-4">
               <div>
-                <h2 className="tpl-title" style={{ fontSize: '22px', color: '#fafaf9', lineHeight: 1.2, marginBottom: '4px' }}>
+                <h2 className="tpl-title" style={{ fontSize: '22px', color: '#111827', lineHeight: 1.2, marginBottom: '4px' }}>
                   {assigning ? 'Assign Materials' : 'Select Templates'}
                 </h2>
-                <p style={{ fontSize: '12px', color: '#78716c', lineHeight: 1.5 }}>
+                <p style={{ fontSize: '12px', color: '#6b7280', lineHeight: 1.5 }}>
                   {assigning
                     ? `${selectedIds.size} template${selectedIds.size !== 1 ? 's' : ''} selected — assign a material to each role`
                     : 'Choose one or more room templates to add to this quote'}
@@ -422,7 +422,7 @@ export default function FromTemplateSheet({
               </div>
               <button
                 onClick={onClose}
-                style={{ color: '#57534e', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
+                style={{ color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px', flexShrink: 0 }}
               >
                 <svg width="18" height="18" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
@@ -450,19 +450,19 @@ export default function FromTemplateSheet({
                 </div>
 
                 {isLoading && (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#57534e', fontSize: '13px' }}>
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: '13px' }}>
                     Loading templates…
                   </div>
                 )}
 
                 {error && (
-                  <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '8px', padding: '10px 14px', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }}>
+                  <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', color: '#dc2626', fontSize: '12px', marginBottom: '16px' }}>
                     {error}
                   </div>
                 )}
 
                 {!isLoading && !error && filtered.length === 0 && (
-                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#57534e', fontSize: '13px' }}>
+                  <div style={{ textAlign: 'center', padding: '40px 0', color: '#9ca3af', fontSize: '13px' }}>
                     No templates in this category yet.
                   </div>
                 )}
@@ -484,8 +484,8 @@ export default function FromTemplateSheet({
                             <span
                               className="tpl-badge"
                               style={{
-                                background: selected ? 'rgba(217,119,6,0.2)' : '#292524',
-                                color: selected ? '#fbbf24' : '#78716c',
+                                background: selected ? 'rgba(217,119,6,0.12)' : '#f3f4f6',
+                                color: selected ? '#d97706' : '#6b7280',
                               }}
                             >
                               {getCategoryLabel(template.category)}
@@ -500,24 +500,24 @@ export default function FromTemplateSheet({
                           </div>
 
                           {/* Name */}
-                          <p style={{ fontSize: '13px', fontWeight: 600, color: '#fafaf9', marginBottom: '4px', lineHeight: 1.3 }}>
+                          <p style={{ fontSize: '13px', fontWeight: 600, color: '#111827', marginBottom: '4px', lineHeight: 1.3 }}>
                             {template.name}
                           </p>
 
                           {/* Description */}
                           {template.description && (
-                            <p style={{ fontSize: '11px', color: '#78716c', lineHeight: 1.5, marginBottom: '8px' }}>
+                            <p style={{ fontSize: '11px', color: '#6b7280', lineHeight: 1.5, marginBottom: '8px' }}>
                               {template.description}
                             </p>
                           )}
 
                           {/* Stats */}
                           <div style={{ display: 'flex', gap: '12px', marginTop: 'auto' }}>
-                            <span style={{ fontSize: '11px', color: '#57534e' }}>
+                            <span style={{ fontSize: '11px', color: '#9ca3af' }}>
                               {template.pieceCount} piece{template.pieceCount !== 1 ? 's' : ''}
                             </span>
                             {template.estimatedAreaSqm > 0 && (
-                              <span style={{ fontSize: '11px', color: '#57534e' }}>
+                              <span style={{ fontSize: '11px', color: '#9ca3af' }}>
                                 ~{template.estimatedAreaSqm.toFixed(1)} m²
                               </span>
                             )}
@@ -532,13 +532,13 @@ export default function FromTemplateSheet({
               /* ── MATERIAL ASSIGNMENT VIEW ── */
               <div className="tpl-fade-up">
                 {/* Selected templates summary */}
-                <div style={{ marginBottom: '20px', padding: '12px 14px', background: '#1c1917', borderRadius: '10px', border: '1px solid #292524' }}>
-                  <p style={{ fontSize: '11px', color: '#78716c', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
+                <div style={{ marginBottom: '20px', padding: '12px 14px', background: '#f9fafb', borderRadius: '10px', border: '1px solid #e5e7eb' }}>
+                  <p style={{ fontSize: '11px', color: '#6b7280', marginBottom: '6px', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: 600 }}>
                     Adding to quote
                   </p>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                     {selectedTemplates.map(t => (
-                      <span key={t.id} style={{ fontSize: '12px', color: '#fbbf24', background: 'rgba(217,119,6,0.15)', padding: '3px 10px', borderRadius: '20px', border: '1px solid rgba(217,119,6,0.25)' }}>
+                      <span key={t.id} style={{ fontSize: '12px', color: '#d97706', background: 'rgba(217,119,6,0.15)', padding: '3px 10px', borderRadius: '20px', border: '1px solid rgba(217,119,6,0.25)' }}>
                         {t.name}
                       </span>
                     ))}
@@ -546,13 +546,13 @@ export default function FromTemplateSheet({
                 </div>
 
                 {rolesLoading ? (
-                  <div style={{ textAlign: 'center', padding: '32px 0', color: '#57534e', fontSize: '13px' }}>
+                  <div style={{ textAlign: 'center', padding: '32px 0', color: '#9ca3af', fontSize: '13px' }}>
                     Loading material roles…
                   </div>
                 ) : (
                   <>
                     {applyError && (
-                      <div style={{ background: '#1c0a0a', border: '1px solid #7f1d1d', borderRadius: '8px', padding: '10px 14px', color: '#fca5a5', fontSize: '12px', marginBottom: '16px' }}>
+                      <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: '8px', padding: '10px 14px', color: '#dc2626', fontSize: '12px', marginBottom: '16px' }}>
                         {applyError}
                       </div>
                     )}
@@ -567,8 +567,8 @@ export default function FromTemplateSheet({
                           <div key={role.role} className="tpl-role-card">
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
                               <div>
-                                <span style={{ fontSize: '13px', fontWeight: 600, color: '#e7e5e4' }}>{role.label}</span>
-                                <span style={{ fontSize: '11px', color: '#57534e', marginLeft: '8px' }}>
+                                <span style={{ fontSize: '13px', fontWeight: 600, color: '#111827' }}>{role.label}</span>
+                                <span style={{ fontSize: '11px', color: '#9ca3af', marginLeft: '8px' }}>
                                   {role.pieceCount} piece{role.pieceCount !== 1 ? 's' : ''}
                                 </span>
                               </div>
@@ -616,10 +616,10 @@ export default function FromTemplateSheet({
           </div>
 
           {/* Footer */}
-          <div style={{ padding: '16px 24px', borderTop: '1px solid #1c1917', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: '#0c0a09' }}>
+          <div style={{ padding: '16px 24px', borderTop: '1px solid #e5e7eb', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px', background: '#ffffff' }}>
             {!assigning ? (
               <>
-                <span style={{ fontSize: '12px', color: '#57534e' }}>
+                <span style={{ fontSize: '12px', color: '#9ca3af' }}>
                   {selectedIds.size > 0
                     ? `${selectedIds.size} template${selectedIds.size !== 1 ? 's' : ''} selected`
                     : 'No templates selected'}
