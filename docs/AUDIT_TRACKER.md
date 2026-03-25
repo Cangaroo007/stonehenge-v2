@@ -467,3 +467,11 @@ TEMPLATE-MANAGE-1 done
 ## RADIUS-SHAPE-FIX-1 — 2026-03-25
 - shapeType cast now uses ShapeType union from shapes.ts (was missing RADIUS_END + 3 others)
 - Root cause of all RADIUS_END/FULL_CIRCLE/CONCAVE_ARC/ROUNDED_RECT display failures
+
+## 2025-03-25 — EDGE-UNIFY-1
+- ✅ Centralised edge apply logic via getAllEdgeSides() utility
+- ✅ handlePresetApply uses getAllEdgeSides() instead of per-shape if-blocks
+- ✅ handleScopeApply includes arc edges for this-piece scope
+- ✅ "All edges" button + 'a' shortcut now include arc edges
+- ✅ scopeApplyInfo banner has "This piece" option
+- ✅ Removed r={3} dot circles from arc edge labels

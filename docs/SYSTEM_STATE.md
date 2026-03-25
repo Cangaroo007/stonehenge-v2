@@ -1228,3 +1228,8 @@ TEMPLATE-MANAGE-1 done
 ## 2026-03-25 RADIUS-SHAPE-FIX-1
 - QuickViewPieceRow.tsx: shapeType prop uses canonical ShapeType union
 - All 7 shape types now pass correctly to PieceVisualEditor
+
+## EDGE-UNIFY-1 — Centralised edge apply
+- PieceVisualEditor.getAllEdgeSides(): returns { rect, arc } for any ShapeType
+- All edge apply paths (presets, scope, "All edges", Quick Edge) use this utility
+- scopeApplyInfo banner: "This piece" | "All in {room}" | "All in quote" | "Dismiss"
