@@ -2223,7 +2223,7 @@ export default function QuickViewPieceRow({
                 roomName={piece.roomName}
                 roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
                 onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
-                shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
+                shapeType={(piece.shapeType as import('@/lib/types/shapes').ShapeType | undefined) ?? undefined}
                 shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
                 onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
                 shapeConfigEdges={(() => {

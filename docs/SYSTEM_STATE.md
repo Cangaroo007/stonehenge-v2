@@ -1224,3 +1224,7 @@ TEMPLATE-MANAGE-1 done
 - MaterialComparisonPanel.tsx: NEW — 3-slot material comparison UI
 - QuoteDetailClient.tsx: blue placeholder replaced with real panel
 - comparisonSlots state initialised from serverData.comparison_slots
+
+## 2026-03-25 RADIUS-SHAPE-FIX-1
+- QuickViewPieceRow.tsx: shapeType prop uses canonical ShapeType union
+- All 7 shape types now pass correctly to PieceVisualEditor
