@@ -27,7 +27,7 @@ import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/buil
 import type { EdgeScope } from './EdgeProfilePopover';
 import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
-import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
+import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -196,7 +196,7 @@ function AccordionStripWidths({
   piece: InlinePieceData;
   quoteId: string;
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
-  shapeType: 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE';
+  shapeType: ShapeType;
   onStripWidthChange?: () => void;
 }) {
   // Derive which edges generate strips
@@ -1054,10 +1054,10 @@ export default function QuickViewPieceRow({
       const updatedEdges = { ...currentEdges, [edgeId]: profileId };
       const updatedConfig = { ...currentConfig, edges: updatedEdges };
       savePieceImmediate({ shapeConfig: updatedConfig });
-    } else if (shapeType === 'RADIUS_END' && edgeId !== 'arc_end') {
+    } else if (shapeType === 'RADIUS_END' && edgeId !== 'arc_end' && edgeId !== 'arc_left') {
       // Straight edges on RADIUS_END (top/bottom/left) save to rectangle
       // edge columns — same path as regular rectangles.
-      // arc_end still goes to edge_arc_config (handled by the final else).
+      // arc_end and arc_left go to edge_arc_config (handled by the final else).
       const sideMap: Record<string, string> = {
         top: 'edgeTop',
         bottom: 'edgeBottom',
@@ -1798,6 +1798,27 @@ export default function QuickViewPieceRow({
                     setTimeout(() => setFlashEdge(null), 200);
                   };
 
+                  // Left arc (BOTH ends) — separate key in edge_arc_config
+                  const leftArcId = arcConfig?.arc_left ?? null;
+                  const leftArcName = resolveEdgeName(leftArcId);
+                  const leftArcIsFinished = !!leftArcId;
+                  const leftArcColour = edgeColour(leftArcName);
+                  const leftArcCode = edgeCode(leftArcName);
+                  const leftArcFlashing = flashEdge === 'arc_left';
+
+                  const handleLeftArcClick = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    let profileToApply = quickEdgeProfileId;
+                    if (isMitred && profileToApply) {
+                      const pencilId = editData?.edgeTypes.find(et =>
+                        et.name.toLowerCase().includes('pencil'))?.id;
+                      if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
+                    }
+                    handleShapeEdgeChange('arc_left', profileToApply);
+                    setFlashEdge('arc_left');
+                    setTimeout(() => setFlashEdge(null), 200);
+                  };
+
                   // Straight edges: top, bottom, left (and right-straight for single-end)
                   const straightEdges = bothEnds
                     ? [
@@ -1866,26 +1887,26 @@ export default function QuickViewPieceRow({
                         >{arcCode || 'ARC'}</text>
                       </g>
 
-                      {/* Left arc (BOTH ends only — same arc_end key) */}
+                      {/* Left arc (BOTH ends only — separate arc_left key) */}
                       {bothEnds && (
                         <g>
                           <path d={leftArcPath} fill="none"
-                            stroke={arcFlashing ? '#22c55e' : arcColour}
-                            strokeWidth={arcFlashing ? 3 : (arcIsFinished ? 2 : 0.75)}
-                            strokeDasharray={arcIsFinished ? undefined : '2 1.5'}
+                            stroke={leftArcFlashing ? '#22c55e' : leftArcColour}
+                            strokeWidth={leftArcFlashing ? 3 : (leftArcIsFinished ? 2 : 0.75)}
+                            strokeDasharray={leftArcIsFinished ? undefined : '2 1.5'}
                           />
                           {isEditMode && (
                             <path d={leftArcPath} fill="none"
                               stroke="transparent" strokeWidth={EDGE_HIT}
                               style={{ cursor: 'pointer' }}
-                              onClick={handleArcClick}
+                              onClick={handleLeftArcClick}
                             />
                           )}
                           <text x={x - 8} y={y + h / 2}
                             textAnchor="end" dominantBaseline="middle"
-                            className={`select-none ${arcIsFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
-                            fill={arcColour}
-                          >{arcCode || 'ARC'}</text>
+                            className={`select-none ${leftArcIsFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                            fill={leftArcColour}
+                          >{leftArcCode || 'ARC'}</text>
                         </g>
                       )}
                     </>
@@ -2264,7 +2285,7 @@ export default function QuickViewPieceRow({
                 edgeLeft: fullPiece.edgeLeft,
                 edgeRight: fullPiece.edgeRight,
               }}
-              shapeType={(piece.shapeType ?? 'RECTANGLE') as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE'}
+              shapeType={(piece.shapeType ?? 'RECTANGLE') as ShapeType}
               onStripWidthChange={onStripWidthChange}
             />
           )}
