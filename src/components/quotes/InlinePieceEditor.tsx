@@ -620,6 +620,14 @@ export default function InlinePieceEditor({
         setSameWidth(false);
       }
     }
+    if (cfg.shape === 'RADIUS_END') {
+      if (cfg.length_mm) setRadiusEndLength(String(cfg.length_mm));
+      if (cfg.width_mm) setRadiusEndWidth(String(cfg.width_mm));
+      if (cfg.radius_mm) setRadiusEndRadius(String(cfg.radius_mm));
+      if (cfg.curved_ends === 'ONE' || cfg.curved_ends === 'BOTH') {
+        setRadiusEndCurvedEnds(cfg.curved_ends as 'ONE' | 'BOTH');
+      }
+    }
   }, [piece]);
 
   // ── Same-width sync: when checked, copy lead width to other legs ───────
@@ -725,8 +733,17 @@ export default function InlinePieceEditor({
         rightLeg: { length_mm: parseInt(rightLegLength) || 0, width_mm: parseInt(rightLegWidth) || 0 },
       };
     }
+    if (shapeType === 'RADIUS_END') {
+      return {
+        shape: 'RADIUS_END' as const,
+        length_mm: parseInt(radiusEndLength) || 0,
+        width_mm: parseInt(radiusEndWidth) || 0,
+        radius_mm: parseInt(radiusEndRadius) || 0,
+        curved_ends: radiusEndCurvedEnds,
+      };
+    }
     return null;
-  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth]);
+  }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth, radiusEndLength, radiusEndWidth, radiusEndRadius, radiusEndCurvedEnds]);
 
   // ── Derived state ───────────────────────────────────────────────────────
   const allRoomOptions = Array.from(new Set([...STANDARD_ROOMS, ...roomNames]));
@@ -948,8 +965,16 @@ export default function InlinePieceEditor({
 
   // ── Render ──────────────────────────────────────────────────────────────
 
-  const parsedLength = parseInt(lengthMm) || 0;
-  const parsedWidth = parseInt(widthMm) || 0;
+  const parsedLength = shapeType === 'RADIUS_END'
+    ? parseInt(radiusEndLength) || 0
+    : shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE'
+      ? parseInt(leg1Length) || 0
+      : parseInt(lengthMm) || 0;
+  const parsedWidth = shapeType === 'RADIUS_END'
+    ? parseInt(radiusEndWidth) || 0
+    : shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE'
+      ? parseInt(leg1Width) || 0
+      : parseInt(widthMm) || 0;
   // laminationMethod read from piece.lamination_method for backwards compat — edgeBuildups is the primary model
 
   // Dimension input helper — reused across shapes
