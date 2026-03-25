@@ -1240,3 +1240,6 @@ TEMPLATE-MANAGE-1 done
 
 ## BLANK-ROOM-FIX-1 — 2026-03-25
 - create-draft route: no longer auto-creates Room 1 on manual quote creation
+
+## MATERIAL-PICKER-INLINE-1 — 2026-03-25
+- InlinePieceEditor.tsx: material selector now uses MaterialPickerV2

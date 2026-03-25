@@ -491,3 +491,6 @@ TEMPLATE-MANAGE-1 done
 
 ## BLANK-ROOM-FIX-1 — 2026-03-25
 - create-draft/route.ts line 90: removed auto Room 1 fallback
+
+## MATERIAL-PICKER-INLINE-1 — 2026-03-25
+- InlinePieceEditor: replaced <select> with MaterialPickerV2
