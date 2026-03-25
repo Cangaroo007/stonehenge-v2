@@ -59,6 +59,10 @@
 | R-47 | MRG-1: Material margin engine. Added material_margin_percent and material_margin_source to quotes table. Added material_margin_percent to client_tiers. Calculator resolves margin from: quote override → client tier → material → supplier → 0% (with warning). Return object includes marginInfo with all available margins and resolution source. Quote API accepts margin updates. | claude/laughing-ritchie-fs4ui |
 | R-48 | MRG-2: Material margin UI. MarginSelector component shows current margin source, warning banner when no margin set, radio selector for available margins (tier/supplier/material/custom), per-quote override. PricingSummary shows before-margin, margin amount, after-margin lines. Wired into QuoteDetailClient with triggerRecalculate on change. | claude/material-margin-ui-KGJad |
 | R-49 | A-23: Fixed AI Price List uploader supplier validation. Upload now proceeds with "let AI detect" option — no longer blocks on supplier selection. Dropzone always enabled. After AI parse, auto-selects matching supplier from dropdown if detected name matches. Sync step still requires a supplier ID with clearer error message. Warning replaced with blue info hint. | claude/fix-supplier-validation-bREwA |
+| R-50 | Pricing admin: Pencil Round / Arris edge rates reset to $0 on every deploy. Hardcoded isPencilRound check in seed-edge-category-rates.ts forced rates to zero. Removed — rates now respect DB values × category multiplier naturally. | fix/edge-unify-1 |
+| R-51 | Pricing admin: Cutout types massively duplicated — 2 seed scripts (seed.ts + seed-cutout-types.ts) created overlapping entries with different names. Removed cutout creation from seed.ts, made seed-cutout-types.ts single source of truth. Added 409 duplicate name check to cutout type POST API. | fix/edge-unify-1 |
+| R-52 | Pricing admin: Edge types could not be edited or deleted. EdgeTypeForm missing baseRate, isMitred, isCurved fields — edits silently reset values. Added missing fields. Added 409 duplicate name check to edge type POST API. | fix/edge-unify-1 |
+| R-53 | Pricing admin: Strip Configurations showed "undefinedmm" — page.tsx expected finalThickness/totalMaterialWidth but API returns stripWidthMm/visibleWidthMm. Column config aligned to actual API fields. | fix/edge-unify-1 |
 | R-50 | PX-1: Missing rate detection. getServiceRateSafe() wrapper catches missing rate throws, records in missingRates[], continues with $0. Calculator no longer crashes on missing rates. PricingSummary shows amber banner listing each missing rate with piece name and description. Link to Pricing Admin for resolution. | claude/missing-rate-detection-banner-gTk82 |
 | R-51 | PX-2: Extended missing rate detection to edge profiles, cutout rates, edge category rates, cutout category rates, waterfall rates, and engine-level rate throws. All rate lookups now push to missingRates[] instead of silently returning $0 or crashing. Calculator never crashes on any missing rate. 7 detection points total (up from 1 in PX-1). | claude/px2-missing-rate-coverage-xO73i |
 | R-52 | PX-3: Pricing Admin Gaps tab. API endpoint scans all rate combinations (service × category, edge × category, cutout × category) and returns missing rates. GapsTab page shows coverage bars, gap tables with "Configure →" links, red badge count on tab. First tab in Pricing Management. | claude/add-pricing-gaps-tab-dgIGl |
@@ -120,6 +124,10 @@
 | A-21 | ✅ Resolved | decomposedPieceIds built from empty allPieces array (slab-optimizer.ts:574-578). Fix: changed allPieces to normalizedPieces. Ghost strips no longer generated. | slab-optimizer.ts:575 | Mar 1 | R-34 |
 | A-22 | ✅ Resolved | 200mm minimum segment enforcement — optimizer allows 44mm segments (e.g. Quote 58 piece 187 Back leg remnant), warning only, no hard constraint. Should enforce minimum fabricable segment width. Fix: MIN_SEGMENT_MM=200 enforced in preprocessOversizePieces colWidths/rowHeights loops. | slab-optimizer.ts | Mar 2 | R-45 |
 | A-23 | ✅ Resolved | AI Price List uploader blocks upload when "let AI detect" selected. Dropzone greyed out, sync blocked. Fix: upload gate removed, dropzone always enabled, auto-select supplier after parse, clearer sync error message. | src/app/(dashboard)/admin/pricing/import/page.tsx | Mar 5 | R-49 |
+| A-24 | ✅ Resolved | Pencil Round / Arris edge rates reset to $0 on deploy. Seed script hardcoded zero. Fix: removed isPencilRound override. | prisma/seed-edge-category-rates.ts | Mar 25 | R-50 |
+| A-25 | ✅ Resolved | Cutout types duplicated (3x Undermount Sink, 4x Cooktop variants). Two seed scripts created overlapping entries. Fix: single source of truth + API duplicate prevention. **Existing prod dupes need SQL cleanup.** | prisma/seed.ts, seed-cutout-types.ts, cutout-types/route.ts | Mar 25 | R-51 |
+| A-26 | ✅ Resolved | Edge types not editable/deletable. EdgeTypeForm missing fields. Fix: added baseRate, isMitred, isCurved + API duplicate check. | EdgeTypeForm.tsx, edge-types routes | Mar 25 | R-52 |
+| A-27 | ✅ Resolved | Strip Configurations "undefinedmm". Page column config mismatched API response fields. Fix: aligned to actual API fields. | admin/pricing/page.tsx | Mar 25 | R-53 |
 
 ---
 
@@ -127,6 +135,7 @@
 
 | Session | Branch | Date | Status |
 |---------|--------|------|--------|
+| PRICING-RESTRUCTURE Phase 1 — fix pricing admin bugs | fix/edge-unify-1 | Mar 25 | ✅ Complete |
 | WF-2g waterfall/splashback verify | claude/verify-waterfall-splashback-VHgZw | Mar 13 | ✅ Verified — no changes |
 | CURVE-4a edge_arc_config JSONB for arc edge profiles | claude/migrate-arc-edge-schema-HchE8 | Mar 12 | ✅ Complete |
 | MANUAL-BLANK-1 blank quote builder with deferred save | feat/manual-blank-1 | Mar 16 | ✅ Complete |

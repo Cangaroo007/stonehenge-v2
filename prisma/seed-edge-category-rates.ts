@@ -38,16 +38,14 @@ async function seedEdgeCategoryRates() {
   let upsertCount = 0;
 
   for (const edgeType of edgeTypes) {
-    const isPencilRound = edgeType.name.toLowerCase().includes('pencil');
     const baseRate20mm = Number(edgeType.rate20mm ?? edgeType.baseRate);
     const baseRate40mm = Number(edgeType.rate40mm ?? edgeType.baseRate);
 
     for (const category of categories) {
       const multiplier = CATEGORY_MULTIPLIERS[category];
 
-      // Pencil Round remains $0 across ALL categories (standard included finish)
-      const rate20mm = isPencilRound ? 0 : Math.round(baseRate20mm * multiplier * 100) / 100;
-      const rate40mm = isPencilRound ? 0 : Math.round(baseRate40mm * multiplier * 100) / 100;
+      const rate20mm = Math.round(baseRate20mm * multiplier * 100) / 100;
+      const rate40mm = Math.round(baseRate40mm * multiplier * 100) / 100;
 
       await prisma.edge_type_category_rates.upsert({
         where: {

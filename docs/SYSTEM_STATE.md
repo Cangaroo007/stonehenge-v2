@@ -5,10 +5,10 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-12
-> **Last Updated By:** claude/migrate-arc-edge-schema-HchE8 — CURVE-4a: add edge_arc_config JSONB to quote_pieces
+> **Last Updated:** 2026-03-25
+> **Last Updated By:** fix/edge-unify-1 — Pricing admin Phase 1: fix edge CRUD, cutout duplicates, strip config display, seed overwrite bugs
 >
-> CURVE-4a: Added edge_arc_config JSONB column to quote_pieces. ArcEdgeConfig interface in shapes.ts. PATCH API accepts edgeArcConfig. Migration: 20260313000001_add_edge_arc_config.
+> Phase 1 pricing admin fixes: (1) Removed isPencilRound $0 override in seed-edge-category-rates.ts. (2) Made seed-cutout-types.ts single source of truth, removed cutout creation from seed.ts. (3) Added baseRate/isMitred/isCurved to EdgeTypeForm.tsx. (4) Fixed strip config column field names in page.tsx. (5) Added 409 duplicate name prevention to edge-types and cutout-types POST routes.
 
 ---
 
@@ -300,10 +300,10 @@ All 136 API route files contain auth guards (`requireAuth`, `auth()`, or `getReq
 - `src/app/api/admin/pricing/client-types/[id]/route.ts`
 - `src/app/api/admin/pricing/client-types/route.ts`
 - `src/app/api/admin/pricing/cutout-types/[id]/route.ts`
-- `src/app/api/admin/pricing/cutout-types/route.ts`
-- `src/app/api/admin/pricing/edge-types/[id]/route.ts`
+- `src/app/api/admin/pricing/cutout-types/route.ts` — POST: 409 duplicate name check added (Mar 25)
+- `src/app/api/admin/pricing/edge-types/[id]/route.ts` — PUT: now persists isMitred, isCurved fields (Mar 25)
 - `src/app/api/admin/pricing/gaps/route.ts` — PX-3: Scans all rate combinations and returns missing rates with coverage stats
-- `src/app/api/admin/pricing/edge-types/route.ts`
+- `src/app/api/admin/pricing/edge-types/route.ts` — POST: 409 duplicate name check added; GET: isCurved included in response (Mar 25)
 - `src/app/api/admin/pricing/interpret-price-list/route.ts`
 - `src/app/api/admin/pricing/machine-defaults/route.ts`
 - `src/app/api/admin/pricing/machines/[id]/route.ts`
@@ -917,12 +917,12 @@ getShapeGeometry(shapeType, shapeConfig: ShapeConfig | null | undefined, length_
 
 | File | Purpose |
 |------|---------|
-| `prisma/seed.ts` | Main seed orchestrator |
+| `prisma/seed.ts` | Main seed orchestrator. **No longer creates cutout types** (moved to seed-cutout-types.ts as single source of truth, Mar 25). |
 | `prisma/seed-category-rates.ts` | Category-based service rates |
 | `prisma/seed-category-service-rates.ts` | Category service rates |
 | `prisma/seed-cutout-category-rates.ts` | Cutout rates by fabrication category |
-| `prisma/seed-cutout-types.ts` | Cutout type definitions |
-| `prisma/seed-edge-category-rates.ts` | Edge rates by fabrication category |
+| `prisma/seed-cutout-types.ts` | Cutout type definitions. **Single source of truth** for all cutout types (Mar 25). Uses upsert to prevent duplicates. |
+| `prisma/seed-edge-category-rates.ts` | Edge rates by fabrication category. **isPencilRound $0 override removed** (Mar 25) — rates now respect DB base rates × category multiplier. |
 | `prisma/seed-edge-compatibility.ts` | Material-edge compatibility matrix |
 | `prisma/seed-edge-templates.ts` | Edge profile templates |
 | `prisma/seed-edge-types.ts` | Edge type definitions |

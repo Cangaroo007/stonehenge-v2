@@ -118,23 +118,9 @@ async function main() {
   // ============================================
   // CREATE CUTOUT TYPES (for CutoutSelector component)
   // ============================================
-  const cutoutTypes = [
-    { name: 'Undermount Sink', description: 'Cutout for undermount sink', baseRate: 180, sortOrder: 1, isActive: true },
-    { name: 'Drop-in Sink', description: 'Cutout for drop-in sink', baseRate: 120, sortOrder: 2, isActive: true },
-    { name: 'Cooktop/Hotplate', description: 'Cutout for cooktop or hotplate', baseRate: 150, sortOrder: 3, isActive: true },
-    { name: 'Basin', description: 'Cutout for basin', baseRate: 95, sortOrder: 4, isActive: true },
-    { name: 'Tap Hole', description: 'Single tap hole', baseRate: 35, sortOrder: 5, isActive: true },
-    { name: 'GPO/Powerpoint', description: 'Cutout for electrical outlet', baseRate: 45, sortOrder: 6, isActive: true },
-  ];
-
-  for (const cutoutType of cutoutTypes) {
-    await prisma.cutout_types.upsert({
-      where: { name: cutoutType.name },
-      update: cutoutType,
-      create: cutoutType,
-    });
-  }
-  console.log('✅ Created', cutoutTypes.length, 'cutout types');
+  // Cutout types are seeded by seed-cutout-types.ts
+  // DO NOT add cutout type creation here to avoid duplicates
+  console.log('ℹ️  Cutout types are seeded separately via seed-cutout-types.ts');
 
   // ============================================
   // CREATE THICKNESS OPTIONS (for Thickness selector)

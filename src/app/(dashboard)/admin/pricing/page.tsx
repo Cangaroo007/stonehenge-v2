@@ -64,11 +64,12 @@ const columnConfigs: Record<TabKey, Column[]> = {
     { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
   ],
   'strip-configurations': [
-    { key: 'name', label: 'Name' },
-    { key: 'usageType', label: 'Usage Type', render: (v) => formatUsageType(v as string) },
-    { key: 'finalThickness', label: 'Final Thickness', render: (v) => `${v}mm` },
-    { key: 'totalMaterialWidth', label: 'Total Width', render: (v) => `${v}mm` },
-    { key: 'isDefault', label: 'Default', render: (v) => (v ? 'Yes' : 'No') },
+    { key: 'label', label: 'Name' },
+    { key: 'stripType', label: 'Type' },
+    { key: 'stripWidthMm', label: 'Strip Width', render: (v) => `${v ?? '-'}mm` },
+    { key: 'visibleWidthMm', label: 'Visible Width', render: (v) => `${v ?? '-'}mm` },
+    { key: 'laminationWidthMm', label: 'Lamination Width', render: (v) => `${v ?? '-'}mm` },
+    { key: 'kerfLossMm', label: 'Kerf Loss', render: (v) => `${v ?? '-'}mm` },
     { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
   ],
   'client-types': [
