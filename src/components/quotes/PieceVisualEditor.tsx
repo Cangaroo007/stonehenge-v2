@@ -1041,21 +1041,40 @@ export default function PieceVisualEditor({
       }
 
       const arcLengthMm = Math.PI * R;
-      const edges: ShapeEdgeDef[] = [
-        { side: 'top', x1: ox, y1: oy, x2: ox + sW - sR, y2: oy,
-          labelX: ox + (sW - sR) / 2, labelY: oy - 12,
-          lengthMm: W - R, label: 'Top' },
-        { side: 'bottom', x1: ox, y1: oy + sH, x2: ox + sW - sR, y2: oy + sH,
-          labelX: ox + (sW - sR) / 2, labelY: oy + sH + 16,
-          lengthMm: W - R, label: 'Bottom' },
-        { side: 'left', x1: ox, y1: oy, x2: ox, y2: oy + sH,
-          labelX: ox - 16, labelY: oy + sH / 2,
-          lengthMm: H, label: 'Left' },
-        { side: 'arc_end', x1: ox + sW - sR, y1: oy, x2: ox + sW - sR, y2: oy + sH,
-          labelX: ox + sW + 8, labelY: oy + sH / 2,
-          lengthMm: arcLengthMm, label: 'Arc',
-          arcPath: `M ${ox + sW - sR},${oy} A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}` },
-      ];
+      const edges: ShapeEdgeDef[] = bothEnds
+        ? [
+            // BOTH ends — top/bottom shortened, left is arc, right is arc
+            { side: 'top', x1: ox + sR, y1: oy, x2: ox + sW - sR, y2: oy,
+              labelX: ox + sW / 2, labelY: oy - 12,
+              lengthMm: W - 2 * R, label: 'Top' },
+            { side: 'bottom', x1: ox + sR, y1: oy + sH, x2: ox + sW - sR, y2: oy + sH,
+              labelX: ox + sW / 2, labelY: oy + sH + 16,
+              lengthMm: W - 2 * R, label: 'Bottom' },
+            { side: 'arc_end', x1: ox + sW - sR, y1: oy, x2: ox + sW - sR, y2: oy + sH,
+              labelX: ox + sW + 8, labelY: oy + sH / 2,
+              lengthMm: arcLengthMm, label: 'Right Arc',
+              arcPath: `M ${ox + sW - sR},${oy} A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}` },
+            { side: 'arc_left', x1: ox + sR, y1: oy + sH, x2: ox + sR, y2: oy,
+              labelX: ox - 16, labelY: oy + sH / 2,
+              lengthMm: arcLengthMm, label: 'Left Arc',
+              arcPath: `M ${ox + sR},${oy + sH} A ${sR},${sR} 0 0 1 ${ox + sR},${oy}` },
+          ]
+        : [
+            // Single end — top/bottom/left straight, right is arc
+            { side: 'top', x1: ox, y1: oy, x2: ox + sW - sR, y2: oy,
+              labelX: ox + (sW - sR) / 2, labelY: oy - 12,
+              lengthMm: W - R, label: 'Top' },
+            { side: 'bottom', x1: ox, y1: oy + sH, x2: ox + sW - sR, y2: oy + sH,
+              labelX: ox + (sW - sR) / 2, labelY: oy + sH + 16,
+              lengthMm: W - R, label: 'Bottom' },
+            { side: 'left', x1: ox, y1: oy, x2: ox, y2: oy + sH,
+              labelX: ox - 16, labelY: oy + sH / 2,
+              lengthMm: H, label: 'Left' },
+            { side: 'arc_end', x1: ox + sW - sR, y1: oy, x2: ox + sW - sR, y2: oy + sH,
+              labelX: ox + sW + 8, labelY: oy + sH / 2,
+              lengthMm: arcLengthMm, label: 'Arc',
+              arcPath: `M ${ox + sW - sR},${oy} A ${sR},${sR} 0 0 1 ${ox + sW - sR},${oy + sH}` },
+          ];
 
       return { path, edges, svgW, svgH };
     }
@@ -1641,9 +1660,9 @@ export default function PieceVisualEditor({
               // For shaped pieces: ALL edges read from shapeConfigEdges
               const isWallEdge = noStripEdges.includes(edge.side);
               const profileId = (() => {
-                // RADIUS_END: arc_end comes from shapeConfigEdges (edge_arc_config).
-                // Straight edges (top, bottom, left, right) come from rectangle edge columns.
-                if (shapeType === 'RADIUS_END' && edge.side !== 'arc_end') {
+                // RADIUS_END: arc edges come from shapeConfigEdges (edge_arc_config).
+                // Straight edges (top, bottom, left) come from rectangle edge columns.
+                if (shapeType === 'RADIUS_END' && edge.side !== 'arc_end' && edge.side !== 'arc_left') {
                   const rectEdges: Record<string, string | null> = { top: edgeTop, bottom: edgeBottom, left: edgeLeft, right: edgeRight };
                   return rectEdges[edge.side] ?? null;
                 }
