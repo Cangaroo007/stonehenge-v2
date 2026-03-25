@@ -707,7 +707,28 @@ export default function PieceVisualEditor({
       onShapeEdgeChange('corner_bl', cornerProfileId);
       onShapeEdgeChange('corner_br', cornerProfileId);
     }
-  }, [onEdgesChange, quickEdgeProfile, effectiveShapeType, onShapeEdgeChange]);
+
+    // RADIUS_END: also apply to arc edges
+    if (effectiveShapeType === 'RADIUS_END' && onShapeEdgeChange) {
+      onShapeEdgeChange('arc_end', profileId);
+      if ((shapeConfig as Record<string, unknown> | null)?.curved_ends === 'BOTH') {
+        onShapeEdgeChange('arc_left', profileId);
+      }
+    }
+
+    // FULL_CIRCLE: apply to arc_body (the only edge)
+    if (effectiveShapeType === 'FULL_CIRCLE' && onShapeEdgeChange) {
+      onShapeEdgeChange('arc_body', profileId);
+    }
+
+    // CONCAVE_ARC: apply to all 4 arc edges
+    if (effectiveShapeType === 'CONCAVE_ARC' && onShapeEdgeChange) {
+      onShapeEdgeChange('arc_left', profileId);
+      onShapeEdgeChange('arc_right', profileId);
+      onShapeEdgeChange('arc_inner', profileId);
+      onShapeEdgeChange('arc_outer', profileId);
+    }
+  }, [onEdgesChange, quickEdgeProfile, effectiveShapeType, onShapeEdgeChange, shapeConfig]);
 
   const handleBulkApply = useCallback(
     (scope: 'room' | 'quote') => {
@@ -1488,7 +1509,7 @@ export default function PieceVisualEditor({
             effectiveShapeType === 'RADIUS_END' &&
             (shapeConfig as any)?.curved_ends === 'BOTH' && (
             <button
-              onClick={() => setSelectedArcEdges(new Set(['arc_end_start', 'arc_end_end']))}
+              onClick={() => setSelectedArcEdges(new Set(['arc_end', 'arc_left']))}
               className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
               title="Select both arc ends"
             >
@@ -2344,6 +2365,12 @@ export default function PieceVisualEditor({
           </div>
           <div className="flex items-center gap-1.5">
             <span className="text-[10px] text-green-700">Apply to more?</span>
+            <button
+              onClick={() => setBulkApplyInfo(null)}
+              className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded transition-colors"
+            >
+              This piece
+            </button>
             <button
               onClick={() => handleBulkApply('room')}
               className="px-2 py-0.5 text-[10px] font-medium text-green-700 bg-green-100 hover:bg-green-200 border border-green-300 rounded transition-colors"
