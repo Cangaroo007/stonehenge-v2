@@ -492,18 +492,28 @@ export default function PieceVisualEditor({
 
   const applyProfileToSelected = useCallback(
     (profileId: string | null) => {
-      if (selectedEdges.size === 0) return;
+      if (selectedEdges.size === 0 && selectedArcEdges.size === 0) return;
       const sides = Array.from(selectedEdges);
-      if (onEdgesChange) {
-        const changes: Record<string, string | null> = {};
-        selectedEdges.forEach((side) => {
-          changes[side] = profileId;
+      // Apply to rectangle edges
+      if (selectedEdges.size > 0) {
+        if (onEdgesChange) {
+          const changes: Record<string, string | null> = {};
+          selectedEdges.forEach((side) => {
+            changes[side] = profileId;
+          });
+          onEdgesChange(changes as { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null });
+        } else if (onEdgeChange) {
+          selectedEdges.forEach((side) => {
+            onEdgeChange(side, profileId);
+          });
+        }
+      }
+      // Apply to arc edges
+      if (selectedArcEdges.size > 0 && onShapeEdgeChange) {
+        selectedArcEdges.forEach(edgeId => {
+          onShapeEdgeChange(edgeId, profileId);
         });
-        onEdgesChange(changes as { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null });
-      } else if (onEdgeChange) {
-        selectedEdges.forEach((side) => {
-          onEdgeChange(side, profileId);
-        });
+        setSelectedArcEdges(new Set());
       }
       clearSelection();
 
@@ -515,7 +525,7 @@ export default function PieceVisualEditor({
         setScopeApplyInfo({ profileName, profileId, sides });
       }
     },
-    [selectedEdges, onEdgesChange, onEdgeChange, clearSelection, onBulkApply, edgeTypes]
+    [selectedEdges, selectedArcEdges, onEdgesChange, onEdgeChange, onShapeEdgeChange, clearSelection, onBulkApply, edgeTypes]
   );
 
   const applyProfileByIndex = useCallback(
@@ -682,6 +692,39 @@ export default function PieceVisualEditor({
     return 'RECTANGLE';
   }, [shapeType, shapeConfig]);
 
+  // ── Centralised edge utility — ALL edge apply paths must use this ──
+  const getAllEdgeSides = useCallback((): { rect: EdgeSide[]; arc: string[] } => {
+    const rect: EdgeSide[] = ['top', 'bottom', 'left', 'right'];
+    const arc: string[] = [];
+
+    switch (effectiveShapeType) {
+      case 'RADIUS_END':
+        arc.push('arc_end');
+        if ((shapeConfig as Record<string, unknown> | null)?.curved_ends === 'BOTH') {
+          arc.push('arc_left');
+        }
+        break;
+      case 'FULL_CIRCLE':
+        arc.push('arc_body');
+        break;
+      case 'CONCAVE_ARC':
+        arc.push('arc_left', 'arc_right', 'arc_inner', 'arc_outer');
+        break;
+      case 'ROUNDED_RECT':
+        arc.push('corner_tl', 'corner_tr', 'corner_bl', 'corner_br');
+        break;
+      // RECTANGLE, L_SHAPE, U_SHAPE — no arc edges
+    }
+
+    return { rect, arc };
+  }, [effectiveShapeType, shapeConfig]);
+
+  // Select all arc edges — called alongside selectAllEdges for "All edges" button
+  const selectAllArcEdges = useCallback(() => {
+    const { arc } = getAllEdgeSides();
+    if (arc.length > 0) setSelectedArcEdges(new Set(arc));
+  }, [getAllEdgeSides]);
+
   const handlePresetApply = useCallback((preset: EdgePreset) => {
     if (!onEdgesChange) return;
 
@@ -699,36 +742,14 @@ export default function PieceVisualEditor({
       right:  preset.sides.includes('right')  ? profileId : null,
     });
 
-    // ROUNDED_RECT: also apply to all 4 corner arcs
-    if (effectiveShapeType === 'ROUNDED_RECT' && onShapeEdgeChange) {
-      const cornerProfileId = preset.allRaw ? null : (preset.sides.length === 4 ? profileId : null);
-      onShapeEdgeChange('corner_tl', cornerProfileId);
-      onShapeEdgeChange('corner_tr', cornerProfileId);
-      onShapeEdgeChange('corner_bl', cornerProfileId);
-      onShapeEdgeChange('corner_br', cornerProfileId);
-    }
-
-    // RADIUS_END: also apply to arc edges
-    if (effectiveShapeType === 'RADIUS_END' && onShapeEdgeChange) {
-      onShapeEdgeChange('arc_end', profileId);
-      if ((shapeConfig as Record<string, unknown> | null)?.curved_ends === 'BOTH') {
-        onShapeEdgeChange('arc_left', profileId);
+    // Apply to arc edges (all shape types handled by centralised utility)
+    const { arc } = getAllEdgeSides();
+    if (onShapeEdgeChange) {
+      for (const side of arc) {
+        onShapeEdgeChange(side, profileId);
       }
     }
-
-    // FULL_CIRCLE: apply to arc_body (the only edge)
-    if (effectiveShapeType === 'FULL_CIRCLE' && onShapeEdgeChange) {
-      onShapeEdgeChange('arc_body', profileId);
-    }
-
-    // CONCAVE_ARC: apply to all 4 arc edges
-    if (effectiveShapeType === 'CONCAVE_ARC' && onShapeEdgeChange) {
-      onShapeEdgeChange('arc_left', profileId);
-      onShapeEdgeChange('arc_right', profileId);
-      onShapeEdgeChange('arc_inner', profileId);
-      onShapeEdgeChange('arc_outer', profileId);
-    }
-  }, [onEdgesChange, quickEdgeProfile, effectiveShapeType, onShapeEdgeChange, shapeConfig]);
+  }, [onEdgesChange, quickEdgeProfile, getAllEdgeSides, onShapeEdgeChange]);
 
   const handleBulkApply = useCallback(
     (scope: 'room' | 'quote') => {
@@ -749,11 +770,14 @@ export default function PieceVisualEditor({
         left: edgeLeft,
         right: edgeRight,
       };
-      // Override the sides that were selected
+      // Override the rectangle sides that were selected
       for (const side of scopeApplyInfo.sides) {
         edges[side] = scopeApplyInfo.profileId;
       }
       onBulkApply(edges, scope);
+      // Note: arc edges (arc_end, arc_body, corners) are already applied to this
+      // piece. Propagation of arc edges to other pieces requires API extension —
+      // tracked for a future sprint.
       setScopeApplyInfo(null);
     },
     [scopeApplyInfo, onBulkApply, edgeTop, edgeBottom, edgeLeft, edgeRight]
@@ -779,6 +803,7 @@ export default function PieceVisualEditor({
         case 'a':
           e.preventDefault();
           selectAllEdges();
+          selectAllArcEdges();
           break;
         case 'escape':
           clearSelection();
@@ -801,7 +826,7 @@ export default function PieceVisualEditor({
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isEditMode, selectAllEdges, clearSelection, applyProfileByIndex]);
+  }, [isEditMode, selectAllEdges, selectAllArcEdges, clearSelection, applyProfileByIndex]);
 
   // ── Edge rendering data ───────────────────────────────────────────────
 
@@ -1496,7 +1521,7 @@ export default function PieceVisualEditor({
           {/* Select All button */}
           {editMode === 'select' && (
             <button
-              onClick={selectAllEdges}
+              onClick={() => { selectAllEdges(); selectAllArcEdges(); }}
               className="px-2 py-1 text-[10px] font-medium text-gray-600 hover:bg-gray-50 border border-gray-200 rounded-md transition-colors"
               title="Select all edges (A)"
             >
@@ -1814,13 +1839,6 @@ export default function PieceVisualEditor({
 
                   {/* Edge label with profile indicator and side abbreviation */}
                   <g>
-                    {/* Coloured dot indicator */}
-                    <circle
-                      cx={edge.labelX + (isHorizontal ? -8 : 0)}
-                      cy={edge.labelY + (isHorizontal ? 0 : -8)}
-                      r={3}
-                      fill={colour}
-                    />
                     <text
                       x={edge.labelX + (isHorizontal ? 4 : 0)}
                       y={edge.labelY + (isHorizontal ? 0 : 4)}
@@ -1922,12 +1940,6 @@ export default function PieceVisualEditor({
 
                   {/* Corner edge label */}
                   <g>
-                    <circle
-                      cx={arc.labelX}
-                      cy={arc.labelY}
-                      r={3}
-                      fill={colour}
-                    />
                     <text
                       x={arc.labelX}
                       y={arc.labelY + 12}
@@ -2400,7 +2412,13 @@ export default function PieceVisualEditor({
             Applied &ldquo;{scopeApplyInfo.profileName}&rdquo; to {scopeApplyInfo.sides.join(', ')} edge{scopeApplyInfo.sides.length > 1 ? 's' : ''} on this piece
           </div>
           <div className="flex items-center gap-1.5 flex-wrap">
-            <span className="text-[10px] text-blue-700">Apply same to:</span>
+            <button
+              onClick={() => setScopeApplyInfo(null)}
+              className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded transition-colors"
+            >
+              This piece
+            </button>
+            <span className="text-[10px] text-blue-700">or apply to:</span>
             <button
               onClick={() => handleScopeApply('room')}
               className="px-2 py-0.5 text-[10px] font-medium text-blue-700 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded transition-colors"
