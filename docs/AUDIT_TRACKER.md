@@ -463,3 +463,7 @@ TEMPLATE-MANAGE-1 done
 - Current material as baseline column, delta in green/red
 - Switch button calls handleBulkMaterialApply, Clear button DELETEs slot
 - Replaces blue placeholder panel in QuoteDetailClient
+
+## RADIUS-SHAPE-FIX-1 — 2026-03-25
+- shapeType cast now uses ShapeType union from shapes.ts (was missing RADIUS_END + 3 others)
+- Root cause of all RADIUS_END/FULL_CIRCLE/CONCAVE_ARC/ROUNDED_RECT display failures
