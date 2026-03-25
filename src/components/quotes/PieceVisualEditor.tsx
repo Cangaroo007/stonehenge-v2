@@ -1772,7 +1772,7 @@ export default function PieceVisualEditor({
                         fill="none"
                         stroke="transparent"
                         strokeWidth={20}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
@@ -1805,7 +1805,7 @@ export default function PieceVisualEditor({
                       <line
                         x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                         stroke="transparent" strokeWidth={EDGE_HIT_WIDTH}
-                        style={{ cursor: 'pointer' }}
+                        style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                         onClick={(e) => {
                           e.stopPropagation();
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
