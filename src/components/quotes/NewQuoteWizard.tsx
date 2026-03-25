@@ -75,6 +75,57 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
     }
   };
 
+  // Multi-template apply — applies all selected templates to one quote
+  const handleMultiTemplateApply = async (templates: TemplateSummary[]) => {
+    if (templates.length === 0) return;
+
+    // Single template — use existing single-apply path unchanged
+    if (templates.length === 1) {
+      await handleTemplateSelect(templates[0]);
+      return;
+    }
+
+    // Multi-template — apply first to create quote, then apply rest to same quote
+    try {
+      setStep('creating');
+
+      // Apply first template — creates the quote
+      const firstRes = await fetch(`/api/starter-templates/${templates[0].id}/apply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          materialAssignments: {},
+          customerId: customerId || undefined,
+        }),
+      });
+
+      if (!firstRes.ok) throw new Error('Failed to create quote from first template');
+      const firstResult = await firstRes.json();
+      const newQuoteId: number = firstResult.quoteId;
+
+      // Apply remaining templates to the same quote
+      for (let i = 1; i < templates.length; i++) {
+        const res = await fetch(`/api/starter-templates/${templates[i].id}/apply`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            materialAssignments: {},
+            quoteId: newQuoteId,
+          }),
+        });
+        if (!res.ok) {
+          console.error(`Failed to apply template ${templates[i].name} — continuing`);
+        }
+      }
+
+      // Redirect to the new quote
+      handleQuoteCreated(newQuoteId);
+    } catch (err) {
+      console.error('Multi-template apply failed:', err);
+      setStep('template');
+    }
+  };
+
   // Manual quote — create immediately and redirect
   const handleManualCreate = async () => {
     setStep('creating');
@@ -242,6 +293,7 @@ export default function NewQuoteWizard({ onClose, customerId }: NewQuoteWizardPr
       <TemplateSelector
         onBack={() => setStep('choose')}
         onSelect={handleTemplateSelect}
+        onApply={handleMultiTemplateApply}
       />
     );
   }
