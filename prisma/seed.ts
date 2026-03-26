@@ -107,9 +107,12 @@ async function main() {
   ];
 
   for (const edgeType of edgeTypes) {
+    // isActive excluded from update — admin UI controls activation state.
+    // Seed only sets isActive on initial create, never overwrites it.
+    const { isActive, ...updateFields } = edgeType;
     await prisma.edge_types.upsert({
       where: { name: edgeType.name },
-      update: edgeType,
+      update: updateFields,
       create: edgeType,
     });
   }
