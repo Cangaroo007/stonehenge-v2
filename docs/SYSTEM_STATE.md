@@ -5,10 +5,10 @@
 > **Rule:** Every PR that touches schema, routes, components, or core services
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
-> **Last Updated:** 2026-03-25
-> **Last Updated By:** fix/edge-unify-1 — Pricing admin Phase 1: fix edge CRUD, cutout duplicates, strip config display, seed overwrite bugs
+> **Last Updated:** 2026-03-26
+> **Last Updated By:** fix/pricing-admin-2 — Pricing admin consolidation & finish
 >
-> Phase 1 pricing admin fixes: (1) Removed isPencilRound $0 override in seed-edge-category-rates.ts. (2) Made seed-cutout-types.ts single source of truth, removed cutout creation from seed.ts. (3) Added baseRate/isMitred/isCurved to EdgeTypeForm.tsx. (4) Fixed strip config column field names in page.tsx. (5) Added 409 duplicate name prevention to edge-types and cutout-types POST routes.
+> Phase 2 pricing admin: (1) Removed redundant edge/cutout/service tabs from EntityTable page.tsx — remaining 8 tabs. (2) Shared FABRICATION_CATEGORIES constant at src/lib/constants/fabrication-categories.ts replaces 4 local copies. Human-readable labels: Zero Silica, Granite, Marble, Quartzite, Porcelain. (3) Add/Deactivate buttons on dedicated edges + cutouts pages. (4) Services page uses shared constant. (5) seed-rate-card.ts populates Jay's rate card (3 edge profiles × 5 cats, 9 cutouts × 5 cats, 6 services × 5 cats). (6) cleanup-pricing.ts deactivates polishing service rates + duplicate cooktop entry. (7) Calculator wiring verified: ruleEdgeProfiles → edge_type_category_rates, ruleCutouts → cutout_category_rates, polishing bypassed ($0).
 
 ---
 

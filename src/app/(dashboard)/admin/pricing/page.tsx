@@ -4,9 +4,6 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import EntityTable from './components/EntityTable';
 import EntityModal from './components/EntityModal';
-import EdgeTypeForm from './components/EdgeTypeForm';
-import CutoutTypeForm from './components/CutoutTypeForm';
-import ServiceRateForm from './components/ServiceRateForm';
 import ThicknessForm from './components/ThicknessForm';
 import ClientTypeForm from './components/ClientTypeForm';
 import ClientTierForm from './components/ClientTierForm';
@@ -17,15 +14,7 @@ import TierManagement from '@/components/pricing/TierManagement';
 import MachineManagement from '@/components/pricing/MachineManagement';
 import { cn } from '@/lib/utils';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  ENGINEERED: 'Zero Silica',
-  NATURAL_HARD: 'Granite',
-  NATURAL_SOFT: 'Marble',
-  NATURAL_PREMIUM: 'Quartzite',
-  SINTERED: 'Porcelain',
-};
-
-type TabKey = 'edge-types' | 'cutout-types' | 'thickness-options' | 'client-types' | 'client-tiers' | 'pricing-rules' | 'price-books' | 'strip-configurations' | 'tiers' | 'machines' | 'service-rates';
+type TabKey = 'thickness-options' | 'strip-configurations' | 'machines' | 'client-types' | 'client-tiers' | 'tiers' | 'pricing-rules' | 'price-books';
 
 interface Tab {
   key: TabKey;
@@ -34,9 +23,6 @@ interface Tab {
 }
 
 const tabs: Tab[] = [
-  { key: 'edge-types', label: 'Edge Types', apiPath: '/api/admin/pricing/edge-types' },
-  { key: 'cutout-types', label: 'Cutout Types', apiPath: '/api/admin/pricing/cutout-types' },
-  { key: 'service-rates', label: 'Service Rates', apiPath: '/api/admin/pricing/service-rates' },
   { key: 'thickness-options', label: 'Thickness', apiPath: '/api/admin/pricing/thickness-options' },
   { key: 'strip-configurations', label: 'Strip Configurations', apiPath: '/api/admin/pricing/strip-configurations' },
   { key: 'machines', label: 'Machines', apiPath: '/api/admin/pricing/machines' },
@@ -54,40 +40,6 @@ interface Column {
 }
 
 const columnConfigs: Record<TabKey, Column[]> = {
-  'edge-types': [
-    { key: 'name', label: 'Name' },
-    { key: 'category', label: 'Category' },
-    { key: 'baseRate', label: 'Base Rate', render: (v) => `$${Number(v).toFixed(2)}` },
-    { key: 'isMitred', label: 'Mitred', render: (v) => (v ? 'Yes' : 'No') },
-    { key: 'isCurved', label: 'Curved', render: (v) => (v ? 'Yes' : 'No') },
-    { key: 'configuredCategories', label: 'Categories', render: (v) => {
-      const cats = v as string[];
-      if (!cats || cats.length === 0) return <span className="text-gray-400">None</span>;
-      return cats.map((c) => CATEGORY_LABELS[c] || c).join(', ');
-    }},
-    { key: 'sortOrder', label: 'Sort Order' },
-    { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
-  ],
-  'cutout-types': [
-    { key: 'name', label: 'Name' },
-    { key: 'description', label: 'Description' },
-    { key: 'baseRate', label: 'Base Rate', render: (v) => `$${Number(v).toFixed(2)}` },
-    { key: 'configuredCategories', label: 'Categories', render: (v) => {
-      const cats = v as string[];
-      if (!cats || cats.length === 0) return <span className="text-gray-400">None</span>;
-      return cats.map((c) => CATEGORY_LABELS[c] || c).join(', ');
-    }},
-    { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
-  ],
-  'service-rates': [
-    { key: 'name', label: 'Name' },
-    { key: 'serviceType', label: 'Service Type', render: (v) => formatServiceType(v as string) },
-    { key: 'fabricationCategory', label: 'Category', render: (v) => CATEGORY_LABELS[v as string] || (v as string) },
-    { key: 'rate20mm', label: '20mm Rate', render: (v) => `$${Number(v).toFixed(2)}` },
-    { key: 'rate40mm', label: '40mm Rate', render: (v) => `$${Number(v).toFixed(2)}` },
-    { key: 'minimumCharge', label: 'Min Charge', render: (v) => v ? `$${Number(v).toFixed(2)}` : '-' },
-    { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
-  ],
   'thickness-options': [
     { key: 'name', label: 'Name' },
     { key: 'value', label: 'Value (mm)' },
@@ -167,23 +119,6 @@ function formatAdjustment(type: string, value: number): string {
   return `${Number(value) >= 0 ? '+' : ''}$${Number(value).toFixed(2)}`;
 }
 
-function formatServiceType(type: string): string {
-  const labels: Record<string, string> = {
-    CUTTING: 'Cutting',
-    POLISHING: 'Polishing',
-    INSTALLATION: 'Installation',
-    WATERFALL_END: 'Waterfall End',
-    TEMPLATING: 'Templating',
-    DELIVERY: 'Delivery',
-    JOIN: 'Join Fabrication',
-    CURVED_CUTTING: 'Curved Cutting',
-    CURVED_POLISHING: 'Curved Polishing',
-    RADIUS_SETUP: 'Radius Setup',
-    CURVED_MIN_LM: 'Curved Minimum LM',
-  };
-  return labels[type] || type;
-}
-
 function formatUsageType(type: string): string {
   const labels: Record<string, string> = {
     EDGE_LAMINATION: 'Edge Lamination',
@@ -200,7 +135,7 @@ type ViewMode = 'simple' | 'advanced';
 export default function PricingAdminPage() {
   const router = useRouter();
   const [viewMode, setViewMode] = useState<ViewMode>('advanced');
-  const [activeTab, setActiveTab] = useState<TabKey>('edge-types');
+  const [activeTab, setActiveTab] = useState<TabKey>('thickness-options');
   const [data, setData] = useState<Record<string, unknown>[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -328,20 +263,18 @@ export default function PricingAdminPage() {
     };
 
     switch (activeTab) {
-      case 'edge-types':
-        return <EdgeTypeForm {...props} />;
-      case 'cutout-types':
-        return <CutoutTypeForm {...props} />;
-      case 'service-rates':
-        return <ServiceRateForm {...props} />;
       case 'thickness-options':
         return <ThicknessForm {...props} />;
       case 'strip-configurations':
         return <StripConfigurationForm {...props} />;
+      case 'machines':
+        return null;
       case 'client-types':
         return <ClientTypeForm {...props} />;
       case 'client-tiers':
         return <ClientTierForm {...props} clientTypes={clientTypes} />;
+      case 'tiers':
+        return null;
       case 'pricing-rules':
         return <PricingRuleForm {...props} clientTypes={clientTypes} />;
       case 'price-books':
