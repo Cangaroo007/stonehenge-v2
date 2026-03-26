@@ -733,7 +733,8 @@ export async function calculateQuotePrice(
   ]);
 
   // Validate required service rates exist — never silently return $0
-  const requiredServiceTypes = ['CUTTING', 'POLISHING', 'INSTALLATION'];
+  // POLISHING removed: bypassed in engine (March 2026), service rates deactivated
+  const requiredServiceTypes = ['CUTTING', 'INSTALLATION'];
   const loadedServiceTypes: string[] = Array.from(new Set(serviceRates.map(r => r.serviceType as string)));
   const missingServiceTypes = requiredServiceTypes.filter(t => !loadedServiceTypes.includes(t));
 
