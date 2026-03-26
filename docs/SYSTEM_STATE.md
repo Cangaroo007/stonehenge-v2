@@ -8,7 +8,7 @@
 > **Last Updated:** 2026-03-26
 > **Last Updated By:** fix/radius-arc-edge-1 — Arc edges on RADIUS_END pieces can now save edge profiles
 >
-> PUT handler in pieces/[pieceId]/route.ts was silently dropping edgeArcConfig (only PATCH had it). Frontend uses PUT via handleInlineSavePiece. Fixed 7 locations across 5 files: PUT destructuring + Prisma update + response, transformPieceForClient camelCase alias, QuotePiece interface + fullPiece construction, InlinePieceData interface, QVR snake_case→camelCase. Runtime verified: Quick Edge Arris on arc edge saves and persists after reload.
+> PUT handler in pieces/[pieceId]/route.ts was silently dropping edgeArcConfig (only PATCH had it). Frontend uses PUT via handleInlineSavePiece. Fixed 7 locations across 5 files + mini SVG thumbnail arc config read (8th fix). Runtime verified: Quick Edge Arris on arc edge saves, persists after reload, and summary/expanded views now match.
 
 ---
 

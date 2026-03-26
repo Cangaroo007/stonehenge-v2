@@ -1770,9 +1770,8 @@ export default function QuickViewPieceRow({
                   const ry = Math.max(Math.min((cfg.radius_mm / cfg.width_mm) * h, h * 0.45), h * 0.25);
                   const bothEnds = cfg.curved_ends === 'BOTH';
 
-                  // Read arc_end profile from edge_arc_config
-                  const arcConfig = (fullPiece as unknown as Record<string, unknown>)
-                    ?.edge_arc_config as Record<string, string | null> | null | undefined;
+                  // Read arc_end profile from edgeArcConfig (camelCase from API)
+                  const arcConfig = fullPiece?.edgeArcConfig as Record<string, string | null> | null | undefined;
                   const arcEndId = arcConfig?.arc_end ?? null;
                   const arcName = resolveEdgeName(arcEndId);
                   const arcIsFinished = !!arcEndId;
