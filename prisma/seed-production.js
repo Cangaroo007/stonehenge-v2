@@ -85,7 +85,7 @@ async function seedPricingSettings() {
           rate20mm: r20,
           rate40mm: r40,
           minimumCharge: minCharge,
-          isActive: true,
+          // isActive deliberately NOT updated — admin UI controls activation
           updated_at: new Date(),
         },
         create: {
@@ -130,7 +130,7 @@ async function seedPricingSettings() {
       update: {
         name: cutout.name,
         rate: cutout.rate,
-        isActive: true,
+        // isActive deliberately NOT updated — admin UI controls activation
         updated_at: new Date(),
       },
       create: {
@@ -378,7 +378,7 @@ async function seedEdgeTypes() {
           minimumLength: edgeType.minimumLength,
           isCurved: edgeType.isCurved,
           sortOrder: edgeType.sortOrder,
-          isActive: edgeType.isActive,
+          // isActive deliberately NOT updated — admin UI controls activation
           updatedAt: new Date(),
         },
       });
@@ -417,7 +417,7 @@ async function seedCutoutTypes() {
     if (byId) {
       await prisma.cutout_types.update({
         where: { id: cutout.id },
-        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, /* isActive NOT updated — admin controls */ updatedAt: new Date() },
       });
       continue;
     }
@@ -427,7 +427,7 @@ async function seedCutoutTypes() {
     if (byName) {
       await prisma.cutout_types.update({
         where: { id: byName.id },
-        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, isActive: true, updatedAt: new Date() },
+        data: { baseRate: cutout.baseRate, sortOrder: cutout.sortOrder, /* isActive NOT updated — admin controls */ updatedAt: new Date() },
       });
       continue;
     }

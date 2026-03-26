@@ -131,7 +131,22 @@ async function main() {
     console.log(`  ✓ Deactivated: ${name}`);
   }
 
-  // 4. Summary
+  // 4. Deactivate POLISHING, CURVED_POLISHING, and WATERFALL_END service rates
+  console.log('\n=== DEACTIVATING SERVICE RATES ===');
+  const SERVICE_TYPES_TO_DEACTIVATE = ['POLISHING', 'CURVED_POLISHING', 'WATERFALL_END'];
+  for (const serviceType of SERVICE_TYPES_TO_DEACTIVATE) {
+    const result = await prisma.service_rates.updateMany({
+      where: { serviceType, isActive: true },
+      data: { isActive: false },
+    });
+    if (result.count > 0) {
+      console.log(`  ✓ Deactivated ${result.count} ${serviceType} rate(s)`);
+    } else {
+      console.log(`  - ${serviceType} already inactive (or not found)`);
+    }
+  }
+
+  // 6. Summary
   const activeEdges = await prisma.edge_types.findMany({
     where: { isActive: true },
     select: { name: true },
@@ -142,7 +157,7 @@ async function main() {
     console.log(`  • ${e.name}`);
   }
 
-  // 5. Verify all rates populated
+  // 7. Verify all rates populated
   console.log('\n=== VERIFY: All active edge rates ===');
   for (const e of activeEdges) {
     const edge = allEdges.find((a: any) => a.name === e.name);
