@@ -531,3 +531,14 @@ TEMPLATE-MANAGE-1 done
   - `src/components/quotes/QuickViewPieceRow.tsx`: Fixed snake_case to camelCase (`edge_arc_config` to `edgeArcConfig`) in `handleShapeEdgeChange` and `shapeConfigEdges`
 - **Verified:** TypeScript zero errors, Railway build patterns audited, runtime click test passed (Quick Edge Arris on arc → saves + persists after reload)
 - **Follow-up:** Mini SVG thumbnail had its own separate `edge_arc_config` (snake_case) read at QVR line 1774 — changed to `edgeArcConfig` (camelCase). Summary and expanded views now match.
+
+## PRICING-ADMIN-4 — 2026-03-26
+- **Status:** ✅ Resolved
+- **What changed:**
+  - `pricing-calculator-v2.ts`: Bypassed WATERFALL_END calculation (cost captured by Mitered edge rate). Removed POLISHING from requiredServiceTypes validation gate — was crashing entire calculation when polishing rates deactivated.
+  - `scripts/cleanup-edges-and-services.ts`: Added service rate deactivation (POLISHING, CURVED_POLISHING, WATERFALL_END)
+  - `prisma/seed-production.js`: Removed isActive:true from update blocks for edge types, service rates, cutout rates, cutout types
+  - `prisma/seed-pricing-settings.ts`: Removed isActive:true from service rates update block
+- **Root cause:** (1) Waterfall End was a redundant service charge — mitred edge rate already covers it. (2) Polishing service rates deactivated but validation gate still required them, crashing all quote calculations. (3) Two more seed files had isActive re-activation bug.
+- **Verified:** TypeScript zero errors. Quote calculations restored after removing POLISHING from validation gate.
+

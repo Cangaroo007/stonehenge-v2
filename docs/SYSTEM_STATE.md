@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-26
-> **Last Updated By:** fix/radius-arc-edge-1 — Arc edges on RADIUS_END pieces can now save edge profiles
+> **Last Updated By:** fix/pricing-admin-4 — Bypass waterfall end calc, deactivate polishing/waterfall services, fix all seed isActive overwrites, fix calculator validation gate
 >
-> PUT handler in pieces/[pieceId]/route.ts was silently dropping edgeArcConfig (only PATCH had it). Frontend uses PUT via handleInlineSavePiece. Fixed 7 locations across 5 files + mini SVG thumbnail arc config read (8th fix). Runtime verified: Quick Edge Arris on arc edge saves, persists after reload, and summary/expanded views now match.
+> WATERFALL_END calculation bypassed in pricing-calculator-v2.ts (cost captured by Mitered edge rate). POLISHING removed from requiredServiceTypes validation gate (was crashing all calculations when polishing rates deactivated). Cleanup script updated to deactivate POLISHING, CURVED_POLISHING, WATERFALL_END service rates. isActive re-activation bug fixed in seed-production.js and seed-pricing-settings.ts (4th and 5th seed files found with same bug).
 
 ---
 
@@ -1263,3 +1263,4 @@ TEMPLATE-MANAGE-1 done
 - All create/update operations use prisma.$transaction for atomic saves
 - Category rate upserts use compound unique keys for robustness
 - CATEGORY_LABELS: ENGINEERED→Zero Silica, NATURAL_HARD→Granite, NATURAL_SOFT→Marble, NATURAL_PREMIUM→Quartzite, SINTERED→Porcelain
+
