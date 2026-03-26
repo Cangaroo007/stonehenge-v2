@@ -506,3 +506,13 @@ TEMPLATE-MANAGE-1 done
 
 ## PRICING-ADMIN-1 — 2026-03-25
 - Added ServiceRateForm.tsx component to pricing admin
+
+## PRICING-ADMIN-2 — 2026-03-26
+- EdgeTypeForm.tsx: added baseRate, isMitred, isCurved fields + per-category rate table (5 categories × 20mm/40mm $/Lm)
+- CutoutTypeForm.tsx: added per-category rate table (single $/each per category)
+- ServiceRateForm.tsx: populated with serviceType dropdown (11 types), fabricationCategory, rate20mm/rate40mm, minimumCharge
+- page.tsx: added service-rates tab, CATEGORY_LABELS constant, updated edge-types/cutout-types column configs
+- edge-types/route.ts: GET returns full categoryRates array with Decimal→Number serialisation, POST uses $transaction
+- edge-types/[id]/route.ts: PUT uses $transaction + upsert on compound unique key (edgeTypeId_fabricationCategory_pricingSettingsId)
+- cutout-types/route.ts: GET returns full categoryRates, POST uses $transaction
+- cutout-types/[id]/route.ts: PUT uses $transaction + upsert on compound unique key (cutoutTypeId_fabricationCategory_pricingSettingsId)

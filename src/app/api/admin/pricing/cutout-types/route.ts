@@ -18,15 +18,18 @@ export async function GET() {
       },
     });
 
-    // Properly serialize Decimal fields to numbers and ensure boolean fields are set
+    // Serialize Decimal fields to numbers
     const serialized = cutoutTypes.map((ct: typeof cutoutTypes[number]) => ({
       id: ct.id,
       name: ct.name,
       description: ct.description,
       baseRate: Number(ct.baseRate),
-      isActive: ct.isActive ?? true, // Default to true if null/undefined
+      isActive: ct.isActive ?? true,
       sortOrder: ct.sortOrder,
-      // Include fabrication categories that have configured rates (non-zero)
+      categoryRates: ct.categoryRates.map((r: { fabricationCategory: string; rate: unknown }) => ({
+        fabricationCategory: r.fabricationCategory,
+        rate: Number(r.rate),
+      })),
       configuredCategories: ct.categoryRates
         .filter((r: { rate: unknown }) => Number(r.rate) > 0)
         .map((r: { fabricationCategory: string }) => r.fabricationCategory),
@@ -65,19 +68,39 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const cutoutType = await prisma.cutout_types.create({
-      data: {
-        id: crypto.randomUUID(),
-        name: data.name,
-        description: data.description || null,
-        baseRate: data.baseRate || 0,
-        sortOrder: data.sortOrder || 0,
-        isActive: data.isActive ?? true,
-        updatedAt: new Date(),
-      },
+    const cutoutTypeId = crypto.randomUUID();
+    const categoryRates = data.categoryRates || [];
+
+    // Transaction: create cutout type + category rates atomically
+    const result = await prisma.$transaction(async (tx) => {
+      const cutoutType = await tx.cutout_types.create({
+        data: {
+          id: cutoutTypeId,
+          name: data.name,
+          description: data.description || null,
+          baseRate: data.baseRate || 0,
+          sortOrder: data.sortOrder || 0,
+          isActive: data.isActive ?? true,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create category rates
+      for (const cr of categoryRates) {
+        await tx.cutout_category_rates.create({
+          data: {
+            cutoutTypeId: cutoutTypeId,
+            fabricationCategory: cr.fabricationCategory,
+            rate: cr.rate || 0,
+            pricingSettingsId: 'ps-org-1',
+          },
+        });
+      }
+
+      return cutoutType;
     });
 
-    return NextResponse.json(cutoutType, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Error creating cutout type:', error);
     return NextResponse.json({ error: 'Failed to create cutout type' }, { status: 500 });
