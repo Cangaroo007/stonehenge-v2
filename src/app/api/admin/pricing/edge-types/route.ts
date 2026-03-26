@@ -18,18 +18,22 @@ export async function GET() {
       },
     });
 
-    // Properly serialize Decimal fields to numbers and ensure boolean fields are set
+    // Serialize Decimal fields to numbers
     const serialized = edgeTypes.map((et: typeof edgeTypes[number]) => ({
       id: et.id,
       name: et.name,
       description: et.description,
       category: et.category,
       baseRate: Number(et.baseRate),
-      isActive: et.isActive ?? true, // Default to true if null/undefined
+      isActive: et.isActive ?? true,
       isMitred: et.isMitred ?? false,
       isCurved: et.isCurved ?? false,
       sortOrder: et.sortOrder,
-      // Include fabrication categories that have configured rates (non-zero)
+      categoryRates: et.categoryRates.map((r: { fabricationCategory: string; rate20mm: unknown; rate40mm: unknown }) => ({
+        fabricationCategory: r.fabricationCategory,
+        rate20mm: Number(r.rate20mm),
+        rate40mm: Number(r.rate40mm),
+      })),
       configuredCategories: et.categoryRates
         .filter((r: { rate20mm: unknown; rate40mm: unknown }) => Number(r.rate20mm) > 0 || Number(r.rate40mm) > 0)
         .map((r: { fabricationCategory: string }) => r.fabricationCategory),
@@ -68,22 +72,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const edgeType = await prisma.edge_types.create({
-      data: {
-        id: crypto.randomUUID(),
-        name: data.name,
-        description: data.description || null,
-        category: data.category || 'polish',
-        baseRate: data.baseRate || 0,
-        sortOrder: data.sortOrder || 0,
-        isActive: data.isActive ?? true,
-        isMitred: data.isMitred ?? false,
-        isCurved: data.isCurved ?? false,
-        updatedAt: new Date(),
-      },
+    const edgeTypeId = crypto.randomUUID();
+    const categoryRates = data.categoryRates || [];
+
+    // Transaction: create edge type + category rates atomically
+    const result = await prisma.$transaction(async (tx) => {
+      const edgeType = await tx.edge_types.create({
+        data: {
+          id: edgeTypeId,
+          name: data.name,
+          description: data.description || null,
+          category: data.category || 'polish',
+          baseRate: data.baseRate || 0,
+          sortOrder: data.sortOrder || 0,
+          isActive: data.isActive ?? true,
+          isMitred: data.isMitred ?? false,
+          isCurved: data.isCurved ?? false,
+          updatedAt: new Date(),
+        },
+      });
+
+      // Create category rates
+      for (const cr of categoryRates) {
+        await tx.edge_type_category_rates.create({
+          data: {
+            edgeTypeId: edgeTypeId,
+            fabricationCategory: cr.fabricationCategory,
+            rate20mm: cr.rate20mm || 0,
+            rate40mm: cr.rate40mm || 0,
+            pricingSettingsId: 'ps-org-1',
+          },
+        });
+      }
+
+      return edgeType;
     });
 
-    return NextResponse.json(edgeType, { status: 201 });
+    return NextResponse.json(result, { status: 201 });
   } catch (error) {
     console.error('Error creating edge type:', error);
     return NextResponse.json({ error: 'Failed to create edge type' }, { status: 500 });

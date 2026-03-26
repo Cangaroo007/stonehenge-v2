@@ -1255,3 +1255,11 @@ TEMPLATE-MANAGE-1 done
 
 ## PRICING-ADMIN-1 — 2026-03-25
 - ServiceRateForm.tsx added to pricing admin components
+
+## PRICING-ADMIN-2 — 2026-03-26
+- Full per-category rate CRUD for edge types (20mm/40mm $/Lm × 5 fabrication categories)
+- Full per-category rate CRUD for cutout types ($/each × 5 fabrication categories)
+- Service Rates tab added to admin pricing panel with full form
+- All create/update operations use prisma.$transaction for atomic saves
+- Category rate upserts use compound unique keys for robustness
+- CATEGORY_LABELS: ENGINEERED→Zero Silica, NATURAL_HARD→Granite, NATURAL_SOFT→Marble, NATURAL_PREMIUM→Quartzite, SINTERED→Porcelain
