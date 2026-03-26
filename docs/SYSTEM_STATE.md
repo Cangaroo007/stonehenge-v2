@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-26
-> **Last Updated By:** fix/pricing-admin-2 — Pricing admin consolidation & finish
+> **Last Updated By:** fix/pricing-admin-3 — isActive filtering on all pricing APIs + edge rate population
 >
-> Phase 2 pricing admin: (1) Removed redundant edge/cutout/service tabs from EntityTable page.tsx — remaining 8 tabs. (2) Shared FABRICATION_CATEGORIES constant at src/lib/constants/fabrication-categories.ts replaces 4 local copies. Human-readable labels: Zero Silica, Granite, Marble, Quartzite, Porcelain. (3) Add/Deactivate buttons on dedicated edges + cutouts pages. (4) Services page uses shared constant. (5) seed-rate-card.ts populates Jay's rate card (3 edge profiles × 5 cats, 9 cutouts × 5 cats, 6 services × 5 cats). (6) cleanup-pricing.ts deactivates polishing service rates + duplicate cooktop entry. (7) Calculator wiring verified: ruleEdgeProfiles → edge_type_category_rates, ruleCutouts → cutout_category_rates, polishing bypassed ($0).
+> All pricing GET APIs (edge-types, cutout-types, service-rates, edge-category-rates, cutout-category-rates) now filter by isActive: true. Deactivated items hidden from admin UI and quote builder. Active edge types reduced to 4: Arris, Pencil Round, Beveled, Mitered — all with full per-category rates from Jay's rate card. Arris + Pencil Round set to Ogee prices. 6 stale edge types deactivated. Polishing hidden from Services page.
 
 ---
 

@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const pricingSettingsId = searchParams.get('pricingSettingsId');
 
     const rates = await prisma.cutout_category_rates.findMany({
-      where: pricingSettingsId ? { pricingSettingsId } : undefined,
+      where: {
+        ...(pricingSettingsId ? { pricingSettingsId } : {}),
+        cutoutType: { isActive: true },
+      },
       include: {
         cutoutType: {
           select: { id: true, name: true, baseRate: true, isActive: true, sortOrder: true },
