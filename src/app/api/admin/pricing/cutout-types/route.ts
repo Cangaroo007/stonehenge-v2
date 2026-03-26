@@ -10,6 +10,7 @@ export async function GET() {
     }
 
     const cutoutTypes = await prisma.cutout_types.findMany({
+      where: { isActive: true },
       orderBy: [{ sortOrder: 'asc' }, { name: 'asc' }],
       include: {
         categoryRates: {
