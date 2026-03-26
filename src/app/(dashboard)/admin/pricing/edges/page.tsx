@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { FABRICATION_CATEGORIES } from '@/lib/constants/fabrication-categories';
 
 // --- Types ---
 
@@ -37,14 +38,6 @@ interface LocalCompatRule {
   warningMessage: string;
 }
 
-const FABRICATION_CATEGORIES = [
-  { value: 'ENGINEERED', label: 'ENG', fullLabel: 'Engineered Quartz' },
-  { value: 'NATURAL_SOFT', label: 'N.SOFT', fullLabel: 'Natural Soft (Marble)' },
-  { value: 'NATURAL_HARD', label: 'N.HARD', fullLabel: 'Natural Hard (Granite)' },
-  { value: 'SINTERED', label: 'SINT', fullLabel: 'Sintered / Porcelain' },
-  { value: 'NATURAL_PREMIUM', label: 'N.PREM', fullLabel: 'Natural Premium (Quartzite)' },
-] as const;
-
 export default function EdgeRatesPage() {
   const [edgeRates, setEdgeRates] = useState<EdgeCategoryRate[]>([]);
   const [compatGroups, setCompatGroups] = useState<CompatibilityGroup[]>([]);
@@ -52,6 +45,12 @@ export default function EdgeRatesPage() {
   const [savingSurcharges, setSavingSurcharges] = useState(false);
   const [savingCompat, setSavingCompat] = useState(false);
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+
+  // Add edge modal state
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newEdgeName, setNewEdgeName] = useState('');
+  const [addingEdge, setAddingEdge] = useState(false);
+  const [deletingEdgeId, setDeletingEdgeId] = useState<string | null>(null);
 
   // Surcharge state: edgeTypeId -> fabricationCategory -> { rate20mm, rate40mm }
   const [localSurcharges, setLocalSurcharges] = useState<
@@ -210,6 +209,64 @@ export default function EdgeRatesPage() {
     }
   };
 
+  // --- Add/Deactivate edge handlers ---
+
+  const handleAddEdge = async () => {
+    if (!newEdgeName.trim()) return;
+    setAddingEdge(true);
+    try {
+      const res = await fetch('/api/admin/pricing/edge-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newEdgeName.trim(),
+          baseRate: 0,
+          categoryRates: FABRICATION_CATEGORIES.map(cat => ({
+            fabricationCategory: cat.value,
+            rate20mm: 0,
+            rate40mm: 0,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add edge type');
+      }
+      setToast({ message: `Edge type "${newEdgeName.trim()}" added`, type: 'success' });
+      setShowAddModal(false);
+      setNewEdgeName('');
+      fetchData();
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to add edge type',
+        type: 'error',
+      });
+    } finally {
+      setAddingEdge(false);
+    }
+  };
+
+  const handleDeactivateEdge = async (id: string, name: string) => {
+    if (!confirm(`Deactivate "${name}"? It will no longer appear in quotes.`)) return;
+    setDeletingEdgeId(id);
+    try {
+      const res = await fetch(`/api/admin/pricing/edge-types/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to deactivate edge type');
+      }
+      setToast({ message: `"${name}" deactivated`, type: 'success' });
+      fetchData();
+    } catch (error) {
+      setToast({
+        message: error instanceof Error ? error.message : 'Failed to deactivate edge type',
+        type: 'error',
+      });
+    } finally {
+      setDeletingEdgeId(null);
+    }
+  };
+
   // --- Compatibility handlers ---
 
   const getCompatState = (edgeTypeId: string, category: string): CompatibilityState => {
@@ -344,12 +401,57 @@ export default function EdgeRatesPage() {
       <div className="space-y-8">
         {/* Section 1: Edge Surcharge Matrix */}
         <div className="card">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Edge Surcharges by Category</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Set edge profile surcharges per fabrication category and thickness. Rates are in AUD per lineal metre.
-            </p>
+          <div className="mb-4 flex items-start justify-between">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Edge Surcharges by Category</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Set edge profile surcharges per fabrication category and thickness. Rates are in AUD per lineal metre.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg whitespace-nowrap"
+            >
+              + Add Edge Type
+            </button>
           </div>
+
+          {/* Add modal */}
+          {showAddModal && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Add New Edge Type</h3>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={newEdgeName}
+                    onChange={(e) => setNewEdgeName(e.target.value)}
+                    placeholder="e.g. Bullnose"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                  />
+                </div>
+                <button
+                  onClick={handleAddEdge}
+                  disabled={addingEdge || !newEdgeName.trim()}
+                  className={cn(
+                    'px-4 py-2 text-sm font-medium text-white rounded-lg',
+                    addingEdge || !newEdgeName.trim()
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700'
+                  )}
+                >
+                  {addingEdge ? 'Adding...' : 'Add'}
+                </button>
+                <button
+                  onClick={() => { setShowAddModal(false); setNewEdgeName(''); }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Category selector */}
           <div className="border-b border-gray-200 mb-4">
@@ -392,6 +494,7 @@ export default function EdgeRatesPage() {
                     <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider">
                       40mm Rate
                     </th>
+                    <th className="px-4 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -435,6 +538,15 @@ export default function EdgeRatesPage() {
                               className="w-28 pl-5 rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
                             />
                           </div>
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-center">
+                          <button
+                            onClick={() => handleDeactivateEdge(edge.edgeTypeId, edge.edgeTypeName)}
+                            disabled={deletingEdgeId === edge.edgeTypeId}
+                            className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                          >
+                            {deletingEdgeId === edge.edgeTypeId ? 'Removing...' : 'Deactivate'}
+                          </button>
                         </td>
                       </tr>
                     );
@@ -487,7 +599,6 @@ export default function EdgeRatesPage() {
                       <th
                         key={cat.value}
                         className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        title={cat.fullLabel}
                       >
                         {cat.label}
                       </th>

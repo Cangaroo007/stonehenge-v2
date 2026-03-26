@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { FABRICATION_CATEGORIES } from '@/lib/constants/fabrication-categories';
 
 interface ServiceRate {
   id: string;
@@ -14,14 +15,6 @@ interface ServiceRate {
   minimumCharge: number | null;
   isActive: boolean;
 }
-
-const FABRICATION_CATEGORIES = [
-  { value: 'ENGINEERED', label: 'Engineered Quartz' },
-  { value: 'NATURAL_HARD', label: 'Natural Hard (Granite)' },
-  { value: 'NATURAL_SOFT', label: 'Natural Soft (Marble)' },
-  { value: 'NATURAL_PREMIUM', label: 'Natural Premium (Quartzite)' },
-  { value: 'SINTERED', label: 'Sintered / Porcelain' },
-] as const;
 
 const CATEGORY_MULTIPLIER_LABELS: Record<string, string> = {
   ENGINEERED: '1.00x — baseline',

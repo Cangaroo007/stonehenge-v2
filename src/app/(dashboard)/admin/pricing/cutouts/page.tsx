@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
+import { FABRICATION_CATEGORIES } from '@/lib/constants/fabrication-categories';
 
 interface CutoutCategoryRate {
   cutoutTypeId: string;
@@ -13,14 +14,6 @@ interface CutoutCategoryRate {
     rate: number;
   }>;
 }
-
-const FABRICATION_CATEGORIES = [
-  { value: 'ENGINEERED', label: 'ENG', fullLabel: 'Engineered Quartz' },
-  { value: 'NATURAL_SOFT', label: 'N.SOFT', fullLabel: 'Natural Soft (Marble)' },
-  { value: 'NATURAL_HARD', label: 'N.HARD', fullLabel: 'Natural Hard (Granite)' },
-  { value: 'SINTERED', label: 'SINT', fullLabel: 'Sintered / Porcelain' },
-  { value: 'NATURAL_PREMIUM', label: 'N.PREM', fullLabel: 'Natural Premium (Quartzite)' },
-] as const;
 
 interface PricingSettings {
   cutoutThicknessMultiplier: string;
@@ -36,6 +29,10 @@ export default function CutoutRatesPage() {
   const [thicknessMultiplier, setThicknessMultiplier] = useState('1.00');
   // Track local edits as a map of cutoutTypeId -> fabricationCategory -> rate
   const [localRates, setLocalRates] = useState<Record<string, Record<string, number>>>({});
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [newCutoutName, setNewCutoutName] = useState('');
+  const [addingCutout, setAddingCutout] = useState(false);
+  const [deletingCutoutId, setDeletingCutoutId] = useState<string | null>(null);
 
   const fetchData = useCallback(async () => {
     try {
@@ -163,6 +160,55 @@ export default function CutoutRatesPage() {
     }
   };
 
+  const handleAddCutout = async () => {
+    if (!newCutoutName.trim()) return;
+    setAddingCutout(true);
+    try {
+      const res = await fetch('/api/admin/pricing/cutout-types', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: newCutoutName.trim(),
+          baseRate: 0,
+          categoryRates: FABRICATION_CATEGORIES.map(cat => ({
+            fabricationCategory: cat.value,
+            rate: 0,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to add cutout type');
+      }
+      setToast({ message: `Cutout type "${newCutoutName.trim()}" added`, type: 'success' });
+      setShowAddModal(false);
+      setNewCutoutName('');
+      fetchData();
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : 'Failed to add cutout type', type: 'error' });
+    } finally {
+      setAddingCutout(false);
+    }
+  };
+
+  const handleDeactivateCutout = async (id: string, name: string) => {
+    if (!confirm(`Deactivate "${name}"? It will no longer appear in quotes.`)) return;
+    setDeletingCutoutId(id);
+    try {
+      const res = await fetch(`/api/admin/pricing/cutout-types/${id}`, { method: 'DELETE' });
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to deactivate cutout type');
+      }
+      setToast({ message: `"${name}" deactivated`, type: 'success' });
+      fetchData();
+    } catch (error) {
+      setToast({ message: error instanceof Error ? error.message : 'Failed to deactivate cutout type', type: 'error' });
+    } finally {
+      setDeletingCutoutId(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -187,12 +233,59 @@ export default function CutoutRatesPage() {
       <div className="space-y-6">
         {/* Category Rate Matrix */}
         <div className="card">
-          <div className="mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Cutout Category Rates</h2>
-            <p className="text-sm text-gray-500 mt-1">
-              Set cutout rates per fabrication category. Rates are in AUD.
-            </p>
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900">Cutout Category Rates</h2>
+              <p className="text-sm text-gray-500 mt-1">
+                Set cutout rates per fabrication category. Rates are in AUD.
+              </p>
+            </div>
+            <button
+              onClick={() => setShowAddModal(true)}
+              className="px-4 py-2 text-sm font-medium text-white bg-primary-600 hover:bg-primary-700 rounded-lg shrink-0"
+            >
+              + Add Cutout Type
+            </button>
           </div>
+
+          {showAddModal && (
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+              <h3 className="text-sm font-semibold text-gray-900 mb-3">Add New Cutout Type</h3>
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                  <input
+                    type="text"
+                    value={newCutoutName}
+                    onChange={(e) => setNewCutoutName(e.target.value)}
+                    placeholder="e.g. Pop-up Waste"
+                    className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 text-sm"
+                  />
+                </div>
+                <button
+                  onClick={handleAddCutout}
+                  disabled={addingCutout || !newCutoutName.trim()}
+                  className={cn(
+                    'px-4 py-2 text-sm font-medium text-white rounded-lg',
+                    addingCutout || !newCutoutName.trim()
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-green-600 hover:bg-green-700'
+                  )}
+                >
+                  {addingCutout ? 'Adding...' : 'Add'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowAddModal(false);
+                    setNewCutoutName('');
+                  }}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 hover:bg-gray-50 rounded-lg"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
 
           {cutoutRates.length === 0 ? (
             <div className="text-center py-12">
@@ -213,11 +306,11 @@ export default function CutoutRatesPage() {
                       <th
                         key={cat.value}
                         className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider"
-                        title={cat.fullLabel}
                       >
                         {cat.label}
                       </th>
                     ))}
+                    <th className="px-3 py-3 text-center text-xs font-medium text-gray-500 uppercase tracking-wider w-24"></th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -245,6 +338,15 @@ export default function CutoutRatesPage() {
                           </div>
                         </td>
                       ))}
+                      <td className="px-3 py-3 whitespace-nowrap text-center">
+                        <button
+                          onClick={() => handleDeactivateCutout(cutout.cutoutTypeId, cutout.cutoutTypeName)}
+                          disabled={deletingCutoutId === cutout.cutoutTypeId}
+                          className="text-xs text-red-600 hover:text-red-800 font-medium disabled:opacity-50"
+                        >
+                          {deletingCutoutId === cutout.cutoutTypeId ? 'Removing...' : 'Deactivate'}
+                        </button>
+                      </td>
                     </tr>
                   ))}
                 </tbody>
