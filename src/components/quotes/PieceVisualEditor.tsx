@@ -683,14 +683,17 @@ export default function PieceVisualEditor({
 
   // ── Effective shape type (fallback to RECTANGLE if config missing) ───
   const effectiveShapeType: ShapeType = useMemo(() => {
-    if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') return 'L_SHAPE';
-    if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') return 'U_SHAPE';
-    if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') return 'RADIUS_END';
-    if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') return 'FULL_CIRCLE';
-    if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') return 'CONCAVE_ARC';
-    if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') return 'ROUNDED_RECT';
+    // shapeType prop (from piece.shape_type DB column) is the canonical source of truth.
+    // shapeConfig.shape is a validation aid, NOT a gatekeeper.
+    // Many pieces have shape_type set but shape_config missing or without .shape discriminant.
+    if (shapeType && shapeType !== 'RECTANGLE') {
+      // Trust the prop — but verify shapeConfig exists for shapes that need dimensions.
+      // If shapeConfig is missing, we still return the correct shape type so the UI
+      // can show the shape outline (using fallback dimensions from lengthMm/widthMm).
+      return shapeType;
+    }
     return 'RECTANGLE';
-  }, [shapeType, shapeConfig]);
+  }, [shapeType]);
 
   // ── Centralised edge utility — ALL edge apply paths must use this ──
   const getAllEdgeSides = useCallback((): { rect: EdgeSide[]; arc: string[] } => {
@@ -1047,11 +1050,11 @@ export default function PieceVisualEditor({
     }
 
     if (effectiveShapeType === 'RADIUS_END') {
-      const cfg = shapeConfig as RadiusEndConfig;
-      const W = cfg.length_mm ?? lengthMm;
-      const H = cfg.width_mm ?? widthMm;
-      const R = Math.min(cfg.radius_mm ?? H / 2, H / 2);
-      const bothEnds = cfg.curved_ends === 'BOTH';
+      const cfg = shapeConfig as RadiusEndConfig | null;
+      const W = cfg?.length_mm ?? lengthMm ?? 2400;
+      const H = cfg?.width_mm ?? widthMm ?? 600;
+      const R = Math.min(cfg?.radius_mm ?? Math.min(H / 2, 200), H / 2);
+      const bothEnds = cfg?.curved_ends === 'BOTH';
 
       const scale = Math.min(
         (500 - SVG_PADDING * 2) / W,
@@ -1855,10 +1858,10 @@ export default function PieceVisualEditor({
                           if (attachedType === 'SPLASHBACK') return `SB ${edge.label}`;
                           return `N-STR ${edge.label}`;
                         }
-                        if (!isFinished) return `RAW ${edge.label}`;
+                        if (!isFinished) return `RAW ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                         const depth = edgeBuildups?.[edge.side]?.depth;
                         if (depth) return `${code} ${depth}mm`;
-                        return `${code} ${edge.label}`;
+                        return `${code} ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                       })()}
                     </text>
                   </g>
