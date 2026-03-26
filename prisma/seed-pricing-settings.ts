@@ -62,7 +62,7 @@ async function main() {
         rate20mm: rate.rate20mm,
         rate40mm: rate.rate40mm,
         minimumCharge: rate.minimumCharge,
-        isActive: true,
+        // isActive is deliberately NOT updated here — admin UI controls activation
         updated_at: new Date(),
       },
       create: {

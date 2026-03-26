@@ -1297,65 +1297,11 @@ export async function calculateQuotePrice(
     serviceData.subtotal += totalLaminationCost;
   }
 
-  // Waterfall ends: supports FIXED_PER_END and PER_LINEAR_METRE methods
-  const waterfallPieces = allPieces.filter((p: any) => {
-    // Primary: detect by piece_type (real Prisma field added in WF-1a)
-    if (p.piece_type === 'WATERFALL') return true;
-    // Legacy fallback: waterfall_height_mm for pieces created before WF-1b
-    if (p.waterfall_height_mm && p.waterfall_height_mm > 0) return true;
-    return false;
-  });
-  if (waterfallPieces.length > 0) {
-    const avgThickness = allPieces.length > 0
-      ? allPieces.reduce((sum: number, p: any) => sum + p.thickness_mm, 0) / allPieces.length
-      : 20;
-    const waterfallRateRecord = serviceRates.find(r =>
-      r.serviceType === 'WATERFALL_END' && r.fabricationCategory === primaryFabricationCategory
-    ) ?? serviceRates.find(r => r.serviceType === 'WATERFALL_END');
-    if (!waterfallRateRecord) {
-      // Waterfall pieces exist but no rate configured — record missing rate
-      for (const wfPiece of waterfallPieces) {
-        missingRates.push({
-          code: 'WATERFALL_END',
-          pieceId: String((wfPiece as any).id),
-          pieceName: (wfPiece as any).name || (wfPiece as any).description || `Piece ${(wfPiece as any).id}`,
-          description: `No WATERFALL_END rate found for ${primaryFabricationCategory} category`,
-        });
-      }
-    }
-    if (waterfallRateRecord) {
-      const waterfallMethod = pricingContext.waterfallPricingMethod ?? 'FIXED_PER_END';
-      const waterfallRateVal = avgThickness > 20
-        ? waterfallRateRecord.rate40mm.toNumber()
-        : waterfallRateRecord.rate20mm.toNumber();
-      if (waterfallMethod === 'FIXED_PER_END') {
-        const waterfallCount = waterfallPieces.length;
-        const cost = applyMinimumCharge(waterfallCount * waterfallRateVal, waterfallRateRecord);
-        serviceData.items.push({
-          serviceType: 'WATERFALL_END', name: waterfallRateRecord.name,
-          quantity: waterfallCount, unit: 'EACH',
-          rate: waterfallRateVal, subtotal: roundToTwo(cost),
-        });
-        serviceData.subtotal += cost;
-      } else if (waterfallMethod === 'PER_LINEAR_METRE') {
-        let totalWaterfallCost = 0;
-        let totalHeightLm = 0;
-        for (const wf of waterfallPieces) {
-          const heightMm = (wf as any).waterfall_height_mm ?? 900;
-          const heightLm = heightMm / 1000;
-          totalWaterfallCost += heightLm * waterfallRateVal;
-          totalHeightLm += heightLm;
-        }
-        totalWaterfallCost = applyMinimumCharge(totalWaterfallCost, waterfallRateRecord);
-        serviceData.items.push({
-          serviceType: 'WATERFALL_END', name: waterfallRateRecord.name,
-          quantity: roundToTwo(totalHeightLm), unit: 'LINEAR_METRE',
-          rate: waterfallRateVal, subtotal: roundToTwo(totalWaterfallCost),
-        });
-        serviceData.subtotal += totalWaterfallCost;
-      }
-    }
-  }
+  // WATERFALL END REMOVED — deliberate pricing decision (March 2026)
+  // Waterfall/splashback joining edges are mitred, so the cost is captured
+  // by the Mitered edge profile rate on each joining edge. No separate
+  // WATERFALL_END service charge needed.
+  // Original code: waterfallPieces filter + FIXED_PER_END / PER_LINEAR_METRE — bypassed
 
   // Map join and grain surcharge from engine to service items
   for (let i = 0; i < engineResult.pieces.length; i++) {
