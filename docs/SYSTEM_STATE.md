@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-26
-> **Last Updated By:** fix/pricing-admin-3 — isActive filtering on all pricing APIs + edge rate population
+> **Last Updated By:** fix/radius-arc-edge-1 — Arc edges on RADIUS_END pieces can now save edge profiles
 >
-> All pricing GET APIs (edge-types, cutout-types, service-rates, edge-category-rates, cutout-category-rates) now filter by isActive: true. Deactivated items hidden from admin UI and quote builder. Active edge types reduced to 4: Arris, Pencil Round, Beveled, Mitered — all with full per-category rates from Jay's rate card. Arris + Pencil Round set to Ogee prices. 6 stale edge types deactivated. Polishing hidden from Services page.
+> PUT handler in pieces/[pieceId]/route.ts was silently dropping edgeArcConfig (only PATCH had it). Frontend uses PUT via handleInlineSavePiece. Fixed 7 locations across 5 files: PUT destructuring + Prisma update + response, transformPieceForClient camelCase alias, QuotePiece interface + fullPiece construction, InlinePieceData interface, QVR snake_case→camelCase. Runtime verified: Quick Edge Arris on arc edge saves and persists after reload.
 
 ---
 

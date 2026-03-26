@@ -451,6 +451,7 @@ function transformPieceForClient(piece: any) {
     noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
     stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
     edgeBuildups: (piece.edge_buildups as unknown as Record<string, { depth: number }> | null) ?? null,
+    edgeArcConfig: (piece.edge_arc_config as unknown as Record<string, string | null>) ?? null,
     sortOrder: piece.sort_order,
     // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
     // Kept for API response shape compatibility. Do not read these values for display.

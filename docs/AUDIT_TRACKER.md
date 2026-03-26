@@ -79,6 +79,7 @@
 | OPT-1 | Slab optimizer grouped null-material pieces into optimizer runs, causing "unassigned" pieces in results. Root cause: buildMaterialGroupings included pieces with materialId=null in groups keyed by empty string. Fix: multi-material-optimizer.ts buildMaterialGroupings now skips pieces where materialId is null/undefined. These pieces are excluded from slab optimization (they have no material to assign slabs for). | claude/fix-slab-optimizer-unassigned-1WlAT |
 | MITRE-1-FK | apron_parent_id FK changed from CASCADE DELETE to SET NULL. Deleting a parent piece no longer cascade-deletes its apron children — aprons become orphans instead. Migration: 20260321000000_fix_apron_strip_fk_set_null. Schema-only change, no code modified. | claude/fix-apron-fk-cascade-NPtsj |
 | UX-FIX-2 | isMitred now checks laminationMethod === 'MITRED' instead of thicknessMm === 40. Edge disabled logic uses et.isMitred boolean instead of string matching. 40mm pieces with standard lamination now have access to all edge types. | claude/fix-40mm-edge-filtering-HFv8N |
+| RADIUS-ARC-EDGE-1 | PUT handler in pieces/[pieceId]/route.ts silently dropped edgeArcConfig — only PATCH had it. Frontend uses PUT. Fixed 7 locations across 5 files: PUT destructuring + Prisma update + response, transformPieceForClient alias, QuotePiece interface, fullPiece construction, InlinePieceData interface, QVR snake_case→camelCase. | fix/radius-arc-edge-1 |
 | PRICING-ADMIN-2 | Pricing admin consolidation & finish. Sprint 1: Removed redundant edge-types, cutout-types, service-rates tabs from EntityTable page.tsx (now 8 tabs: thickness, strips, machines, client types/tiers, tiers, pricing rules, price books). Sprint 2: Created shared FABRICATION_CATEGORIES constant at src/lib/constants/fabrication-categories.ts. Updated edges, cutouts, services pages to use human-readable labels (Zero Silica, Granite, Marble, Quartzite, Porcelain). Sprint 3: Added "Add Edge/Cutout Type" + "Deactivate" buttons to dedicated pricing pages. Sprint 4: Verified calculator wiring — ruleEdgeProfiles reads edge_type_category_rates, ruleCutouts reads cutout_category_rates, polishing bypassed ($0). Scripts: seed-rate-card.ts (Jay's rate card data), cleanup-pricing.ts (deactivate polishing rates + duplicate cooktop). | fix/pricing-admin-2 |
 | PRICING-ADMIN-3 | isActive filtering on all pricing GET APIs. edge-types, cutout-types, service-rates, edge-category-rates, cutout-category-rates all now filter by isActive: true. Deactivated items (polishing, stale edges/cutouts) hidden from admin UI and quote builder dropdowns. cleanup-edges-and-services.ts populates Arris + Pencil Round with Ogee rates ($25/$25 ENG), Beveled ($5/$5 ENG), Mitered ($40/$40 ENG) — all 5 categories from Jay's rate card. Deactivates Mitred Panel, Bullnose, Ogee, Square/Eased, Waterfall, Curved Finished Edge. Calculator already had its own isActive filters — no pricing impact. | fix/pricing-admin-3 |
 
@@ -518,3 +519,14 @@ TEMPLATE-MANAGE-1 done
 - edge-types/[id]/route.ts: PUT uses $transaction + upsert on compound unique key (edgeTypeId_fabricationCategory_pricingSettingsId)
 - cutout-types/route.ts: GET returns full categoryRates, POST uses $transaction
 - cutout-types/[id]/route.ts: PUT uses $transaction + upsert on compound unique key (cutoutTypeId_fabricationCategory_pricingSettingsId)
+
+## RADIUS-ARC-EDGE-1 — 2026-03-26
+- **Status:** ✅ Resolved
+- **Root cause:** PUT handler in `pieces/[pieceId]/route.ts` silently dropped `edgeArcConfig` — only the PATCH handler had it. Frontend uses PUT via `handleInlineSavePiece`, so arc edge profiles were lost on every save. 12+ PRs missed this because everyone audited the PATCH handler.
+- **Fixes (7 across 5 files):**
+  - `src/app/api/quotes/[id]/pieces/[pieceId]/route.ts`: Added `edgeArcConfig` to PUT destructuring, Prisma update (`as unknown as Prisma.InputJsonValue`), and response
+  - `src/app/api/quotes/[id]/route.ts`: Added `edgeArcConfig` camelCase alias in `transformPieceForClient`
+  - `src/app/(dashboard)/quotes/[id]/QuoteDetailClient.tsx`: Added `edgeArcConfig` to `QuotePiece` interface and `fullPiece` construction
+  - `src/components/quotes/InlinePieceEditor.tsx`: Added `edgeArcConfig` to `InlinePieceData` interface
+  - `src/components/quotes/QuickViewPieceRow.tsx`: Fixed snake_case to camelCase (`edge_arc_config` to `edgeArcConfig`) in `handleShapeEdgeChange` and `shapeConfigEdges`
+- **Verified:** TypeScript zero errors, Railway build patterns audited, runtime click test passed (Quick Edge Arris on arc → saves + persists after reload)

@@ -1068,7 +1068,7 @@ export default function QuickViewPieceRow({
       if (colKey) savePieceImmediate({ [colKey]: profileId });
     } else {
       // arc_end on RADIUS_END, and all other curved shapes → edge_arc_config
-      const currentArcConfig = (fullPiece as unknown as Record<string, unknown>).edge_arc_config as Record<string, string | null> ?? {};
+      const currentArcConfig = fullPiece?.edgeArcConfig as Record<string, string | null> ?? {};
       const updatedArcConfig = { ...currentArcConfig, [edgeId]: profileId };
       savePieceImmediate({ edgeArcConfig: updatedArcConfig });
     }
@@ -2253,7 +2253,7 @@ export default function QuickViewPieceRow({
                     const sc = (fullPiece?.shapeConfig as { edges?: Record<string, string | null> } | null | undefined);
                     return sc?.edges ?? undefined;
                   }
-                  return ((fullPiece as unknown as Record<string, unknown>)?.edge_arc_config as Record<string, string | null>) ?? undefined;
+                  return fullPiece?.edgeArcConfig ?? undefined;
                 })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
