@@ -119,6 +119,7 @@ interface QuotePiece {
   overrideFabricationCost?: number | null;
   noStripEdges?: string[];
   edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   stripWidthOverrides?: Record<string, number> | null;
   cutouts: PieceCutout[];
   sortOrder: number;
@@ -3556,6 +3557,7 @@ export default function QuoteDetailClient({
               stripWidthOverrides: p.stripWidthOverrides ?? null,
               noStripEdges: (p.noStripEdges as string[]) ?? [],
               edgeBuildups: (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
+              edgeArcConfig: (p.edgeArcConfig as Record<string, string | null>) ?? null,
               piece_type: p.pieceType ?? 'BENCHTOP',
             }}
             editData={inlineEditData}

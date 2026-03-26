@@ -68,6 +68,7 @@ export interface InlinePieceData {
   lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
   piece_type?: string | null;
   edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   noStripEdges?: string[] | null;
 }
 
