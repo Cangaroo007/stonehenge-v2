@@ -604,6 +604,7 @@ export async function PUT(
       shapeConfig: putShapeConfig,
       noStripEdges: putNoStripEdges,
       edgeBuildups: putEdgeBuildups,
+      edgeArcConfig: putEdgeArcConfig,
     } = data;
 
     // Get the current piece
@@ -779,6 +780,7 @@ export async function PUT(
         // no_strip_edges: wall edges that don't need lamination strips
         ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
         ...(putEdgeBuildups !== undefined && { edge_buildups: putEdgeBuildups as unknown as Prisma.InputJsonValue }),
+        ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),
       },
       include: {
         materials: true,
@@ -823,6 +825,7 @@ export async function PUT(
       cornerEdgeTr: pu.corner_edge_tr ?? null,
       cornerEdgeBl: pu.corner_edge_bl ?? null,
       cornerEdgeBr: pu.corner_edge_br ?? null,
+      edgeArcConfig: pu.edge_arc_config ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),
