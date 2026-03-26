@@ -14,7 +14,10 @@ export async function GET(request: NextRequest) {
     const pricingSettingsId = searchParams.get('pricingSettingsId');
 
     const rates = await prisma.edge_type_category_rates.findMany({
-      where: pricingSettingsId ? { pricingSettingsId } : undefined,
+      where: {
+        ...(pricingSettingsId ? { pricingSettingsId } : {}),
+        edgeType: { isActive: true },
+      },
       include: {
         edgeType: {
           select: { id: true, name: true, baseRate: true, rate20mm: true, rate40mm: true, isActive: true, sortOrder: true },

@@ -15,9 +15,10 @@ export async function GET(request: NextRequest) {
     const fabricationCategory = searchParams.get('fabricationCategory');
 
     const rates = await prisma.service_rates.findMany({
-      where: fabricationCategory
-        ? { fabricationCategory: fabricationCategory as any }
-        : undefined,
+      where: {
+        isActive: true,
+        ...(fabricationCategory ? { fabricationCategory: fabricationCategory as any } : {}),
+      },
       include: { pricing_settings: true },
       orderBy: [
         { fabricationCategory: 'asc' },
