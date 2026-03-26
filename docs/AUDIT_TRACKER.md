@@ -530,3 +530,4 @@ TEMPLATE-MANAGE-1 done
   - `src/components/quotes/InlinePieceEditor.tsx`: Added `edgeArcConfig` to `InlinePieceData` interface
   - `src/components/quotes/QuickViewPieceRow.tsx`: Fixed snake_case to camelCase (`edge_arc_config` to `edgeArcConfig`) in `handleShapeEdgeChange` and `shapeConfigEdges`
 - **Verified:** TypeScript zero errors, Railway build patterns audited, runtime click test passed (Quick Edge Arris on arc → saves + persists after reload)
+- **Follow-up:** Mini SVG thumbnail had its own separate `edge_arc_config` (snake_case) read at QVR line 1774 — changed to `edgeArcConfig` (camelCase). Summary and expanded views now match.
