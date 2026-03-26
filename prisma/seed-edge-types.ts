@@ -85,6 +85,8 @@ async function seedEdgeTypes() {
     });
 
     if (existing) {
+      // Note: isActive is deliberately NOT updated here — admin UI controls activation.
+      // Seed only updates structural fields (rates, descriptions, sort order).
       await prisma.edge_types.update({
         where: { name: edgeType.name },
         data: {
@@ -98,7 +100,6 @@ async function seedEdgeTypes() {
           minimumLength: edgeType.minimumLength,
           isCurved: edgeType.isCurved,
           sortOrder: edgeType.sortOrder,
-          isActive: edgeType.isActive
         }
       });
       console.log(`  ✅ Updated: ${edgeType.name} (${edgeType.code})`);
