@@ -6,9 +6,9 @@
 >           MUST update this file in the same commit as AUDIT_TRACKER.md.
 >           See Rules 52–53 in `docs/stonehenge-dev-rulebook.md`.
 > **Last Updated:** 2026-03-26
-> **Last Updated By:** fix/pricing-admin-4 — Bypass waterfall end calc, deactivate polishing/waterfall services, fix all seed isActive overwrites, fix calculator validation gate
+> **Last Updated By:** fix/remove-polishing-lamination-pricing — Complete removal of polishing, curved polishing, waterfall end, and lamination as separate pricing line items
 >
-> WATERFALL_END calculation bypassed in pricing-calculator-v2.ts (cost captured by Mitered edge rate). POLISHING removed from requiredServiceTypes validation gate (was crashing all calculations when polishing rates deactivated). Cleanup script updated to deactivate POLISHING, CURVED_POLISHING, WATERFALL_END service rates. isActive re-activation bug fixed in seed-production.js and seed-pricing-settings.ts (4th and 5th seed files found with same bug).
+> POLISHING, CURVED_POLISHING, WATERFALL_END, and LAMINATION completely removed as pricing concepts. rulePolishing(), ruleCurvedPolishing(), ruleLamination() deleted from pricing-rules-engine.ts. Removed from PiecePricingResult interface, calculateQuote(), pricing-calculator-v2.ts (validation gate, aggregation, breakdown construction), quote-validation.ts, PiecePricingBreakdown type, PDF service, and all UI display components (QuoteCostSummaryBar, TotalBreakdownAccordion, QuickViewPieceRow, PieceRow, ExpandedPieceViewClient, PricingSummary). Physical lamination references (slab optimizer strips, machine ops, drawing extraction, laminationMethod on pieces) left intact — lamination as a physical process is real, just not a separate charge.
 
 ---
 

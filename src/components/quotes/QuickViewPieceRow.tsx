@@ -2380,13 +2380,7 @@ export default function QuickViewPieceRow({
                   </div>
                 </div>
               ))}
-              {/* Lamination */}
-              {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Lamination ({breakdown.fabrication.lamination.method && breakdown.fabrication.lamination.method !== 'NONE' ? breakdown.fabrication.lamination.method : breakdown.fabrication.lamination.total > 0 ? 'LAMINATED' : 'NONE'})</span>
-                  <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.lamination.total)}</span>
-                </div>
-              )}
+              {/* Lamination pricing removed — cost covered by edge profile rates */}
               {/* Material cost — after fabrication */}
               {breakdown.materials && breakdown.materials.total > 0 && (() => {
                 const m = breakdown.materials;

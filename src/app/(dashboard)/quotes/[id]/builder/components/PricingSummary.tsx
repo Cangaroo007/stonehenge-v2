@@ -783,22 +783,7 @@ function PieceBreakdownRow({ piece }: { piece: PiecePricingBreakdown }) {
             </div>
           )}
 
-          {/* Polishing */}
-          {piece.fabrication.polishing && piece.fabrication.polishing.baseAmount > 0 && (
-            <div className="flex justify-between text-gray-600">
-              <span>Polishing ({piece.fabrication.polishing.quantity.toFixed(1)} {piece.fabrication.polishing.unit === 'SQUARE_METRE' ? 'm\u00B2' : 'Lm'} × {formatCurrency(piece.fabrication.polishing.rate)}):</span>
-              <span>
-                {piece.fabrication.polishing.discount > 0 ? (
-                  <span>
-                    <span className="line-through text-gray-400 mr-1">{formatCurrency(piece.fabrication.polishing.baseAmount)}</span>
-                    {formatCurrency(piece.fabrication.polishing.total)}
-                  </span>
-                ) : (
-                  formatCurrency(piece.fabrication.polishing.total)
-                )}
-              </span>
-            </div>
-          )}
+          {/* Polishing removed — not a real fabrication step */}
 
           {/* Edges */}
           {piece.fabrication.edges.length > 0 && piece.fabrication.edges.map((edge, idx) => (
