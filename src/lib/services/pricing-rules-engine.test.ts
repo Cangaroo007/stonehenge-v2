@@ -1,4 +1,4 @@
-import { calculateQuote, ruleCutting, rulePolishing } from './pricing-rules-engine'
+import { calculateQuote, ruleCutting } from './pricing-rules-engine'
 
 // ─── Shared Fixtures ─────────────────────────────────────────────────────────
 
@@ -47,22 +47,8 @@ test('TEST 1 — cutting uses full perimeter, all 4 sides', () => {
   expect(result.cost).toBeCloseTo(105.00)
 })
 
-test('TEST 2 — polishing uses ONLY finished edges (REGRESSION GUARD)', () => {
-  const result = rulePolishing(makePiece(), BASE_RATES, 'ENGINEERED')
-  // Only TOP edge is finished: 2400/1000 = 2.4 Lm × $45.00 = $108.00
-  expect(result.lm).toBeCloseTo(2.4)
-  expect(result.lm).not.toBeCloseTo(6.0)  // ← THIS IS THE REGRESSION GUARD
-  expect(result.cost).toBeCloseTo(108.00)
-})
-
-test('TEST 3 — polishing Lm must never equal cutting Lm when raw edges exist', () => {
-  const cutting  = ruleCutting(makePiece(), BASE_RATES, 'ENGINEERED')
-  const polishing = rulePolishing(makePiece(), BASE_RATES, 'ENGINEERED')
-  // Piece has 3 raw edges — polishing must be less than cutting
-  expect(polishing.lm).toBeLessThan(cutting.lm)
-  expect(polishing.lm).toBeCloseTo(2.4)
-  expect(cutting.lm).toBeCloseTo(6.0)
-})
+// NOTE: Tests 2 & 3 (polishing) removed — polishing is no longer a concept in StoneHenge.
+// Polishing was a misunderstanding; the cost is now covered by edge profile rates.
 
 test('TEST 4 — GST uses settings.gstRate, never hardcoded', () => {
   const result = calculateQuote({

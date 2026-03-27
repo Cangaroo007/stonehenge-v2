@@ -309,7 +309,7 @@ export async function validateQuoteForPricing(
   const loadedTypes = Array.from(
     new Set(serviceRates.map((r) => r.serviceType)),
   );
-  const requiredTypes = ['CUTTING', 'POLISHING', 'INSTALLATION'] as const;
+  const requiredTypes = ['CUTTING', 'INSTALLATION'] as const;
   const missingTypes = requiredTypes.filter(
     (t) => !loadedTypes.includes(t),
   );

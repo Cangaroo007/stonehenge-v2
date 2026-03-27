@@ -20,14 +20,11 @@ const CATEGORY_ORDER = ['ENGINEERED', 'NATURAL_HARD', 'NATURAL_SOFT', 'NATURAL_P
 
 const SERVICE_TYPES: { value: string; label: string }[] = [
   { value: 'CUTTING', label: 'Cutting' },
-  { value: 'POLISHING', label: 'Polishing' },
   { value: 'INSTALLATION', label: 'Installation' },
-  { value: 'WATERFALL_END', label: 'Waterfall End' },
   { value: 'TEMPLATING', label: 'Templating' },
   { value: 'DELIVERY', label: 'Delivery' },
   { value: 'JOIN', label: 'Join Fabrication' },
   { value: 'CURVED_CUTTING', label: 'Curved Cutting' },
-  { value: 'CURVED_POLISHING', label: 'Curved Polishing' },
   { value: 'RADIUS_SETUP', label: 'Radius Setup' },
   { value: 'CURVED_MIN_LM', label: 'Curved Minimum LM' },
 ];

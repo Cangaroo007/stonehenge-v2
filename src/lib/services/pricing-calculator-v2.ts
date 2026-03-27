@@ -1182,11 +1182,8 @@ export async function calculateQuotePrice(
         id: ep.id,
         name: ep.name,
         cutting: { lm: 0, ratePerLm: 0, cost: 0 },
-        polishing: { lm: 0, ratePerLm: 0, cost: 0 },
         edgeProfiles: { lm: 0, cost: 0, items: [] },
-        lamination: null,
         curvedCutting: null,
-        curvedPolishing: null,
         cutouts: { cost: 0, items: [] },
         join: null,
         grainSurcharge: null,
@@ -1262,17 +1259,8 @@ export async function calculateQuotePrice(
     serviceData.subtotal += totalCuttingCost;
   }
 
-  const totalPolishingCost = engineResult.pieces.reduce((s, p) => s + p.polishing.cost, 0);
-  const totalPolishingLm = engineResult.pieces.reduce((s, p) => s + p.polishing.lm, 0);
-  if (totalPolishingLm > 0) {
-    serviceData.items.push({
-      serviceType: 'POLISHING', name: 'Polishing',
-      quantity: roundToTwo(totalPolishingLm), unit: pricingContext.polishingUnit,
-      rate: totalPolishingLm > 0 ? roundToTwo(totalPolishingCost / totalPolishingLm) : 0,
-      subtotal: roundToTwo(totalPolishingCost),
-    });
-    serviceData.subtotal += totalPolishingCost;
-  }
+  // POLISHING REMOVED — was never a real service (March 2026)
+  // Edge finishing cost is captured by edge profile rates (Arris, Pencil Round, etc.)
 
   const totalInstallCost = engineResult.installationSubtotal;
   const totalInstallArea = engineResult.pieces.reduce((s, p) => s + p.installation.area_sqm, 0);
@@ -1286,18 +1274,7 @@ export async function calculateQuotePrice(
     serviceData.subtotal += totalInstallCost;
   }
 
-  const totalLaminationCost = engineResult.pieces.reduce((s, p) => s + (p.lamination?.cost ?? 0), 0);
-  const totalLaminationLm = engineResult.pieces.reduce((s, p) => s + (p.lamination?.lm ?? 0), 0);
-  if (totalLaminationCost > 0) {
-    serviceData.items.push({
-      serviceType: 'LAMINATION', name: 'Lamination (edge build-up)',
-      quantity: roundToTwo(totalLaminationLm), unit: 'LINEAR_METRE',
-      rate: totalLaminationLm > 0 ? roundToTwo(totalLaminationCost / totalLaminationLm) : 0,
-      subtotal: roundToTwo(totalLaminationCost),
-    });
-    serviceData.subtotal += totalLaminationCost;
-  }
-
+  // LAMINATION PRICING REMOVED (March 2026) — 40mm edge work is covered by rate40mm on edge rates.
   // WATERFALL END REMOVED — deliberate pricing decision (March 2026)
   // Waterfall/splashback joining edges are mitred, so the cost is captured
   // by the Mitered edge profile rate on each joining edge. No separate
@@ -1485,17 +1462,6 @@ export async function calculateQuotePrice(
       total: roundToTwo(item.cost),
     }));
 
-    let laminationBreakdown: PiecePricingBreakdown['fabrication']['lamination'];
-    if (ep.lamination) {
-      laminationBreakdown = {
-        method: piece.lamination_method,
-        finishedEdgeLm: roundToTwo(ep.lamination.lm),
-        baseRate: ep.lamination.rate,
-        multiplier: piece.lamination_method === 'MITRED' ? pricingContext.mitredMultiplier : pricingContext.laminatedMultiplier,
-        total: roundToTwo(ep.lamination.cost),
-      };
-    }
-
     let installationBreakdown: PiecePricingBreakdown['fabrication']['installation'];
     if (totalInstallationCost > 0) {
       const pieceAreaForInstall = pieceGeometries[i].totalAreaSqm;
@@ -1532,20 +1498,9 @@ export async function calculateQuotePrice(
       }
     }
 
-    let curvedPolishingCostFinal = ep.curvedPolishing?.cost ?? 0;
-    if (ep.curvedPolishing && ep.curvedPolishing.cost > 0) {
-      const cpRate = serviceRates.find(
-        (r: ServiceRateRecord) => r.serviceType === 'CURVED_POLISHING' && r.fabricationCategory === pieceFabCategory
-      );
-      if (cpRate) {
-        curvedPolishingCostFinal = applyMinimumCharge(ep.curvedPolishing.cost, cpRate);
-      }
-    }
-
     const fabricationSubtotal = roundToTwo(
       ep.cutting.cost + curvedCuttingCostFinal +
-      ep.polishing.cost + curvedPolishingCostFinal +
-      ep.edgeProfiles.cost + (ep.lamination?.cost ?? 0) + ep.cutouts.cost +
+      ep.edgeProfiles.cost + ep.cutouts.cost +
       (installationBreakdown?.total ?? 0)
     );
 
@@ -1560,18 +1515,11 @@ export async function calculateQuotePrice(
           rate: ep.cutting.ratePerLm, baseAmount: roundToTwo(ep.cutting.cost),
           discount: 0, total: roundToTwo(ep.cutting.cost), discountPercentage: 0,
         },
-        polishing: {
-          quantity: roundToTwo(ep.polishing.lm), unit: pricingContext.polishingUnit,
-          rate: ep.polishing.ratePerLm, baseAmount: roundToTwo(ep.polishing.cost),
-          discount: 0, total: roundToTwo(ep.polishing.cost), discountPercentage: 0,
-        },
         installation: installationBreakdown,
-        lamination: laminationBreakdown,
         edges: edgeBreakdowns,
         cutouts: cutoutBreakdowns,
         subtotal: fabricationSubtotal,
         ...(ep.curvedCutting ? { curvedCutting: { arcLengthLm: roundToTwo(ep.curvedCutting.lm), rate: ep.curvedCutting.ratePerLm, cost: roundToTwo(curvedCuttingCostFinal) } } : {}),
-        ...(ep.curvedPolishing ? { curvedPolishing: { arcLengthLm: roundToTwo(ep.curvedPolishing.lm), rate: ep.curvedPolishing.ratePerLm, cost: roundToTwo(curvedPolishingCostFinal) } } : {}),
       },
       // Fabrication cost override — replaces labour lines only, installation still added
       pieceTotal: piece.override_fabrication_cost
@@ -2240,7 +2188,6 @@ function zeroedPieceBreakdown(
     dimensions: { lengthMm: piece.length_mm, widthMm: piece.width_mm, thicknessMm: piece.thickness_mm },
     fabrication: {
       cutting: { quantity: 0, unit: pricingContext.cuttingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
-      polishing: { quantity: 0, unit: pricingContext.polishingUnit, rate: 0, baseAmount: 0, discount: 0, total: 0, discountPercentage: 0 },
       edges: [],
       cutouts: [],
       subtotal: 0,

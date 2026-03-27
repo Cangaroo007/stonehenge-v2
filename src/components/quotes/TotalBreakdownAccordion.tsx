@@ -33,25 +33,21 @@ export default function TotalBreakdownAccordion({
   const fabricationTotals = pieces.reduce(
     (acc, p) => {
       acc.cutting += p.fabrication.cutting.total;
-      acc.polishing += p.fabrication.polishing.total;
       acc.edgeProfiles += p.fabrication.edges.reduce((sum, e) => sum + e.total, 0);
       acc.join += p.oversize?.joinCost ?? 0;
       acc.grainMatching += p.oversize?.grainMatchingSurcharge ?? 0;
       acc.cutouts += p.fabrication.cutouts.reduce((sum, c) => sum + c.total, 0);
-      acc.lamination += p.fabrication.lamination?.total ?? 0;
       return acc;
     },
-    { cutting: 0, polishing: 0, edgeProfiles: 0, join: 0, grainMatching: 0, cutouts: 0, lamination: 0 }
+    { cutting: 0, edgeProfiles: 0, join: 0, grainMatching: 0, cutouts: 0 }
   );
 
   const fabricationSubtotal =
     fabricationTotals.cutting +
-    fabricationTotals.polishing +
     fabricationTotals.edgeProfiles +
     fabricationTotals.join +
     fabricationTotals.grainMatching +
-    fabricationTotals.cutouts +
-    fabricationTotals.lamination;
+    fabricationTotals.cutouts;
 
   const materialsTotal = calculation?.breakdown?.materials?.total ?? 0;
 
@@ -122,12 +118,6 @@ export default function TotalBreakdownAccordion({
                 </div>
                 <div className="flex items-center justify-between text-xs text-gray-600">
                   <span className="flex items-center gap-1.5">
-                    <span className="text-gray-300">&#9500;&#9472;</span>Polishing
-                  </span>
-                  <span className="tabular-nums">{formatCurrency(fabricationTotals.polishing)}</span>
-                </div>
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span className="flex items-center gap-1.5">
                     <span className="text-gray-300">&#9500;&#9472;</span>Edge Profiles
                   </span>
                   <span className="tabular-nums">{formatCurrency(fabricationTotals.edgeProfiles)}</span>
@@ -150,14 +140,6 @@ export default function TotalBreakdownAccordion({
                       <span className="text-gray-300">&#9500;&#9472;</span>Cutouts
                     </span>
                     <span className="tabular-nums">{formatCurrency(fabricationTotals.cutouts)}</span>
-                  </div>
-                )}
-                {fabricationTotals.lamination > 0 && (
-                  <div className="flex items-center justify-between text-xs text-gray-600">
-                    <span className="flex items-center gap-1.5">
-                      <span className="text-gray-300">&#9492;&#9472;</span>Lamination
-                    </span>
-                    <span className="tabular-nums">{formatCurrency(fabricationTotals.lamination)}</span>
                   </div>
                 )}
               </div>

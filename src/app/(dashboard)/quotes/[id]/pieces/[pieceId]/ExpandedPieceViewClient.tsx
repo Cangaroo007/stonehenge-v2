@@ -931,13 +931,7 @@ export default function ExpandedPieceViewClient({
                   total={edge.total}
                 />
               ))}
-              {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
-                <CostRow
-                  label={`Lamination (${breakdown.fabrication.lamination.method})`}
-                  formula={`${breakdown.fabrication.lamination.finishedEdgeLm.toFixed(2)} Lm \u00D7 ${formatCurrency(breakdown.fabrication.lamination.baseRate)} \u00D7 ${breakdown.fabrication.lamination.multiplier.toFixed(2)}`}
-                  total={breakdown.fabrication.lamination.total}
-                />
-              )}
+              {/* Lamination pricing removed — cost covered by edge profile rates */}
               {breakdown.fabrication.cutouts.filter((c) => c.total > 0).map((cutout, idx) => (
                 <CostRow
                   key={`${cutout.cutoutTypeId}-${idx}`}

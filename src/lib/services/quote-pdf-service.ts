@@ -40,11 +40,9 @@ export interface QuotePdfPiece {
   pricing: {
     material: number;
     cutting: number;
-    polishing: number;
     edges: number;
     cutouts: number;
     installation: number;
-    lamination: number;
     oversize: number;
     pieceTotal: number;
   };
@@ -318,11 +316,9 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
       const pricing = {
         material: pb?.materials?.total ?? 0,
         cutting: pb?.fabrication?.cutting?.total ?? 0,
-        polishing: pb?.fabrication?.polishing?.total ?? 0,
         edges: pb?.fabrication?.edges?.reduce((sum, e) => sum + e.total, 0) ?? 0,
         cutouts: pb?.fabrication?.cutouts?.reduce((sum, c) => sum + c.total, 0) ?? 0,
         installation: pb?.fabrication?.installation?.total ?? 0,
-        lamination: pb?.fabrication?.lamination?.total ?? 0,
         oversize: pb?.oversize
           ? (pb.oversize.joinCost + pb.oversize.grainMatchingSurcharge)
           : 0,

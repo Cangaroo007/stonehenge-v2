@@ -19,16 +19,16 @@ import type { ArcEdgeConfig, RadiusEndConfig } from '@/lib/types/shapes'
 
 export interface EngineSettings {
   cuttingUnit: 'LINEAL_METRE' | 'SQUARE_METRE'
-  polishingUnit: 'LINEAL_METRE' | 'SQUARE_METRE'
+  polishingUnit: 'LINEAL_METRE' | 'SQUARE_METRE'  // DEPRECATED — polishing removed (March 2026)
   installationUnit: 'SQUARE_METRE' | 'LINEAL_METRE' | 'FIXED'
   gstRate: number                   // from DB — e.g. 0.10 — NEVER hardcode
   materialPricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE'
   deliveryCost: number
   templatingCost: number
-  laminatedMultiplier: number       // default 1.30
-  mitredMultiplier: number          // default 1.50
+  laminatedMultiplier: number       // DEPRECATED — lamination pricing removed (March 2026), kept for DB compat
+  mitredMultiplier: number          // DEPRECATED — lamination pricing removed (March 2026), kept for DB compat
   curvedCuttingMode: 'FIXED' | 'PERCENTAGE'    // FIXED = $/Lm, PERCENTAGE = % surcharge on base cutting rate
-  curvedPolishingMode: 'FIXED' | 'PERCENTAGE'  // FIXED = $/Lm, PERCENTAGE = % surcharge on base polishing rate
+  curvedPolishingMode: 'FIXED' | 'PERCENTAGE'  // DEPRECATED — curved polishing removed (March 2026)
 }
 
 export interface EngineServiceRate {
@@ -109,10 +109,7 @@ export interface PiecePricingResult {
   name: string
   cutting:        { lm: number; ratePerLm: number; cost: number }
   curvedCutting:  { lm: number; ratePerLm: number; cost: number } | null
-  polishing:      { lm: number; ratePerLm: number; cost: number }
-  curvedPolishing: { lm: number; ratePerLm: number; cost: number } | null
   edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; lm: number; rate: number; cost: number }> }
-  lamination:     { lm: number; rate: number; cost: number } | null
   cutouts:        { cost: number; items: Array<{ type: string; qty: number; rate: number; cost: number }> }
   join:           { lm: number; rate: number; cost: number } | null
   grainSurcharge: { base: number; rate: number; cost: number } | null
@@ -186,58 +183,9 @@ export function ruleCurvedCutting(
   return { lm: piece.arcLengthLm, ratePerLm: rawRate, cost: piece.arcLengthLm * rawRate }
 }
 
-/**
- * RULE: Curved Polishing — Pricing Bible v1.3 §C6
- * Extra charge for polishing curved arcs on shaped pieces.
- * FIXED mode: arcLengthLm × CURVED_POLISHING rate ($/Lm).
- * PERCENTAGE mode: arcLengthLm × basePolishingRate × (curvedRate / 100).
- * Only applies when piece has arcLengthLm.
- */
-export function ruleCurvedPolishing(
-  piece: EnginePiece,
-  rates: EngineServiceRate[],
-  category: string,
-  mode: EngineSettings['curvedPolishingMode'] = 'FIXED',
-  basePolishingResult?: PiecePricingResult['polishing']
-): PiecePricingResult['curvedPolishing'] {
-  if (!piece.arcLengthLm || piece.arcLengthLm <= 0) return null
-  const rate = rates.find(r => r.serviceType === 'CURVED_POLISHING' && r.fabricationCategory === category)
-  if (!rate) throw new Error(
-    `[PricingEngine] No CURVED_POLISHING rate configured for category "${category}". ` +
-    `Go to Pricing Admin → Service Rates to fix this.`
-  )
-  const rawRate = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
-  if (mode === 'PERCENTAGE' && basePolishingResult) {
-    // PERCENTAGE: rawRate is a percentage — surcharge = arcLength × baseRate × (percentage / 100)
-    const ratePerLm = basePolishingResult.ratePerLm * (rawRate / 100)
-    return { lm: piece.arcLengthLm, ratePerLm, cost: piece.arcLengthLm * ratePerLm }
-  }
-  // FIXED: rawRate is $/Lm
-  return { lm: piece.arcLengthLm, ratePerLm: rawRate, cost: piece.arcLengthLm * rawRate }
-}
-
-/**
- * RULE: Polishing — Pricing Bible v1.3 §4
- * Finished edges ONLY. NEVER full perimeter.
- * finished_edges_Lm = sum of lengths of edges where isFinished === true
- */
-export function rulePolishing(
-  piece: EnginePiece,
-  rates: EngineServiceRate[],
-  category: string
-): PiecePricingResult['polishing'] {
-  // Use shape-aware override when provided (L/U shapes), else sum from edges array
-  const finishedLm = piece.finishedEdgesLm ?? piece.edges
-    .filter(e => e.isFinished)
-    .reduce((s, e) => s + e.length_mm / 1000, 0)
-  const rate = rates.find(r => r.serviceType === 'POLISHING' && r.fabricationCategory === category)
-  if (!rate) throw new Error(
-    `[PricingEngine] No POLISHING rate configured for category "${category}". ` +
-    `Go to Pricing Admin → Service Rates to fix this.`
-  )
-  const ratePerLm = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
-  return { lm: finishedLm, ratePerLm, cost: finishedLm * ratePerLm }
-}
+// rulePolishing and ruleCurvedPolishing REMOVED — March 2026
+// Polishing was never a real service. Edge finishing cost is captured by edge profile rates.
+// See PRICING-ADMIN-4 in AUDIT_TRACKER.md for full history.
 
 /**
  * RULE: Edge Profile Surcharges — Pricing Bible v1.3 §7
@@ -320,29 +268,9 @@ export function ruleEdgeProfiles(
   }
 }
 
-/**
- * RULE: Lamination — Pricing Bible v1.3 §8
- * Only for thickness > 20mm.
- * Rate = polishing_rate_20mm × multiplier (1.30 for LAMINATED, 1.50 for MITRED).
- * Applies to finished edges only (same edges as polishing).
- */
-export function ruleLamination(
-  piece: EnginePiece,
-  rates: EngineServiceRate[],
-  settings: EngineSettings,
-  category: string
-): PiecePricingResult['lamination'] {
-  if (piece.thickness_mm <= 20 || !piece.laminationMethod) return null
-  const polishRate = rates.find(r => r.serviceType === 'POLISHING' && r.fabricationCategory === category)
-  if (!polishRate) return null
-  // Use stripLm (all edges minus wall edges) when available, else finishedEdgesLm, else sum from edges array
-  const lm = piece.stripLm ?? piece.finishedEdgesLm ?? piece.edges.filter(e => e.isFinished).reduce((s, e) => s + e.length_mm / 1000, 0)
-  const multiplier = piece.laminationMethod === 'MITRED'
-    ? settings.mitredMultiplier
-    : settings.laminatedMultiplier
-  const rate = polishRate.rate20mm * multiplier
-  return { lm, rate, cost: lm * rate }
-}
+// LAMINATION PRICING REMOVED (March 2026) — lamination is a physical process (40mm buildup)
+// but is NOT a separate pricing line item. The cost of working laminated edges is already
+// covered by the 40mm edge profile rates (rate40mm column on service_rates).
 
 /**
  * RULE: Cutouts — Pricing Bible v1.3 §9
@@ -424,29 +352,21 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
   for (const piece of input.pieces) {
     const cutting        = ruleCutting(piece, input.serviceRates, category)
     const curvedCutting  = ruleCurvedCutting(piece, input.serviceRates, category, input.settings.curvedCuttingMode, cutting)
-    // POLISHING REMOVED — deliberate pricing decision (March 2026)
-    // rulePolishing(piece, input.serviceRates, category) — bypassed
-    const polishing      = { lm: 0, ratePerLm: 0, cost: 0 } as { lm: number; ratePerLm: number; cost: number }
-    // CURVED POLISHING REMOVED — deliberate pricing decision (March 2026)
-    // ruleCurvedPolishing(piece, input.serviceRates, category, input.settings.curvedPolishingMode, polishing) — bypassed
-    const curvedPolishing = null as { lm: number; ratePerLm: number; cost: number } | null
     const edgeProfiles   = ruleEdgeProfiles(piece, input.edgeCategoryRates, category)
-    const lamination     = ruleLamination(piece, input.serviceRates, input.settings, category)
     const cutouts        = ruleCutouts(piece, input.cutoutRates, category)
     const join           = ruleJoin(piece, input.serviceRates, category)
     const installation   = ruleInstallation(piece, input.serviceRates, category)
 
     const fabricationSubtotal =
-      cutting.cost + (curvedCutting?.cost ?? 0) + polishing.cost + (curvedPolishing?.cost ?? 0) +
-      edgeProfiles.cost + (lamination?.cost ?? 0) + cutouts.cost + (join?.cost ?? 0)
+      cutting.cost + (curvedCutting?.cost ?? 0) +
+      edgeProfiles.cost + cutouts.cost + (join?.cost ?? 0)
 
     const grainSurcharge = ruleGrainSurcharge(piece, fabricationSubtotal)
 
     pieceResults.push({
       id: piece.id,
       name: piece.name,
-      cutting, curvedCutting: curvedCutting ?? null, polishing, curvedPolishing: curvedPolishing ?? null, edgeProfiles,
-      lamination: lamination ?? null,
+      cutting, curvedCutting: curvedCutting ?? null, edgeProfiles,
       cutouts,
       join: join ?? null,
       grainSurcharge: grainSurcharge ?? null,
@@ -461,8 +381,8 @@ export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
     : input.slabCount
   const materialCost          = wholeSlabs * input.material.pricePerSlab
   const fabricationSubtotal   = pieceResults.reduce((s, p) =>
-    s + p.cutting.cost + (p.curvedCutting?.cost ?? 0) + p.polishing.cost + (p.curvedPolishing?.cost ?? 0) +
-    p.edgeProfiles.cost + (p.lamination?.cost ?? 0) + p.cutouts.cost + (p.join?.cost ?? 0) +
+    s + p.cutting.cost + (p.curvedCutting?.cost ?? 0) +
+    p.edgeProfiles.cost + p.cutouts.cost + (p.join?.cost ?? 0) +
     (p.grainSurcharge?.cost ?? 0), 0)
   const installationSubtotal  = pieceResults.reduce((s, p) => s + p.installation.cost, 0)
 

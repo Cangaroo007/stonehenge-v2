@@ -240,28 +240,12 @@ export interface PiecePricingBreakdown {
       total: number;
       discountPercentage: number;
     };
-    polishing: {
-      quantity: number;
-      unit: string;
-      rate: number;
-      baseAmount: number;
-      discount: number;
-      total: number;
-      discountPercentage: number;
-    };
     installation?: {
       quantity: number;
       unit: string;
       rate: number;
       baseAmount: number;
       discount: number;
-      total: number;
-    };
-    lamination?: {
-      method: string;
-      finishedEdgeLm: number;
-      baseRate: number;
-      multiplier: number;
       total: number;
     };
     edges: Array<{
@@ -287,7 +271,6 @@ export interface PiecePricingBreakdown {
     }>;
     subtotal: number;
     curvedCutting?: { arcLengthLm: number; rate: number; cost: number };
-    curvedPolishing?: { arcLengthLm: number; rate: number; cost: number };
   };
 
   oversize?: {

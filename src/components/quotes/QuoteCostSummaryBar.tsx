@@ -16,21 +16,17 @@ interface QuoteCostSummaryBarProps {
 
 function computeFabricationBreakdown(pieces: PiecePricingBreakdown[]) {
   let cutting = 0;
-  let polishing = 0;
   let edgeProfiles = 0;
-  let lamination = 0;
   let cutouts = 0;
   let joins = 0;
 
   for (const p of pieces) {
     if (p.fabrication) {
       cutting += p.fabrication.cutting?.total ?? 0;
-      polishing += p.fabrication.polishing?.total ?? 0;
       edgeProfiles += (p.fabrication.edges ?? []).reduce(
         (s: number, e: { total?: number }) => s + (e.total ?? 0),
         0,
       );
-      lamination += p.fabrication.lamination?.total ?? 0;
       cutouts += (p.fabrication.cutouts ?? []).reduce(
         (s: number, c: { total?: number }) => s + (c.total ?? 0),
         0,
@@ -41,8 +37,8 @@ function computeFabricationBreakdown(pieces: PiecePricingBreakdown[]) {
     }
   }
 
-  const subtotal = cutting + polishing + edgeProfiles + lamination + cutouts + joins;
-  return { cutting, polishing, edgeProfiles, lamination, cutouts, joins, subtotal };
+  const subtotal = cutting + edgeProfiles + cutouts + joins;
+  return { cutting, edgeProfiles, cutouts, joins, subtotal };
 }
 
 function computeInstallationTotal(pieces: PiecePricingBreakdown[]): number {
@@ -68,9 +64,7 @@ export default function QuoteCostSummaryBar({
       ? computeFabricationBreakdown(pieces)
       : {
           cutting: 0,
-          polishing: 0,
           edgeProfiles: breakdown.edges?.total ?? 0,
-          lamination: 0,
           cutouts: breakdown.cutouts?.total ?? 0,
           joins: 0,
           subtotal: (breakdown.edges?.total ?? 0) + (breakdown.cutouts?.total ?? 0),
@@ -110,9 +104,7 @@ export default function QuoteCostSummaryBar({
 
   const fabricationItems = [
     { label: 'Cutting', amount: fab.cutting },
-    { label: 'Polishing', amount: fab.polishing },
     { label: 'Edge Profiles', amount: fab.edgeProfiles },
-    { label: 'Lamination', amount: fab.lamination },
     { label: 'Cutouts', amount: fab.cutouts },
     { label: 'Joins', amount: fab.joins },
   ];

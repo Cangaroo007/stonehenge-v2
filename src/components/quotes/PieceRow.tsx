@@ -604,9 +604,8 @@ function PieceVisualEditorSection({
 
   const displayCutouts = fullPiece ? cutoutDisplays : breakdownCutouts;
 
-  // Determine if piece is mitred
-  const isMitred = breakdown?.fabrication?.lamination?.method === 'Mitred'
-    || breakdown?.fabrication?.lamination?.method === 'MITRED';
+  // Determine if piece is mitred (physical property — not a pricing line item)
+  const isMitred = fullPiece?.lamination_method === 'MITRED';
 
   // Join position for oversize
   const joinAtMm = useMemo(() => {
@@ -1211,20 +1210,7 @@ export default function PieceRow({
             />
           ))}
 
-          {/* Lamination */}
-          {breakdown.fabrication.lamination && breakdown.fabrication.lamination.total > 0 && (
-            <CostLine
-              label={`Lamination (${breakdown.fabrication.lamination.method && breakdown.fabrication.lamination.method !== 'NONE' ? breakdown.fabrication.lamination.method : breakdown.fabrication.lamination.total > 0 ? 'LAMINATED' : 'NONE'})`}
-              formula={`${breakdown.fabrication.lamination.finishedEdgeLm.toFixed(2)} Lm x ${formatCurrency(breakdown.fabrication.lamination.baseRate)} x ${breakdown.fabrication.lamination.multiplier.toFixed(2)} = ${formatCurrency(breakdown.fabrication.lamination.total)}`}
-              total={breakdown.fabrication.lamination.total}
-              operationType="LAMINATION"
-              machines={machines}
-              machineOperationDefaults={machineOperationDefaults}
-              mode={mode}
-              pieceId={piece.id}
-              onMachineChange={onMachineChange}
-            />
-          )}
+          {/* Lamination pricing removed — cost covered by edge profile rates */}
 
           {/* Material cost — after fabrication items */}
           {breakdown.materials && breakdown.materials.total > 0 && (() => {

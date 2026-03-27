@@ -26,7 +26,7 @@ const CATEGORY_MULTIPLIER_LABELS: Record<string, string> = {
 
 type CurvedSurchargeMode = 'FIXED' | 'PERCENTAGE';
 
-const CURVED_MODE_SERVICES = new Set(['CURVED_CUTTING', 'CURVED_POLISHING']);
+const CURVED_MODE_SERVICES = new Set(['CURVED_CUTTING']);
 
 export default function ServiceRatesPage() {
   const [allRates, setAllRates] = useState<ServiceRate[]>([]);
@@ -135,13 +135,10 @@ export default function ServiceRatesPage() {
   const formatServiceType = (type: string): string => {
     const labels: Record<string, string> = {
       CUTTING: 'Cutting',
-      POLISHING: 'Polishing',
       INSTALLATION: 'Installation',
-      WATERFALL_END: 'Waterfall End',
       TEMPLATING: 'Templating',
       DELIVERY: 'Delivery',
       CURVED_CUTTING: 'Curved Cutting',
-      CURVED_POLISHING: 'Curved Polishing',
       RADIUS_SETUP: 'Radius Setup',
       CURVED_MIN_LM: 'Curved Min LM',
       JOIN: 'Join',
