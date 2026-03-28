@@ -38,6 +38,7 @@ interface MaterialComparisonPanelProps {
   currentFabCost: number | null;
   savedSlots: (ComparisonSlot | null)[];  // from quote.comparison_slots
   onSwitchMaterial: (changes: { pieceId: number; toMaterialId: number }[]) => Promise<void>;
+  onSwitchComplete?: (slotIndex: number) => void;
   piecesForSwitch: { id: number; materialId: number | null }[];
   onClose: () => void;
 }
@@ -51,6 +52,7 @@ export default function MaterialComparisonPanel({
   currentFabCost,
   savedSlots,
   onSwitchMaterial,
+  onSwitchComplete,
   piecesForSwitch,
   onClose,
 }: MaterialComparisonPanelProps) {
@@ -61,11 +63,16 @@ export default function MaterialComparisonPanel({
     return initial;
   });
 
-  const [selectedMaterialIds, setSelectedMaterialIds] = useState<(number | null)[]>(
-    [null, null, null]
-  );
+  const [selectedMaterialIds, setSelectedMaterialIds] = useState<(number | null)[]>(() => {
+    const initial: (number | null)[] = [null, null, null];
+    savedSlots.forEach((s, i) => { if (s && i < MAX_SLOTS) initial[i] = s.materialId; });
+    return initial;
+  });
   const [loadingSlots, setLoadingSlots] = useState<boolean[]>([false, false, false]);
   const [switchingSlot, setSwitchingSlot] = useState<number | null>(null);
+
+  // Detect stale saved slots (materialCost: 0 indicates data from a prior bug)
+  const hasStaleSlots = slots.some(s => s != null && s.materialCost === 0);
 
   const runEstimate = useCallback(async (slotIndex: number) => {
     const materialId = selectedMaterialIds[slotIndex];
@@ -113,10 +120,14 @@ export default function MaterialComparisonPanel({
         toMaterialId: slot.materialId,
       }));
       await onSwitchMaterial(changes);
+      // Clear the switched slot — that material is now current
+      setSlots(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
+      setSelectedMaterialIds(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
+      onSwitchComplete?.(slotIndex);
     } finally {
       setSwitchingSlot(null);
     }
-  }, [slots, piecesForSwitch, onSwitchMaterial]);
+  }, [slots, piecesForSwitch, onSwitchMaterial, onSwitchComplete]);
 
   const formatCurrency = (n: number) =>
     n.toLocaleString('en-AU', { style: 'currency', currency: 'AUD' });
@@ -138,6 +149,13 @@ export default function MaterialComparisonPanel({
           Close
         </button>
       </div>
+
+      {/* Stale data warning */}
+      {hasStaleSlots && (
+        <div className="mb-3 rounded-md bg-amber-900/40 border border-amber-700 px-3 py-2 text-xs text-amber-300">
+          Some estimates may be outdated (showing $0 material cost). Click <strong>Estimate</strong> to recalculate.
+        </div>
+      )}
 
       {/* Comparison grid */}
       <div className="grid gap-3"
@@ -189,8 +207,8 @@ export default function MaterialComparisonPanel({
                 }}
               />
 
-              {/* Estimate button */}
-              {!slot && (
+              {/* Estimate button — shown when no result yet, or for re-estimation */}
+              {(!slot || (slot.materialCost === 0)) && (
                 <button
                   onClick={() => runEstimate(slotIndex)}
                   disabled={selectedMaterialIds[slotIndex] == null || loading}
@@ -198,7 +216,7 @@ export default function MaterialComparisonPanel({
                     hover:bg-primary-700 text-white disabled:opacity-40 disabled:cursor-not-allowed
                     transition-colors"
                 >
-                  {loading ? 'Estimating…' : 'Estimate'}
+                  {loading ? 'Estimating…' : slot ? 'Re-estimate' : 'Estimate'}
                 </button>
               )}
 
