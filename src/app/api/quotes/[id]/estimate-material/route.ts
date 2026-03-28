@@ -74,6 +74,7 @@ export async function POST(
   );
 
   let estimateResult;
+  let calcError: string | null = null;
   try {
     // Temporarily swap all pieces to alternative material
     const pieceIds = allPieces.map(p => p.id);
@@ -88,14 +89,30 @@ export async function POST(
     // Run fresh calculation with swapped materials
     const calc = await calculateQuotePrice(String(quoteId));
 
+    const materialCost = calc.breakdown.materials.subtotal;
+    const fabricationCost = calc.breakdown.services?.subtotal ?? 0;
+    const slabCount = calc.breakdown.materials.slabCount ?? 0;
+
+    // Defensive: warn if materialCost is 0 for a material with pricing data
+    if (materialCost === 0 && allPieces.length > 0) {
+      console.warn(
+        `[estimate-material] materialCost is $0 for material ${material.name} (id=${materialId}) ` +
+        `on quote ${quoteId} with ${allPieces.length} pieces. ` +
+        `price_per_slab=${material.price_per_slab}, price_per_sqm=${material.price_per_sqm}`
+      );
+    }
+
     estimateResult = {
       subtotal: calc.subtotal,
       gstAmount: calc.gstAmount,
       totalIncGst: calc.totalIncGst,
-      materialCost: calc.breakdown?.materials?.subtotal ?? 0,
-      fabricationCost: calc.breakdown?.services?.subtotal ?? 0,
-      slabCount: calc.breakdown?.materials?.slabCount ?? 0,
+      materialCost,
+      fabricationCost,
+      slabCount,
     };
+  } catch (err) {
+    calcError = err instanceof Error ? err.message : String(err);
+    console.error(`[estimate-material] Calculation failed for quote ${quoteId}:`, calcError);
   } finally {
     // ALWAYS restore original material values — same pattern as quote-option-calculator
     const entries = Array.from(originalMap.entries());
@@ -112,7 +129,7 @@ export async function POST(
 
   if (!estimateResult) {
     return NextResponse.json(
-      { error: 'Estimate calculation failed' },
+      { error: calcError ?? 'Estimate calculation failed' },
       { status: 500 }
     );
   }

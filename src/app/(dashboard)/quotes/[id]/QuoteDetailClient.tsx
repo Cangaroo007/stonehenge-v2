@@ -53,6 +53,7 @@ import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
 import BulkMaterialDialog from '@/components/quotes/BulkMaterialDialog';
 import MaterialComparisonPanel, { type ComparisonSlot } from '@/components/quotes/MaterialComparisonPanel';
+import MaterialComparisonErrorBoundary from '@/components/quotes/MaterialComparisonErrorBoundary';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
@@ -411,7 +412,7 @@ export default function QuoteDetailClient({
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
   const [showBulkSwap, setShowBulkSwap] = useState(false);
   const [showComparisonPanel, setShowComparisonPanel] = useState(false);
-  const [comparisonSlots] = useState<(ComparisonSlot | null)[]>(() => {
+  const [comparisonSlots, setComparisonSlots] = useState<(ComparisonSlot | null)[]>(() => {
     const saved = (serverData as unknown as Record<string, unknown>)?.comparison_slots;
     if (Array.isArray(saved)) return saved as (ComparisonSlot | null)[];
     return [null, null, null];
@@ -1180,7 +1181,9 @@ export default function QuoteDetailClient({
     triggerOptimise();
     markAsChanged();
     recalculateOptionsAfterPieceChange();
-  }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange]);
+    // Refetch quote so comparison slots and server data refresh
+    await fetchQuote();
+  }, [quoteIdStr, materials, pieces, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, fetchQuote]);
 
   // Compare Material — opens the material comparison panel (read-only, no option created)
   const handleCompareWithMaterial = useCallback(() => {
@@ -4123,8 +4126,10 @@ export default function QuoteDetailClient({
                 + Compare Material
               </button>
             )}
-            {/* Material comparison panel */}
-            {showComparisonPanel && (
+          </div>
+          {/* Material comparison panel — outside flex header so it gets full width */}
+          {showComparisonPanel && (
+            <MaterialComparisonErrorBoundary>
               <MaterialComparisonPanel
                 quoteId={quoteIdStr}
                 materials={materials}
@@ -4134,14 +4139,19 @@ export default function QuoteDetailClient({
                 currentFabCost={calculation?.breakdown?.services?.subtotal ?? null}
                 savedSlots={comparisonSlots}
                 onSwitchMaterial={handleBulkMaterialApply}
+                onSwitchComplete={(slotIndex: number) => {
+                  setComparisonSlots(prev => {
+                    const n = [...prev]; n[slotIndex] = null; return n;
+                  });
+                }}
                 piecesForSwitch={effectivePieces.map(p => ({
                   id: p.id,
                   materialId: p.materialId ?? null,
                 }))}
                 onClose={() => setShowComparisonPanel(false)}
               />
-            )}
-          </div>
+            </MaterialComparisonErrorBoundary>
+          )}
           <BulkMaterialDialog
             isOpen={showBulkSwap}
             onClose={() => setShowBulkSwap(false)}
