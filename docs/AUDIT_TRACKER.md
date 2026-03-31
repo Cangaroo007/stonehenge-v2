@@ -543,3 +543,5 @@ TEMPLATE-MANAGE-1 done
 - **Root cause:** (1) Waterfall End was a redundant service charge — mitred edge rate already covers it. (2) Polishing service rates deactivated but validation gate still required them, crashing all quote calculations. (3) Two more seed files had isActive re-activation bug.
 - **Verified:** TypeScript zero errors. Quote calculations restored after removing POLISHING from validation gate.
 
+
+✅ STRIP-VISIBILITY-FIX (2026-03-31): Strip widths now visible when any edge has build-up > 0, not just when edge profile selected. InlinePieceEditor.tsx getStripEdges() accepts edgeBuildups param. QuickViewPieceRow.tsx AccordionStripWidths checks build-up OR edge profile. 2 files changed.

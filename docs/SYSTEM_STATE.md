@@ -1264,3 +1264,9 @@ TEMPLATE-MANAGE-1 done
 - Category rate upserts use compound unique keys for robustness
 - CATEGORY_LABELS: ENGINEERED→Zero Silica, NATURAL_HARD→Granite, NATURAL_SOFT→Marble, NATURAL_PREMIUM→Quartzite, SINTERED→Porcelain
 
+
+## 2026-03-31 STRIP-VISIBILITY-FIX
+- InlinePieceEditor.tsx: getStripEdges() accepts edgeBuildups param — includes edges with build-up > 0
+- InlinePieceEditor.tsx: PerEdgeStripWidthTable accepts and passes edgeBuildups prop (3 call sites)
+- QuickViewPieceRow.tsx: AccordionStripWidths checks build-up OR edge profile for strip edge inclusion
+- QuickViewPieceRow.tsx: call site passes edgeBuildups={fullPiece.edgeBuildups}

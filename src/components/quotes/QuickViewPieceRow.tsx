@@ -192,20 +192,22 @@ function AccordionStripWidths({
   edgeSelections,
   shapeType,
   onStripWidthChange,
+  edgeBuildups,
 }: {
   piece: InlinePieceData;
   quoteId: string;
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
   shapeType: ShapeType;
   onStripWidthChange?: () => void;
+  edgeBuildups?: Record<string, { depth: number }> | null;
 }) {
-  // Derive which edges generate strips
+  // Derive which edges generate strips — include edges with edge profile OR build-up
   const edges: string[] = [];
   if (shapeType === 'RECTANGLE') {
-    if (edgeSelections.edgeTop) edges.push('top');
-    if (edgeSelections.edgeBottom) edges.push('bottom');
-    if (edgeSelections.edgeLeft) edges.push('left');
-    if (edgeSelections.edgeRight) edges.push('right');
+    if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
+    if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
+    if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
+    if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
   } else if (shapeType === 'L_SHAPE') {
     edges.push('top', 'left', 'r_top', 'inner', 'r_btm', 'bottom');
   } else if (shapeType === 'U_SHAPE') {
@@ -2286,6 +2288,7 @@ export default function QuickViewPieceRow({
               }}
               shapeType={(piece.shapeType ?? 'RECTANGLE') as ShapeType}
               onStripWidthChange={onStripWidthChange}
+              edgeBuildups={fullPiece.edgeBuildups as Record<string, { depth: number }> | null}
             />
           )}
 

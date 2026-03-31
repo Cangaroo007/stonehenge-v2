@@ -224,13 +224,14 @@ function getDefaultStripWidthForEdge(edgeName: string): number {
 function getStripEdges(
   shapeType: ShapeType,
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null },
+  edgeBuildups?: Record<string, { depth: number }> | null,
 ): string[] {
   if (shapeType === 'RECTANGLE') {
     const edges: string[] = [];
-    if (edgeSelections.edgeTop) edges.push('top');
-    if (edgeSelections.edgeBottom) edges.push('bottom');
-    if (edgeSelections.edgeLeft) edges.push('left');
-    if (edgeSelections.edgeRight) edges.push('right');
+    if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
+    if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
+    if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
+    if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
     return edges;
   }
   if (shapeType === 'L_SHAPE') {
@@ -241,12 +242,12 @@ function getStripEdges(
     // U-shape: 8 possible edges
     return ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
   }
-  // For other shapes, only include edges that have an edge profile
+  // For other shapes, include edges that have an edge profile or a build-up
   const edges: string[] = [];
-  if (edgeSelections.edgeTop) edges.push('top');
-  if (edgeSelections.edgeBottom) edges.push('bottom');
-  if (edgeSelections.edgeLeft) edges.push('left');
-  if (edgeSelections.edgeRight) edges.push('right');
+  if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
+  if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
+  if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
+  if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
   return edges;
 }
 
@@ -264,6 +265,7 @@ function PerEdgeStripWidthTable({
   setStripWidthOverrides,
   quoteId,
   onStripWidthChange,
+  edgeBuildups,
 }: {
   piece: InlinePieceData;
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
@@ -272,8 +274,9 @@ function PerEdgeStripWidthTable({
   setStripWidthOverrides: (v: Record<string, number>) => void;
   quoteId?: number | string;
   onStripWidthChange?: () => void;
+  edgeBuildups?: Record<string, { depth: number }> | null;
 }) {
-  const edges = getStripEdges(shapeType, edgeSelections);
+  const edges = getStripEdges(shapeType, edgeSelections, edgeBuildups);
   const [applyingAll, setApplyingAll] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
@@ -1285,6 +1288,7 @@ export default function InlinePieceEditor({
                 setStripWidthOverrides={setStripWidthOverrides}
                 quoteId={quoteId}
                 onStripWidthChange={onStripWidthChange}
+                edgeBuildups={edgeBuildups}
               />
             )}
             {piece.lamination_method === 'MITRED' && (
