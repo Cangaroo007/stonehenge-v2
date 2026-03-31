@@ -400,6 +400,7 @@ export default function QuoteDetailClient({
   const [addingInlinePieceRoom, setAddingInlinePieceRoom] = useState<string | null>(null);
   const [addingInlinePieceType, setAddingInlinePieceType] = useState<'BENCHTOP' | 'WATERFALL' | 'SPLASHBACK' | null>(null);
   const [addingInlinePieceJoinMethod, setAddingInlinePieceJoinMethod] = useState<'NONE' | 'MITRED' | null>(null);
+  const [postSavePiece, setPostSavePiece] = useState<{ id: number; lengthMm: number; widthMm: number; thicknessMm: number } | null>(null);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [editLoading, setEditLoading] = useState(false);
@@ -1353,6 +1354,16 @@ export default function QuoteDetailClient({
       const savedPiece = await response.json();
 
       if (isCreate) {
+        // For benchtop pieces, show post-save action bar with +Waterfall/+Splashback
+        const createdPieceType = (effectiveData.pieceType as string) ?? 'BENCHTOP';
+        if (createdPieceType === 'BENCHTOP') {
+          setPostSavePiece({
+            id: savedPiece.id,
+            lengthMm: (data.lengthMm as number) || 0,
+            widthMm: (data.widthMm as number) || 0,
+            thicknessMm: (data.thicknessMm as number) || 20,
+          });
+        }
         setAddingInlinePiece(false);
         setAddingInlinePieceRoom(null);
       }
@@ -3799,6 +3810,56 @@ export default function QuoteDetailClient({
                 quoteId={quoteIdStr}
                 onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
               />
+            </div>
+          )}
+
+          {/* Post-save action bar — offer +Waterfall/+Splashback after creating a benchtop */}
+          {postSavePiece && !addingInlinePiece && (
+            <div className="border-b border-gray-200 px-4 py-3 bg-green-50 flex items-center justify-between">
+              <span className="text-sm text-green-800 font-medium">Piece saved</span>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaterfallModal({
+                      isOpen: true,
+                      type: 'WATERFALL',
+                      parentPieceId: String(postSavePiece.id),
+                      parentLengthMm: postSavePiece.lengthMm,
+                      parentWidthMm: postSavePiece.widthMm,
+                      parentThicknessMm: postSavePiece.thicknessMm,
+                    });
+                    setPostSavePiece(null);
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+                >
+                  + Waterfall
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWaterfallModal({
+                      isOpen: true,
+                      type: 'SPLASHBACK',
+                      parentPieceId: String(postSavePiece.id),
+                      parentLengthMm: postSavePiece.lengthMm,
+                      parentWidthMm: postSavePiece.widthMm,
+                      parentThicknessMm: postSavePiece.thicknessMm,
+                    });
+                    setPostSavePiece(null);
+                  }}
+                  className="px-3 py-1.5 text-sm font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+                >
+                  + Splashback
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPostSavePiece(null)}
+                  className="px-3 py-1.5 text-sm font-medium text-gray-600 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  Done
+                </button>
+              </div>
             </div>
           )}
 

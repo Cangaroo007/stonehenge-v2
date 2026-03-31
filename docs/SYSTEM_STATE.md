@@ -1276,3 +1276,8 @@ TEMPLATE-MANAGE-1 done
 - Checkbox rows with inline qty inputs for each active cutout type
 - Add Selected button batch-adds all checked types at once
 - Existing cutout list, edit, remove, and total display unchanged
+
+### fix/waterfall-splashback-create (2026-03-31)
+- Added postSavePiece state to show action bar after benchtop piece creation
+- Green banner with +Waterfall, +Splashback, Done buttons reusing existing WaterfallSplashbackModal
+- Strip suppression and mitre logic handled by existing WF-8 flow
