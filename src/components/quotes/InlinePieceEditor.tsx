@@ -1994,7 +1994,7 @@ export default function InlinePieceEditor({
             disabled={saving}
             className="px-4 py-1.5 text-sm font-medium bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {saving ? 'Saving...' : isNew ? 'Create Piece' : 'Save Changes'}
+            {saving ? 'Saving...' : isNew ? '+ Save Piece' : 'Save Changes'}
           </button>
         </div>
       </div>

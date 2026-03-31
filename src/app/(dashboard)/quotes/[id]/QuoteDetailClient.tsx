@@ -3661,33 +3661,44 @@ export default function QuoteDetailClient({
           <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
             <h2 className="text-lg font-semibold">Pieces</h2>
             <div className="flex items-center gap-2">
-              <button
-                onClick={() => setShowDrawingImport(true)}
-                className="btn-secondary text-sm flex items-center gap-1"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                </svg>
-                Import Drawing
-              </button>
-              <button
-                onClick={() => setShowFromTemplate(true)}
-                className="btn-secondary text-sm flex items-center gap-1"
-              >
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
-                </svg>
-                From Template
-              </button>
-              <button
-                onClick={() => setIsAddingRoom(true)}
-                className="btn-secondary text-sm"
-              >
-                + Add Room
-              </button>
-              <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
-                + Add Piece
-              </button>
+              {addingInlinePiece ? (
+                <button
+                  onClick={() => { setAddingInlinePiece(false); setAddingInlinePieceRoom(null); setAddingInlinePieceType(null); setAddingInlinePieceJoinMethod(null); pendingWaterfallParentRef.current = null; }}
+                  className="btn-secondary text-sm"
+                >
+                  Cancel
+                </button>
+              ) : (
+                <>
+                  <button
+                    onClick={() => setShowDrawingImport(true)}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                    Import Drawing
+                  </button>
+                  <button
+                    onClick={() => setShowFromTemplate(true)}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                    </svg>
+                    From Template
+                  </button>
+                  <button
+                    onClick={() => setIsAddingRoom(true)}
+                    className="btn-secondary text-sm"
+                  >
+                    + Add Room
+                  </button>
+                  <button onClick={() => handleAddPiece()} className="btn-primary text-sm">
+                    + Add Piece
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
