@@ -47,6 +47,7 @@ async function seedEdgeCategoryRates() {
       const rate20mm = Math.round(baseRate20mm * multiplier * 100) / 100;
       const rate40mm = Math.round(baseRate40mm * multiplier * 100) / 100;
 
+      // rate20mm, rate40mm only set on create — never overwrite production-configured rates.
       await prisma.edge_type_category_rates.upsert({
         where: {
           edgeTypeId_fabricationCategory_pricingSettingsId: {
@@ -55,7 +56,7 @@ async function seedEdgeCategoryRates() {
             pricingSettingsId: pricingSettings.id,
           },
         },
-        update: { rate20mm, rate40mm },
+        update: {},
         create: {
           edgeTypeId: edgeType.id,
           fabricationCategory: category,
