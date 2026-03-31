@@ -36,6 +36,7 @@ async function seedCutoutCategoryRates(prisma: PrismaClient, pricingSettingsId: 
       const multiplier = CATEGORY_MULTIPLIERS[category];
       const rate = Math.round(baseRate * multiplier * 100) / 100;
 
+      // rate only set on create — never overwrite production-configured rates.
       await prisma.cutout_category_rates.upsert({
         where: {
           cutoutTypeId_fabricationCategory_pricingSettingsId: {
@@ -44,7 +45,7 @@ async function seedCutoutCategoryRates(prisma: PrismaClient, pricingSettingsId: 
             pricingSettingsId,
           },
         },
-        update: { rate },
+        update: {},
         create: {
           cutoutTypeId: cutoutType.id,
           fabricationCategory: category,
@@ -91,6 +92,7 @@ async function seedEdgeCategoryRates(prisma: PrismaClient, pricingSettingsId: st
       const rate20mm = isPencilRound ? 0 : Math.round(baseRate20mm * multiplier * 100) / 100;
       const rate40mm = isPencilRound ? 0 : Math.round(baseRate40mm * multiplier * 100) / 100;
 
+      // rate20mm, rate40mm only set on create — never overwrite production-configured rates.
       await prisma.edge_type_category_rates.upsert({
         where: {
           edgeTypeId_fabricationCategory_pricingSettingsId: {
@@ -99,7 +101,7 @@ async function seedEdgeCategoryRates(prisma: PrismaClient, pricingSettingsId: st
             pricingSettingsId,
           },
         },
-        update: { rate20mm, rate40mm },
+        update: {},
         create: {
           edgeTypeId: edgeType.id,
           fabricationCategory: category,

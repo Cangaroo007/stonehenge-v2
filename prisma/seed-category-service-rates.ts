@@ -59,6 +59,7 @@ async function main() {
       const rate40mm = Math.round(base.rate40mm * multiplier * 100) / 100;
       const minimumCharge = Math.round(base.minimumCharge * multiplier * 100) / 100;
 
+      // rate20mm, rate40mm, minimumCharge only set on create — never overwrite production-configured rates.
       await prisma.service_rates.upsert({
         where: {
           pricing_settings_id_serviceType_fabricationCategory: {
@@ -68,9 +69,6 @@ async function main() {
           },
         },
         update: {
-          rate20mm,
-          rate40mm,
-          minimumCharge,
           updated_at: new Date(),
         },
         create: {

@@ -86,16 +86,14 @@ async function seedEdgeTypes() {
 
     if (existing) {
       // Note: isActive is deliberately NOT updated here — admin UI controls activation.
-      // Seed only updates structural fields (rates, descriptions, sort order).
+      // baseRate, rate20mm, rate40mm are deliberately NOT updated — admin UI controls pricing.
+      // Seed only sets rates on initial create, never overwrites production-configured values.
       await prisma.edge_types.update({
         where: { name: edgeType.name },
         data: {
           code: edgeType.code,
           description: edgeType.description,
           category: edgeType.category,
-          baseRate: edgeType.baseRate,
-          rate20mm: edgeType.rate20mm,
-          rate40mm: edgeType.rate40mm,
           minimumCharge: edgeType.minimumCharge,
           minimumLength: edgeType.minimumLength,
           isCurved: edgeType.isCurved,
