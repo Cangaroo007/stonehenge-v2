@@ -1270,3 +1270,9 @@ TEMPLATE-MANAGE-1 done
 - InlinePieceEditor.tsx: PerEdgeStripWidthTable accepts and passes edgeBuildups prop (3 call sites)
 - QuickViewPieceRow.tsx: AccordionStripWidths checks build-up OR edge profile for strip edge inclusion
 - QuickViewPieceRow.tsx: call site passes edgeBuildups={fullPiece.edgeBuildups}
+
+## 2026-03-31 MULTI-SELECT-CUTOUTS
+- CutoutSelector.tsx: replaced single-select dropdown with multi-select checklist panel
+- Checkbox rows with inline qty inputs for each active cutout type
+- Add Selected button batch-adds all checked types at once
+- Existing cutout list, edit, remove, and total display unchanged

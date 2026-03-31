@@ -37,9 +37,7 @@ export default function CutoutSelector({
   onChange,
 }: CutoutSelectorProps) {
   const [isAdding, setIsAdding] = useState(false);
-  const [newCutoutTypeId, setNewCutoutTypeId] = useState('');
-  const [newQuantity, setNewQuantity] = useState(1);
-  const [newNotes, setNewNotes] = useState('');
+  const [checkedTypes, setCheckedTypes] = useState<Record<string, { checked: boolean; qty: number }>>({});
 
   // Calculate total cutout cost
   const totalCost = useMemo(() => {
@@ -64,23 +62,20 @@ export default function CutoutSelector({
     return cutoutType ? Number(cutoutType.baseRate) : 0;
   };
 
-  // Handle add cutout
-  const handleAdd = () => {
-    if (!newCutoutTypeId) return;
+  // Handle add all checked cutouts
+  const handleAddSelected = () => {
+    const newCutouts: PieceCutout[] = Object.entries(checkedTypes)
+      .filter(([, v]) => v.checked)
+      .map(([typeId, v]) => ({
+        id: generateId(),
+        cutoutTypeId: typeId,
+        quantity: v.qty,
+      }));
 
-    const newCutout: PieceCutout = {
-      id: generateId(),
-      cutoutTypeId: newCutoutTypeId,
-      quantity: newQuantity,
-      notes: newNotes.trim() || undefined,
-    };
+    if (newCutouts.length === 0) return;
 
-    onChange([...cutouts, newCutout]);
-
-    // Reset form
-    setNewCutoutTypeId('');
-    setNewQuantity(1);
-    setNewNotes('');
+    onChange([...cutouts, ...newCutouts]);
+    setCheckedTypes({});
     setIsAdding(false);
   };
 
@@ -254,75 +249,69 @@ export default function CutoutSelector({
           </div>
         )}
 
-        {/* Add Cutout Form */}
+        {/* Add Cutout Checklist */}
         {isAdding && (
-          <div className="border border-gray-200 rounded-lg p-3 bg-gray-50 space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              {/* Type Dropdown */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Cutout Type
-                </label>
-                <select
-                  value={newCutoutTypeId}
-                  onChange={(e) => setNewCutoutTypeId(e.target.value)}
-                  className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                >
-                  <option value="">Select type...</option>
-                  {activeCutoutTypes.map((type) => (
-                    <option key={type.id} value={type.id}>
-                      {type.name} ({formatCurrency(Number(type.baseRate))})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Quantity */}
-              <div>
-                <label className="block text-xs font-medium text-gray-700 mb-1">
-                  Quantity
-                </label>
-                <input
-                  type="number"
-                  min="1"
-                  value={newQuantity}
-                  onChange={(e) => setNewQuantity(parseInt(e.target.value) || 1)}
-                  className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-                />
-              </div>
+          <div className="border border-gray-200 rounded-lg bg-gray-50 overflow-hidden">
+            <div className="divide-y divide-gray-200">
+              {activeCutoutTypes.map((type) => {
+                const entry = checkedTypes[type.id];
+                const isChecked = entry?.checked ?? false;
+                const qty = entry?.qty ?? 1;
+                return (
+                  <div
+                    key={type.id}
+                    className={`flex items-center justify-between px-3 py-2 ${isChecked ? 'bg-primary-50' : ''}`}
+                  >
+                    <label className="flex items-center gap-2 cursor-pointer flex-1 min-w-0">
+                      <input
+                        type="checkbox"
+                        checked={isChecked}
+                        onChange={(e) =>
+                          setCheckedTypes((prev) => ({
+                            ...prev,
+                            [type.id]: { checked: e.target.checked, qty: prev[type.id]?.qty ?? 1 },
+                          }))
+                        }
+                        className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                      />
+                      <span className="text-sm text-gray-900 truncate">{type.name}</span>
+                      <span className="text-xs text-gray-500 whitespace-nowrap">
+                        ({formatCurrency(Number(type.baseRate))})
+                      </span>
+                    </label>
+                    <div className="flex items-center gap-1 ml-2">
+                      <span className="text-xs text-gray-500">Qty:</span>
+                      <input
+                        type="number"
+                        min="1"
+                        value={qty}
+                        onChange={(e) =>
+                          setCheckedTypes((prev) => ({
+                            ...prev,
+                            [type.id]: { checked: prev[type.id]?.checked ?? false, qty: Math.max(1, parseInt(e.target.value) || 1) },
+                          }))
+                        }
+                        className="w-14 text-center text-sm px-1 py-0.5 border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {/* Notes */}
-            <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">
-                Notes (optional)
-              </label>
-              <input
-                type="text"
-                value={newNotes}
-                onChange={(e) => setNewNotes(e.target.value)}
-                placeholder="e.g., centered, offset 200mm from edge"
-                className="w-full text-sm px-2 py-1.5 border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
-              />
-            </div>
-
-            {/* Actions */}
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 p-3 border-t border-gray-200">
               <button
                 type="button"
-                onClick={handleAdd}
-                disabled={!newCutoutTypeId}
+                onClick={handleAddSelected}
+                disabled={!Object.values(checkedTypes).some((v) => v.checked)}
                 className="flex-1 text-sm px-3 py-1.5 bg-primary-600 text-white rounded hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Add
+                Add Selected
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setIsAdding(false);
-                  setNewCutoutTypeId('');
-                  setNewQuantity(1);
-                  setNewNotes('');
+                  setCheckedTypes({});
                 }}
                 className="flex-1 text-sm px-3 py-1.5 border border-gray-300 text-gray-700 rounded hover:bg-gray-50"
               >
