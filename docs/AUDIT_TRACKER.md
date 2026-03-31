@@ -547,3 +547,5 @@ TEMPLATE-MANAGE-1 done
 ✅ STRIP-VISIBILITY-FIX (2026-03-31): Strip widths now visible when any edge has build-up > 0, not just when edge profile selected. InlinePieceEditor.tsx getStripEdges() accepts edgeBuildups param. QuickViewPieceRow.tsx AccordionStripWidths checks build-up OR edge profile. 2 files changed.
 
 ✅ MULTI-SELECT-CUTOUTS (2026-03-31): Single-select cutout dropdown replaced with multi-select checklist. All active cutout types shown as checkbox rows with inline qty inputs. Add Selected button batch-adds all checked types at once. CutoutSelector.tsx only.
+| WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
+| WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
