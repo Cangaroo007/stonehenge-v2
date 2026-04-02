@@ -549,3 +549,4 @@ TEMPLATE-MANAGE-1 done
 ✅ MULTI-SELECT-CUTOUTS (2026-03-31): Single-select cutout dropdown replaced with multi-select checklist. All active cutout types shown as checkbox rows with inline qty inputs. Add Selected button batch-adds all checked types at once. CutoutSelector.tsx only.
 | WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
 | WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
+

@@ -1286,3 +1286,4 @@ TEMPLATE-MANAGE-1 done
 - Added postSavePiece state to show action bar after benchtop piece creation
 - Green banner with +Waterfall, +Splashback, Done buttons reusing existing WaterfallSplashbackModal
 - Strip suppression and mitre logic handled by existing WF-8 flow
+
