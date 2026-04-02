@@ -8,6 +8,9 @@ export interface PieceRelationshipData {
   joinPosition: string | null; // Maps from DB: side
   grainMatch: boolean;          // Maps from DB: grain_match
   notes: string | null;
+  positionMm: number | null;
+  positionReference: string | null;
+  coverageMm: number | null;
 }
 
 export interface CreatePieceRelationshipInput {
@@ -16,12 +19,18 @@ export interface CreatePieceRelationshipInput {
   relationshipType: RelationshipType;
   joinPosition?: string;
   notes?: string;
+  positionMm?: number | null;
+  positionReference?: string | null;
+  coverageMm?: number | null;
 }
 
 export interface UpdatePieceRelationshipInput {
   relationshipType?: RelationshipType;
   joinPosition?: string | null;
   notes?: string | null;
+  positionMm?: number | null;
+  positionReference?: string | null;
+  coverageMm?: number | null;
 }
 
 // For the auto-suggest engine (13.5)

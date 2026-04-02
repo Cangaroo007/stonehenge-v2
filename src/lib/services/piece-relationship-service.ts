@@ -19,6 +19,9 @@ function toRelationshipData(record: {
   side: string | null;
   grain_match: boolean;
   notes: string | null;
+  position_mm: number | null;
+  position_reference: string | null;
+  coverage_mm: number | null;
 }): PieceRelationshipData {
   return {
     id: String(record.id),
@@ -28,6 +31,9 @@ function toRelationshipData(record: {
     joinPosition: record.side,
     grainMatch: record.grain_match,
     notes: record.notes,
+    positionMm: record.position_mm ?? null,
+    positionReference: record.position_reference ?? null,
+    coverageMm: record.coverage_mm ?? null,
   };
 }
 

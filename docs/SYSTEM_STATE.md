@@ -1294,3 +1294,15 @@ TEMPLATE-MANAGE-1 done
 - Edge rates restored: Arris/Pencil Round at Jay's values (25/27/30/40/35 range)
 - Branch fix/waterfall-splashback-create contains: waterfall/splashback post-save banner + seed rate zero fix
 
+
+## 2026-04-02 — SPLASH-POS-SCHEMA
+- piece_relationships: now has position_mm (Int?), position_reference (String?), coverage_mm (Int?)
+- src/lib/types/piece-relationship.ts: positionMm, positionReference, coverageMm added to all 3 interfaces
+- src/lib/services/piece-relationship-service.ts: toRelationshipData() maps all 3 new fields
+- src/app/(dashboard)/quotes/[id]/QuoteDetailClient.tsx: manual PieceRelationshipData construction updated at line 2720
+
+## 2026-04-02 — SPLASH-POS-SCHEMA
+- piece_relationships: position_mm Int?, position_reference String?, coverage_mm Int? added
+- src/lib/types/piece-relationship.ts: 3 new fields on all interfaces
+- src/lib/services/piece-relationship-service.ts: toRelationshipData() maps new fields
+- QuoteDetailClient.tsx line 2720: manual PieceRelationshipData construction updated
