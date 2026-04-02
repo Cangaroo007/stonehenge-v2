@@ -1287,3 +1287,10 @@ TEMPLATE-MANAGE-1 done
 - Green banner with +Waterfall, +Splashback, Done buttons reusing existing WaterfallSplashbackModal
 - Strip suppression and mitre logic handled by existing WF-8 flow
 
+
+## 2026-04-02
+- prisma/seed-production.js: seedEdgeTypes() update block no longer writes rate20mm/rate40mm — rates are now admin-UI-only
+- Migration table clean — zero NULL finished_at rows
+- Edge rates restored: Arris/Pencil Round at Jay's values (25/27/30/40/35 range)
+- Branch fix/waterfall-splashback-create contains: waterfall/splashback post-save banner + seed rate zero fix
+

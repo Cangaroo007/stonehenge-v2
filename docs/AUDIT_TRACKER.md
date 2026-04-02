@@ -550,3 +550,8 @@ TEMPLATE-MANAGE-1 done
 | WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
 | WATERFALL-SPLASHBACK-CREATE | fix/waterfall-splashback-create | Post-save banner with +Waterfall/+Splashback buttons after creating benchtop piece | 2026-03-31 |
 
+
+## 2026-04-02
+- ✅ RESOLVED: seed-production.js was overwriting Arris/Pencil Round rates to $0 on every deploy. Removed rate20mm/rate40mm from seedEdgeTypes() update block (lines 375-376). Create block untouched.
+- ✅ RESOLVED: Ghost migration rows (20260131, 20260320) with NULL finished_at deleted from _prisma_migrations.
+
