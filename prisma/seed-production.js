@@ -372,8 +372,7 @@ async function seedEdgeTypes() {
           description: edgeType.description,
           category: edgeType.category,
           baseRate: edgeType.baseRate,
-          rate20mm: edgeType.rate20mm,
-          rate40mm: edgeType.rate40mm,
+          // rate20mm/rate40mm NOT updated — admin UI controls rates per Jay's rate card
           minimumCharge: edgeType.minimumCharge,
           minimumLength: edgeType.minimumLength,
           isCurved: edgeType.isCurved,
