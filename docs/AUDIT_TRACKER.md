@@ -555,3 +555,13 @@ TEMPLATE-MANAGE-1 done
 - ✅ RESOLVED: seed-production.js was overwriting Arris/Pencil Round rates to $0 on every deploy. Removed rate20mm/rate40mm from seedEdgeTypes() update block (lines 375-376). Create block untouched.
 - ✅ RESOLVED: Ghost migration rows (20260131, 20260320) with NULL finished_at deleted from _prisma_migrations.
 
+
+## 2026-04-02 — SPLASH-POS-SCHEMA
+- ✅ RESOLVED: piece_relationships had no position or coverage columns. Added position_mm Int?, position_reference String?, coverage_mm Int? via migration 20260402000000_add_splashback_position_to_relationships.
+- ✅ RESOLVED: PieceRelationshipData, CreatePieceRelationshipInput, UpdatePieceRelationshipInput updated with 3 new fields.
+- ✅ RESOLVED: toRelationshipData() mapper updated to map 3 new DB columns to camelCase.
+
+## 2026-04-02 — SPLASH-POS-SCHEMA
+- ✅ Added position_mm, position_reference, coverage_mm to piece_relationships via migration 20260402000000
+- ✅ Updated PieceRelationshipData, CreatePieceRelationshipInput, UpdatePieceRelationshipInput interfaces
+- ✅ Updated toRelationshipData() mapper and QuoteDetailClient.tsx manual construction

@@ -2725,6 +2725,9 @@ export default function QuoteDetailClient({
               joinPosition: sr.side,
               grainMatch: (sr as Record<string, unknown>).grain_match === true,
               notes: null,
+              positionMm: (sr as Record<string, unknown>).position_mm as number | null ?? null,
+              positionReference: (sr as Record<string, unknown>).position_reference as string | null ?? null,
+              coverageMm: (sr as Record<string, unknown>).coverage_mm as number | null ?? null,
             });
           }
         }

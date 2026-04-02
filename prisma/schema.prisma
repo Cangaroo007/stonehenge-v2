@@ -1551,6 +1551,9 @@ model piece_relationships {
   notes String?
 
   grain_match              Boolean                       @default(false)
+  position_mm              Int?
+  position_reference       String?
+  coverage_mm              Int?
 
   created_at DateTime @default(now())
   updated_at DateTime @default(now()) @updatedAt
