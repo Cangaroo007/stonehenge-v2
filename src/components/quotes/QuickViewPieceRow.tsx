@@ -681,27 +681,46 @@ export default function QuickViewPieceRow({
 
   // All edge IDs for this piece shape — used by EdgePanel
   const allEdgeIds = useMemo(() => {
-    if (piece.shapeType === 'L_SHAPE') {
-      return ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
+    switch (piece.shapeType) {
+      case 'L_SHAPE':
+        return ['top', 'r_top', 'inner', 'r_btm', 'bottom', 'left'];
+      case 'U_SHAPE':
+        return ['top_left', 'inner_left', 'back_inner', 'inner_right', 'top_right', 'outer_right', 'bottom', 'outer_left'];
+      case 'RADIUS_END': {
+        const cfg = piece.shapeConfig as { curved_ends?: string } | null;
+        const base = ['top', 'bottom', 'left', 'arc_end'];
+        return cfg?.curved_ends === 'BOTH' ? [...base, 'arc_left'] : base;
+      }
+      case 'FULL_CIRCLE':
+        return ['arc_end'];
+      case 'CONCAVE_ARC':
+        return ['arc_outer', 'arc_inner', 'arc_left', 'arc_right'];
+      case 'ROUNDED_RECT':
+        return ['top', 'bottom', 'left', 'right', 'corner_tl', 'corner_tr', 'corner_bl', 'corner_br'];
+      default:
+        return ['top', 'bottom', 'left', 'right'];
     }
-    if (piece.shapeType === 'U_SHAPE') {
-      return ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
-    }
-    return ['top', 'bottom', 'left', 'right'];
-  }, [piece.shapeType]);
+  }, [piece.shapeType, piece.shapeConfig]);
 
   // Current edge profiles keyed by edge ID — used by EdgePanel
   const edgePanelProfiles = useMemo(() => {
-    if (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') {
-      return ((piece.shapeConfig as Record<string, unknown>)?.edges as Record<string, string | null>) ?? {};
-    }
-    return {
+    const rectProfiles = {
       top: piece.edgeTop ?? null,
       bottom: piece.edgeBottom ?? null,
       left: piece.edgeLeft ?? null,
       right: piece.edgeRight ?? null,
     };
-  }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
+    if (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') {
+      return ((piece.shapeConfig as Record<string, unknown>)?.edges as Record<string, string | null>) ?? {};
+    }
+    if (piece.shapeType === 'RADIUS_END' || piece.shapeType === 'FULL_CIRCLE' ||
+        piece.shapeType === 'CONCAVE_ARC' || piece.shapeType === 'ROUNDED_RECT') {
+      // Arc/corner edges come from edgeArcConfig; straight edges from rect fields
+      const arcProfiles = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+      return { ...rectProfiles, ...arcProfiles };
+    }
+    return rectProfiles;
+  }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, fullPiece?.edgeArcConfig]);
 
   // Map of edge side → attached piece type — used by PieceVisualEditor for WF/SB labels
   const attachedPieceTypes = useMemo(() => {
@@ -2052,43 +2071,6 @@ export default function QuickViewPieceRow({
 
           {/* Quick Edge selector + cutouts */}
           <div className="flex-1 min-w-0">
-            {/* Quick Edge profile selector — rectangle and other shapes only */}
-            {isEditMode && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
-              <div className="flex items-center gap-1 mb-1.5 flex-wrap">
-                <span className="text-[10px] text-gray-400 mr-0.5">Quick Edge:</span>
-                <button
-                  onClick={() => setQuickEdgeProfileId(null)}
-                  className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colours ${
-                    quickEdgeProfileId === null
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                  }`}
-                >
-                  Raw
-                </button>
-                {(editData?.edgeTypes ?? []).map(et => {
-                  const disabled = isMitred && !et.isMitred;
-                  return (
-                    <button
-                      key={et.id}
-                      onClick={() => !disabled && setQuickEdgeProfileId(et.id)}
-                      disabled={disabled}
-                      className={`px-1.5 py-0.5 text-[10px] font-medium rounded border transition-colours ${
-                        disabled
-                          ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                          : quickEdgeProfileId === et.id
-                            ? 'bg-blue-600 text-white border-blue-600'
-                            : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-                      }`}
-                      title={disabled ? 'Mitred edges use Pencil Round only' : et.name}
-                    >
-                      {et.name}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-
             {/* Layout Presets (Rectangle only, edit mode) */}
             {isEditMode && (!piece.shapeType || piece.shapeType === 'RECTANGLE') && (
               <div className="flex flex-wrap items-center gap-1 mb-1">
@@ -2292,12 +2274,20 @@ export default function QuickViewPieceRow({
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
                 attachedPieceTypes={attachedPieceTypes}
+                externalSelectedEdgeIds={isEditMode ? selectedEdgeIds : undefined}
+                onEdgeClick={isEditMode ? (edgeId) => {
+                  setSelectedEdgeIds(prev =>
+                    prev.includes(edgeId)
+                      ? prev.filter(id => id !== edgeId)
+                      : [...prev, edgeId]
+                  );
+                } : undefined}
               />
             </div>
           </PieceEditorErrorBoundary>
 
-          {/* EdgePanel — unified edge interaction for L/U shapes (expanded view only) */}
-          {isEditMode && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
+          {/* EdgePanel — unified edge interaction for all shapes (expanded view only) */}
+          {isEditMode && (
             <div className="px-4 pb-3 pt-2 border-b border-gray-100">
               <EdgePanel
                 allEdgeIds={allEdgeIds}
