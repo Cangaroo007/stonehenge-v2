@@ -921,17 +921,17 @@ export default function PieceVisualEditor({
         },
         {
           side: 'r_top', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
-          labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
+          labelX: p1.x + lo + 8, labelY: (p1.y + p2.y) / 2,
           lengthMm: l2w, label: 'R-TOP',
         },
         {
           side: 'inner', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
-          labelX: (p2.x + p3.x) / 2, labelY: p2.y - lo,
+          labelX: (p2.x + p3.x) / 2, labelY: p2.y + lo,
           lengthMm: l1l - l2w, label: 'INNER',
         },
         {
           side: 'r_btm', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
-          labelX: p3.x + lo, labelY: (p3.y + p4.y) / 2,
+          labelX: p3.x + lo + 8, labelY: (p3.y + p4.y) / 2,
           lengthMm: leg2Net, label: 'R-BTM',
         },
         {
@@ -1854,8 +1854,8 @@ export default function PieceVisualEditor({
                       {(() => {
                         if (isWallEdge) {
                           const attachedType = attachedPieceTypes?.[edge.side];
-                          if (attachedType === 'WATERFALL') return `WF ${edge.label}`;
-                          if (attachedType === 'SPLASHBACK') return `SB ${edge.label}`;
+                          if (attachedType === 'WATERFALL') return `WF ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
+                          if (attachedType === 'SPLASHBACK') return `SB ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                           return `N-STR ${edge.label}`;
                         }
                         if (!isFinished) return `RAW ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
