@@ -1312,3 +1312,11 @@ TEMPLATE-MANAGE-1 done
   - EdgePanelProps interface: allEdgeIds, selectedEdgeIds, edgeProfiles, edgeBuildups, edgeTypes, callbacks
   - Three sections: Edge Finish, Build-Up, Attach Piece
   - Not yet wired — wiring in EDGE-PANEL-WIRE-LU sprint
+
+## 2026-04-03 — EDGE-PANEL-WIRE-LU
+- QuickViewPieceRow.tsx: EdgePanel imported and rendered for L_SHAPE and U_SHAPE pieces
+- QuickViewPieceRow.tsx: selectedEdgeIds state added (string[])
+- QuickViewPieceRow.tsx: allEdgeIds useMemo added (shape-aware edge ID list)
+- QuickViewPieceRow.tsx: edgePanelProfiles useMemo added (reads shapeConfig.edges for L/U)
+- QuickViewPieceRow.tsx: L/U SVG edge onClick changed from immediate apply to toggle select
+- QuickViewPieceRow.tsx: Quick Edge bar gated to non-L/U shapes only

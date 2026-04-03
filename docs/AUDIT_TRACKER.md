@@ -571,3 +571,12 @@ TEMPLATE-MANAGE-1 done
 - ✅ Supports multi-select edges, Edge Finish, Build-Up, Attach Piece sections
 - ✅ Shape-agnostic — works for any edge ID set (rect, L-shape, U-shape, curved)
 - ✅ Pure props/callbacks — no API calls, no wiring to existing components
+
+## 2026-04-03 — EDGE-PANEL-WIRE-LU
+- ✅ EdgePanel wired into L/U shaped pieces for edge profile and build-up selection
+- ✅ L/U SVG edge clicks now toggle selectedEdgeIds (multi-select) instead of immediate apply
+- ✅ Selected edges highlight blue on SVG diagram
+- ✅ EdgePanel onApplyProfile calls handleShapeEdgeChange for each selected edge
+- ✅ EdgePanel onApplyBuildup calls handleEdgeBuildup for each selected edge
+- ✅ Rectangular pieces keep existing Quick Edge bar unchanged
+- ⚠️ onAttachWaterfall/onAttachSplashback wired as no-ops — full wiring in EDGE-PANEL-WF-LU
