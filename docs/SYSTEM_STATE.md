@@ -1320,3 +1320,7 @@ TEMPLATE-MANAGE-1 done
 - QuickViewPieceRow.tsx: edgePanelProfiles useMemo added (reads shapeConfig.edges for L/U)
 - QuickViewPieceRow.tsx: L/U SVG edge onClick changed from immediate apply to toggle select
 - QuickViewPieceRow.tsx: Quick Edge bar gated to non-L/U shapes only
+
+## 2026-04-03 — SEED-RATE-ZERO-2
+- prisma/seed-production.js: edgeCategoryRateTable updated with correct rates for Arris, Pencil Round, Beveled, Mitered
+- Rates will now survive every deploy permanently
