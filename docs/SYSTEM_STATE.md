@@ -1327,3 +1327,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — EDGE-PANEL-WIRE-LU-FIX
 - QuickViewPieceRow.tsx: EdgePanel moved to expanded view after PieceEditorErrorBoundary
 - QuickViewPieceRow.tsx: Edge Build-Up section gated to non-L/U shapes only
+## 2026-04-03 — EDGE-LABEL-FIX-1
+- QuickViewPieceRow.tsx: attachedPieceTypes useMemo added, passed to PieceVisualEditor
+- PieceVisualEditor now shows WF/SB labels on edges with attached waterfall/splashback pieces

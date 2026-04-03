@@ -590,3 +590,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ EdgePanel moved from compact card to expanded view
 - ✅ Old Edge Build-Up section hidden for L/U shapes
 - ✅ EdgePanel only visible when piece is expanded in edit mode
+## 2026-04-03 — EDGE-LABEL-FIX-1
+- ✅ attachedPieceTypes useMemo added to QuickViewPieceRow — builds WF/SB map from relationships
+- ✅ attachedPieceTypes passed to PieceVisualEditor — WF/SB labels now show instead of N-STR

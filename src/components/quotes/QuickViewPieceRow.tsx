@@ -707,6 +707,20 @@ export default function QuickViewPieceRow({
     };
   }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
 
+  // Map of edge side → attached piece type — used by PieceVisualEditor for WF/SB labels
+  const attachedPieceTypes = useMemo(() => {
+    if (!relationships) return undefined;
+    const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};
+    relationships.forEach(rel => {
+      if (String(rel.parentPieceId) === String(piece.id) && rel.joinPosition) {
+        if (rel.relationshipType === 'WATERFALL' || rel.relationshipType === 'SPLASHBACK') {
+          map[rel.joinPosition.toLowerCase()] = rel.relationshipType;
+        }
+      }
+    });
+    return Object.keys(map).length > 0 ? map : undefined;
+  }, [relationships, piece.id]);
+
   const resolvedEdgeTypes = useMemo(() => {
     if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
       return editData.edgeTypes.filter(et => et.isActive !== false);
@@ -2281,6 +2295,7 @@ export default function QuickViewPieceRow({
                 })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
+                attachedPieceTypes={attachedPieceTypes}
               />
             </div>
           </PieceEditorErrorBoundary>
