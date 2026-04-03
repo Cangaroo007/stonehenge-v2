@@ -598,3 +598,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ back_inner edge always horizontal regardless of leg length difference
 - ✅ Same fix applied to PieceVisualEditor.tsx and QuickViewPieceRow.tsx getMiniShapeEdges
 - ✅ getMiniShapePath also fixed — compact card U-shape polygon now correct
+## 2026-04-03 — EDGE-ANNOTATION-FIX
+- ✅ L-shape inner edge label moved below step (labelY: p2.y + lo)
+- ✅ L-shape r_top and r_btm labels pushed right of bounding box
+- ✅ WF/SB labels now show mm measurement (WF 600mm) not side name (WF Right)

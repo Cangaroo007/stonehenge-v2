@@ -1333,3 +1333,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — USHAPE-GEOMETRY-FIX
 - PieceVisualEditor.tsx: U-shape point coordinates rewritten for flat-bottom model
 - QuickViewPieceRow.tsx: getMiniShapeEdges and getMiniShapePath U-shape coordinates rewritten
+## 2026-04-03 — EDGE-ANNOTATION-FIX
+- PieceVisualEditor.tsx: 3 L-shape interior label positions corrected
+- PieceVisualEditor.tsx: WF/SB labels use edge.lengthMm instead of edge.label
