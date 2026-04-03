@@ -1306,3 +1306,9 @@ TEMPLATE-MANAGE-1 done
 - src/lib/types/piece-relationship.ts: 3 new fields on all interfaces
 - src/lib/services/piece-relationship-service.ts: toRelationshipData() maps new fields
 - QuoteDetailClient.tsx line 2720: manual PieceRelationshipData construction updated
+
+## 2026-04-02 — EDGE-PANEL-COMPONENT
+- src/components/quotes/EdgePanel.tsx: NEW — unified edge panel component
+  - EdgePanelProps interface: allEdgeIds, selectedEdgeIds, edgeProfiles, edgeBuildups, edgeTypes, callbacks
+  - Three sections: Edge Finish, Build-Up, Attach Piece
+  - Not yet wired — wiring in EDGE-PANEL-WIRE-LU sprint
