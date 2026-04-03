@@ -593,3 +593,8 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — EDGE-LABEL-FIX-1
 - ✅ attachedPieceTypes useMemo added to QuickViewPieceRow — builds WF/SB map from relationships
 - ✅ attachedPieceTypes passed to PieceVisualEditor — WF/SB labels now show instead of N-STR
+## 2026-04-03 — USHAPE-GEOMETRY-FIX
+- ✅ U-shape now renders as three perfect rectangles sharing a flat bottom
+- ✅ back_inner edge always horizontal regardless of leg length difference
+- ✅ Same fix applied to PieceVisualEditor.tsx and QuickViewPieceRow.tsx getMiniShapeEdges
+- ✅ getMiniShapePath also fixed — compact card U-shape polygon now correct

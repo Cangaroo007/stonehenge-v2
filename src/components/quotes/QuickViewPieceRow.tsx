@@ -381,10 +381,8 @@ function getMiniShapePath(
     const sBW = (cfg.back.width_mm / boundH) * h;
     const sRW = (cfg.rightLeg.width_mm / boundW) * w;
     const sRL = (cfg.rightLeg.length_mm / boundH) * h;
-    const sInnerLeftY = sLL - sBW;
-    const sInnerRightY = sRL - sBW;
-    // U-shape: P0→P1→P2→P3→P4→P5→P6→P7 (same point order as PieceVisualEditor)
-    return `M ${x},${y} L ${x + sLW},${y} L ${x + sLW},${y + sInnerLeftY} L ${x + w - sRW},${y + sInnerRightY} L ${x + w - sRW},${y} L ${x + w},${y} L ${x + w},${y + sRL} L ${x},${y + sLL} Z`;
+    // U-shape: three perfect rectangles sharing flat bottom at y + h
+    return `M ${x},${y + h - sLL} L ${x + sLW},${y + h - sLL} L ${x + sLW},${y + h - sBW} L ${x + w - sRW},${y + h - sBW} L ${x + w - sRW},${y + h - sRL} L ${x + w},${y + h - sRL} L ${x + w},${y + h} L ${x},${y + h} Z`;
   }
   // RADIUS_END — rectangle with one or both short ends replaced by arc
   if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
@@ -475,26 +473,24 @@ function getMiniShapeEdges(
     const sBW = (cfg.back.width_mm / boundH) * h;
     const sRW = (cfg.rightLeg.width_mm / boundW) * w;
     const sRL = (cfg.rightLeg.length_mm / boundH) * h;
-    const sInnerLeftY = sLL - sBW;
-    const sInnerRightY = sRL - sBW;
-
-    const p0 = { x,           y };
-    const p1 = { x: x + sLW,  y };
-    const p2 = { x: x + sLW,  y: y + sInnerLeftY };
-    const p3 = { x: x + w - sRW, y: y + sInnerRightY };
-    const p4 = { x: x + w - sRW, y };
-    const p5 = { x: x + w,    y };
-    const p6 = { x: x + w,    y: y + sRL };
-    const p7 = { x,           y: y + sLL };
+    // Three perfect rectangles sharing a flat bottom at y + h
+    const p0 = { x,              y: y + h - sLL };
+    const p1 = { x: x + sLW,     y: y + h - sLL };
+    const p2 = { x: x + sLW,     y: y + h - sBW };
+    const p3 = { x: x + w - sRW, y: y + h - sBW };
+    const p4 = { x: x + w - sRW, y: y + h - sRL };
+    const p5 = { x: x + w,       y: y + h - sRL };
+    const p6 = { x: x + w,       y: y + h };
+    const p7 = { x,              y: y + h };
 
     return [
       { side: 'top_left',    label: 'T-L',   x1: p0.x, y1: p0.y, x2: p1.x, y2: p1.y, lx: (p0.x+p1.x)/2, ly: p0.y - 6,         anchor: 'middle' as const },
-      { side: 'inner_left',  label: 'IN-L',  x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, lx: p1.x + 8,       ly: (p1.y+p2.y)/2,    anchor: 'start' as const },
-      { side: 'back_inner',  label: 'BACK',  x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y, lx: (p2.x+p3.x)/2, ly: Math.max(p2.y, p3.y) + 9, anchor: 'middle' as const },
-      { side: 'inner_right', label: 'IN-R',  x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y, lx: p4.x - 8,       ly: (p3.y+p4.y)/2,    anchor: 'end' as const },
+      { side: 'inner_left',  label: 'IN-L',  x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y, lx: p1.x - 8,       ly: (p1.y+p2.y)/2,    anchor: 'end' as const },
+      { side: 'back_inner',  label: 'BACK',  x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y, lx: (p2.x+p3.x)/2, ly: p2.y - 6,          anchor: 'middle' as const },
+      { side: 'inner_right', label: 'IN-R',  x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y, lx: p4.x + 8,       ly: (p3.y+p4.y)/2,    anchor: 'start' as const },
       { side: 'top_right',   label: 'T-R',   x1: p4.x, y1: p4.y, x2: p5.x, y2: p5.y, lx: (p4.x+p5.x)/2, ly: p4.y - 6,         anchor: 'middle' as const },
       { side: 'outer_right', label: 'RIGHT', x1: p5.x, y1: p5.y, x2: p6.x, y2: p6.y, lx: p5.x + 8,       ly: (p5.y+p6.y)/2,    anchor: 'start' as const },
-      { side: 'bottom',      label: 'BTM',   x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y, lx: (p6.x+p7.x)/2, ly: Math.max(p6.y, p7.y) + 9, anchor: 'middle' as const },
+      { side: 'bottom',      label: 'BTM',   x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y, lx: (p6.x+p7.x)/2, ly: p6.y + 9,          anchor: 'middle' as const },
       { side: 'outer_left',  label: 'LEFT',  x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y, lx: p7.x - 8,       ly: (p7.y+p0.y)/2,    anchor: 'end' as const },
     ];
   }

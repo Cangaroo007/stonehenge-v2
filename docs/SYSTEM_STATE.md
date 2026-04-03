@@ -1330,3 +1330,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — EDGE-LABEL-FIX-1
 - QuickViewPieceRow.tsx: attachedPieceTypes useMemo added, passed to PieceVisualEditor
 - PieceVisualEditor now shows WF/SB labels on edges with attached waterfall/splashback pieces
+## 2026-04-03 — USHAPE-GEOMETRY-FIX
+- PieceVisualEditor.tsx: U-shape point coordinates rewritten for flat-bottom model
+- QuickViewPieceRow.tsx: getMiniShapeEdges and getMiniShapePath U-shape coordinates rewritten

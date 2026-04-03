@@ -983,17 +983,17 @@ export default function PieceVisualEditor({
       // U-shape opens at top, closed at bottom
       // Points clockwise from outer top-left:
       // P0(0,0) → P1(lw,0) → P2(lw,ll-bw) → P3(bl-rw,rl-bw) → P4(bl-rw,0) → P5(bl,0) → P6(bl,rl) → P7(0,ll)
-      const sInnerLeftY = sLL - sBW;  // inner-left bottom (where back starts)
-      const sInnerRightY = sRL - sBW; // inner-right bottom
-
-      const p0 = { x: x, y: y };
-      const p1 = { x: x + sLW, y: y };
-      const p2 = { x: x + sLW, y: y + sInnerLeftY };
-      const p3 = { x: x + sw - sRW, y: y + sInnerRightY };
-      const p4 = { x: x + sw - sRW, y: y };
-      const p5 = { x: x + sw, y: y };
-      const p6 = { x: x + sw, y: y + sRL };
-      const p7 = { x: x, y: y + sLL };
+      // Three perfect rectangles sharing a flat bottom at y + sh
+      // Left leg top at y + sh - sLL, right leg top at y + sh - sRL
+      // Back inner edge always horizontal at y + sh - sBW
+      const p0 = { x: x,           y: y + sh - sLL };  // outer top-left (left leg top)
+      const p1 = { x: x + sLW,     y: y + sh - sLL };  // inner top-left
+      const p2 = { x: x + sLW,     y: y + sh - sBW };  // inner bottom-left (back bar top)
+      const p3 = { x: x + sw - sRW, y: y + sh - sBW }; // inner bottom-right (back bar top)
+      const p4 = { x: x + sw - sRW, y: y + sh - sRL }; // inner top-right
+      const p5 = { x: x + sw,      y: y + sh - sRL };  // outer top-right (right leg top)
+      const p6 = { x: x + sw,      y: y + sh };         // outer bottom-right
+      const p7 = { x: x,           y: y + sh };         // outer bottom-left
 
       const path = `M ${p0.x},${p0.y} L ${p1.x},${p1.y} L ${p2.x},${p2.y} L ${p3.x},${p3.y} L ${p4.x},${p4.y} L ${p5.x},${p5.y} L ${p6.x},${p6.y} L ${p7.x},${p7.y} Z`;
 
@@ -1011,17 +1011,17 @@ export default function PieceVisualEditor({
         },
         {
           side: 'inner_left', x1: p1.x, y1: p1.y, x2: p2.x, y2: p2.y,
-          labelX: p1.x + lo, labelY: (p1.y + p2.y) / 2,
+          labelX: p1.x - lo, labelY: (p1.y + p2.y) / 2,
           lengthMm: ll - bw, label: 'IN-L',
         },
         {
           side: 'back_inner', x1: p2.x, y1: p2.y, x2: p3.x, y2: p3.y,
-          labelX: (p2.x + p3.x) / 2, labelY: Math.max(p2.y, p3.y) + lo,
-          lengthMm: bl, label: 'BACK',
+          labelX: (p2.x + p3.x) / 2, labelY: p2.y - lo,
+          lengthMm: bl - lw - rw, label: 'BACK',
         },
         {
           side: 'inner_right', x1: p3.x, y1: p3.y, x2: p4.x, y2: p4.y,
-          labelX: p3.x - lo, labelY: (p3.y + p4.y) / 2,
+          labelX: p4.x + lo, labelY: (p3.y + p4.y) / 2,
           lengthMm: rl - bw, label: 'IN-R',
         },
         {
@@ -1036,8 +1036,8 @@ export default function PieceVisualEditor({
         },
         {
           side: 'bottom', x1: p6.x, y1: p6.y, x2: p7.x, y2: p7.y,
-          labelX: (p6.x + p7.x) / 2, labelY: Math.max(p6.y, p7.y) + lo + 4,
-          lengthMm: bottomSpan, label: 'BTM',
+          labelX: (p6.x + p7.x) / 2, labelY: p6.y + lo + 4,
+          lengthMm: bl, label: 'BTM',
         },
         {
           side: 'outer_left', x1: p7.x, y1: p7.y, x2: p0.x, y2: p0.y,
