@@ -1572,8 +1572,9 @@ export default function QuickViewPieceRow({
 
           {/* Slab price override input moved to Cost Breakdown section */}
 
-          {/* Edge Build-Up edit UI (edit mode only) */}
-          {isEditMode && (
+          {/* Edge Build-Up edit UI (edit mode only — rectangular and other shapes) */}
+          {/* L/U shapes use EdgePanel in expanded view instead */}
+          {isEditMode && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
             <div className="w-full mt-2">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
@@ -2041,28 +2042,6 @@ export default function QuickViewPieceRow({
 
           {/* Quick Edge selector + cutouts */}
           <div className="flex-1 min-w-0">
-            {/* Edge panel — unified edge interaction for L/U shapes */}
-            {isEditMode && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
-              <EdgePanel
-                allEdgeIds={allEdgeIds}
-                selectedEdgeIds={selectedEdgeIds}
-                onSelectionChange={setSelectedEdgeIds}
-                edgeProfiles={edgePanelProfiles}
-                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
-                edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
-                onApplyProfile={(edgeIds, profileId) => {
-                  edgeIds.forEach(edgeId => handleShapeEdgeChange(edgeId, profileId));
-                  setSelectedEdgeIds([]);
-                }}
-                onApplyBuildup={(edgeIds, depth) => {
-                  edgeIds.forEach(edgeId => handleEdgeBuildup(edgeId, depth !== null, depth ?? 40));
-                }}
-                onAttachWaterfall={() => {}}
-                onAttachSplashback={() => {}}
-                disabled={!isEditMode}
-              />
-            )}
-
             {/* Quick Edge profile selector — rectangle and other shapes only */}
             {isEditMode && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
               <div className="flex items-center gap-1 mb-1.5 flex-wrap">
@@ -2305,6 +2284,30 @@ export default function QuickViewPieceRow({
               />
             </div>
           </PieceEditorErrorBoundary>
+
+          {/* EdgePanel — unified edge interaction for L/U shapes (expanded view only) */}
+          {isEditMode && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
+            <div className="px-4 pb-3 pt-2 border-b border-gray-100">
+              <EdgePanel
+                allEdgeIds={allEdgeIds}
+                selectedEdgeIds={selectedEdgeIds}
+                onSelectionChange={setSelectedEdgeIds}
+                edgeProfiles={edgePanelProfiles}
+                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
+                edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
+                onApplyProfile={(edgeIds, profileId) => {
+                  edgeIds.forEach(edgeId => handleShapeEdgeChange(edgeId, profileId));
+                  setSelectedEdgeIds([]);
+                }}
+                onApplyBuildup={(edgeIds, depth) => {
+                  edgeIds.forEach(edgeId => handleEdgeBuildup(edgeId, depth !== null, depth ?? 40));
+                }}
+                onAttachWaterfall={() => {}}
+                onAttachSplashback={() => {}}
+                disabled={!isEditMode}
+              />
+            </div>
+          )}
 
           {/* Relationships (edit mode only) */}
           {mode === 'edit' && quoteIdStr && relationships && allPiecesForRelationships && onRelationshipChange && (

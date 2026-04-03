@@ -586,3 +586,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ Updated Arris and Pencil Round with Jay's verified rates (25/27/30/40/35 range)
 - ✅ Added Beveled and Mitered to explicit rate table — no longer calculated via multiplier
 - ✅ TRUE root cause — every deploy was overwriting rates via seedEdgeCategoryRates()
+## 2026-04-03 — EDGE-PANEL-WIRE-LU-FIX
+- ✅ EdgePanel moved from compact card to expanded view
+- ✅ Old Edge Build-Up section hidden for L/U shapes
+- ✅ EdgePanel only visible when piece is expanded in edit mode
