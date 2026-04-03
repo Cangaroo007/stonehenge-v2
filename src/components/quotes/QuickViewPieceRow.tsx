@@ -29,6 +29,7 @@ import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
+import EdgePanel from '@/components/quotes/EdgePanel';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -608,6 +609,7 @@ export default function QuickViewPieceRow({
   const [localName, setLocalName] = useState(piece.name);
   const [accordionOpen, setAccordionOpen] = useState(false);
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [flashEdge, setFlashEdge] = useState<string | null>(null);
   const [hoveredEdge, setHoveredEdge] = useState<MiniEdgeSide | null>(null);
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
@@ -680,6 +682,30 @@ export default function QuickViewPieceRow({
     }
     return result as { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
   }, [piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, breakdown]);
+
+  // All edge IDs for this piece shape — used by EdgePanel
+  const allEdgeIds = useMemo(() => {
+    if (piece.shapeType === 'L_SHAPE') {
+      return ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
+    }
+    if (piece.shapeType === 'U_SHAPE') {
+      return ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
+    }
+    return ['top', 'bottom', 'left', 'right'];
+  }, [piece.shapeType]);
+
+  // Current edge profiles keyed by edge ID — used by EdgePanel
+  const edgePanelProfiles = useMemo(() => {
+    if (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') {
+      return ((piece.shapeConfig as Record<string, unknown>)?.edges as Record<string, string | null>) ?? {};
+    }
+    return {
+      top: piece.edgeTop ?? null,
+      bottom: piece.edgeBottom ?? null,
+      left: piece.edgeLeft ?? null,
+      right: piece.edgeRight ?? null,
+    };
+  }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
 
   const resolvedEdgeTypes = useMemo(() => {
     if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
@@ -1932,8 +1958,8 @@ export default function QuickViewPieceRow({
                       <g key={seg.side}>
                         <line
                           x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
-                          stroke={isFlashing ? '#22c55e' : colour}
-                          strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
+                          stroke={isFlashing ? '#22c55e' : selectedEdgeIds.includes(seg.side) ? '#3b82f6' : colour}
+                          strokeWidth={isFlashing ? 3 : selectedEdgeIds.includes(seg.side) ? 2.5 : (isFinished ? 2 : 0.75)}
                           strokeDasharray={isFinished ? undefined : '2 1.5'}
                         />
                         {isEditMode && (
@@ -1944,15 +1970,11 @@ export default function QuickViewPieceRow({
                             style={{ cursor: 'pointer' }}
                             onClick={e => {
                               e.stopPropagation();
-                              let profileToApply = quickEdgeProfileId;
-                              if (isMitred && profileToApply) {
-                                const pencilId = editData?.edgeTypes.find(et =>
-                                  et.name.toLowerCase().includes('pencil'))?.id;
-                                if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
-                              }
-                              handleShapeEdgeChange(seg.side, profileToApply);
-                              setFlashEdge(seg.side);
-                              setTimeout(() => setFlashEdge(null), 200);
+                              setSelectedEdgeIds(prev =>
+                                prev.includes(seg.side)
+                                  ? prev.filter(id => id !== seg.side)
+                                  : [...prev, seg.side]
+                              );
                             }}
                           />
                         )}
@@ -2019,8 +2041,30 @@ export default function QuickViewPieceRow({
 
           {/* Quick Edge selector + cutouts */}
           <div className="flex-1 min-w-0">
-            {/* Quick Edge profile selector */}
-            {isEditMode && (
+            {/* Edge panel — unified edge interaction for L/U shapes */}
+            {isEditMode && (piece.shapeType === 'L_SHAPE' || piece.shapeType === 'U_SHAPE') && (
+              <EdgePanel
+                allEdgeIds={allEdgeIds}
+                selectedEdgeIds={selectedEdgeIds}
+                onSelectionChange={setSelectedEdgeIds}
+                edgeProfiles={edgePanelProfiles}
+                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
+                edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
+                onApplyProfile={(edgeIds, profileId) => {
+                  edgeIds.forEach(edgeId => handleShapeEdgeChange(edgeId, profileId));
+                  setSelectedEdgeIds([]);
+                }}
+                onApplyBuildup={(edgeIds, depth) => {
+                  edgeIds.forEach(edgeId => handleEdgeBuildup(edgeId, depth !== null, depth ?? 40));
+                }}
+                onAttachWaterfall={() => {}}
+                onAttachSplashback={() => {}}
+                disabled={!isEditMode}
+              />
+            )}
+
+            {/* Quick Edge profile selector — rectangle and other shapes only */}
+            {isEditMode && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
               <div className="flex items-center gap-1 mb-1.5 flex-wrap">
                 <span className="text-[10px] text-gray-400 mr-0.5">Quick Edge:</span>
                 <button
