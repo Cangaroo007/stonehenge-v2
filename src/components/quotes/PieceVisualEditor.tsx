@@ -182,6 +182,18 @@ export interface PieceVisualEditorProps {
   /** Relationship type per edge side — used to show WF or SB instead of N-STR */
   attachedPieceTypes?: Record<string, 'WATERFALL' | 'SPLASHBACK'>;
 
+  /**
+   * When provided, PieceVisualEditor defers edge selection to the caller.
+   * These edge IDs will be highlighted on the diagram.
+   */
+  externalSelectedEdgeIds?: string[];
+
+  /**
+   * When provided, edge clicks fire this callback instead of internal handlers.
+   * The toolbar is hidden when this prop is set.
+   */
+  onEdgeClick?: (edgeId: string) => void;
+
   /** Called when wall edge state changes for the piece */
   onNoStripEdgesChange?: (noStripEdges: string[]) => void;
 
@@ -257,6 +269,8 @@ export default function PieceVisualEditor({
   noStripEdges = [],
   edgeBuildups,
   attachedPieceTypes,
+  externalSelectedEdgeIds,
+  onEdgeClick,
   onNoStripEdgesChange,
   pieceId,
   pieceName,
@@ -1475,7 +1489,7 @@ export default function PieceVisualEditor({
       )}
 
       {/* ── Edit Mode Toolbar ──────────────────────────────────────────── */}
-      {isEditMode && onEdgeChange && !isMitred && (
+      {isEditMode && onEdgeChange && !isMitred && !onEdgeClick && (
         <div className="flex items-center gap-1 mb-2 px-1 flex-wrap">
           {/* Mode buttons — Quick Edge first (default mode) */}
           <div className="flex rounded-md border border-gray-200 overflow-hidden">
@@ -1723,9 +1737,26 @@ export default function PieceVisualEditor({
               const code = isWallEdge ? 'N-STR' : edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
               const isHovered = hoveredEdge === edge.side;
+              const isExternalSelected = externalSelectedEdgeIds?.includes(edge.side) ?? false;
 
               return (
                 <g key={edge.side}>
+                  {/* External selection highlight (blue border) */}
+                  {isExternalSelected && !edge.arcPath && (
+                    <line
+                      x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
+                      stroke="#3b82f6" strokeWidth={6} opacity={0.3}
+                      className="pointer-events-none"
+                    />
+                  )}
+                  {isExternalSelected && edge.arcPath && (
+                    <path
+                      d={edge.arcPath} fill="none"
+                      stroke="#3b82f6" strokeWidth={6} opacity={0.3}
+                      className="pointer-events-none"
+                    />
+                  )}
+
                   {/* Hover glow (edit mode only) */}
                   {isHovered && isEditMode && (
                     edge.arcPath ? (
@@ -1749,8 +1780,8 @@ export default function PieceVisualEditor({
                     <path
                       d={edge.arcPath}
                       fill="none"
-                      stroke={colour}
-                      strokeWidth={isFinished ? 3 : 1}
+                      stroke={isExternalSelected ? '#3b82f6' : colour}
+                      strokeWidth={isExternalSelected ? 2.5 : (isFinished ? 3 : 1)}
                       strokeDasharray={isFinished ? undefined : '4 3'}
                     >
                       <title>{name || 'Raw / Unfinished'}</title>
@@ -1758,8 +1789,8 @@ export default function PieceVisualEditor({
                   ) : (
                     <line
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
-                      stroke={colour}
-                      strokeWidth={isFinished ? 3 : 1}
+                      stroke={isExternalSelected ? '#3b82f6' : colour}
+                      strokeWidth={isExternalSelected ? 2.5 : (isFinished ? 3 : 1)}
                       strokeDasharray={isFinished ? undefined : '4 3'}
                       opacity={1}
                     >
@@ -1778,6 +1809,7 @@ export default function PieceVisualEditor({
                         style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (onEdgeClick) { onEdgeClick(edge.side); return; }
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                             onShapeEdgeChange(edge.side, quickEdgeProfile);
                             updateRecents(quickEdgeProfile);
@@ -1811,6 +1843,7 @@ export default function PieceVisualEditor({
                         style={{ cursor: 'pointer', pointerEvents: 'stroke' }}
                         onClick={(e) => {
                           e.stopPropagation();
+                          if (onEdgeClick) { onEdgeClick(edge.side); return; }
                           if (editMode === 'quickEdge' && quickEdgeProfile !== null) {
                             onShapeEdgeChange(edge.side, quickEdgeProfile);
                             updateRecents(quickEdgeProfile);
@@ -2010,7 +2043,9 @@ export default function PieceVisualEditor({
               const code = isWallEdge ? 'N-STR' : edgeCode(name);
               const isHorizontal = side === 'top' || side === 'bottom';
               const isHovered = hoveredEdge === side;
-              const isSelected = selectedEdges.has(side);
+              const isSelected = externalSelectedEdgeIds
+                ? externalSelectedEdgeIds.includes(side)
+                : selectedEdges.has(side);
               const isFlashing = flashEdge === side;
 
               return (
@@ -2067,7 +2102,10 @@ export default function PieceVisualEditor({
                       stroke="transparent"
                       strokeWidth={EDGE_HIT_WIDTH}
                       style={{ cursor: 'pointer' }}
-                      onClick={(e) => handleEdgeClick(side, e)}
+                      onClick={(e) => {
+                        if (onEdgeClick) { e.stopPropagation(); onEdgeClick(side); return; }
+                        handleEdgeClick(side, e);
+                      }}
                       onMouseEnter={() => setHoveredEdge(side)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     >
