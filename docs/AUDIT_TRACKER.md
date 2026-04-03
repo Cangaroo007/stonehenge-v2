@@ -580,3 +580,9 @@ TEMPLATE-MANAGE-1 done
 - ✅ EdgePanel onApplyBuildup calls handleEdgeBuildup for each selected edge
 - ✅ Rectangular pieces keep existing Quick Edge bar unchanged
 - ⚠️ onAttachWaterfall/onAttachSplashback wired as no-ops — full wiring in EDGE-PANEL-WF-LU
+
+## 2026-04-03 — SEED-RATE-ZERO-2
+- ✅ RESOLVED: edgeCategoryRateTable in seed-production.js had Arris and Pencil Round hardcoded to [0,0]
+- ✅ Updated Arris and Pencil Round with Jay's verified rates (25/27/30/40/35 range)
+- ✅ Added Beveled and Mitered to explicit rate table — no longer calculated via multiplier
+- ✅ TRUE root cause — every deploy was overwriting rates via seedEdgeCategoryRates()

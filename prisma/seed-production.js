@@ -681,10 +681,32 @@ async function seedEdgeCategoryRates() {
   // Keys are normalised edge type names (lowercase). Each category entry has [rate20mm, rate40mm].
   const edgeCategoryRateTable = {
     'arris': {
-      ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
+      ENGINEERED:      [25, 25],
+      NATURAL_HARD:    [30, 30],
+      NATURAL_SOFT:    [27, 27],
+      NATURAL_PREMIUM: [40, 40],
+      SINTERED:        [35, 40],
     },
     'pencil round': {
-      ENGINEERED: [0, 0], NATURAL_HARD: [0, 0], NATURAL_SOFT: [0, 0], NATURAL_PREMIUM: [0, 0], SINTERED: [0, 0],
+      ENGINEERED:      [25, 25],
+      NATURAL_HARD:    [30, 30],
+      NATURAL_SOFT:    [27, 27],
+      NATURAL_PREMIUM: [40, 40],
+      SINTERED:        [35, 40],
+    },
+    'beveled': {
+      ENGINEERED:      [5,    5   ],
+      NATURAL_HARD:    [5.75, 5.75],
+      NATURAL_SOFT:    [5.50, 5.50],
+      NATURAL_PREMIUM: [7.50, 7.50],
+      SINTERED:        [7.00, 7.50],
+    },
+    'mitered': {
+      ENGINEERED:      [40, 40],
+      NATURAL_HARD:    [46, 46],
+      NATURAL_SOFT:    [44, 44],
+      NATURAL_PREMIUM: [60, 60],
+      SINTERED:        [56, 60],
     },
     'bullnose': {
       ENGINEERED:      [15, 35],
