@@ -565,3 +565,9 @@ TEMPLATE-MANAGE-1 done
 - ✅ Added position_mm, position_reference, coverage_mm to piece_relationships via migration 20260402000000
 - ✅ Updated PieceRelationshipData, CreatePieceRelationshipInput, UpdatePieceRelationshipInput interfaces
 - ✅ Updated toRelationshipData() mapper and QuoteDetailClient.tsx manual construction
+
+## 2026-04-02 — EDGE-PANEL-COMPONENT
+- ✅ Created src/components/quotes/EdgePanel.tsx — unified edge interaction panel
+- ✅ Supports multi-select edges, Edge Finish, Build-Up, Attach Piece sections
+- ✅ Shape-agnostic — works for any edge ID set (rect, L-shape, U-shape, curved)
+- ✅ Pure props/callbacks — no API calls, no wiring to existing components
