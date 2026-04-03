@@ -1336,3 +1336,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — EDGE-ANNOTATION-FIX
 - PieceVisualEditor.tsx: 3 L-shape interior label positions corrected
 - PieceVisualEditor.tsx: WF/SB labels use edge.lengthMm instead of edge.label
+## 2026-04-03 — PIECEVISUAL-EXTERNAL-SELECTION
+- PieceVisualEditor.tsx: externalSelectedEdgeIds + onEdgeClick optional props added
+- When wired: toolbar hidden, clicks fire upward, highlighting driven externally

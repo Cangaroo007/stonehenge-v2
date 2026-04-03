@@ -602,3 +602,8 @@ TEMPLATE-MANAGE-1 done
 - ✅ L-shape inner edge label moved below step (labelY: p2.y + lo)
 - ✅ L-shape r_top and r_btm labels pushed right of bounding box
 - ✅ WF/SB labels now show mm measurement (WF 600mm) not side name (WF Right)
+## 2026-04-03 — PIECEVISUAL-EXTERNAL-SELECTION
+- ✅ PieceVisualEditor: externalSelectedEdgeIds prop added — drives edge highlighting
+- ✅ PieceVisualEditor: onEdgeClick prop added — fires upward instead of internal handler
+- ✅ Toolbar hidden when onEdgeClick provided — EdgePanel owns interaction
+- ✅ 100% backward compatible — existing behaviour unchanged when props not provided
