@@ -607,3 +607,9 @@ TEMPLATE-MANAGE-1 done
 - ✅ PieceVisualEditor: onEdgeClick prop added — fires upward instead of internal handler
 - ✅ Toolbar hidden when onEdgeClick provided — EdgePanel owns interaction
 - ✅ 100% backward compatible — existing behaviour unchanged when props not provided
+## 2026-04-03 — EDGEPANEL-WIRE-ALL-SHAPES
+- ✅ EdgePanel now renders for ALL shape types — single edge engine
+- ✅ allEdgeIds covers RECTANGLE/L_SHAPE/U_SHAPE/RADIUS_END/FULL_CIRCLE/CONCAVE_ARC/ROUNDED_RECT
+- ✅ externalSelectedEdgeIds + onEdgeClick passed to PieceVisualEditor for all shapes
+- ✅ Quick Edge bar removed — EdgePanel is the only edge interaction surface
+

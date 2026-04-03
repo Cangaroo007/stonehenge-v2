@@ -1339,3 +1339,8 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-03 — PIECEVISUAL-EXTERNAL-SELECTION
 - PieceVisualEditor.tsx: externalSelectedEdgeIds + onEdgeClick optional props added
 - When wired: toolbar hidden, clicks fire upward, highlighting driven externally
+## 2026-04-03 — EDGEPANEL-WIRE-ALL-SHAPES
+- QuickViewPieceRow.tsx: EdgePanel wired for all shapes, Quick Edge bar removed
+- QuickViewPieceRow.tsx: allEdgeIds covers all 7 shape types
+- QuickViewPieceRow.tsx: PieceVisualEditor receives external selection for all shapes
+
