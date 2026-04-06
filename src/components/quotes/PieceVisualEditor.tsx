@@ -1734,7 +1734,7 @@ export default function PieceVisualEditor({
               const name = isWallEdge ? undefined : (profileId ? resolveEdgeName(profileId) : undefined);
               const isFinished = !isWallEdge && !!profileId;
               const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'N-STR' : edgeCode(name);
+              const code = isWallEdge ? 'Wall' : edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
               const isHovered = hoveredEdge === edge.side;
               const isExternalSelected = externalSelectedEdgeIds?.includes(edge.side) ?? false;
@@ -1889,7 +1889,7 @@ export default function PieceVisualEditor({
                           const attachedType = attachedPieceTypes?.[edge.side];
                           if (attachedType === 'WATERFALL') return `WF ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                           if (attachedType === 'SPLASHBACK') return `SB ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
-                          return `N-STR ${edge.label}`;
+                          return `Wall ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                         }
                         if (!isFinished) return `RAW ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                         const depth = edgeBuildups?.[edge.side]?.depth;
@@ -2040,7 +2040,7 @@ export default function PieceVisualEditor({
               const name = isWallEdge ? undefined : edgeNames[side];
               const isFinished = !isWallEdge && !!edgeIds[side];
               const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'N-STR' : edgeCode(name);
+              const code = isWallEdge ? 'Wall' : edgeCode(name);
               const isHorizontal = side === 'top' || side === 'bottom';
               const isHovered = hoveredEdge === side;
               const isSelected = externalSelectedEdgeIds
@@ -2130,7 +2130,7 @@ export default function PieceVisualEditor({
                         const attachedType = attachedPieceTypes?.[side];
                         if (attachedType === 'WATERFALL') return 'WF';
                         if (attachedType === 'SPLASHBACK') return 'SB';
-                        return 'N-STR';
+                        return 'Wall';
                       }
                       if (!isFinished) return 'RAW';
                       const depth = edgeBuildups?.[side]?.depth;

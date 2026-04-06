@@ -1344,3 +1344,5 @@ TEMPLATE-MANAGE-1 done
 - QuickViewPieceRow.tsx: allEdgeIds covers all 7 shape types
 - QuickViewPieceRow.tsx: PieceVisualEditor receives external selection for all shapes
 
+## 2026-04-05 — WALL-EDGE-LABEL-FIX
+- PieceVisualEditor.tsx: all N-STR labels replaced with Wall across shape and rectangle paths
