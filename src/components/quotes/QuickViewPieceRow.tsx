@@ -2305,6 +2305,14 @@ export default function QuickViewPieceRow({
                 }}
                 onAttachWaterfall={() => {}}
                 onAttachSplashback={() => {}}
+                noStripEdges={(piece.noStripEdges as string[]) ?? []}
+                onToggleWallEdge={(edgeId) => {
+                  const current = (piece.noStripEdges as string[]) ?? [];
+                  const updated = current.includes(edgeId)
+                    ? current.filter(id => id !== edgeId)
+                    : [...current, edgeId];
+                  handleNoStripEdgesChange(updated);
+                }}
                 disabled={!isEditMode}
               />
             </div>

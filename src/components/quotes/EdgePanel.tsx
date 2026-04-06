@@ -25,6 +25,10 @@ export interface EdgePanelProps {
   onAttachWaterfall: (edgeId: string) => void;
   onAttachSplashback: (edgeId: string) => void;
 
+  // Wall edge state
+  noStripEdges?: string[];
+  onToggleWallEdge?: (edgeId: string) => void;
+
   // Optional
   disabled?: boolean;
 }
@@ -52,6 +56,8 @@ export default function EdgePanel({
   onApplyBuildup,
   onAttachWaterfall,
   onAttachSplashback,
+  noStripEdges,
+  onToggleWallEdge,
   disabled = false,
 }: EdgePanelProps) {
   // ── Local pending state (not applied until user clicks Apply) ──────────
@@ -224,7 +230,7 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyProfile}
-            disabled={!hasSelection || pendingProfileId === undefined}
+            disabled={!hasSelection || pendingProfileId === undefined || selectedEdgeIds.every(id => noStripEdges?.includes(id))}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Apply to selected edges
@@ -272,7 +278,7 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyBuildup}
-            disabled={!hasSelection || pendingDepthMm === undefined}
+            disabled={!hasSelection || pendingDepthMm === undefined || selectedEdgeIds.every(id => noStripEdges?.includes(id))}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Apply to selected edges
@@ -308,6 +314,36 @@ export default function EdgePanel({
           </div>
         )}
       </div>
+
+      {/* ── Wall Edges ─────────────────────────────────────────────────── */}
+      {onToggleWallEdge && (
+        <div className="border-t border-gray-200 px-4 py-3">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Wall Edges</h4>
+            <span className="text-xs text-gray-400">Against-wall edges suppress strips and polishing</span>
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {allEdgeIds.map((edgeId) => {
+              const isWall = noStripEdges?.includes(edgeId) ?? false;
+              return (
+                <button
+                  key={edgeId}
+                  type="button"
+                  onClick={() => onToggleWallEdge(edgeId)}
+                  className={`px-2.5 py-1 text-xs rounded-full border transition-colors flex items-center gap-1 ${
+                    isWall
+                      ? 'bg-stone-600 text-white border-stone-600'
+                      : 'bg-white text-gray-600 border-gray-300 hover:border-stone-400 hover:bg-stone-50'
+                  }`}
+                >
+                  {isWall && <span>🧱</span>}
+                  {humaniseEdgeId(edgeId)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
