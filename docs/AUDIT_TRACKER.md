@@ -613,3 +613,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ externalSelectedEdgeIds + onEdgeClick passed to PieceVisualEditor for all shapes
 - ✅ Quick Edge bar removed — EdgePanel is the only edge interaction surface
 
+## 2026-04-05 — WALL-EDGE-LABEL-FIX
+- ✅ PieceVisualEditor: all 4 N-STR occurrences replaced with Wall
+- ✅ Shape edge code, shape edge label, rectangle edge code, rectangle edge label all updated
