@@ -1363,3 +1363,7 @@ TEMPLATE-MANAGE-1 done
 - optimize/route.ts: WF/SB pieces with null materialId now inherit primary material before slab allocation
 - Single-material path: in-place materialId patch before existing filter
 - Multi-material path: materialId fallback in map body + filter retains null-safe check
+## 2026-04-07 — OPT-GRAIN
+- optimize/route.ts: targetRelationships added to quote query include
+- optimize/route.ts: wfsbParentMap assigns groupId grain-[parentId] to WF/SB + parent pairs
+- Optimizer co-locates WF/SB with parent benchtop on same slab for grain matching
