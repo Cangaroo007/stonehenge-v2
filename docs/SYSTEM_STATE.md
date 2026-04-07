@@ -1380,3 +1380,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — BUILDUP-MULTI-EDGE-FIX
 - QuickViewPieceRow.tsx onApplyBuildup: atomic multi-edge build-up save replaces per-edge forEach
 - Builds all edge changes in one localEdgeBuildups snapshot, single savePieceImmediate call
+## 2026-04-07 — ROUNDED-RECT-NULL-FIX
+- PieceVisualEditor.tsx: if (!shapeConfig) early return added to FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT
+- RADIUS_END already safe (casts as | null with optional chaining). L_SHAPE/U_SHAPE already guarded.
