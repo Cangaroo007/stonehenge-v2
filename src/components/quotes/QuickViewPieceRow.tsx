@@ -2302,7 +2302,34 @@ export default function QuickViewPieceRow({
                   setSelectedEdgeIds([]);
                 }}
                 onApplyBuildup={(edgeIds, depth) => {
-                  edgeIds.forEach(edgeId => handleEdgeBuildup(edgeId, depth !== null, depth ?? 40));
+                  // Fix: build all edge updates atomically in one savePieceImmediate call.
+                  // Calling handleEdgeBuildup per edge causes stale closure bug —
+                  // each call reads the same localEdgeBuildups snapshot and last write wins.
+                  const next = { ...localEdgeBuildups };
+                  const profileOverrides: Record<string, string | null> = {};
+                  const active = depth !== null;
+                  const depthValue = depth ?? 40;
+
+                  for (const edgeId of edgeIds) {
+                    if (active) {
+                      next[edgeId] = { depth: depthValue };
+                    } else {
+                      delete next[edgeId];
+                    }
+                    const profileField = edgeFieldMap[edgeId];
+                    if (profileField) {
+                      profileOverrides[profileField] = active ? MITERED_EDGE_ID : null;
+                    }
+                  }
+
+                  setLocalEdgeBuildups(next);
+                  setBuildupSaveState('saving');
+                  savePieceImmediate({
+                    edgeBuildups: Object.keys(next).length > 0 ? next : null,
+                    ...profileOverrides,
+                  });
+                  setBuildupSaveState('saved');
+                  setTimeout(() => setBuildupSaveState('idle'), 2000);
                 }}
                 onAttachWaterfall={(edgeId) => onAddWaterfall?.(edgeId)}
                 onAttachSplashback={(edgeId) => onAddSplashback?.(edgeId)}

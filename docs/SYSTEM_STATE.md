@@ -1377,3 +1377,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — WALL-EDGE-TOGGLE-FIX
 - EdgePanel.tsx line 331: isWall = noStripEdges includes edgeId AND no attachedPieceTypes entry
 - Dual-purpose noStripEdges: wall toggle only reflects user-designated wall edges, not WF/SB system entries
+## 2026-04-07 — BUILDUP-MULTI-EDGE-FIX
+- QuickViewPieceRow.tsx onApplyBuildup: atomic multi-edge build-up save replaces per-edge forEach
+- Builds all edge changes in one localEdgeBuildups snapshot, single savePieceImmediate call
