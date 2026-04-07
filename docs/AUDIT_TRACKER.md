@@ -645,3 +645,8 @@ TEMPLATE-MANAGE-1 done
 - ✅ No code change needed — U-shape placement fixed by OPT-INCLUDE
 - ✅ shapeType and shapeConfig correctly passed for all piece types with no shape-type gate
 - ✅ decomposeShapeIntoRects() receives config and decomposes legs correctly
+## 2026-04-07 — CALC-NULL-MATERIAL-ALLOCATION
+- ✅ buildMaterialGroupings: null-material pieces (WF/SB) join primary material group for area contribution
+- ✅ Per-piece loop: effectiveMaterial resolves primary material for null-material pieces
+- ✅ lastMaterialPieceIdx now covers all pieces when primary material exists
+- ✅ WF/SB pieces get proportional material cost allocation instead of $0

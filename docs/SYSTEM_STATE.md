@@ -1370,3 +1370,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — OPT-SHAPE
 - No code change — U-shape slab allocation was blocked by !!p.materialId filter (fixed by OPT-INCLUDE)
 - shapeType/shapeConfig flow through for all piece types; decomposeShapeIntoRects handles L/U correctly
+## 2026-04-07 — CALC-NULL-MATERIAL-ALLOCATION
+- pricing-calculator-v2.ts buildMaterialGroupings: null-material pieces join primary material group
+- pricing-calculator-v2.ts per-piece loop: effectiveMaterial resolves primary material for WF/SB
+- lastMaterialPieceIdx covers all pieces when primary material exists (rounding correction applies to last piece)
