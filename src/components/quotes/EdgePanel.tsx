@@ -29,6 +29,9 @@ export interface EdgePanelProps {
   noStripEdges?: string[];
   onToggleWallEdge?: (edgeId: string) => void;
 
+  // Attached piece types — used to filter WF/SB edges from wall section
+  attachedPieceTypes?: Record<string, 'WATERFALL' | 'SPLASHBACK'>;
+
   // Optional
   disabled?: boolean;
 }
@@ -58,6 +61,7 @@ export default function EdgePanel({
   onAttachSplashback,
   noStripEdges,
   onToggleWallEdge,
+  attachedPieceTypes,
   disabled = false,
 }: EdgePanelProps) {
   // ── Local pending state (not applied until user clicks Apply) ──────────
@@ -323,7 +327,7 @@ export default function EdgePanel({
             <span className="text-xs text-gray-400">Against-wall edges suppress strips and polishing</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {allEdgeIds.map((edgeId) => {
+            {allEdgeIds.filter(edgeId => !attachedPieceTypes?.[edgeId]).map((edgeId) => {
               const isWall = noStripEdges?.includes(edgeId) ?? false;
               return (
                 <button

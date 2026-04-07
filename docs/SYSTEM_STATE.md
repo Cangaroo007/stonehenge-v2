@@ -1354,3 +1354,6 @@ TEMPLATE-MANAGE-1 done
 - InlinePieceEditor.tsx: EdgePanel added below PieceVisualEditor for L/U create form
 ## 2026-04-06 — SPLASH-POS-UI
 - WaterfallSplashbackModal.tsx: onConfirm widened to string; position/coverage state and fields added
+## 2026-04-06 — EDGE-DISPLAY-FIX
+- QuickViewPieceRow.tsx: edgeBuildups passed to PieceVisualEditor; attachedPieceTypes passed to EdgePanel
+- EdgePanel.tsx: Wall Edges section filters out WF/SB-attached edges

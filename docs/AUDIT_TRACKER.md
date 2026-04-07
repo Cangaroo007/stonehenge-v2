@@ -627,3 +627,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ WaterfallSplashbackModal onConfirm type widened to string (supports L/U edge IDs)
 - ✅ Position/coverage fields added to Step 2 for SPLASHBACK type
 - ✅ Fields hidden by default — toggle visible for <20% use case
+## 2026-04-06 — EDGE-DISPLAY-FIX
+- ✅ PieceVisualEditor now receives edgeBuildups — left/bottom show ARR 40mm not ARR — Arris
+- ✅ EdgePanel now receives attachedPieceTypes — WF/SB edges filtered from Wall Edges section

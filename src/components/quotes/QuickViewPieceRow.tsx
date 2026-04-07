@@ -2273,6 +2273,7 @@ export default function QuickViewPieceRow({
                 })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
+                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
                 attachedPieceTypes={attachedPieceTypes}
                 externalSelectedEdgeIds={isEditMode ? selectedEdgeIds : undefined}
                 onEdgeClick={isEditMode ? (edgeId) => {
@@ -2306,6 +2307,7 @@ export default function QuickViewPieceRow({
                 onAttachWaterfall={(edgeId) => onAddWaterfall?.(edgeId)}
                 onAttachSplashback={(edgeId) => onAddSplashback?.(edgeId)}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
+                attachedPieceTypes={attachedPieceTypes}
                 onToggleWallEdge={(edgeId) => {
                   const current = (piece.noStripEdges as string[]) ?? [];
                   const updated = current.includes(edgeId)
