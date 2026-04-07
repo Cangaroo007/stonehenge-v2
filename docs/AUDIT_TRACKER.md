@@ -653,3 +653,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — WALL-EDGE-TOGGLE-FIX
 - ✅ EdgePanel isWall now excludes WF/SB-attached edges — per FABRICATION-RULES.md 10.1
 - ✅ noStripEdges dual-purpose: wall toggle only shows ON for user-designated wall edges
+## 2026-04-07 — BUILDUP-MULTI-EDGE-FIX
+- ✅ onApplyBuildup replaced forEach(handleEdgeBuildup) with single atomic savePieceImmediate
+- ✅ All selected edges saved in one pass — fixes stale closure bug where only last edge persisted
