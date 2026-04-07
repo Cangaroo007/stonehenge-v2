@@ -164,9 +164,9 @@ export interface QuickViewPieceRowProps {
   /** WF-2c: shows × detach button when provided */
   onDetach?: () => void;
   /** WF-2f: per-piece attach waterfall action */
-  onAddWaterfall?: () => void;
+  onAddWaterfall?: (initialEdge?: string) => void;
   /** WF-2f: per-piece attach splashback action */
-  onAddSplashback?: () => void;
+  onAddSplashback?: (initialEdge?: string) => void;
   /** QF-4: callback to refetch materials list after creating a new material */
   onMaterialsRefresh?: () => void;
 }
@@ -2303,8 +2303,8 @@ export default function QuickViewPieceRow({
                 onApplyBuildup={(edgeIds, depth) => {
                   edgeIds.forEach(edgeId => handleEdgeBuildup(edgeId, depth !== null, depth ?? 40));
                 }}
-                onAttachWaterfall={() => {}}
-                onAttachSplashback={() => {}}
+                onAttachWaterfall={(edgeId) => onAddWaterfall?.(edgeId)}
+                onAttachSplashback={(edgeId) => onAddSplashback?.(edgeId)}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onToggleWallEdge={(edgeId) => {
                   const current = (piece.noStripEdges as string[]) ?? [];

@@ -442,6 +442,7 @@ export default function QuoteDetailClient({
     parentLengthMm: number;
     parentWidthMm: number;
     parentThicknessMm: number;
+    initialEdge?: string;
   }>({ isOpen: false, type: 'WATERFALL', parentPieceId: null, parentLengthMm: 0, parentWidthMm: 0, parentThicknessMm: 20 });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
@@ -3597,8 +3598,8 @@ export default function QuoteDetailClient({
             relationshipLabel={nestingProps?.relationshipLabel}
             grainMatch={nestingProps?.grainMatch}
             onDetach={nestingProps?.onDetach}
-            onAddWaterfall={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? () => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm }) : undefined}
-            onAddSplashback={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? () => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm }) : undefined}
+            onAddWaterfall={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? (initialEdge?: string) => setWaterfallModal({ isOpen: true, type: 'WATERFALL', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm, initialEdge }) : undefined}
+            onAddSplashback={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? (initialEdge?: string) => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm, initialEdge }) : undefined}
             onMaterialsRefresh={fetchMaterials}
           />
           {/* Override indicator + actions for non-base options */}
@@ -4711,6 +4712,7 @@ export default function QuoteDetailClient({
         parentLengthMm={waterfallModal.parentLengthMm}
         parentWidthMm={waterfallModal.parentWidthMm}
         parentThicknessMm={waterfallModal.parentThicknessMm}
+        initialEdge={waterfallModal.initialEdge}
         onConfirm={async (selectedEdge, lengthMm, widthMm, thicknessMm) => {
           const parentPieceId = waterfallModal.parentPieceId;
           const type = waterfallModal.type;

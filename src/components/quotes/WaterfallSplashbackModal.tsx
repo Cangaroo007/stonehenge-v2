@@ -29,6 +29,8 @@ interface WaterfallEdgePickerProps {
     thicknessMm: number
   ) => void;
   onClose: () => void;
+  /** When provided, auto-selects this edge and skips to step 2 */
+  initialEdge?: string;
 }
 
 type Edge = 'top' | 'bottom' | 'left' | 'right';
@@ -43,6 +45,7 @@ export default function WaterfallSplashbackModal({
   parentThicknessMm,
   onConfirm,
   onClose,
+  initialEdge,
 }: WaterfallEdgePickerProps) {
   const ref = useRef<HTMLDivElement>(null);
   const [step, setStep] = useState<1 | 2>(1);
@@ -63,13 +66,24 @@ export default function WaterfallSplashbackModal({
     return () => document.removeEventListener('mousedown', handler);
   }, [isOpen, onClose]);
 
-  // Reset state when opening
+  // Reset state when opening — auto-select initialEdge if provided
   useEffect(() => {
     if (isOpen) {
-      setStep(1);
-      setSelectedEdge(null);
+      const validEdges: Edge[] = ['top', 'bottom', 'left', 'right'];
+      if (initialEdge && validEdges.includes(initialEdge as Edge)) {
+        const edge = initialEdge as Edge;
+        setSelectedEdge(edge);
+        const autoLength = edge === 'top' || edge === 'bottom' ? parentLengthMm : parentWidthMm;
+        setLengthMm(autoLength);
+        setWidthMm(type === 'WATERFALL' ? 900 : 600);
+        setThicknessMm(parentThicknessMm);
+        setStep(2);
+      } else {
+        setStep(1);
+        setSelectedEdge(null);
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, initialEdge, parentLengthMm, parentWidthMm, parentThicknessMm, type]);
 
   if (!isOpen) return null;
 
