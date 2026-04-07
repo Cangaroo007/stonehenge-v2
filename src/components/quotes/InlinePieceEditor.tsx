@@ -8,6 +8,7 @@ import MaterialPickerV2, { type MaterialPickerMaterial } from './MaterialPickerV
 import AutocompleteInput from '@/components/ui/AutocompleteInput';
 import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
+import EdgePanel from '@/components/quotes/EdgePanel';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -459,6 +460,8 @@ export default function InlinePieceEditor({
   const [edgeBuildups, setEdgeBuildups] = useState<Record<string, { depth: number }>>(
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
+  const [shapeEdgeOverrides, setShapeEdgeOverrides] = useState<Record<string, string | null>>({});
   const [customThickness, setCustomThickness] = useState<string>(() => {
     const t = piece.thicknessMm;
     return t !== 20 && t !== 40 ? t.toString() : '';
@@ -752,6 +755,22 @@ export default function InlinePieceEditor({
     return null;
   }, [shapeType, leg1Length, leg1Width, leg2Length, leg2Width, leftLegLength, leftLegWidth, backLength, backWidth, rightLegLength, rightLegWidth, radiusEndLength, radiusEndWidth, radiusEndRadius, radiusEndCurvedEnds]);
 
+  // Current L/U edge profiles — merges saved piece edges with local overrides
+  const shapeConfigEdges = useMemo(() => {
+    if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
+      const saved = ((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? {};
+      return { ...saved, ...shapeEdgeOverrides };
+    }
+    return {};
+  }, [shapeType, piece.shapeConfig, shapeEdgeOverrides]);
+
+  // All edge IDs for this shape — used by EdgePanel in create form
+  const createFormAllEdgeIds = useMemo(() => {
+    if (shapeType === 'L_SHAPE') return ['top', 'r_top', 'inner', 'r_btm', 'bottom', 'left'];
+    if (shapeType === 'U_SHAPE') return ['top_left', 'inner_left', 'back_inner', 'inner_right', 'top_right', 'outer_right', 'bottom', 'outer_left'];
+    return ['top', 'bottom', 'left', 'right'];
+  }, [shapeType]);
+
   // ── Derived state ───────────────────────────────────────────────────────
   const allRoomOptions = Array.from(new Set([...STANDARD_ROOMS, ...roomNames]));
 
@@ -881,9 +900,11 @@ export default function InlinePieceEditor({
       };
       const geo = getShapeGeometry('L_SHAPE', config, 0, 0);
       payload.shapeType = 'L_SHAPE';
-      // Preserve existing shape_config.edges when updating dimensions
+      // Preserve existing shape_config.edges + merge local overrides from EdgePanel
       const existingEdges = (piece.shapeConfig as unknown as Record<string, unknown>)?.edges;
-      payload.shapeConfig = existingEdges ? { ...config, edges: existingEdges } : config;
+      const mergedEdges = { ...(existingEdges as Record<string, string | null> ?? {}), ...shapeEdgeOverrides };
+      const hasEdges = Object.keys(mergedEdges).length > 0;
+      payload.shapeConfig = hasEdges ? { ...config, edges: mergedEdges } : config;
       // Bounding box in existing fields for backward compat
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
@@ -896,9 +917,11 @@ export default function InlinePieceEditor({
       };
       const geo = getShapeGeometry('U_SHAPE', config, 0, 0);
       payload.shapeType = 'U_SHAPE';
-      // Preserve existing shape_config.edges when updating dimensions
+      // Preserve existing shape_config.edges + merge local overrides from EdgePanel
       const existingEdges = (piece.shapeConfig as unknown as Record<string, unknown>)?.edges;
-      payload.shapeConfig = existingEdges ? { ...config, edges: existingEdges } : config;
+      const mergedEdges = { ...(existingEdges as Record<string, string | null> ?? {}), ...shapeEdgeOverrides };
+      const hasEdges = Object.keys(mergedEdges).length > 0;
+      payload.shapeConfig = hasEdges ? { ...config, edges: mergedEdges } : config;
       // Bounding box in existing fields for backward compat
       payload.lengthMm = geo.boundingLength_mm;
       payload.widthMm = geo.boundingWidth_mm;
@@ -1910,6 +1933,40 @@ export default function InlinePieceEditor({
             shapeType={shapeType}
             shapeConfig={currentShapeConfig}
           />
+
+          {/* EdgePanel — unified edge interaction for L/U shapes in create form */}
+          {(shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') && (
+            <div className="mt-3">
+              <EdgePanel
+                allEdgeIds={createFormAllEdgeIds}
+                selectedEdgeIds={selectedEdgeIds}
+                onSelectionChange={setSelectedEdgeIds}
+                edgeProfiles={shapeConfigEdges}
+                edgeBuildups={edgeBuildups}
+                edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
+                onApplyProfile={(edgeIds, profileId) => {
+                  setShapeEdgeOverrides(prev => {
+                    const next = { ...prev };
+                    edgeIds.forEach(id => { next[id] = profileId; });
+                    return next;
+                  });
+                  setSelectedEdgeIds([]);
+                }}
+                onApplyBuildup={(edgeIds, depth) => {
+                  setEdgeBuildups(prev => {
+                    const next = { ...prev };
+                    edgeIds.forEach(id => {
+                      if (depth === null) { delete next[id]; }
+                      else { next[id] = { depth }; }
+                    });
+                    return next;
+                  });
+                }}
+                onAttachWaterfall={() => {}}
+                onAttachSplashback={() => {}}
+              />
+            </div>
+          )}
         </div>
       )}
 
