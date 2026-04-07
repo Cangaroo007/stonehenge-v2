@@ -1357,3 +1357,5 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-06 — EDGE-DISPLAY-FIX
 - QuickViewPieceRow.tsx: edgeBuildups passed to PieceVisualEditor; attachedPieceTypes passed to EdgePanel
 - EdgePanel.tsx: Wall Edges section filters out WF/SB-attached edges
+## 2026-04-06 — WALL-EDGE-FILTER-REVERT
+- EdgePanel.tsx: removed attachedPieceTypes filter from Wall Edges — wall and WF/SB are independent
