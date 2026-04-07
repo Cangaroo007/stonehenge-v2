@@ -630,3 +630,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-06 — EDGE-DISPLAY-FIX
 - ✅ PieceVisualEditor now receives edgeBuildups — left/bottom show ARR 40mm not ARR — Arris
 - ✅ EdgePanel now receives attachedPieceTypes — WF/SB edges filtered from Wall Edges section
+## 2026-04-06 — WALL-EDGE-FILTER-REVERT
+- ✅ Reverted: removed .filter(edgeId => !attachedPieceTypes?.[edgeId]) from Wall Edges section
+- ✅ Wall edge designation and WF/SB attachment are independent concerns — an edge can be both

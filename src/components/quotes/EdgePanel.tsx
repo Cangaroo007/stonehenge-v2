@@ -327,7 +327,7 @@ export default function EdgePanel({
             <span className="text-xs text-gray-400">Against-wall edges suppress strips and polishing</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {allEdgeIds.filter(edgeId => !attachedPieceTypes?.[edgeId]).map((edgeId) => {
+            {allEdgeIds.map((edgeId) => {
               const isWall = noStripEdges?.includes(edgeId) ?? false;
               return (
                 <button
