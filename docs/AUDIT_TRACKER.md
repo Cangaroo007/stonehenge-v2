@@ -620,3 +620,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ EdgePanel Attach Piece section now passes selected edge to onAddWaterfall/Splashback
 - ✅ QuoteDetailClient waterfallModal state now accepts initialEdge
 - ✅ WaterfallSplashbackModal auto-selects initialEdge and skips to step 2
+## 2026-04-06 — EDGE-PANEL-CREATE-FORM
+- ✅ EdgePanel added to InlinePieceEditor for L/U shapes during piece creation
+- ✅ Edge profiles and build-up now functional in create form for L/U shapes
