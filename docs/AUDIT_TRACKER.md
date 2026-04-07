@@ -633,3 +633,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-06 — WALL-EDGE-FILTER-REVERT
 - ✅ Reverted: removed .filter(edgeId => !attachedPieceTypes?.[edgeId]) from Wall Edges section
 - ✅ Wall edge designation and WF/SB attachment are independent concerns — an edge can be both
+## 2026-04-06 — OPT-INCLUDE
+- ✅ WF/SB pieces now included in slab optimizer — inherit primary material when materialId is null
+- ✅ Single-material path: pieces patched with primaryMatId before filter
+- ✅ Multi-material path: pieces inherit primaryMatIdForMulti in map body
