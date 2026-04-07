@@ -328,7 +328,11 @@ export default function EdgePanel({
           </div>
           <div className="flex flex-wrap gap-1.5">
             {allEdgeIds.map((edgeId) => {
-              const isWall = noStripEdges?.includes(edgeId) ?? false;
+              // Wall edge = in noStripEdges AND not a WF/SB-attached edge.
+              // Per FABRICATION-RULES.md 10.1: noStripEdges is dual-purpose.
+              // WF/SB attachment suppresses strips independently of wall designation.
+              const isWall = (noStripEdges?.includes(edgeId) ?? false) &&
+                !attachedPieceTypes?.[edgeId];
               return (
                 <button
                   key={edgeId}

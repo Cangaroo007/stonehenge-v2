@@ -1374,3 +1374,6 @@ TEMPLATE-MANAGE-1 done
 - pricing-calculator-v2.ts buildMaterialGroupings: null-material pieces join primary material group
 - pricing-calculator-v2.ts per-piece loop: effectiveMaterial resolves primary material for WF/SB
 - lastMaterialPieceIdx covers all pieces when primary material exists (rounding correction applies to last piece)
+## 2026-04-07 — WALL-EDGE-TOGGLE-FIX
+- EdgePanel.tsx line 331: isWall = noStripEdges includes edgeId AND no attachedPieceTypes entry
+- Dual-purpose noStripEdges: wall toggle only reflects user-designated wall edges, not WF/SB system entries

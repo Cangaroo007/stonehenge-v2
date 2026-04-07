@@ -650,3 +650,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ Per-piece loop: effectiveMaterial resolves primary material for null-material pieces
 - ✅ lastMaterialPieceIdx now covers all pieces when primary material exists
 - ✅ WF/SB pieces get proportional material cost allocation instead of $0
+## 2026-04-07 — WALL-EDGE-TOGGLE-FIX
+- ✅ EdgePanel isWall now excludes WF/SB-attached edges — per FABRICATION-RULES.md 10.1
+- ✅ noStripEdges dual-purpose: wall toggle only shows ON for user-designated wall edges
