@@ -1352,3 +1352,5 @@ TEMPLATE-MANAGE-1 done
 - WaterfallSplashbackModal.tsx: initialEdge prop added; auto-selects edge and skips to step 2
 ## 2026-04-06 — EDGE-PANEL-CREATE-FORM
 - InlinePieceEditor.tsx: EdgePanel added below PieceVisualEditor for L/U create form
+## 2026-04-06 — SPLASH-POS-UI
+- WaterfallSplashbackModal.tsx: onConfirm widened to string; position/coverage state and fields added

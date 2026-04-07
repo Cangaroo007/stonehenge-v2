@@ -623,3 +623,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-06 — EDGE-PANEL-CREATE-FORM
 - ✅ EdgePanel added to InlinePieceEditor for L/U shapes during piece creation
 - ✅ Edge profiles and build-up now functional in create form for L/U shapes
+## 2026-04-06 — SPLASH-POS-UI
+- ✅ WaterfallSplashbackModal onConfirm type widened to string (supports L/U edge IDs)
+- ✅ Position/coverage fields added to Step 2 for SPLASHBACK type
+- ✅ Fields hidden by default — toggle visible for <20% use case
