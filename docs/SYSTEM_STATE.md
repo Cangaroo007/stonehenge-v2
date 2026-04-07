@@ -1359,3 +1359,7 @@ TEMPLATE-MANAGE-1 done
 - EdgePanel.tsx: Wall Edges section filters out WF/SB-attached edges
 ## 2026-04-06 — WALL-EDGE-FILTER-REVERT
 - EdgePanel.tsx: removed attachedPieceTypes filter from Wall Edges — wall and WF/SB are independent
+## 2026-04-06 — OPT-INCLUDE
+- optimize/route.ts: WF/SB pieces with null materialId now inherit primary material before slab allocation
+- Single-material path: in-place materialId patch before existing filter
+- Multi-material path: materialId fallback in map body + filter retains null-safe check

@@ -430,7 +430,11 @@ export async function POST(
         }
       );
 
-      const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { materialId: string | null }) => !!p.materialId).map(
+      // WF/SB pieces inherit primary material for slab allocation (Jay confirmed)
+      const primaryMatIdForMulti = String(
+        pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
+      ) || null;
+      const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { materialId: string | null }) => !!(p.materialId ?? primaryMatIdForMulti)).map(
         (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
@@ -443,7 +447,7 @@ export async function POST(
           noStripEdges: p.noStripEdges,
           laminationMethod: p.laminationMethod,
           edgeBuildups: p.edgeBuildups,
-          materialId: p.materialId,
+          materialId: p.materialId ?? primaryMatIdForMulti,
           shapeType: p.shapeType,
           shapeConfig: p.shapeConfig,
           grainMatched: p.grainMatched,
@@ -574,7 +578,15 @@ export async function POST(
     }
 
     // ── Single-material optimisation path (existing, backward compatible) ──
-    // Filter out zero/negative dimension pieces before optimization
+    // Pieces without a materialId (e.g. waterfall, splashback relationship pieces)
+    // inherit the primary material for slab allocation purposes.
+    // Jay confirmed: WF/SB always use the same material as their parent benchtop.
+    const primaryMatId = primaryMaterialId?.toString() ?? null;
+    for (const p of pieces) {
+      if (!(p as { materialId: string | null }).materialId && primaryMatId) {
+        (p as { materialId: string | null }).materialId = primaryMatId;
+      }
+    }
     const validPieces = pieces.filter((p: { width: number; height: number; materialId: string | null }) => p.width > 0 && p.height > 0 && !!p.materialId);
 
     // Run optimization — pass mitreKerfWidth for operation-specific kerf on mitre strips
