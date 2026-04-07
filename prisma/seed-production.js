@@ -768,7 +768,7 @@ async function seedEdgeCategoryRates() {
             pricingSettingsId: pricingSettings.id,
           },
         },
-        update: { rate20mm, rate40mm },
+        update: {}, // rates only set on create — never overwrite admin-configured rates
         create: {
           edgeTypeId: edgeType.id,
           fabricationCategory: category,
