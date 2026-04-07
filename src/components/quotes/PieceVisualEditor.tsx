@@ -1143,6 +1143,7 @@ export default function PieceVisualEditor({
     }
 
     if (effectiveShapeType === 'FULL_CIRCLE') {
+      if (!shapeConfig) return { path: '', edges: [], svgW: 400, svgH: 400 };
       const cfg = shapeConfig as FullCircleConfig;
       const D = cfg.diameter_mm ?? 900;
       const R = D / 2;
@@ -1173,6 +1174,7 @@ export default function PieceVisualEditor({
     }
 
     if (effectiveShapeType === 'CONCAVE_ARC') {
+      if (!shapeConfig) return { path: '', edges: [], svgW: 500, svgH: 300 };
       const cfg = shapeConfig as ConcaveArcConfig;
       const innerR = cfg.inner_radius_mm ?? 1200;
       const depth = cfg.depth_mm ?? 600;
@@ -1244,6 +1246,7 @@ export default function PieceVisualEditor({
     }
 
     if (effectiveShapeType === 'ROUNDED_RECT') {
+      if (!shapeConfig) return { path: '', edges: [], svgW: 500, svgH: 300 };
       const cfg = shapeConfig as RoundedRectConfig;
       const W = cfg.length_mm ?? lengthMm;
       const H = cfg.width_mm ?? widthMm;

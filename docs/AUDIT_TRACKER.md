@@ -656,3 +656,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — BUILDUP-MULTI-EDGE-FIX
 - ✅ onApplyBuildup replaced forEach(handleEdgeBuildup) with single atomic savePieceImmediate
 - ✅ All selected edges saved in one pass — fixes stale closure bug where only last edge persisted
+## 2026-04-07 — ROUNDED-RECT-NULL-FIX
+- ✅ PieceVisualEditor: null guards added to FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT shape blocks
+- ✅ Prevents TypeError crash when creating new pieces with these shape types (shapeConfig is null initially)
