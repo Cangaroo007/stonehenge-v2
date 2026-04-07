@@ -3,7 +3,7 @@
 import React from 'react';
 import { OptimizationResult } from '@/types/slab-optimization';
 import type { SlabCutoutInfo } from '@/types/slab-optimization';
-import { SlabCanvas } from './SlabCanvas';
+import { SlabCanvas, buildGroupColorMap, getColorForPlacement } from './SlabCanvas';
 
 interface SlabResultsProps {
   result: OptimizationResult;
@@ -37,6 +37,10 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
       </div>
     );
   }
+
+  // Build colour map across all slabs so L/U shape parts share a colour globally
+  const allPlacements = result.slabs.flatMap(s => s.placements);
+  const groupColorMap = buildGroupColorMap(allPlacements);
 
   return (
     <div className="space-y-6">
@@ -166,6 +170,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
               slabWidth={slabWidth}
               slabHeight={slabHeight}
               placements={slab.placements}
+              allPlacements={allPlacements}
               showLabels={true}
               showDimensions={true}
               edgeAllowanceMm={edgeAllowanceMm}
@@ -193,7 +198,9 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
                         ? 'text-white border-2 border-dashed border-white/50'
                         : 'text-white'
                     }`}
-                    style={isFrontStrip || isSupportBlock || isLamination ? {} : { backgroundColor: PIECE_COLORS[i % PIECE_COLORS.length] }}
+                    style={isFrontStrip || isSupportBlock || isLamination ? {} : {
+                      backgroundColor: getColorForPlacement(p, groupColorMap)
+                    }}
                   >
                     {isFrontStrip && '◈ '}
                     {isSupportBlock && '▣ '}
