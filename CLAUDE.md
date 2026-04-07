@@ -10,6 +10,14 @@
 ║  3. ALWAYS stop after showing diffs. Wait for exact phrase:      ║
 ║     "Gate [N] approved. GO."                                     ║
 ║  4. ALWAYS ask before proceeding when uncertain. Never guess.    ║
+║  5. NEVER start coding until Sean confirms the branch name.      ║
+║     Before ANY work: Sean runs the pre-sprint bash, pastes the   ║
+║     branch name here. If branch name is not confirmed — STOP.    ║
+║     The mandatory pre-sprint bash Sean must run:                 ║
+║     cd ~/Downloads/stonehenge-v2 && git checkout main &&         ║
+║     git pull origin main &&                                      ║
+║     npx tsc --noEmit 2>&1 | grep "error TS" | grep -v node_modules  ║
+║     && git checkout -b [branch-name] && git branch --show-current    ║
 ╚══════════════════════════════════════════════════════════════════╝
 
 ## UNCERTAINTY PROTOCOL — MANDATORY
@@ -111,6 +119,9 @@ const { id } = params;                    // fails on Railway
 - Debug logs must be removed in the same session they are added — never overnight
 - When adding prop pass-through, verify field on SOURCE type (QuotePiece) not just destination
 - 4-location propagation: interface → raw API type → camelCase mapping → page.tsx
+- Pre-sprint bash runs before EVERY sprint — no exceptions (see Hard Stop 5)
+- Doc file conflicts always resolved with: `git rebase origin/main --strategy-option=union && git push --force-with-lease`
+- `git log origin/main --oneline -3` after every merge — verify correct commit deployed before testing
 
 ---
 
