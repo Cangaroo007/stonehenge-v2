@@ -637,3 +637,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ WF/SB pieces now included in slab optimizer — inherit primary material when materialId is null
 - ✅ Single-material path: pieces patched with primaryMatId before filter
 - ✅ Multi-material path: pieces inherit primaryMatIdForMulti in map body
+## 2026-04-07 — OPT-GRAIN
+- ✅ targetRelationships added to optimize route query — fetches WF/SB parent relationships
+- ✅ wfsbParentMap built from relationships — assigns groupId grain-[parentId] to WF/SB + parent pairs
+- ✅ Optimizer forces co-placement on same slab for grain matching

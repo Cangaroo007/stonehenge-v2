@@ -231,7 +231,15 @@ export async function POST(
         quote_rooms: {
           include: {
             quote_pieces: {
-              include: { materials: true },
+              include: {
+                materials: true,
+                targetRelationships: {
+                  select: {
+                    source_piece_id: true,
+                    relationship_type: true,
+                  },
+                },
+              },
             },
           },
         },
@@ -391,6 +399,42 @@ export async function POST(
         { error: 'Quote has no pieces to optimize' },
         { status: 400 }
       );
+    }
+
+    // Build map of child pieceId → parent pieceId for WF/SB relationships.
+    // WF/SB must share a slab with their parent for grain matching.
+    const wfsbParentMap = new Map<string, string>();
+    for (const room of quote.quote_rooms) {
+      for (const piece of room.quote_pieces as QuotePieceRow[]) {
+        const targets = (piece as unknown as {
+          targetRelationships: Array<{
+            source_piece_id: number;
+            relationship_type: string | null;
+          }>;
+        }).targetRelationships ?? [];
+
+        for (const rel of targets) {
+          if (
+            rel.relationship_type === 'WATERFALL' ||
+            rel.relationship_type === 'SPLASHBACK'
+          ) {
+            wfsbParentMap.set(piece.id.toString(), rel.source_piece_id.toString());
+          }
+        }
+      }
+    }
+
+    // Assign groupId — WF/SB and their parent share the same groupId.
+    // 'grain-' prefix distinguishes from L/U decomposition groups.
+    const wfsbParentIds = new Set(wfsbParentMap.values());
+    for (const p of pieces) {
+      const typedP = p as { id: string; groupId?: string };
+      const parentId = wfsbParentMap.get(typedP.id);
+      if (parentId && !typedP.groupId) {
+        typedP.groupId = `grain-${parentId}`;
+      } else if (wfsbParentIds.has(typedP.id) && !typedP.groupId) {
+        typedP.groupId = `grain-${typedP.id}`;
+      }
     }
 
     // ── Detect distinct materials to decide single vs multi-material path ──
