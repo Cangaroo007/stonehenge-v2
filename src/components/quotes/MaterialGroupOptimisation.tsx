@@ -117,6 +117,7 @@ function MaterialGroupSection({ group, defaultExpanded = false, pieceCutouts }: 
                 slabWidth={group.slabDimensions.length}
                 slabHeight={group.slabDimensions.width}
                 placements={slab.placements}
+                allPlacements={group.slabLayouts.flatMap(s => s.placements)}
                 showLabels={true}
                 showDimensions={true}
                 pieceCutouts={pieceCutouts}

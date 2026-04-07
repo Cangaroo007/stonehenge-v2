@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Placement } from '@/types/slab-optimization';
 import type { SlabCutoutInfo } from '@/types/slab-optimization';
 
@@ -8,6 +8,7 @@ interface SlabCanvasProps {
   slabWidth: number;
   slabHeight: number;
   placements: Placement[];
+  allPlacements: Array<{ pieceId: string; groupId?: string; isLaminationStrip?: boolean }>;
   scale?: number;
   showLabels?: boolean;
   showDimensions?: boolean;
@@ -37,11 +38,35 @@ const PIECE_COLORS = [
 const LAMINATION_COLOR = '#D1D5DB'; // gray-300
 const LAMINATION_PATTERN_COLOR = '#9CA3AF'; // gray-400
 
-function getColorForPiece(index: number, isLaminationStrip?: boolean): string {
-  if (isLaminationStrip) {
-    return LAMINATION_COLOR;
+/**
+ * Build a stable colour map keyed by groupId or root pieceId.
+ * All parts of the same L/U shape (same groupId) share one colour.
+ * Called once with ALL placements across ALL slabs for consistency.
+ */
+export function buildGroupColorMap(
+  allPlacements: Array<{ pieceId: string; groupId?: string; isLaminationStrip?: boolean }>
+): Map<string, string> {
+  const map = new Map<string, string>();
+  let colorIndex = 0;
+
+  for (const p of allPlacements) {
+    if (p.isLaminationStrip) continue;
+    const key = p.groupId ?? p.pieceId;
+    if (!map.has(key)) {
+      map.set(key, PIECE_COLORS[colorIndex % PIECE_COLORS.length]);
+      colorIndex++;
+    }
   }
-  return PIECE_COLORS[index % PIECE_COLORS.length];
+  return map;
+}
+
+export function getColorForPlacement(
+  placement: { pieceId: string; groupId?: string; isLaminationStrip?: boolean },
+  colorMap: Map<string, string>
+): string {
+  if (placement.isLaminationStrip) return LAMINATION_COLOR;
+  const key = placement.groupId ?? placement.pieceId;
+  return colorMap.get(key) ?? PIECE_COLORS[0];
 }
 
 /** Common SVG style for cutout shapes */
@@ -162,6 +187,7 @@ export function SlabCanvas({
   slabWidth,
   slabHeight,
   placements,
+  allPlacements,
   scale: propScale,
   showLabels = true,
   showDimensions = true,
@@ -170,6 +196,11 @@ export function SlabCanvas({
   edgeAllowanceMm = 0,
   pieceCutouts,
 }: SlabCanvasProps) {
+  const groupColorMap = useMemo(
+    () => buildGroupColorMap(allPlacements),
+    [allPlacements]
+  );
+
   // Calculate scale to fit container
   const scale = propScale ?? Math.min(maxWidth / slabWidth, 400 / slabHeight);
 
@@ -296,7 +327,7 @@ export function SlabCanvas({
                 y={y}
                 width={width}
                 height={height}
-                fill={isLaminationStrip ? 'url(#laminationPattern)' : getColorForPiece(index)}
+                fill={isLaminationStrip ? 'url(#laminationPattern)' : getColorForPlacement(placement, groupColorMap)}
                 stroke={isHighlighted ? '#000' : isLaminationStrip ? '#9CA3AF' : isSegment ? '#FFF' : '#333'}
                 strokeWidth={isHighlighted ? 3 : isSegment ? 2 : 1}
                 strokeDasharray={isSegment ? '6 3' : undefined}
