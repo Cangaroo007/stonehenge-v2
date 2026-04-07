@@ -1,9 +1,10 @@
-# Stone Henge — Mandatory Development Rulebook v16
+# Stone Henge — Mandatory Development Rulebook v17
 
-> **Updated:** March 10, 2026
+> **Updated:** April 6, 2026
 > **Status:** ACTIVE — read before writing any code
-> **Rules:** 66 total (Rules 1–61, 66–69 — all NON-NEGOTIABLE)
-> **Supersedes:** All previous dev-rules files (v1–v15 and all addenda)
+> **Rules:** 78 total (Rules 1–61, 66–78 — all NON-NEGOTIABLE)
+> **Supersedes:** All previous dev-rules files (v1–v16 and all addenda)
+> **v17 additions:** Pre-sprint bash protocol, single engine rule, prop chain audit, orientation report format
 > **Stable path:** `docs/stonehenge-dev-rulebook.md`
 > **Location note:** This file lives at `docs/stonehenge-dev-rulebook.md` with no version
 > suffix. Always reference it by that path. The version number lives inside the document only.
@@ -69,6 +70,14 @@ violations cause real business harm. Every rule should be treated as if a live q
 36. Sean's local build must pass before any git push
 37. Grep all type consumers before changing any type
 38. All files affected by a type change update in a single commit
+39. Pre-sprint bash before every sprint — no exceptions
+40. Branch name confirmed before Claude Code starts
+41. One PR merged + Railway green + rates verified before next branch
+42. Bash audit before writing any prompt
+43. Before/after code blocks written in Claude Chat, not Claude Code
+44. Single engines must be completed fully — never half-migrated
+45. Every prop a component reads must be verified it receives
+46. Dual-purpose DB fields must be documented and filtered by intent
 
 ---
 
@@ -1333,9 +1342,208 @@ grep -n "interface\|type\|export type" TARGET_FILE | head -20
 | v14 | Mar 2, 2026 | 60 | Rule 60: STOP GATE protocol. Defines the exact stop phrase, 15 prohibited actions after stop, the only valid continuation triggers, and the recovery procedure when a gate has been passed. Standard template included. |
 | v15 | Mar 2, 2026 | 61, 66 | Rule 61: Database access and .env management (6 sub-rules). Rule 66: Real data before any conclusion — Claude Code cannot reach Railway, batch all DB queries upfront, standard psql format, hard rules on fabrication and guessing. Golden Rules 34–35 added. Session startup updated to include git sync. |
 | **v16** | **Mar 10, 2026** | **67, 68, 69** | **Rule 67: Gate Final requires Sean's local build before any git push — prevents Railway build failures post-merge. Rule 68: Type propagation mandatory pre-check — grep all consumers before changing any type; five high-risk interfaces enumerated. Rule 69: Interface change protocol — all affected files in a single commit, Gate Final grep must confirm zero old signatures before PR opens. Golden Rules 36–38 added.** |
+| **v17** | **Apr 6, 2026** | **70–78** | **Rules 70–78: Pre-sprint bash protocol, branch confirmation, deploy gate, bash audit before prompts, before/after in Claude Chat, single engine completion, prop chain audit, dual-purpose field documentation, attached piece filter pattern, commit hash verification, doc conflict resolution, orientation report format, tool ownership. Golden Rules 39–46 added.** |
+
+---
+
+## SECTION A — PRE-SPRINT PROTOCOL (Added v17)
+
+### RULE 70: MANDATORY PRE-SPRINT BASH
+
+Run before EVERY sprint, no exceptions:
+
+```bash
+cd ~/Downloads/stonehenge-v2 && \
+git checkout main && \
+git pull origin main && \
+npx tsc --noEmit 2>&1 | grep "error TS" | grep -v node_modules && \
+echo "TS clean"
+```
+
+Then create branch:
+```bash
+git checkout -b [sprint-id] && git branch --show-current
+```
+
+Paste branch name back to Claude Chat before firing Claude Code.
+
+### RULE 71: BRANCH CONFIRMATION BEFORE CLAUDE CODE
+
+Claude Code never starts until Sean pastes the branch name output from Rule 70.
+If branch output is not pasted — Claude Code states:
+"Waiting for branch confirmation before proceeding."
+
+### RULE 72: DEPLOY GATE BETWEEN SPRINTS
+
+Before branching for a new sprint:
+1. Previous PR merged on GitHub ✅
+2. Railway deploy confirmed green ✅
+3. Rates verified (Arris/Pencil Round holding) ✅
+
+Exception: parallel sessions allowed only when file sets are confirmed non-overlapping.
+
+---
+
+## SECTION B — PROMPT PREPARATION PROTOCOL (Added v17)
+
+### RULE 73: BASH AUDIT REQUIRED BEFORE EVERY PROMPT
+
+No prompt may be written until a bash audit verifying exact line numbers,
+prop names, and function names has been run and pasted into Claude Chat.
+
+If audit not run — Claude Chat states:
+"Audit required. Run: [specific commands]"
+
+### RULE 74: BEFORE/AFTER BLOCKS WRITTEN IN CLAUDE CHAT
+
+Before/after code blocks are written in Claude Chat using bash audit output.
+They are verified against actual code before inclusion in the prompt.
+Claude Code copies. Claude Code does not design.
+
+### RULE 75: PRE-PROMPT CHECKLIST (all 7 required)
+
+| # | Question | If unsure |
+|---|----------|-----------|
+| 1 | Exact file and function? | Bash audit |
+| 2 | Data shape in/out? | 7-location chain audit |
+| 3 | Single behaviour change? | Reduce scope |
+| 4 | Before/after code written here? | Bash + write here |
+| 5 | Proves it works? | Define first |
+| 6 | Must not change? | List explicitly |
+| 7 | Jay domain questions? | Ask Jay first |
+
+---
+
+## SECTION C — GATE PROTOCOL (Added v17)
+
+### RULE 76: GATE 0 IS BASH-ONLY — NO CODE CHANGES
+
+Gate 0 verifies the environment block. It never writes code. If Gate 0 finds
+anything different from the environment block — Claude Code stops and reports.
+Claude Chat diagnoses and rewrites the prompt if needed.
+
+### RULE 77: UNCERTAINTY REPORTING FORMAT
+
+```
+⚠️ UNCERTAIN: [specific question]. Options:
+- (A) [option A and implications]
+- (B) [option B and implications]
+Awaiting Sean's decision.
+```
+
+Claude Code never makes judgment calls. Always stops and reports.
+
+---
+
+## SECTION D — ARCHITECTURE RULES (Added v17)
+
+### SINGLE ENGINE RULE
+When introducing a single engine to replace multiple systems, complete the
+migration fully in one session. A half-migrated system creates state
+synchronisation bugs harder to debug than the original problem.
+
+### PROP CHAIN AUDIT RULE
+When a component is refactored to receive props from a parent, audit ALL
+props that component reads and verify every one is passed:
+
+```bash
+grep -n "[prop-name]" src/components/[component].tsx
+grep -n "[prop-name]" src/components/[parent].tsx
+```
+
+### DUAL-PURPOSE FIELD RULE
+When a DB field stores values for more than one semantic purpose:
+1. Document at field level in schema.prisma
+2. Filter by intent in every component that reads it
+3. Note dual purpose in SYSTEM_STATE.md
+
+### ATTACHED PIECE FILTER PATTERN
+Any wall edge UI must filter out edges with WF/SB attached:
+```typescript
+allEdgeIds.filter(edgeId => !attachedPieceTypes?.[edgeId]).map(...)
+```
+
+---
+
+## SECTION E — DEPLOYMENT VERIFICATION (Added v17)
+
+### COMMIT HASH VERIFICATION
+After merging a PR:
+```bash
+git fetch origin main && git log origin/main --oneline -3
+```
+Confirm sprint commit is at top before testing production.
+Railway green ≠ correct commit deployed. Always verify.
+
+### DOC FILE CONFLICT RESOLUTION
+Always use union strategy for doc conflicts:
+```bash
+git rebase origin/main --strategy-option=union
+git push origin [branch] --force-with-lease
+```
+Never resolve AUDIT_TRACKER.md or SYSTEM_STATE.md conflicts manually.
+
+### POST-DEPLOY TEST FORMAT
+Every sprint handoff includes:
+```
+## Verify in production
+- [ ] Navigate to [specific URL]
+- [ ] [Specific action] → [specific result]
+- [ ] Rates: [paste rate query result]
+```
+
+---
+
+## SECTION F — ORIENTATION REPORT FORMAT (Added v17)
+
+Every new session starts with this exact format:
+
+```
+1. GROUND STATE
+   - Last confirmed commit (hash + title)
+   - Railway status (green/building/failed)
+   - Zero TS errors confirmed? (yes/no)
+
+2. DEPLOYED vs ON-BRANCH
+   - Each recent sprint: merged / PR open / local only
+
+3. FIXED vs INVESTIGATED
+   - Fixed: merged, deployed, verified in production
+   - Investigated: root cause known, fix not yet deployed
+   - Never list investigated as fixed
+
+4. NEXT SPRINT FIRE ORDER (top 3)
+   - Ready / Needs bash audit / Blocked + why
+
+5. EXTERNAL DEPENDENCIES
+   - Jay: what is being confirmed?
+   - Beau: what is being tested?
+   - Regression anchor status?
+```
+
+---
+
+## SECTION G — TOOL OWNERSHIP (Added v17)
+
+| Task | Owner |
+|------|-------|
+| Architecture decisions | Claude Chat |
+| Prompt writing | Claude Chat |
+| Before/after code blocks | Claude Chat |
+| Bash audit analysis | Claude Chat |
+| Domain questions | Claude Chat → Jay |
+| Code implementation | Claude Code |
+| Gate verification bashes | Claude Code |
+| TypeScript checking | Claude Code |
+| Doc file updates | Claude Code (outputs for Sean) |
+| Git operations | Sean only |
+| npm run build | Sean only |
+| PR creation | Sean (`gh pr create`) |
+| PR merge | Sean (GitHub UI) |
+| Regression anchor creation | Jay + Beau |
 
 ---
 
 **Stable path:** `docs/stonehenge-dev-rulebook.md`
 **Always reference this path, never a versioned filename.**
-**When this document is updated to v17, the path stays the same.**
+**When this document is updated to v18, the path stays the same.**
