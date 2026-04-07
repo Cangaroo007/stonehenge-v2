@@ -559,7 +559,17 @@ function buildMaterialGroupings(
   for (let idx = 0; idx < pieces.length; idx++) {
     const piece = pieces[idx];
     const mat = piece.materials;
-    if (!mat) continue;
+    if (!mat) {
+      // Null-material pieces (WF/SB) inherit the primary material group.
+      // Find the first material group already built and add this piece's area to it.
+      // Jay confirmed: WF/SB own slab allocation, same material as parent benchtop.
+      const primaryGroupEntry = groups.size > 0 ? groups.values().next().value : undefined;
+      if (primaryGroupEntry) {
+        const areaSqm = pieceAreaOverrides?.[idx] ?? (piece.length_mm * piece.width_mm) / 1_000_000;
+        primaryGroupEntry.totalAreaM2 += areaSqm;
+      }
+      continue;
+    }
     const matId = (mat as unknown as { id?: number }).id ?? 0;
     const matName = (mat as unknown as { name?: string }).name ?? 'Unknown';
     const slabLenMm = (mat as unknown as { slab_length_mm?: number | null }).slab_length_mm ?? undefined;
@@ -1391,10 +1401,12 @@ export async function calculateQuotePrice(
   const totalInstallationCost = engineResult.installationSubtotal;
   let allocatedMaterial = 0;
   let allocatedInstallation = 0;
-  // Find last piece with materials for rounding correction
+  // Find last piece eligible for material allocation — includes null-material WF/SB
+  // when a primary material exists, since they inherit the primary material group.
+  const hasPrimaryMaterial = allPieces.some((p: { materials?: unknown }) => p.materials);
   let lastMaterialPieceIdx = -1;
-  for (let j = allPieces.length - 1; j >= 0; j--) {
-    if (allPieces[j].materials) { lastMaterialPieceIdx = j; break; }
+  if (hasPrimaryMaterial) {
+    lastMaterialPieceIdx = allPieces.length - 1;
   }
 
   // Build materialId → group lookup for per-piece display fields and per-group allocation
@@ -1614,8 +1626,12 @@ export async function calculateQuotePrice(
 
     // Add per-piece proportional material cost
     // Each piece gets its area share of the total material cost (from optimizer/aggregate)
-    if (piece.materials) {
-      const mat = piece.materials as unknown as {
+    // Resolve effective material — null-material pieces (WF/SB) use primary material
+    const effectiveMaterial = piece.materials ??
+      allPieces.find((p: { materials?: unknown }) => p.materials)?.materials ?? null;
+    const effectiveMatId = (effectiveMaterial as unknown as { id?: number } | null)?.id ?? 0;
+    if (effectiveMaterial) {
+      const mat = effectiveMaterial as unknown as {
         price_per_sqm: { toNumber: () => number };
         price_per_slab?: { toNumber: () => number } | null;
         slab_length_mm?: number | null;
@@ -1629,7 +1645,7 @@ export async function calculateQuotePrice(
       // For multi-material quotes, allocate within each material group so a piece's
       // cost comes exclusively from its own material, not from the cross-material total.
       let materialShare: number;
-      const matId = (piece.materials as unknown as { id?: number }).id ?? 0;
+      const matId = effectiveMatId;
       const matGroup = materialGroupMap.get(matId);
       if (isMultiMaterial && matGroup) {
         const ga = groupAllocation.get(matId);
@@ -1669,7 +1685,7 @@ export async function calculateQuotePrice(
       // Look up per-material group data for display fields
       // matId and matGroup already resolved above for proportional allocation
       const matName = matGroup?.materialName
-        ?? (piece.materials as unknown as { name?: string }).name
+        ?? (effectiveMaterial as unknown as { name?: string }).name
         ?? materialBreakdown.materialName;
       const pieceSlabCount = matGroup?.slabCount ?? materialBreakdown.slabCount;
       const pieceTotalSlabCost = pieceSlabCount != null && pricePerSlab != null
