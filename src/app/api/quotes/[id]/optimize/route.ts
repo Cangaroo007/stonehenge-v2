@@ -350,7 +350,7 @@ export async function POST(
       name: string;
       quote_pieces: QuotePieceRow[];
     }) =>
-      room.quote_pieces.map((piece) => {
+      room.quote_pieces.map((piece, pieceIndex) => {
         const isShapedPiece = piece.shape_type === 'L_SHAPE' || piece.shape_type === 'U_SHAPE';
 
         // For shaped pieces, pass shape_config.edges directly
@@ -372,7 +372,7 @@ export async function POST(
         id: piece.id.toString(),
         width: piece.length_mm,
         height: piece.width_mm,
-        label: `${room.name}: ${piece.name || 'Piece'}`,
+        label: `${room.name}: ${pieceIndex + 1}. ${piece.name || 'Piece'}`,
         thickness: piece.thickness_mm || 20,
         finishedEdges,
         edgeTypeNames: {

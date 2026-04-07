@@ -659,3 +659,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — ROUNDED-RECT-NULL-FIX
 - ✅ PieceVisualEditor: null guards added to FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT shape blocks
 - ✅ Prevents TypeError crash when creating new pieces with these shape types (shapeConfig is null initially)
+## 2026-04-07 — PIECE-NUMBER-LABELS
+- ✅ Optimizer labels now show "Room: 1. Piece Name" — position number prefix
+- ✅ PartsSection headers show "1. Piece Name" — matches editor badge numbers
+- ✅ derivePartsForPiece receives piecePositionNumber for Main Piece labels
