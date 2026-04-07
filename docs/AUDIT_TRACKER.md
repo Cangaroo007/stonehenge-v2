@@ -641,3 +641,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ targetRelationships added to optimize route query — fetches WF/SB parent relationships
 - ✅ wfsbParentMap built from relationships — assigns groupId grain-[parentId] to WF/SB + parent pairs
 - ✅ Optimizer forces co-placement on same slab for grain matching
+## 2026-04-07 — OPT-SHAPE
+- ✅ No code change needed — U-shape placement fixed by OPT-INCLUDE
+- ✅ shapeType and shapeConfig correctly passed for all piece types with no shape-type gate
+- ✅ decomposeShapeIntoRects() receives config and decomposes legs correctly

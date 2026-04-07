@@ -1367,3 +1367,6 @@ TEMPLATE-MANAGE-1 done
 - optimize/route.ts: targetRelationships added to quote query include
 - optimize/route.ts: wfsbParentMap assigns groupId grain-[parentId] to WF/SB + parent pairs
 - Optimizer co-locates WF/SB with parent benchtop on same slab for grain matching
+## 2026-04-07 — OPT-SHAPE
+- No code change — U-shape slab allocation was blocked by !!p.materialId filter (fixed by OPT-INCLUDE)
+- shapeType/shapeConfig flow through for all piece types; decomposeShapeIntoRects handles L/U correctly
