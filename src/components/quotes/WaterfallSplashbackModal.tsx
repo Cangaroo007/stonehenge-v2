@@ -23,10 +23,13 @@ interface WaterfallEdgePickerProps {
   parentThicknessMm: number;
   /** Called with selected edge + final dimensions on confirm */
   onConfirm: (
-    selectedEdge: 'top' | 'bottom' | 'left' | 'right',
+    selectedEdge: string,
     lengthMm: number,
     widthMm: number,
-    thicknessMm: number
+    thicknessMm: number,
+    positionMm?: number | null,
+    positionReference?: string | null,
+    coverageMm?: number | null
   ) => void;
   onClose: () => void;
   /** When provided, auto-selects this edge and skips to step 2 */
@@ -53,6 +56,10 @@ export default function WaterfallSplashbackModal({
   const [lengthMm, setLengthMm] = useState(0);
   const [widthMm, setWidthMm] = useState(0);
   const [thicknessMm, setThicknessMm] = useState(0);
+  const [positionMm, setPositionMm] = useState<number | null>(null);
+  const [positionReference, setPositionReference] = useState<'LEFT' | 'RIGHT' | 'CENTRE'>('LEFT');
+  const [coverageMm, setCoverageMm] = useState<number | null>(null);
+  const [showPositionFields, setShowPositionFields] = useState(false);
 
   // Close on outside click
   useEffect(() => {
@@ -69,6 +76,10 @@ export default function WaterfallSplashbackModal({
   // Reset state when opening — auto-select initialEdge if provided
   useEffect(() => {
     if (isOpen) {
+      setPositionMm(null);
+      setPositionReference('LEFT');
+      setCoverageMm(null);
+      setShowPositionFields(false);
       const validEdges: Edge[] = ['top', 'bottom', 'left', 'right'];
       if (initialEdge && validEdges.includes(initialEdge as Edge)) {
         const edge = initialEdge as Edge;
@@ -113,7 +124,15 @@ export default function WaterfallSplashbackModal({
 
   const handleConfirm = () => {
     if (!selectedEdge) return;
-    onConfirm(selectedEdge, lengthMm, widthMm, thicknessMm);
+    onConfirm(
+      selectedEdge,
+      lengthMm,
+      widthMm,
+      thicknessMm,
+      showPositionFields ? positionMm : null,
+      showPositionFields ? positionReference : null,
+      showPositionFields ? coverageMm : null
+    );
   };
 
   const isWaterfall = type === 'WATERFALL';
@@ -198,6 +217,68 @@ export default function WaterfallSplashbackModal({
                     ? 'Adjust width if waterfall doesn\u2019t reach the floor'
                     : 'Check length \u2014 may differ from benchtop if behind oven or sink'}
                 </p>
+
+                {/* Optional position/coverage — splashback only, <20% of cases */}
+                {type === 'SPLASHBACK' && (
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPositionFields(!showPositionFields)}
+                      className="text-xs text-primary-600 hover:text-primary-700 underline"
+                    >
+                      {showPositionFields ? 'Hide position details' : '+ Specify position (if splashback is shorter than edge)'}
+                    </button>
+                    {showPositionFields && (
+                      <div className="mt-3 space-y-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                        <p className="text-xs text-gray-500">
+                          Use these fields if the splashback does not run the full length of the edge.
+                        </p>
+                        <div className="grid grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Position (mm from reference)
+                            </label>
+                            <input
+                              type="number"
+                              min="0"
+                              value={positionMm ?? ''}
+                              onChange={(e) => setPositionMm(e.target.value === '' ? null : Number(e.target.value))}
+                              placeholder="e.g. 300"
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-gray-700 mb-1">
+                              Measure from
+                            </label>
+                            <select
+                              value={positionReference}
+                              onChange={(e) => setPositionReference(e.target.value as 'LEFT' | 'RIGHT' | 'CENTRE')}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                            >
+                              <option value="LEFT">Left end</option>
+                              <option value="RIGHT">Right end</option>
+                              <option value="CENTRE">Centre</option>
+                            </select>
+                          </div>
+                        </div>
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 mb-1">
+                            Coverage length (mm) — leave blank if same as splashback length
+                          </label>
+                          <input
+                            type="number"
+                            min="0"
+                            value={coverageMm ?? ''}
+                            onChange={(e) => setCoverageMm(e.target.value === '' ? null : Number(e.target.value))}
+                            placeholder="Optional"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500"
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </>
           )}
