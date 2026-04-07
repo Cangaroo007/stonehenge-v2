@@ -230,13 +230,15 @@ function derivePartsForPiece(
     parentPieceId: string;
     childPieceId: string;
     relationshipType: string;
-  }>
+  }>,
+  piecePositionNumber?: number,
 ): Part[] {
   const parts: Part[] = [];
   const placements = optimizerResult?.placements?.items;
   const laminationSummary = optimizerResult?.laminationSummary;
 
-  const pieceName = piece.name || 'Unnamed piece';
+  const rawPieceName = piece.name || 'Unnamed piece';
+  const pieceName = piecePositionNumber != null ? `${piecePositionNumber}. ${rawPieceName}` : rawPieceName;
   const thicknessMm = breakdown?.dimensions?.thicknessMm ?? piece.thickness_mm;
 
   // For L/U shapes, show decomposed legs instead of bounding-box oversize splits
@@ -780,11 +782,12 @@ export default function PartsSection({
 
     return rooms.map((room) => {
       const parts: Array<{ piece: QuotePiece; parts: Part[] }> = [];
-      for (const piece of room.quote_pieces) {
+      for (let pIdx = 0; pIdx < room.quote_pieces.length; pIdx++) {
+        const piece = room.quote_pieces[pIdx];
         // Skip child pieces — they appear under their parent via waterfall derivation
         if (piece.piece_type === 'WATERFALL') continue;
         const bd = breakdownMap.get(piece.id);
-        const pieceParts = derivePartsForPiece(piece, bd, optimizerResult, allPieces, externalRelationships);
+        const pieceParts = derivePartsForPiece(piece, bd, optimizerResult, allPieces, externalRelationships, pIdx + 1);
         parts.push({ piece, parts: pieceParts });
       }
       const totalParts = parts.reduce((sum, p) => sum + p.parts.length, 0);
@@ -974,7 +977,7 @@ export default function PartsSection({
                                 <div className="flex flex-col">
                                   {isFirstPartOfPiece && (
                                     <span className="text-[10px] text-gray-400 uppercase tracking-wider mb-0.5">
-                                      {piece.name || 'Unnamed piece'}
+                                      {(room.quote_pieces.findIndex(p => p.id === piece.id) + 1)}. {piece.name || 'Unnamed piece'}
                                       {piece.promoted_from_piece_id && (
                                         <span className="ml-1.5 inline-flex items-center px-1.5 py-0.5 rounded bg-violet-50 text-violet-600 text-[9px] font-semibold uppercase tracking-wide">
                                           Promoted strip

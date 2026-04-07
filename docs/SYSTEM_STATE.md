@@ -1383,3 +1383,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-07 — ROUNDED-RECT-NULL-FIX
 - PieceVisualEditor.tsx: if (!shapeConfig) early return added to FULL_CIRCLE, CONCAVE_ARC, ROUNDED_RECT
 - RADIUS_END already safe (casts as | null with optional chaining). L_SHAPE/U_SHAPE already guarded.
+## 2026-04-07 — PIECE-NUMBER-LABELS
+- optimize/route.ts: label includes pieceIndex+1 prefix — "Room: 1. Piece Name"
+- PartsSection.tsx: derivePartsForPiece accepts piecePositionNumber param; pieceName includes prefix
+- PartsSection.tsx: table header shows position number from room.quote_pieces index
