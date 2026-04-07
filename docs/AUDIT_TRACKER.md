@@ -616,3 +616,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-05 — WALL-EDGE-LABEL-FIX
 - ✅ PieceVisualEditor: all 4 N-STR occurrences replaced with Wall
 - ✅ Shape edge code, shape edge label, rectangle edge code, rectangle edge label all updated
+## 2026-04-06 — EDGE-PANEL-WF-LU
+- ✅ EdgePanel Attach Piece section now passes selected edge to onAddWaterfall/Splashback
+- ✅ QuoteDetailClient waterfallModal state now accepts initialEdge
+- ✅ WaterfallSplashbackModal auto-selects initialEdge and skips to step 2

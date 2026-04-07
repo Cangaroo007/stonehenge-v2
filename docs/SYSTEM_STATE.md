@@ -1346,3 +1346,7 @@ TEMPLATE-MANAGE-1 done
 
 ## 2026-04-05 — WALL-EDGE-LABEL-FIX
 - PieceVisualEditor.tsx: all N-STR labels replaced with Wall across shape and rectangle paths
+## 2026-04-06 — EDGE-PANEL-WF-LU
+- QuickViewPieceRow.tsx: onAddWaterfall/Splashback now accept optional initialEdge param
+- QuoteDetailClient.tsx: waterfallModal state includes initialEdge; passed to modal
+- WaterfallSplashbackModal.tsx: initialEdge prop added; auto-selects edge and skips to step 2
