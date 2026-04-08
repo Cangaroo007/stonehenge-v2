@@ -1123,6 +1123,17 @@ export default function QuickViewPieceRow({
       };
       const colKey = sideMap[edgeId];
       if (colKey) savePieceImmediate({ [colKey]: profileId });
+    } else if (!shapeType || shapeType === 'RECTANGLE' || shapeType === 'ROUNDED_RECT') {
+      // Rectangle and rounded rect: save to the four DB edge columns directly.
+      // ROUNDED_RECT uses rectProfiles for straight edges — same save path.
+      // This case must come BEFORE the arc catch-all to prevent RECTANGLE
+      // edges being incorrectly saved to edgeArcConfig.
+      const sideMap: Record<string, string> = {
+        top: 'edgeTop', bottom: 'edgeBottom',
+        left: 'edgeLeft', right: 'edgeRight',
+      };
+      const colKey = sideMap[edgeId];
+      if (colKey) savePieceImmediate({ [colKey]: profileId });
     } else {
       // arc_end on RADIUS_END, and all other curved shapes → edge_arc_config
       const currentArcConfig = fullPiece?.edgeArcConfig as Record<string, string | null> ?? {};
