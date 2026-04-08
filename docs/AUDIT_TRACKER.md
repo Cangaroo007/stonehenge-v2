@@ -667,3 +667,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ RoomPieceSVG: joinPositionsMm prop — renders dashed red cut lines at proportional positions
 - ✅ RoomSpatialView: optimizerPlacements prop — computes join positions from segment placements
 - ✅ QuoteDetailClient: fetches optimizer placements, passes to both RoomSpatialView call sites
+## 2026-04-07 — SPATIAL-LAYOUT-FIX
+- ✅ WATERFALL positionChild handles all 4 sides (right/left/top/bottom) correctly
+- ✅ SPLASHBACK positionChild handles top (above) and bottom (below) sides correctly
+- ✅ Unrelated pieces arranged in horizontal rows (wrap at 8000mm) instead of vertical stack

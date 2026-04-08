@@ -196,6 +196,12 @@ export function calculateRoomLayout(
   // But first: check if any unrelated piece is a child of another placed piece
   const unplaced = pieces.filter(p => !placedIds.has(p.id));
 
+  // Row layout state for unrelated pieces — horizontal rows, wrap at MAX_ROW_WIDTH_MM
+  const MAX_ROW_WIDTH_MM = 8000;
+  let unrelatedRowX = 0;
+  let unrelatedRowY = -1; // -1 = not initialised yet
+  let unrelatedRowMaxHeight = 0;
+
   for (const piece of unplaced) {
     // Check if this piece is a child of an already-placed piece
     const parentRel = relationships.find(r => r.childPieceId === piece.id);
@@ -216,24 +222,41 @@ export function calculateRoomLayout(
       }
     }
 
-    // Truly unrelated — stack vertically (below) for visual separation
-    let stackY = 0;
-    for (const pos of positioned) {
-      const bottom = pos.y + pos.height;
-      if (bottom > stackY) stackY = bottom;
+    // Truly unrelated — arrange in horizontal rows, wrap at MAX_ROW_WIDTH_MM
+    if (unrelatedRowY < 0) {
+      // First unrelated piece — start below all already-placed pieces
+      let maxBottom = 0;
+      for (const pos of positioned) {
+        const bottom = pos.y + pos.height;
+        if (bottom > maxBottom) maxBottom = bottom;
+      }
+      unrelatedRowY = maxBottom + PIECE_GAP * 2;
+      unrelatedRowX = 0;
+      unrelatedRowMaxHeight = 0;
     }
-    stackY += PIECE_GAP;
+
+    // Wrap to next row if this piece won't fit
+    if (unrelatedRowX > 0 && unrelatedRowX + piece.length_mm > MAX_ROW_WIDTH_MM) {
+      unrelatedRowY += unrelatedRowMaxHeight + PIECE_GAP;
+      unrelatedRowX = 0;
+      unrelatedRowMaxHeight = 0;
+    }
 
     positioned.push({
       pieceId: piece.id,
-      x: 0,
-      y: stackY,
+      x: unrelatedRowX,
+      y: unrelatedRowY,
       width: piece.length_mm,
       height: piece.width_mm,
       rotation: 0,
       label: piece.description,
     });
     placedIds.add(piece.id);
+
+    unrelatedRowX += piece.length_mm + PIECE_GAP;
+    if (piece.width_mm > unrelatedRowMaxHeight) {
+      unrelatedRowMaxHeight = piece.width_mm;
+    }
   }
 
   // 5. Calculate bounding box and scale
@@ -300,11 +323,16 @@ function positionChild(
 
   switch (type) {
     case 'SPLASHBACK': {
-      // Splashback sits behind (above in plan view) the parent benchtop
+      // side = 'top' → splashback sits behind (above in plan view) parent
+      // side = 'bottom' → splashback sits in front (below in plan view) parent
+      const side = (joinPosition ?? 'top').toLowerCase();
+      const isBottom = side === 'bottom';
       return {
         pieceId: child.id,
         x: 0,
-        y: -(child.width_mm + SPLASHBACK_GAP),
+        y: isBottom
+          ? parent.width_mm + SPLASHBACK_GAP
+          : -(child.width_mm + SPLASHBACK_GAP),
         width: child.length_mm,
         height: child.width_mm,
         rotation: 0,
@@ -313,18 +341,62 @@ function positionChild(
     }
 
     case 'WATERFALL': {
-      // Waterfall drops from the edge of the benchtop, rotated 90 degrees
-      // Width = parent's depth, length = floor-to-benchtop height
-      const isRight = !joinPosition || joinPosition.toUpperCase() === 'RIGHT';
-      return {
-        pieceId: child.id,
-        x: isRight ? parent.length_mm : -(child.width_mm),
-        y: 0,
-        width: child.width_mm,   // horizontal extent = depth of waterfall panel
-        height: child.length_mm, // vertical extent = height of waterfall panel
-        rotation: 0,             // no SVG rotation needed — dimensions handle orientation
-        label: child.description,
-      };
+      // Waterfall drops from the named edge of the parent.
+      // In plan view: right → extends right, left → extends left,
+      // top → extends above (negative y), bottom → extends below.
+      const wfSide = (joinPosition ?? 'right').toLowerCase();
+      switch (wfSide) {
+        case 'right':
+          return {
+            pieceId: child.id,
+            x: parent.length_mm,
+            y: 0,
+            width: child.width_mm,
+            height: child.length_mm,
+            rotation: 0,
+            label: child.description,
+          };
+        case 'left':
+          return {
+            pieceId: child.id,
+            x: -(child.width_mm),
+            y: 0,
+            width: child.width_mm,
+            height: child.length_mm,
+            rotation: 0,
+            label: child.description,
+          };
+        case 'top':
+          return {
+            pieceId: child.id,
+            x: 0,
+            y: -(child.length_mm),
+            width: child.width_mm,
+            height: child.length_mm,
+            rotation: 0,
+            label: child.description,
+          };
+        case 'bottom':
+          return {
+            pieceId: child.id,
+            x: 0,
+            y: parent.width_mm,
+            width: child.width_mm,
+            height: child.length_mm,
+            rotation: 0,
+            label: child.description,
+          };
+        default:
+          return {
+            pieceId: child.id,
+            x: parent.length_mm,
+            y: 0,
+            width: child.width_mm,
+            height: child.length_mm,
+            rotation: 0,
+            label: child.description,
+          };
+      }
     }
 
     case 'RETURN': {
