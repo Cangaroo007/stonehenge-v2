@@ -34,6 +34,8 @@ interface RoomPieceSVGProps {
   onContextMenu?: (pieceId: string, e: React.MouseEvent) => void;
   onMouseEnter?: (pieceId: string) => void;
   onMouseLeave?: () => void;
+  /** Join cut positions in mm from left edge — for oversize pieces */
+  joinPositionsMm?: number[];
 }
 
 function isRawEdge(name: string | null | undefined): boolean {
@@ -109,6 +111,7 @@ export default function RoomPieceSVG({
   onContextMenu,
   onMouseEnter,
   onMouseLeave,
+  joinPositionsMm,
 }: RoomPieceSVGProps) {
   const { x, y, width, height } = position;
 
@@ -195,6 +198,38 @@ export default function RoomPieceSVG({
         stroke={strokeColour}
         strokeWidth={strokeWidth}
       />
+
+      {/* Join cut lines — shown when piece requires joins */}
+      {joinPositionsMm && joinPositionsMm.length > 0 && joinPositionsMm.map((joinMm, idx) => {
+        const joinX = x + (joinMm / piece.length_mm) * w;
+        if (joinX <= x || joinX >= x + w) return null;
+        return (
+          <g key={`join-${idx}`}>
+            <line
+              x1={joinX}
+              y1={y}
+              x2={joinX}
+              y2={y + h}
+              stroke="#ef4444"
+              strokeWidth={1.5}
+              strokeDasharray="4 3"
+              opacity={0.85}
+            />
+            {h > 20 && (
+              <text
+                x={joinX + 3}
+                y={y + h / 2}
+                fontSize={Math.min(9, h / 3)}
+                fill="#ef4444"
+                dominantBaseline="middle"
+                style={{ pointerEvents: 'none', userSelect: 'none' }}
+              >
+                Join
+              </text>
+            )}
+          </g>
+        );
+      })}
 
       {/* Edge profile lines (only if piece is large enough) */}
       {w > 30 && h > 24 && (

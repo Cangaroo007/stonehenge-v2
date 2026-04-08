@@ -8,6 +8,7 @@ import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import RoomPieceSVG from './RoomPieceSVG';
+import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
 import type { EdgeScope } from './EdgeProfilePopover';
 
@@ -102,6 +103,8 @@ interface RoomSpatialViewProps {
   // ── Multi-select props ──
   selectedPieceIds?: Set<string>;
   onPieceMultiSelect?: (pieceId: string, event: { ctrlKey: boolean; shiftKey: boolean; metaKey: boolean }) => void;
+  /** Optimizer placements — used to overlay join cut lines on pieces */
+  optimizerPlacements?: Placement[];
   /** Callback for batch edge update with scope selector */
   onBatchEdgeUpdate?: (
     profileId: string | null,
@@ -189,6 +192,8 @@ export default function RoomSpatialView({
   onPieceMultiSelect,
   // Batch edge update
   onBatchEdgeUpdate,
+  // Optimizer overlay
+  optimizerPlacements,
 }: RoomSpatialViewProps) {
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
@@ -229,6 +234,33 @@ export default function RoomSpatialView({
     }
     return map;
   }, [pieces]);
+
+  // Compute join positions per piece from optimizer segment placements
+  const joinPositionsMap = useMemo(() => {
+    const map = new Map<number, number[]>();
+    if (!optimizerPlacements) return map;
+    const segmentsByParent = new Map<string, Placement[]>();
+    for (const p of optimizerPlacements) {
+      if (p.isSegment && p.parentPieceId) {
+        const existing = segmentsByParent.get(p.parentPieceId) ?? [];
+        existing.push(p);
+        segmentsByParent.set(p.parentPieceId, existing);
+      }
+    }
+    for (const [parentId, segments] of Array.from(segmentsByParent)) {
+      const sorted = [...segments].sort(
+        (a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0)
+      );
+      const joins: number[] = [];
+      let cumulative = 0;
+      for (let i = 0; i < sorted.length - 1; i++) {
+        cumulative += sorted[i].width;
+        joins.push(cumulative);
+      }
+      map.set(Number(parentId), joins);
+    }
+    return map;
+  }, [optimizerPlacements]);
 
   // Hover state for relationship connector highlighting
   const [hoveredPieceId, setHoveredPieceId] = useState<string | null>(null);
@@ -792,6 +824,7 @@ export default function RoomSpatialView({
               onContextMenu={handlePieceContextMenu}
               onMouseEnter={setHoveredPieceId}
               onMouseLeave={() => setHoveredPieceId(null)}
+              joinPositionsMm={joinPositionsMap.get(piece.id)}
             />
           );
         })}

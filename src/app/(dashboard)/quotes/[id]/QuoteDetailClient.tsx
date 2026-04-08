@@ -401,6 +401,9 @@ export default function QuoteDetailClient({
   const [addingInlinePieceType, setAddingInlinePieceType] = useState<'BENCHTOP' | 'WATERFALL' | 'SPLASHBACK' | null>(null);
   const [addingInlinePieceJoinMethod, setAddingInlinePieceJoinMethod] = useState<'NONE' | 'MITRED' | null>(null);
   const [postSavePiece, setPostSavePiece] = useState<{ id: number; lengthMm: number; widthMm: number; thicknessMm: number } | null>(null);
+  const [viewOptimizerPlacements, setViewOptimizerPlacements] = useState<
+    import('@/types/slab-optimization').Placement[] | null
+  >(null);
   const [isAddingRoom, setIsAddingRoom] = useState(false);
   const [newRoomName, setNewRoomName] = useState('');
   const [editLoading, setEditLoading] = useState(false);
@@ -752,6 +755,27 @@ export default function QuoteDetailClient({
       triggerRecalculate();
     }
   }, [optimisationRefreshKey, triggerRecalculate]);
+
+  // Fetch optimizer placements for spatial view join overlays
+  useEffect(() => {
+    let cancelled = false;
+    async function fetchOptimiserPlacements() {
+      try {
+        const res = await fetch(`/api/quotes/${serverData.id}/optimize`);
+        if (res.ok && !cancelled) {
+          const data = await res.json();
+          const items = data?.placements?.items;
+          if (Array.isArray(items)) {
+            setViewOptimizerPlacements(items);
+          }
+        }
+      } catch {
+        // Silently fail — optimizer overlay is optional
+      }
+    }
+    fetchOptimiserPlacements();
+    return () => { cancelled = true; };
+  }, [serverData.id, optimisationRefreshKey]);
 
   // Machine override handler
   const handleMachineOverride = useCallback((operationType: string, machineId: string) => {
@@ -3219,6 +3243,7 @@ export default function QuoteDetailClient({
                               return sum + (pb?.materials?.total ?? 0);
                             }, 0)}
                             roomNotes={room.notes}
+                            optimizerPlacements={viewOptimizerPlacements ?? undefined}
                           />
                         )}
                         {!isCollapsed && (
@@ -4012,6 +4037,7 @@ export default function QuoteDetailClient({
                             cutoutTypes={cutoutTypes}
                             onPieceCutoutAdd={handlePieceCutoutAdd}
                             onBatchEdgeUpdate={handleBatchEdgeUpdate}
+                            optimizerPlacements={viewOptimizerPlacements ?? undefined}
                           />
                         )}
                         {/* Room pieces (hidden when collapsed) — WF-2c: children nested under parents */}
