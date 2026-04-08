@@ -1392,3 +1392,7 @@ TEMPLATE-MANAGE-1 done
 - RoomSpatialView.tsx: optimizerPlacements prop + joinPositionsMap useMemo from segments
 - QuoteDetailClient.tsx: viewOptimizerPlacements state + fetch effect on optimisationRefreshKey
 - Both RoomSpatialView call sites (view + edit) receive optimizerPlacements
+## 2026-04-07 — SPATIAL-LAYOUT-FIX
+- room-layout-engine.ts: WATERFALL positionChild handles right/left/top/bottom sides
+- room-layout-engine.ts: SPLASHBACK positionChild handles top (above) and bottom (below)
+- room-layout-engine.ts: unrelated pieces use horizontal row layout with MAX_ROW_WIDTH_MM=8000
