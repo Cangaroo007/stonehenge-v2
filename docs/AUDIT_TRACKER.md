@@ -671,3 +671,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ WATERFALL positionChild handles all 4 sides (right/left/top/bottom) correctly
 - ✅ SPLASHBACK positionChild handles top (above) and bottom (below) sides correctly
 - ✅ Unrelated pieces arranged in horizontal rows (wrap at 8000mm) instead of vertical stack
+## 2026-04-07 — EDGE-APPLY-RECTANGLE-FIX
+- ✅ handleShapeEdgeChange: added explicit RECTANGLE/ROUNDED_RECT case before arc catch-all
+- ✅ RECTANGLE edges now save to edgeTop/edgeBottom/edgeLeft/edgeRight — not edgeArcConfig
+- ✅ FABRICATION-RULES.md: added rule 10.4 (edge save path verification) and Appendix row #16

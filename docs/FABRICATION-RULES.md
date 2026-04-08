@@ -251,6 +251,12 @@
 - `lamination_method`: legacy field, superseded by edge_buildups.
 - `requiresGrainMatch`: drives grain matching surcharge.
 
+### 10.4 Edge save path verification (mandatory after any edge sprint)
+After ANY sprint touching edge save paths, verify in production:
+- Apply Arris to top edge of a RECTANGLE piece via EdgePanel
+- Check DB: `SELECT edge_top FROM quote_pieces WHERE id = X`
+- Must show Arris edge type ID — not null, not in edgeArcConfig
+
 ---
 
 ## APPENDIX — CONFIRMED ANSWERS (Jay Henderson, locked)
@@ -272,3 +278,4 @@
 | 13 | U-shape flat bottom | YES — all legs share flat bottom at y + max(leg heights) | Apr 2026 |
 | 14 | Corner join L-shape | min(leg1_width, leg2_width) in Lm at JOIN rate | Apr 2026 |
 | 15 | Corner join U-shape | back_width × 2 in Lm at JOIN rate | Apr 2026 |
+| 16 | Edge save path for RECTANGLE | edgeTop/edgeBottom/edgeLeft/edgeRight columns — NOT edgeArcConfig | Apr 2026 |

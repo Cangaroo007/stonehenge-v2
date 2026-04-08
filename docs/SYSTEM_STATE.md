@@ -1396,3 +1396,7 @@ TEMPLATE-MANAGE-1 done
 - room-layout-engine.ts: WATERFALL positionChild handles right/left/top/bottom sides
 - room-layout-engine.ts: SPLASHBACK positionChild handles top (above) and bottom (below)
 - room-layout-engine.ts: unrelated pieces use horizontal row layout with MAX_ROW_WIDTH_MM=8000
+## 2026-04-07 — EDGE-APPLY-RECTANGLE-FIX
+- QuickViewPieceRow.tsx handleShapeEdgeChange: RECTANGLE/ROUNDED_RECT case added before arc else
+- RECTANGLE edges save to edgeTop/edgeBottom/edgeLeft/edgeRight columns (not edgeArcConfig)
+- FABRICATION-RULES.md: rule 10.4 + Appendix row #16 added
