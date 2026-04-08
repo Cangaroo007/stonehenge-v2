@@ -1387,3 +1387,8 @@ TEMPLATE-MANAGE-1 done
 - optimize/route.ts: label includes pieceIndex+1 prefix — "Room: 1. Piece Name"
 - PartsSection.tsx: derivePartsForPiece accepts piecePositionNumber param; pieceName includes prefix
 - PartsSection.tsx: table header shows position number from room.quote_pieces index
+## 2026-04-07 — SPATIAL-JOIN-OVERLAY
+- RoomPieceSVG.tsx: joinPositionsMm prop added — dashed red cut lines with Join label
+- RoomSpatialView.tsx: optimizerPlacements prop + joinPositionsMap useMemo from segments
+- QuoteDetailClient.tsx: viewOptimizerPlacements state + fetch effect on optimisationRefreshKey
+- Both RoomSpatialView call sites (view + edit) receive optimizerPlacements

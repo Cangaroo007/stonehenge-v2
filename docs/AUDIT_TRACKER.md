@@ -663,3 +663,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ Optimizer labels now show "Room: 1. Piece Name" — position number prefix
 - ✅ PartsSection headers show "1. Piece Name" — matches editor badge numbers
 - ✅ derivePartsForPiece receives piecePositionNumber for Main Piece labels
+## 2026-04-07 — SPATIAL-JOIN-OVERLAY
+- ✅ RoomPieceSVG: joinPositionsMm prop — renders dashed red cut lines at proportional positions
+- ✅ RoomSpatialView: optimizerPlacements prop — computes join positions from segment placements
+- ✅ QuoteDetailClient: fetches optimizer placements, passes to both RoomSpatialView call sites
