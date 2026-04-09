@@ -1400,3 +1400,7 @@ TEMPLATE-MANAGE-1 done
 - QuickViewPieceRow.tsx handleShapeEdgeChange: RECTANGLE/ROUNDED_RECT case added before arc else
 - RECTANGLE edges save to edgeTop/edgeBottom/edgeLeft/edgeRight columns (not edgeArcConfig)
 - FABRICATION-RULES.md: rule 10.4 + Appendix row #16 added
+## 2026-04-09 — EDGE-OPTIMISTIC-LOCAL-STATE
+- QuickViewPieceRow.tsx: localEdges state added (optimistic edge profile mirror)
+- QuickViewPieceRow.tsx: savePieceImmediate + savePiece read localEdges not fullPiece for edge columns
+- QuickViewPieceRow.tsx: onApplyProfile atomic with setLocalEdges; handleEdgeChange optimistic

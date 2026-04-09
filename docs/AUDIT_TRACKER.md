@@ -675,3 +675,9 @@ TEMPLATE-MANAGE-1 done
 - ✅ handleShapeEdgeChange: added explicit RECTANGLE/ROUNDED_RECT case before arc catch-all
 - ✅ RECTANGLE edges now save to edgeTop/edgeBottom/edgeLeft/edgeRight — not edgeArcConfig
 - ✅ FABRICATION-RULES.md: added rule 10.4 (edge save path verification) and Appendix row #16
+## 2026-04-09 — EDGE-OPTIMISTIC-LOCAL-STATE
+- ✅ localEdges state added — mirrors piece edge props, updated optimistically before API response
+- ✅ savePieceImmediate and savePiece read localEdges instead of fullPiece for edge columns
+- ✅ onApplyProfile: atomic multi-edge save with optimistic localEdges update
+- ✅ handleEdgeChange: optimistic setLocalEdges before savePieceImmediate
+- ✅ Prevents race condition where rapid sequential clicks read stale fullPiece prop
