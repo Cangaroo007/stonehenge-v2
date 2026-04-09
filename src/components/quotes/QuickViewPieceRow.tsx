@@ -2309,7 +2309,63 @@ export default function QuickViewPieceRow({
                 edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
                 edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
                 onApplyProfile={(edgeIds, profileId) => {
-                  edgeIds.forEach(edgeId => handleShapeEdgeChange(edgeId, profileId));
+                  // Fix: build all edge profile changes atomically in one savePieceImmediate call.
+                  // forEach(handleShapeEdgeChange) fires separate PATCHes — last write wins.
+                  const shapeType = piece.shapeType;
+
+                  if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
+                    // L/U: merge all edge changes into shapeConfig.edges at once
+                    const currentConfig = (fullPiece?.shapeConfig as unknown as Record<string, unknown>) ?? {};
+                    const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
+                    const updatedEdges = { ...currentEdges };
+                    for (const edgeId of edgeIds) {
+                      updatedEdges[edgeId] = profileId;
+                    }
+                    savePieceImmediate({ shapeConfig: { ...currentConfig, edges: updatedEdges } });
+                  } else if (!shapeType || shapeType === 'RECTANGLE' || shapeType === 'ROUNDED_RECT') {
+                    // Rectangle: map all edges to DB columns in one call
+                    const sideMap: Record<string, string> = {
+                      top: 'edgeTop', bottom: 'edgeBottom',
+                      left: 'edgeLeft', right: 'edgeRight',
+                    };
+                    const overrides: Record<string, string | null> = {};
+                    for (const edgeId of edgeIds) {
+                      const colKey = sideMap[edgeId];
+                      if (colKey) overrides[colKey] = profileId;
+                    }
+                    if (Object.keys(overrides).length > 0) savePieceImmediate(overrides);
+                  } else if (shapeType === 'RADIUS_END') {
+                    // RADIUS_END: straight edges → DB columns, arc edges → edgeArcConfig
+                    const sideMap: Record<string, string> = {
+                      top: 'edgeTop', bottom: 'edgeBottom',
+                      left: 'edgeLeft', right: 'edgeRight',
+                    };
+                    const colOverrides: Record<string, string | null> = {};
+                    const currentArcConfig = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+                    const updatedArcConfig = { ...currentArcConfig };
+                    let hasArcChanges = false;
+                    for (const edgeId of edgeIds) {
+                      const colKey = sideMap[edgeId];
+                      if (colKey) {
+                        colOverrides[colKey] = profileId;
+                      } else {
+                        updatedArcConfig[edgeId] = profileId;
+                        hasArcChanges = true;
+                      }
+                    }
+                    const overrides: Record<string, unknown> = { ...colOverrides };
+                    if (hasArcChanges) overrides.edgeArcConfig = updatedArcConfig;
+                    if (Object.keys(overrides).length > 0) savePieceImmediate(overrides);
+                  } else {
+                    // Curved shapes: merge all arc edge changes at once
+                    const currentArcConfig = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+                    const updatedArcConfig = { ...currentArcConfig };
+                    for (const edgeId of edgeIds) {
+                      updatedArcConfig[edgeId] = profileId;
+                    }
+                    savePieceImmediate({ edgeArcConfig: updatedArcConfig });
+                  }
+
                   setSelectedEdgeIds([]);
                 }}
                 onApplyBuildup={(edgeIds, depth) => {

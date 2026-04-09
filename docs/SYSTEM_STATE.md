@@ -1400,3 +1400,7 @@ TEMPLATE-MANAGE-1 done
 - QuickViewPieceRow.tsx handleShapeEdgeChange: RECTANGLE/ROUNDED_RECT case added before arc else
 - RECTANGLE edges save to edgeTop/edgeBottom/edgeLeft/edgeRight columns (not edgeArcConfig)
 - FABRICATION-RULES.md: rule 10.4 + Appendix row #16 added
+## 2026-04-08 — EDGE-PROFILE-ATOMIC-FIX
+- QuickViewPieceRow.tsx onApplyProfile: atomic multi-edge profile save per shape type
+- L/U → single shapeConfig.edges write; RECTANGLE → single edgeTop/etc write; RADIUS_END → mixed; curved → edgeArcConfig
+- FABRICATION-RULES.md: rule 10.5 (atomic multi-edge saves) added

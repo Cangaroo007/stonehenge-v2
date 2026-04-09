@@ -675,3 +675,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ handleShapeEdgeChange: added explicit RECTANGLE/ROUNDED_RECT case before arc catch-all
 - ✅ RECTANGLE edges now save to edgeTop/edgeBottom/edgeLeft/edgeRight — not edgeArcConfig
 - ✅ FABRICATION-RULES.md: added rule 10.4 (edge save path verification) and Appendix row #16
+## 2026-04-08 — EDGE-PROFILE-ATOMIC-FIX
+- ✅ onApplyProfile replaced forEach(handleShapeEdgeChange) with single atomic savePieceImmediate
+- ✅ All shape types handled: L/U → shapeConfig.edges, RECTANGLE → edgeTop/etc, RADIUS_END → mixed, curved → edgeArcConfig
+- ✅ FABRICATION-RULES.md: added rule 10.5 (atomic multi-edge saves mandatory pattern)

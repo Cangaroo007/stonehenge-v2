@@ -257,6 +257,13 @@ After ANY sprint touching edge save paths, verify in production:
 - Check DB: `SELECT edge_top FROM quote_pieces WHERE id = X`
 - Must show Arris edge type ID — not null, not in edgeArcConfig
 
+### 10.5 Atomic multi-edge saves (mandatory pattern)
+Any callback that applies a change to multiple edges simultaneously
+MUST build all changes in one object and call savePieceImmediate once.
+NEVER iterate savePieceImmediate inside forEach — stale closure causes
+last-write-wins. Pattern established in PR #610 (buildups) and PR #616
+(profiles). Both onApplyProfile and onApplyBuildup follow this pattern.
+
 ---
 
 ## APPENDIX — CONFIRMED ANSWERS (Jay Henderson, locked)
