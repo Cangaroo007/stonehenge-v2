@@ -627,6 +627,19 @@ export default function QuickViewPieceRow({
     (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
   );
   const [buildupSaveState, setBuildupSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
+  // Local edge profile state — updated optimistically before API response.
+  // Prevents race condition where rapid clicks read stale fullPiece prop.
+  const [localEdges, setLocalEdges] = useState<{
+    edgeTop: string | null;
+    edgeBottom: string | null;
+    edgeLeft: string | null;
+    edgeRight: string | null;
+  }>({
+    edgeTop: piece.edgeTop ?? null,
+    edgeBottom: piece.edgeBottom ?? null,
+    edgeLeft: piece.edgeLeft ?? null,
+    edgeRight: piece.edgeRight ?? null,
+  });
   const [showNewMaterialModal, setShowNewMaterialModal] = useState(false);
   const [newMat, setNewMat] = useState({
     name: '',
@@ -658,7 +671,13 @@ export default function QuickViewPieceRow({
       piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
     );
     setLocalEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
-  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups]);
+    setLocalEdges({
+      edgeTop: piece.edgeTop ?? null,
+      edgeBottom: piece.edgeBottom ?? null,
+      edgeLeft: piece.edgeLeft ?? null,
+      edgeRight: piece.edgeRight ?? null,
+    });
+  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -793,17 +812,17 @@ export default function QuickViewPieceRow({
           thicknessMm: fullPiece.thicknessMm,
           materialId: fullPiece.materialId,
           materialName: fullPiece.materialName,
-          edgeTop: fullPiece.edgeTop,
-          edgeBottom: fullPiece.edgeBottom,
-          edgeLeft: fullPiece.edgeLeft,
-          edgeRight: fullPiece.edgeRight,
+          edgeTop: localEdges.edgeTop,
+          edgeBottom: localEdges.edgeBottom,
+          edgeLeft: localEdges.edgeLeft,
+          edgeRight: localEdges.edgeRight,
           cutouts: fullPiece.cutouts,
           ...overrides,
         },
         fullPiece.quote_rooms?.name || 'Kitchen'
       );
     }, 500);
-  }, [fullPiece, onSavePiece, piece.id]);
+  }, [fullPiece, onSavePiece, piece.id, localEdges]);
 
   // ── Immediate save (no debounce, for dropdowns/selectors) ───────────────
   // Same minimum viable data guard as savePiece.
@@ -821,16 +840,16 @@ export default function QuickViewPieceRow({
         thicknessMm: fullPiece.thicknessMm,
         materialId: fullPiece.materialId,
         materialName: fullPiece.materialName,
-        edgeTop: fullPiece.edgeTop,
-        edgeBottom: fullPiece.edgeBottom,
-        edgeLeft: fullPiece.edgeLeft,
-        edgeRight: fullPiece.edgeRight,
+        edgeTop: localEdges.edgeTop,
+        edgeBottom: localEdges.edgeBottom,
+        edgeLeft: localEdges.edgeLeft,
+        edgeRight: localEdges.edgeRight,
         cutouts: fullPiece.cutouts,
         ...overrides,
       },
       fullPiece.quote_rooms?.name || 'Kitchen'
     );
-  }, [fullPiece, onSavePiece, piece.id]);
+  }, [fullPiece, onSavePiece, piece.id, localEdges]);
 
   // ── Dimension handlers ──────────────────────────────────────────────────
   // onChange: update local state only — no save
@@ -1091,6 +1110,8 @@ export default function QuickViewPieceRow({
     if (!fullPiece || !onSavePiece) return;
     const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
       'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
+    // Optimistic update — UI reflects immediately
+    setLocalEdges(prev => ({ ...prev, [edgeKey]: profileId }));
     savePieceImmediate({ [edgeKey]: profileId });
   }, [fullPiece, onSavePiece, savePieceImmediate]);
 
@@ -2309,7 +2330,56 @@ export default function QuickViewPieceRow({
                 edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
                 edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
                 onApplyProfile={(edgeIds, profileId) => {
-                  edgeIds.forEach(edgeId => handleShapeEdgeChange(edgeId, profileId));
+                  // Atomic multi-edge profile save — one savePieceImmediate call.
+                  const shapeType = piece.shapeType;
+
+                  if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
+                    const currentConfig = (fullPiece?.shapeConfig as unknown as Record<string, unknown>) ?? {};
+                    const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
+                    const updatedEdges = { ...currentEdges };
+                    for (const edgeId of edgeIds) { updatedEdges[edgeId] = profileId; }
+                    savePieceImmediate({ shapeConfig: { ...currentConfig, edges: updatedEdges } });
+                  } else if (!shapeType || shapeType === 'RECTANGLE' || shapeType === 'ROUNDED_RECT') {
+                    const sideMap: Record<string, string> = {
+                      top: 'edgeTop', bottom: 'edgeBottom',
+                      left: 'edgeLeft', right: 'edgeRight',
+                    };
+                    const overrides: Record<string, string | null> = {};
+                    for (const edgeId of edgeIds) {
+                      const colKey = sideMap[edgeId];
+                      if (colKey) overrides[colKey] = profileId;
+                    }
+                    // Optimistic update — UI reflects change before API responds
+                    setLocalEdges(prev => ({ ...prev, ...overrides }));
+                    if (Object.keys(overrides).length > 0) savePieceImmediate(overrides);
+                  } else if (shapeType === 'RADIUS_END') {
+                    const sideMap: Record<string, string> = {
+                      top: 'edgeTop', bottom: 'edgeBottom',
+                      left: 'edgeLeft', right: 'edgeRight',
+                    };
+                    const colOverrides: Record<string, string | null> = {};
+                    const currentArcConfig = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+                    const updatedArcConfig = { ...currentArcConfig };
+                    let hasArcChanges = false;
+                    for (const edgeId of edgeIds) {
+                      const colKey = sideMap[edgeId];
+                      if (colKey) { colOverrides[colKey] = profileId; }
+                      else { updatedArcConfig[edgeId] = profileId; hasArcChanges = true; }
+                    }
+                    // Optimistic update for straight edges
+                    if (Object.keys(colOverrides).length > 0) {
+                      setLocalEdges(prev => ({ ...prev, ...colOverrides }));
+                    }
+                    const saveOverrides: Record<string, unknown> = { ...colOverrides };
+                    if (hasArcChanges) saveOverrides.edgeArcConfig = updatedArcConfig;
+                    if (Object.keys(saveOverrides).length > 0) savePieceImmediate(saveOverrides);
+                  } else {
+                    const currentArcConfig = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+                    const updatedArcConfig = { ...currentArcConfig };
+                    for (const edgeId of edgeIds) { updatedArcConfig[edgeId] = profileId; }
+                    savePieceImmediate({ edgeArcConfig: updatedArcConfig });
+                  }
+
                   setSelectedEdgeIds([]);
                 }}
                 onApplyBuildup={(edgeIds, depth) => {
