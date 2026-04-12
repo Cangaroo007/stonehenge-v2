@@ -684,8 +684,10 @@ export default function QuickViewPieceRow({
 
   // ── Edge resolution ─────────────────────────────────────────────────────
   const resolvedEdges = useMemo(() => {
-    if (piece.edgeTop || piece.edgeBottom || piece.edgeLeft || piece.edgeRight) {
-      return { edgeTop: piece.edgeTop, edgeBottom: piece.edgeBottom, edgeLeft: piece.edgeLeft, edgeRight: piece.edgeRight };
+    // Read from localEdges (optimistic) instead of piece.edge* props.
+    // localEdges updates instantly on edge click; piece props lag behind API response.
+    if (localEdges.edgeTop || localEdges.edgeBottom || localEdges.edgeLeft || localEdges.edgeRight) {
+      return { edgeTop: localEdges.edgeTop, edgeBottom: localEdges.edgeBottom, edgeLeft: localEdges.edgeLeft, edgeRight: localEdges.edgeRight };
     }
     if (!breakdown?.fabrication?.edges) {
       return { edgeTop: null, edgeBottom: null, edgeLeft: null, edgeRight: null };
@@ -696,7 +698,7 @@ export default function QuickViewPieceRow({
       if (key in result) result[key] = e.edgeTypeId;
     }
     return result as { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
-  }, [piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, breakdown]);
+  }, [localEdges, breakdown]);
 
   // All edge IDs for this piece shape — used by EdgePanel
   const allEdgeIds = useMemo(() => {

@@ -684,3 +684,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — COMPACT-PRESET-PROFILE-FIX
 - ✅ Profile pill selector added above presets in compact card (Raw/Arris/Pencil Round/etc)
 - ✅ Masons can set quickEdgeProfileId without expanding to full view or needing Recent pills
+## 2026-04-12 — THUMBNAIL-EDGE-SYNC
+- ✅ resolvedEdges useMemo reads localEdges instead of piece.edge* props
+- ✅ Compact thumbnail updates instantly on edge click — no 200-400ms lag waiting for API response
