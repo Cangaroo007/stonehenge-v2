@@ -687,3 +687,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — THUMBNAIL-EDGE-SYNC
 - ✅ resolvedEdges useMemo reads localEdges instead of piece.edge* props
 - ✅ Compact thumbnail updates instantly on edge click — no 200-400ms lag waiting for API response
+## 2026-04-12 — CREATE-PIECE-EDGE-FIX
+- ✅ EdgePanel added to PieceForm.tsx for edge profile selection during piece creation
+- ✅ onApplyProfile updates edgeSelections state — feeds into handleSubmit correctly
+- ✅ Build-up and attach piece not wired (create-time only — not needed)

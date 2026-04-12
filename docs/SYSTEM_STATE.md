@@ -1410,3 +1410,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — THUMBNAIL-EDGE-SYNC
 - QuickViewPieceRow.tsx: resolvedEdges useMemo reads localEdges (optimistic) not piece.edge* props
 - Compact thumbnail and all edge display paths update instantly on edge click
+## 2026-04-12 — CREATE-PIECE-EDGE-FIX
+- PieceForm.tsx: EdgePanel imported and rendered below PieceVisualEditor for RECTANGLE pieces
+- EdgePanel onApplyProfile updates edgeSelections state; handleSubmit reads edgeSelections on save
