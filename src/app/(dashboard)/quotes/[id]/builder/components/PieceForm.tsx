@@ -5,6 +5,7 @@ import { useUnits } from '@/lib/contexts/UnitContext';
 import { getDimensionUnitLabel, formatAreaFromSqm } from '@/lib/utils/units';
 import PieceVisualEditor from '@/components/quotes/PieceVisualEditor';
 import CutoutSelector, { PieceCutout, CutoutType } from './CutoutSelector';
+import EdgePanel from '@/components/quotes/EdgePanel';
 
 interface MachineOption {
   id: string;
@@ -144,6 +145,7 @@ export default function PieceForm({
     edgeLeft: piece?.edgeLeft || null,
     edgeRight: piece?.edgeRight || null,
   });
+  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [cutouts, setCutouts] = useState<PieceCutout[]>(
     Array.isArray(piece?.cutouts) ? piece.cutouts : []
   );
@@ -505,6 +507,45 @@ export default function PieceForm({
         />
         );
       })()}
+
+      {/* EdgePanel — unified edge interaction for piece creation */}
+      {lengthMm && widthMm && parseInt(lengthMm) > 0 && parseInt(widthMm) > 0 && (
+        <div className="mt-2">
+          <EdgePanel
+            allEdgeIds={['top', 'bottom', 'left', 'right']}
+            selectedEdgeIds={selectedEdgeIds}
+            onSelectionChange={setSelectedEdgeIds}
+            edgeProfiles={{
+              top: edgeSelections.edgeTop,
+              bottom: edgeSelections.edgeBottom,
+              left: edgeSelections.edgeLeft,
+              right: edgeSelections.edgeRight,
+            }}
+            edgeBuildups={{}}
+            edgeTypes={edgeTypes
+              .filter(e => e.isActive !== false)
+              .map(e => ({ id: e.id, name: e.name }))}
+            onApplyProfile={(edgeIds, profileId) => {
+              const sideMap: Record<string, keyof EdgeSelections> = {
+                top: 'edgeTop', bottom: 'edgeBottom',
+                left: 'edgeLeft', right: 'edgeRight',
+              };
+              setEdgeSelections(prev => {
+                const next = { ...prev };
+                for (const edgeId of edgeIds) {
+                  const key = sideMap[edgeId];
+                  if (key) next[key] = profileId;
+                }
+                return next;
+              });
+              setSelectedEdgeIds([]);
+            }}
+            onApplyBuildup={() => {}}
+            onAttachWaterfall={() => {}}
+            onAttachSplashback={() => {}}
+          />
+        </div>
+      )}
 
       {/* Mitre Lamination Strip Auto-Calculation */}
       {thicknessMm >= 40 && (() => {
