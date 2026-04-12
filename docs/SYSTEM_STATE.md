@@ -1404,3 +1404,6 @@ TEMPLATE-MANAGE-1 done
 - QuickViewPieceRow.tsx: localEdges state added (optimistic edge profile mirror)
 - QuickViewPieceRow.tsx: savePieceImmediate + savePiece read localEdges not fullPiece for edge columns
 - QuickViewPieceRow.tsx: onApplyProfile atomic with setLocalEdges; handleEdgeChange optimistic
+## 2026-04-12 — COMPACT-PRESET-PROFILE-FIX
+- QuickViewPieceRow.tsx: profile pill selector added above preset bar in compact card
+- Sets quickEdgeProfileId from compact view — presets work without expanding or Recent pills
