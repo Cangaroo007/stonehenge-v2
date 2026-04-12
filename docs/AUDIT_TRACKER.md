@@ -695,3 +695,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ Single-material backfill restricted to confirmed WF/SB children (wfsbParentMap.has check)
 - ✅ Multi-material filter restricted: null-material pieces excluded unless WF/SB child
 - ✅ Standalone pieces without material no longer get slab allocations
+## 2026-04-12 — OPT-GRAIN-RESET-FIX
+- ✅ Removed requiresGrainMatch from persistOversizeToQuotePieces (3 locations)
+- ✅ Optimizer no longer overwrites user-set grain match preferences on every run
