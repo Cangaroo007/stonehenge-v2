@@ -478,7 +478,7 @@ export async function POST(
       const primaryMatIdForMulti = String(
         pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
       ) || null;
-      const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { materialId: string | null }) => !!(p.materialId ?? primaryMatIdForMulti)).map(
+      const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { id: string; materialId: string | null }) => !!(p.materialId) || wfsbParentMap.has(p.id)).map(
         (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
           id: p.id,
           width: p.width,
@@ -622,12 +622,12 @@ export async function POST(
     }
 
     // ── Single-material optimisation path (existing, backward compatible) ──
-    // Pieces without a materialId (e.g. waterfall, splashback relationship pieces)
-    // inherit the primary material for slab allocation purposes.
-    // Jay confirmed: WF/SB always use the same material as their parent benchtop.
+    // Only WF/SB relationship pieces inherit the primary material.
+    // Standalone pieces without a material are excluded by validPieces filter below.
     const primaryMatId = primaryMaterialId?.toString() ?? null;
     for (const p of pieces) {
-      if (!(p as { materialId: string | null }).materialId && primaryMatId) {
+      if (!(p as { materialId: string | null }).materialId && primaryMatId &&
+          wfsbParentMap.has((p as { id: string }).id)) {
         (p as { materialId: string | null }).materialId = primaryMatId;
       }
     }

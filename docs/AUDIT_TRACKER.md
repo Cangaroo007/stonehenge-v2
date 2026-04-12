@@ -691,3 +691,7 @@ TEMPLATE-MANAGE-1 done
 - ✅ EdgePanel added to PieceForm.tsx for edge profile selection during piece creation
 - ✅ onApplyProfile updates edgeSelections state — feeds into handleSubmit correctly
 - ✅ Build-up and attach piece not wired (create-time only — not needed)
+## 2026-04-12 — OPT-MATERIAL-GATE
+- ✅ Single-material backfill restricted to confirmed WF/SB children (wfsbParentMap.has check)
+- ✅ Multi-material filter restricted: null-material pieces excluded unless WF/SB child
+- ✅ Standalone pieces without material no longer get slab allocations

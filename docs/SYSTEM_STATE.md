@@ -1413,3 +1413,7 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — CREATE-PIECE-EDGE-FIX
 - PieceForm.tsx: EdgePanel imported and rendered below PieceVisualEditor for RECTANGLE pieces
 - EdgePanel onApplyProfile updates edgeSelections state; handleSubmit reads edgeSelections on save
+## 2026-04-12 — OPT-MATERIAL-GATE
+- optimize/route.ts: single-material backfill gated on wfsbParentMap.has — only WF/SB children inherit
+- optimize/route.ts: multi-material filter uses !!p.materialId || wfsbParentMap.has(p.id)
+- Standalone null-material pieces correctly excluded from slab allocation
