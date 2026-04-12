@@ -108,7 +108,6 @@ async function persistOversizeToQuotePieces(
           isOversize: true,
           joinCount: cutPlan.joins.length,
           joinLengthMm: Math.round(cutPlan.joinLengthMm),
-          requiresGrainMatch: true,
         },
       });
     }
@@ -126,7 +125,6 @@ async function persistOversizeToQuotePieces(
         isOversize: false,
         joinCount: 0,
         joinLengthMm: null,
-        requiresGrainMatch: false,
       },
     });
   } else {
@@ -139,7 +137,6 @@ async function persistOversizeToQuotePieces(
         isOversize: false,
         joinCount: 0,
         joinLengthMm: null,
-        requiresGrainMatch: false,
       },
     });
   }

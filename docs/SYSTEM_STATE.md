@@ -1417,3 +1417,6 @@ TEMPLATE-MANAGE-1 done
 - optimize/route.ts: single-material backfill gated on wfsbParentMap.has — only WF/SB children inherit
 - optimize/route.ts: multi-material filter uses !!p.materialId || wfsbParentMap.has(p.id)
 - Standalone null-material pieces correctly excluded from slab allocation
+## 2026-04-12 — OPT-GRAIN-RESET-FIX
+- optimize/route.ts persistOversizeToQuotePieces: requiresGrainMatch removed from all 3 write blocks
+- Field now only set by user action or relationship creation — not overwritten by optimizer
