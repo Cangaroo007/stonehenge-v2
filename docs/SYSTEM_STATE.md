@@ -1407,3 +1407,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — COMPACT-PRESET-PROFILE-FIX
 - QuickViewPieceRow.tsx: profile pill selector added above preset bar in compact card
 - Sets quickEdgeProfileId from compact view — presets work without expanding or Recent pills
+## 2026-04-12 — THUMBNAIL-EDGE-SYNC
+- QuickViewPieceRow.tsx: resolvedEdges useMemo reads localEdges (optimistic) not piece.edge* props
+- Compact thumbnail and all edge display paths update instantly on edge click
