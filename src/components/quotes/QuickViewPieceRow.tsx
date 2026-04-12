@@ -2103,6 +2103,39 @@ export default function QuickViewPieceRow({
 
           {/* Quick Edge selector + cutouts */}
           <div className="flex-1 min-w-0">
+            {/* Profile selector for compact preset bar */}
+            {isEditMode && (!piece.shapeType || piece.shapeType === 'RECTANGLE') && editData?.edgeTypes && (
+              <div className="flex flex-wrap items-center gap-1 mb-1">
+                <span className="text-[10px] text-gray-400 mr-0.5">Profile:</span>
+                <button
+                  onClick={() => setQuickEdgeProfileId(null)}
+                  className={`px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                    quickEdgeProfileId === null
+                      ? 'bg-gray-700 text-white border-gray-700'
+                      : 'border-gray-200 text-gray-500 hover:border-gray-400'
+                  }`}
+                >
+                  Raw
+                </button>
+                {editData.edgeTypes
+                  .filter(et => et.isActive !== false)
+                  .map(et => (
+                    <button
+                      key={et.id}
+                      onClick={() => setQuickEdgeProfileId(et.id)}
+                      className={`px-1.5 py-0.5 text-[10px] rounded border transition-colors ${
+                        quickEdgeProfileId === et.id
+                          ? 'bg-stone-700 text-white border-stone-700'
+                          : 'border-gray-200 text-gray-500 hover:border-gray-400'
+                      }`}
+                    >
+                      {et.name}
+                    </button>
+                  ))
+                }
+              </div>
+            )}
+
             {/* Layout Presets (Rectangle only, edit mode) */}
             {isEditMode && (!piece.shapeType || piece.shapeType === 'RECTANGLE') && (
               <div className="flex flex-wrap items-center gap-1 mb-1">

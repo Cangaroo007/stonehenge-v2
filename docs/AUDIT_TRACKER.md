@@ -681,3 +681,6 @@ TEMPLATE-MANAGE-1 done
 - ✅ onApplyProfile: atomic multi-edge save with optimistic localEdges update
 - ✅ handleEdgeChange: optimistic setLocalEdges before savePieceImmediate
 - ✅ Prevents race condition where rapid sequential clicks read stale fullPiece prop
+## 2026-04-12 — COMPACT-PRESET-PROFILE-FIX
+- ✅ Profile pill selector added above presets in compact card (Raw/Arris/Pencil Round/etc)
+- ✅ Masons can set quickEdgeProfileId without expanding to full view or needing Recent pills
