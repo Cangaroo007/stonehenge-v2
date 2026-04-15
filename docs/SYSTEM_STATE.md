@@ -1420,3 +1420,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — OPT-GRAIN-RESET-FIX
 - optimize/route.ts persistOversizeToQuotePieces: requiresGrainMatch removed from all 3 write blocks
 - Field now only set by user action or relationship creation — not overwritten by optimizer
+## 2026-04-14 — CALC-OPTIMIZER-TRUST
+- pricing-calculator-v2.ts line 624: removed !hasNullMaterialPieces guard
+- Optimizer slab count trusted unconditionally (null-material fix in PR #621 makes guard obsolete)

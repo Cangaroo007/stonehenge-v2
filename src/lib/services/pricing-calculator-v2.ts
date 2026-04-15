@@ -619,9 +619,10 @@ function buildMaterialGroupings(
       // For per-slab, estimate slab count per material using naive calculation
       const slabAreaM2 = (group.slabLengthMm ?? defaultSlabLengthMm ?? 3000)
         * (group.slabWidthMm ?? defaultSlabWidthMm ?? 1400) / 1_000_000;
-      // Only use optimiser slab count when ALL pieces have materials.
-      // If null-material pieces exist, they inflated the optimiser count — recalculate from area.
-      if (groups.size === 1 && slabCount !== undefined && !hasNullMaterialPieces) {
+      // Use optimiser slab count as single source of truth when available.
+      // Null-material pieces are excluded from optimiser runs since PR #621.
+      // Fall back to naive area estimate only when no optimiser result exists.
+      if (groups.size === 1 && slabCount !== undefined) {
         groupSlabCount = Math.ceil(slabCount);
       } else {
         groupSlabCount = Math.ceil(areaM2 / slabAreaM2);
