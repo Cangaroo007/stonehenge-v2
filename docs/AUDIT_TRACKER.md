@@ -698,3 +698,6 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-12 — OPT-GRAIN-RESET-FIX
 - ✅ Removed requiresGrainMatch from persistOversizeToQuotePieces (3 locations)
 - ✅ Optimizer no longer overwrites user-set grain match preferences on every run
+## 2026-04-14 — CALC-OPTIMIZER-TRUST
+- ✅ Removed !hasNullMaterialPieces guard from slab count condition in pricing calculator
+- ✅ Optimizer slab count now always used as single source of truth when available
