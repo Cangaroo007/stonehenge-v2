@@ -78,6 +78,7 @@ interface PreviewMaterial {
   costPrice: number;
   wholesalePrice: number;
   matchType: 'exact_code' | 'name_match' | 'new';
+  existingMaterialId: number | null;
   action: 'create' | 'update' | 'skip';
   priceChange: {
     oldCostPrice: number | null;
@@ -668,7 +669,7 @@ function UploadWizard({ supplierId, supplierName, onClose, onComplete }: UploadW
           isDiscontinued: false,
           notes: null,
         },
-        existingMaterialId: m.matchType !== 'new' ? null : null,
+        existingMaterialId: m.existingMaterialId,
         matchType: m.matchType,
         action: actions[i] || m.action,
         priceChange: m.priceChange,

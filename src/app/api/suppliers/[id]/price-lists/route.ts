@@ -127,6 +127,7 @@ export async function POST(
           costPrice: m.parsed.costPrice,
           wholesalePrice: m.parsed.wholesalePrice,
           matchType: m.matchType,
+          existingMaterialId: m.existingMaterialId ?? null,
           action: m.action,
           priceChange: m.priceChange,
         })),
