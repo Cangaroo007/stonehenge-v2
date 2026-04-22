@@ -643,8 +643,8 @@ function UploadWizard({ supplierId, supplierName, onClose, onComplete }: UploadW
       if (action === 'skip') {
         updated[i] = 'skip';
       } else {
-        // Respect the original match type
-        updated[i] = m.matchType === 'new' ? (action === 'create' ? 'create' : 'skip') : (action === 'update' ? 'update' : 'skip');
+        // B1b: Accept All on new → create; Accept All on matched → update (not skip)
+        updated[i] = m.matchType === 'new' ? 'create' : 'update';
       }
     });
     setActions(updated);
