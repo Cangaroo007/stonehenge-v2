@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import Link from 'next/link';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -181,9 +182,10 @@ export default function SuppliersPage() {
             ) : (
               <div className="space-y-2">
                 {suppliers.map((s) => (
-                  <div
+                  <Link
                     key={s.id}
-                    className="rounded-lg border border-gray-200 bg-white p-4 flex items-center justify-between"
+                    href={`/materials/suppliers/${s.id}`}
+                    className="block rounded-lg border border-gray-200 bg-white p-4 flex items-center justify-between hover:border-gray-400 transition-colors"
                   >
                     <div>
                       <p className="font-semibold text-gray-900">{s.name}</p>
@@ -200,7 +202,7 @@ export default function SuppliersPage() {
                     <span className="inline-flex items-center rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700 uppercase tracking-wide">
                       Active
                     </span>
-                  </div>
+                  </Link>
                 ))}
               </div>
             )}
