@@ -242,4 +242,3 @@ This project is proprietary software. All rights reserved.
 ---
 
 Built with ❤️ for stone masons everywhere.
-# Preview env test Wed Apr 22 10:28:15 PDT 2026
