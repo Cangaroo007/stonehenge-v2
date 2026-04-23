@@ -1429,3 +1429,10 @@ TEMPLATE-MANAGE-1 done
 - Quote-level route /api/quotes/[id]/route.ts exports: GET, PUT, DELETE — no PATCH handler exists
 - PUT handler saveCalculation branch at line 201 handles calc persistence; metadata branch handles field-level updates
 - Sub-route PATCH handlers remain authoritative for pieces, rooms, bulk-edges, bulk-update, bulk-move, status, edge-allowance, custom-charges, relationships
+## 2026-04-23 — B4b-WRAP-ROOM-REBUILD-TRANSACTION
+- route.ts PUT handler Branch 3 (data.rooms path): deleteMany → drawing upsert → quotes.update now atomic
+- Wrapper: prisma.$transaction(async (tx) => {...}, { maxWait: 10000, timeout: 30000 })
+- Failure mode eliminated: server crash between deleteMany and quotes.update no longer loses rooms
+- Non-transactional: createQuoteVersion, checkAndRecordQuoteChanges (fire-and-forget by design)
+- Branches 1 (saveCalculation) and 2 (metadata-only) remain single-update paths (already atomic)
+- Known TS pattern: narrowed optional fields must be captured to local const before crossing closure boundary

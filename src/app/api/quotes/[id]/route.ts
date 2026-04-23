@@ -318,92 +318,102 @@ export async function PUT(
 
     // Full update with rooms (original behavior)
     if (data.rooms) {
-      // Delete existing rooms (cascade deletes pieces and features)
-      await prisma.quote_rooms.deleteMany({
-        where: { quote_id: quoteId },
-      });
-
-      // Handle drawing analysis - upsert or delete
-      if (data.drawingAnalysis) {
-        await prisma.quote_drawing_analyses.upsert({
+      const rooms = data.rooms;
+      // Wrap delete+recreate in a transaction to prevent partial state
+      // if the server crashes between deleteMany and quotes.update.
+      const quote = await prisma.$transaction(async (tx) => {
+        // Delete existing rooms (cascade deletes pieces and features)
+        await tx.quote_rooms.deleteMany({
           where: { quote_id: quoteId },
-          create: {
-            quote_id: quoteId,
-            filename: data.drawingAnalysis.filename,
-            analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
-            drawing_type: data.drawingAnalysis.drawingType,
-            raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
-            metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
-            imported_pieces: [],
+        });
+
+        // Handle drawing analysis - upsert or delete
+        if (data.drawingAnalysis) {
+          await tx.quote_drawing_analyses.upsert({
+            where: { quote_id: quoteId },
+            create: {
+              quote_id: quoteId,
+              filename: data.drawingAnalysis.filename,
+              analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
+              drawing_type: data.drawingAnalysis.drawingType,
+              raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
+              metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
+              imported_pieces: [],
+            },
+            update: {
+              filename: data.drawingAnalysis.filename,
+              analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
+              drawing_type: data.drawingAnalysis.drawingType,
+              raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
+              metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
+            },
+          });
+        }
+
+        // Update quote with new rooms
+        const updatedQuote = await tx.quotes.update({
+          where: { id: quoteId },
+          data: {
+            customer_id: data.customerId,
+            ...(data.contactId !== undefined && { contact_id: data.contactId ? parseInt(String(data.contactId)) : null }),
+            project_name: data.projectName,
+            project_address: data.projectAddress,
+            status: data.status,
+            subtotal: data.subtotal,
+            tax_rate: data.taxRate,
+            tax_amount: data.taxAmount,
+            total: data.total,
+            notes: data.notes,
+            quote_rooms: {
+              create: rooms.map((room: RoomData) => ({
+                name: room.name,
+                sort_order: room.sortOrder,
+                quote_pieces: {
+                  create: room.pieces.map((piece: PieceData) => ({
+                    description: piece.description,
+                    length_mm: piece.lengthMm,
+                    width_mm: piece.widthMm,
+                    thickness_mm: piece.thicknessMm,
+                    material_id: piece.materialId,
+                    material_name: piece.materialName,
+                    area_sqm: piece.areaSqm,
+                    // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
+                    // Kept to avoid null constraint violations. Do not read this value for display.
+                    material_cost: piece.materialCost,
+                    features_cost: piece.featuresCost,
+                    // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
+                    // Kept to avoid null constraint violations. Do not read this value for display.
+                    total_cost: piece.totalCost,
+                    sort_order: piece.sortOrder,
+                    edge_top: piece.edgeTop,
+                    edge_bottom: piece.edgeBottom,
+                    edge_left: piece.edgeLeft,
+                    edge_right: piece.edgeRight,
+                    piece_features: {
+                      create: piece.piece_features.map((feature: FeatureData) => ({
+                        name: feature.name,
+                        quantity: feature.quantity,
+                        unit_price: feature.unitPrice,
+                        total_price: feature.totalPrice,
+                      })),
+                    },
+                  })),
+                },
+              })),
+            },
           },
-          update: {
-            filename: data.drawingAnalysis.filename,
-            analyzed_at: new Date(data.drawingAnalysis.analyzedAt),
-            drawing_type: data.drawingAnalysis.drawingType,
-            raw_results: data.drawingAnalysis.rawResults as unknown as Prisma.InputJsonValue,
-            metadata: data.drawingAnalysis.metadata as unknown as Prisma.InputJsonValue,
+          include: {
+            quote_drawing_analyses: true,
           },
         });
-      }
 
-      // Update quote with new rooms
-      const quote = await prisma.quotes.update({
-        where: { id: quoteId },
-        data: {
-          customer_id: data.customerId,
-          ...(data.contactId !== undefined && { contact_id: data.contactId ? parseInt(String(data.contactId)) : null }),
-          project_name: data.projectName,
-          project_address: data.projectAddress,
-          status: data.status,
-          subtotal: data.subtotal,
-          tax_rate: data.taxRate,
-          tax_amount: data.taxAmount,
-          total: data.total,
-          notes: data.notes,
-          quote_rooms: {
-            create: data.rooms.map((room: RoomData) => ({
-              name: room.name,
-              sort_order: room.sortOrder,
-              quote_pieces: {
-                create: room.pieces.map((piece: PieceData) => ({
-                  description: piece.description,
-                  length_mm: piece.lengthMm,
-                  width_mm: piece.widthMm,
-                  thickness_mm: piece.thicknessMm,
-                  material_id: piece.materialId,
-                  material_name: piece.materialName,
-                  area_sqm: piece.areaSqm,
-                  // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
-                  // Kept to avoid null constraint violations. Do not read this value for display.
-                  material_cost: piece.materialCost,
-                  features_cost: piece.featuresCost,
-                  // DEPRECATED: total_cost is unreliable — use quotes.calculation_breakdown
-                  // Kept to avoid null constraint violations. Do not read this value for display.
-                  total_cost: piece.totalCost,
-                  sort_order: piece.sortOrder,
-                  edge_top: piece.edgeTop,
-                  edge_bottom: piece.edgeBottom,
-                  edge_left: piece.edgeLeft,
-                  edge_right: piece.edgeRight,
-                  piece_features: {
-                    create: piece.piece_features.map((feature: FeatureData) => ({
-                      name: feature.name,
-                      quantity: feature.quantity,
-                      unit_price: feature.unitPrice,
-                      total_price: feature.totalPrice,
-                    })),
-                  },
-                })),
-              },
-            })),
-          },
-        },
-        include: {
-          quote_drawing_analyses: true,
-        },
+        return updatedQuote;
+      }, {
+        maxWait: 10000,
+        timeout: 30000,
       });
 
-      // Record version
+      // Record version (non-blocking — outside transaction)
       try {
         await createQuoteVersion(quoteId, userId, 'UPDATED', undefined, previousSnapshot);
       } catch (versionError) {
