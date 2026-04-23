@@ -701,3 +701,9 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-14 — CALC-OPTIMIZER-TRUST
 - ✅ Removed !hasNullMaterialPieces guard from slab count condition in pricing calculator
 - ✅ Optimizer slab count now always used as single source of truth when available
+## 2026-04-23 — B4a-PATCH-PUT-QUOTE-SAVE
+- ✅ QuoteDetailClient.tsx: 5 PATCH calls to /api/quotes/${quoteIdStr} changed to PUT (lines 967, 1935, 1950, 1985, 2003)
+- ✅ Root cause: PR #478 (17 Mar 2026) regressed these from PUT to PATCH; quote-level route has never exported PATCH
+- ✅ PUT handler at route.ts line 169 supports all 5 operations (saveCalculation, metadata, delivery fields)
+- ✅ Verified in DevTools: PATCH was 405ing; verified in production: "Failed to update quote" banner surfacing
+- ✅ Sub-path PATCH calls (pieces, rooms, bulk-*) untouched — those routes correctly export PATCH

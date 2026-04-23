@@ -1423,3 +1423,9 @@ TEMPLATE-MANAGE-1 done
 ## 2026-04-14 — CALC-OPTIMIZER-TRUST
 - pricing-calculator-v2.ts line 624: removed !hasNullMaterialPieces guard
 - Optimizer slab count trusted unconditionally (null-material fix in PR #621 makes guard obsolete)
+## 2026-04-23 — B4a-PATCH-PUT-QUOTE-SAVE
+- QuoteDetailClient.tsx: 5 fetch calls to /api/quotes/${quoteIdStr} now use method: 'PUT' (previously PATCH)
+- Affected flows: handleSaveQuote (line 2003), metadata update (967), delivery disable/enable/address (1935/1950/1985)
+- Quote-level route /api/quotes/[id]/route.ts exports: GET, PUT, DELETE — no PATCH handler exists
+- PUT handler saveCalculation branch at line 201 handles calc persistence; metadata branch handles field-level updates
+- Sub-route PATCH handlers remain authoritative for pieces, rooms, bulk-edges, bulk-update, bulk-move, status, edge-allowance, custom-charges, relationships

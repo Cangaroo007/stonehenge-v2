@@ -964,7 +964,7 @@ export default function QuoteDetailClient({
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(updates),
       });
@@ -1932,7 +1932,7 @@ export default function QuoteDetailClient({
       if (!enabled) {
         // Disable delivery: zero out delivery fields
         await fetch(`/api/quotes/${quoteIdStr}`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deliveryCost: 0,
@@ -1947,7 +1947,7 @@ export default function QuoteDetailClient({
         const quoteAny = editQuote as Record<string, unknown> | null;
         const fallbackAddress = quoteAny?.project_address || quoteAny?.deliveryAddress || null;
         await fetch(`/api/quotes/${quoteIdStr}`, {
-          method: 'PATCH',
+          method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             deliveryCost: null,
@@ -1982,7 +1982,7 @@ export default function QuoteDetailClient({
     try {
       // Save new delivery address and clear cost so calculator auto-calculates
       await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           deliveryAddress: address,
@@ -2000,7 +2000,7 @@ export default function QuoteDetailClient({
     setSaving(true);
     try {
       const response = await fetch(`/api/quotes/${quoteIdStr}`, {
-        method: 'PATCH',
+        method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           saveCalculation: true,
