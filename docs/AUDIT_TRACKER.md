@@ -707,3 +707,10 @@ TEMPLATE-MANAGE-1 done
 - ✅ PUT handler at route.ts line 169 supports all 5 operations (saveCalculation, metadata, delivery fields)
 - ✅ Verified in DevTools: PATCH was 405ing; verified in production: "Failed to update quote" banner surfacing
 - ✅ Sub-path PATCH calls (pieces, rooms, bulk-*) untouched — those routes correctly export PATCH
+## 2026-04-23 — B4b-WRAP-ROOM-REBUILD-TRANSACTION
+- ✅ route.ts Branch 3 (lines 322-414): delete+recreate wrapped in prisma.$transaction
+- ✅ All 3 internal prisma.* calls converted to tx.* (quote_rooms.deleteMany, quote_drawing_analyses.upsert, quotes.update)
+- ✅ Transaction options: maxWait 10s, timeout 30s — headroom for large quotes
+- ✅ Version tracking + buyer change tracking remain outside transaction (non-blocking)
+- ✅ Branches 1 and 2 (saveCalculation, metadata-only) untouched — already single atomic updates
+- ✅ TS narrowing hotfix: const rooms = data.rooms captured before transaction (closure boundary loses narrowing)
