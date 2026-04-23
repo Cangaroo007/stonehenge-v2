@@ -1436,3 +1436,10 @@ TEMPLATE-MANAGE-1 done
 - Non-transactional: createQuoteVersion, checkAndRecordQuoteChanges (fire-and-forget by design)
 - Branches 1 (saveCalculation) and 2 (metadata-only) remain single-update paths (already atomic)
 - Known TS pattern: narrowed optional fields must be captured to local const before crossing closure boundary
+## 2026-04-23 — B4c-PIECE-SAVE-RACE-CONDITION
+- QuoteDetailClient.tsx handleInlineSavePiece: parent-owned in-flight guard keyed by pieceId
+- Pattern: Set guard tracks in-flight saves; Map queue holds latest pending payload per pieceId
+- Guard release + queue fire in both finally blocks (override branch + main branch)
+- Component savePieceImmediate (QuickViewPieceRow.tsx) unchanged — still calls onSavePiece fire-and-forget
+- Design rationale: onSavePiece prop signature is void (not Promise), so guard cannot live in the component — parent owns the async boundary
+- Behaviour: concurrent saves of the same piece serialise automatically; concurrent saves of different pieces still run in parallel

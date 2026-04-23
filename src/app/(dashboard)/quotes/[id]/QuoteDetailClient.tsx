@@ -478,6 +478,8 @@ export default function QuoteDetailClient({
   const addPieceRef = useRef<HTMLDivElement>(null);
   const actionBarRef = useRef<HTMLDivElement>(null);
   const pendingWaterfallParentRef = useRef<{ parentPieceId: string | null; type: 'WATERFALL' | 'SPLASHBACK'; selectedEdge?: string | null } | null>(null);
+  const savingPiecesRef = useRef<Set<number>>(new Set());
+  const pendingPiecePayloadsRef = useRef<Map<number, { data: Record<string, unknown>; roomName: string }>>(new Map());
 
   // ── Quote Options state ─────────────────────────────────────────────────
   const [showCreateOptionDialog, setShowCreateOptionDialog] = useState(false);
@@ -1284,8 +1286,19 @@ export default function QuoteDetailClient({
   };
 
   const handleInlineSavePiece = useCallback(async (pieceId: number, data: Record<string, unknown>, roomName: string) => {
-    // Capture before-state for edit undo
     const isCreate = pieceId === 0;
+
+    // In-flight guard: if a save for THIS piece is already running, queue the payload
+    // and return. The finally block will pick it up and fire the queued save.
+    // Create (pieceId === 0) bypasses the guard — no ID to queue against.
+    if (!isCreate && savingPiecesRef.current.has(pieceId)) {
+      pendingPiecePayloadsRef.current.set(pieceId, { data, roomName });
+      return;
+    }
+
+    if (!isCreate) savingPiecesRef.current.add(pieceId);
+
+    // Capture before-state for edit undo
     const oldPiece = !isCreate ? pieces.find(p => p.id === pieceId) : null;
     const oldValues: Record<string, unknown> = {};
     if (oldPiece) {
@@ -1321,6 +1334,12 @@ export default function QuoteDetailClient({
         setError(err instanceof Error ? err.message : 'Failed to save override');
       } finally {
         setSaving(false);
+        if (!isCreate) savingPiecesRef.current.delete(pieceId);
+        const queued = pendingPiecePayloadsRef.current.get(pieceId);
+        if (queued) {
+          pendingPiecePayloadsRef.current.delete(pieceId);
+          handleInlineSavePiece(pieceId, queued.data, queued.roomName);
+        }
       }
       return;
     }
@@ -1473,6 +1492,15 @@ export default function QuoteDetailClient({
       console.error('handleInlineSavePiece error:', err);
     } finally {
       setSaving(false);
+      if (!isCreate) {
+        savingPiecesRef.current.delete(pieceId);
+        // If a save was queued while we were in flight, fire it now
+        const queued = pendingPiecePayloadsRef.current.get(pieceId);
+        if (queued) {
+          pendingPiecePayloadsRef.current.delete(pieceId);
+          handleInlineSavePiece(pieceId, queued.data, queued.roomName);
+        }
+      }
     }
   }, [quoteIdStr, pieces, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
 

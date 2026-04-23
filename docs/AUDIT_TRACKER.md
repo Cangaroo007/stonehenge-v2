@@ -714,3 +714,10 @@ TEMPLATE-MANAGE-1 done
 - ✅ Version tracking + buyer change tracking remain outside transaction (non-blocking)
 - ✅ Branches 1 and 2 (saveCalculation, metadata-only) untouched — already single atomic updates
 - ✅ TS narrowing hotfix: const rooms = data.rooms captured before transaction (closure boundary loses narrowing)
+## 2026-04-23 — B4c-PIECE-SAVE-RACE-CONDITION
+- ✅ QuoteDetailClient.tsx: handleInlineSavePiece gets in-flight guard + pending-payload queue
+- ✅ savingPiecesRef (Set<number>) + pendingPiecePayloadsRef (Map<pieceId, {data, roomName}>) keyed by pieceId — saves for different pieces run in parallel; only saves for SAME piece serialise
+- ✅ Create saves (pieceId === 0) bypass guard — no ID to queue against
+- ✅ Both finally branches (override + main) release the guard and fire queued payload
+- ✅ Self-call not awaited — prevents unbounded chain
+- ✅ QuickViewPieceRow.tsx untouched — parent-owned guard (Path B chosen over Path A type propagation)
