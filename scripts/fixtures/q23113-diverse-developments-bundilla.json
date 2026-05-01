@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "fixtureId": "q23113-diverse-developments-bundilla",
+    "sourceQuoteNumber": "Q23113",
+    "customerName": "Diverse Developments",
+    "endClient": "137 Bundilla Blvd, Mountain Creek (3-pack townhouse)",
+    "jobAddress": "137 Bundilla Blvd, Mountain Creek",
+    "corpusPath": "Diverse-Developments/2026-04-21_Q23113_137-Bundilla-Blvd-Mountain-Creek/",
+    "notes": "STONE: Alpha Surfaces — Arctic (Collection 02), 20mm Polish. Drawing annotation: '20mm Alpha Zero Arctic' + 'xxx = Standard Arris Edge'. xxx markings on the diagrams denote V2's ARRIS_EDGE_ID profile. Per Alpha Surfaces Mar-26 catalog Collection 02: Arctic Polish 3220×1620×20mm Customer Price $689/slab, indicative $135/m². Slab area 5.2164 m².\n\n=== MULTI-UNIT STRUCTURE — KEY OBSERVATION ===\n\nNCS line item structure for 3 townhouses:\n  'Unit 1' line: qty 1.00 × $3,978.75 = $3,978.75 (room sub-breakdown shown)\n  'Unit 2 & 3' line: qty 2.00 × $4,600.00 = $9,200.00 (room sub-breakdown shown ONCE for the layout, multiplier applied)\n\nDrawing annotation (Unit 2 & 3 page): 'Unit #2 & #3 kitchens are actually mirror reversed plan!' — Units 2 and 3 share a layout (mirrored) and identical pricing. Unit 1 is a third, distinct layout.\n\nThis surfaces the V2 backlog item: 'per-unit pricing with potentially different materials' (V2 spec'd previously, not yet built). Q23113 is the canonical example — same material across all 3 units (Arctic), but TWO distinct layouts (Unit 1 vs Units 2/3) priced separately. NCS supports per-unit-type pricing with quantity multiplier for identical units.\n\nWhen V2 supports unit-type modelling, each townhouse type needs a 'unit type' record holding the layout + cutouts + qty multiplier. Mirror-reversal of Unit 3 vs Unit 2 should not require duplicate authoring.\n\n=== BUILD-SPEC (rooms × units) ===\n\nALL 20mm. Stone: Alpha Surfaces - Arctic. Edge profile: Standard Arris (xxx).\n\nUNIT 1 — $3,978.75 (4 rooms):\n  20MM Kitchen — U-shape, 3 pieces, $2,189.75\n    1× 900 × 600\n    1× 1200 × 700\n    1× 2350 × 800\n    Cutouts: 1× Drop-in Sink, 1× Cooktop\n    Drawing also annotates a '200 O/H' overhang detail on the long run.\n  20MM Laundry — $637.00\n    1× 1300 × 600\n    Cutouts: 1× Drop-in Tub\n  20MM Bathroom — $576.00\n    1× 1000 × 500\n    Cutouts: 1× Inset Basin + 1× 150mm Radius Corner (edge feature, not a cutout)\n  20MM Ensuite — $576.00\n    1× 1000 × 500\n    Cutouts: 1× Inset Basin + 1× 150mm Radius Corner\n\nUNIT 2 (= UNIT 3 mirrored) — $4,600.00 each, $9,200.00 total (5 rooms each, ×2 units):\n  20MM Kitchen — U-shape, 3 pieces, $2,262.50\n    1× 1100 × 600\n    1× 1800 × 700\n    1× 2420 × 800\n    Cutouts: 1× Drop-in Sink, 1× Cooktop\n    Same '200 O/H' overhang annotation.\n  20MM Laundry — $322.00\n    1× 600 × 600\n    Cutouts: 1× Drop-in Tub\n  20MM Bathroom — $576.00\n    1× 1000 × 500\n    Cutouts: 1× Inset Basin + 1× 150mm Radius Corner\n  20MM Ensuite — $576.00\n    1× 1000 × 500\n    Cutouts: 1× Inset Basin + 1× 150mm Radius Corner\n  200MM Drop Front Powder — $863.50\n    1× 1000 × 300 × 200mm Drop Front Benchtop\n    Cutouts: 1× Semi-Inset Basin\n    Note: '200mm' here is the DROP-FRONT EDGE BUILD-UP height, not piece thickness. Stone is 20mm; the front edge is mitre-laminated to give a 200mm visible apron. NOT in Beau's rate sheet (only 20mm and 40mm rates).\n\nJOB-WIDE TOTALS:\n  Pieces: 6 (Unit 1) + 7 × 2 (Units 2/3) = 20 pieces.\n  Cutouts: 5 (Unit 1) + 6 × 2 (Units 2/3) = 17 cutouts.\n  Total area: Unit 1 ~5.04 m² + 2 × ~5.516 m² (Units 2/3) = ~16.07 m².\n  150mm radius corners: 2 + 2 × 2 = 6 (one per bath + ensuite, all units).\n  200mm drop-front pieces: 0 + 1 × 2 = 2 (powder rooms in U2 & U3).\n\n=== V3-CONCEPT GAPS SURFACED ===\n  1. Multi-unit pricing with quantity multiplier (V2 backlog — surfaced explicitly here).\n  2. Mirror-reversal flag on a unit-type (V2 has no concept yet; trivial extension).\n  3. 200mm drop-front (lamination build-up) — not in Beau's rate sheet. Pricing chain breaks; needs Jay.\n  4. 150mm radius corner edge feature — not in Beau's rate sheet; small CNC operation. Needs Jay.\n  5. Semi-inset basin cutout type — between inset ($65) and undermount ($300); cutout-class taxonomy may need granularity.\n  6. Edge profile = Standard Arris (V2 has ARRIS_EDGE_ID = cmlar3etm0002znat72h7jnx0 per CLAUDE.md). Edge profile maps cleanly to V2.\n\n=== AMBIGUOUS ITEMS ===\n  - 200mm drop-front: actual edge build-up rate. (Jay can resolve in 30s — likely flat $/Lm or per-piece.)\n  - 150mm radius corner: rate. (Jay 30s.)\n  - Semi-inset basin: $65 standard cutout or $300 like undermount? (Jay 30s.)\n  - Per-piece seen-edge length: drawings use 'xxx' markings but the precise per-edge polish length cannot be machine-extracted from the hand-drawn diagrams without Jay's interpretation. Polish Lm below is APPROXIMATE.\n\n=== ncsImpliedBreakdown DERIVATION ===\n\nMaterials (Arctic 20mm Polish $689/slab):\n  Total area 16.07 m² across 20 pieces. Slab usable 5.2164 m². Theoretical 3.08 slabs at 100% yield. Realistic yield ~75-80% with 20 disparate piece sizes from 600×600 up to 2420×800. Estimate 4 slabs.\n  4 × $689 = $2,756.00.\n  Provenance: 'Alpha Surfaces catalog Mar26 Collection 02: Arctic 20mm Polish $689/slab Customer Price; ~4 slabs estimated for 20-piece, 16.07 m² job (yield ~77%)'.\n\nCutting (Beau 20mm $17.50/Lm — perimeters):\n  Unit 1 total: 22.9 Lm (3.0 + 3.8 + 6.3 + 3.8 + 3.0 + 3.0).\n  Unit 2 (each): 25.84 Lm (3.4 + 5.0 + 6.44 + 2.4 + 3.0 + 3.0 + 2.6 incl powder 1000×300).\n  Total: 22.9 + 25.84 × 2 = 74.58 Lm.\n  74.58 × $17.50 = $1,305.15.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; total piece perimeter (powder room counted at 20mm rate even though 200mm drop-front edge — broken chain on the drop-front edge, Beau rate not applicable; included as conservative lower bound)'.\n\nPolishing (Beau 20mm $45/Lm — APPROXIMATE seen-edge):\n  Per-piece estimate (see ambiguous note above): kitchen pieces front-edge + 1 short end seen; small bath/ensuite pieces 3-sides seen; laundry 3-sides seen; powder 3-sides seen.\n  Unit 1: 13.05 Lm (1.5 + 1.9 + 3.15 + 2.5 + 2.0 + 2.0).\n  Unit 2 (each): 14.82 Lm (1.7 + 2.5 + 3.22 + 1.8 + 2.0 + 2.0 + 1.6).\n  Total: 13.05 + 14.82 × 2 = 42.69 Lm.\n  42.69 × $45.00 = $1,921.05.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; APPROXIMATE seen-edge length (drawings use xxx markings but exact per-edge assignment not machine-extractable without Jay)'.\n\nCutouts (Beau standard $65; undermount sink $300):\n  No undermount sinks (all kitchens use Drop-in Sinks). Drop-in/inset/semi-inset basins, drop-in tubs, cooktops, semi-inset all treated as standard $65.\n  17 × $65 = $1,105.00.\n  Provenance: 'Beau rate sheet 2026-01-27: standard cutout $65 each (drop-in sinks, cooktops, drop-in tubs, inset basins, semi-inset basins); semi-inset basin AMBIGUOUS, treated as standard'.\n\nInstallation:\n  null. Beau rate sheet did not include an installation rate. Note: 3 separate units × site-specific installation work likely a substantial component of the gap.\n  Provenance: 'Not in Beau rate sheet 2026-01-27 — needs Jay'.\n\nTemplating:\n  Distance Kunda Park HQ → 137 Bundilla Blvd Mountain Creek ≈ 5 km. $150 + $2.00 × 5 = $160.00. Required=true.\n  Provenance: 'V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps'.\n\nDelivery:\n  5 km → Local zone. $50 + $2.50 × 5 = $62.50.\n  Provenance: 'V2 hardcoded DELIVERY_ZONES (Local zone), distance approx via Google Maps'.\n\nSum of populated implied components:\n  2756.00 + 1305.15 + 1921.05 + 1105.00 + 160.00 + 62.50 = $7,309.70\n  NCS Total Excl GST: $13,178.75\n  Gap: $5,869.05 — comprises 3-unit installation labour, 200mm drop-front × 2 units edge build-up (not in Beau rates), 6× 150mm radius corners (not in Beau rates), and NCS margin. Gap is plausibly ~$1,900/unit installation × 3 units ≈ $5,700, leaving ~$170 margin. Reasonable."
+  },
+  "target": {
+    "quoteNumber": "PENDING_BUILD"
+  },
+  "expected": {
+    "baseSubtotal": null,
+    "rulesDiscount": null,
+    "subtotalAfterRules": 13178.75,
+    "gstAmount": 1317.88,
+    "totalIncGst": 14496.63,
+    "ncsImpliedBreakdown": {
+      "materials": {
+        "total": 2756.00,
+        "rateProvenance": "Alpha Surfaces catalog Mar26 Collection 02: Arctic 20mm Polish $689/slab Customer Price; ~4 slabs estimated for 20-piece 16.07 m² job (yield ~77%)"
+      },
+      "cutting": {
+        "total": 1305.15,
+        "totalLm": 74.58,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; total piece perimeter; powder room 200mm drop-front edge included at 20mm rate as lower bound (Beau rate not applicable to 200mm)"
+      },
+      "polishing": {
+        "total": 1921.05,
+        "totalLm": 42.69,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; APPROXIMATE seen-edge length (drawings use xxx markings but exact per-edge assignment not machine-extractable without Jay)"
+      },
+      "cutouts": {
+        "total": 1105.00,
+        "itemCount": 17,
+        "rateProvenance": "Beau rate sheet 2026-01-27: standard cutout $65 each (drop-in sinks, cooktops, drop-in tubs, inset basins, semi-inset basins); semi-inset basin AMBIGUOUS, treated as standard"
+      },
+      "templating": {
+        "total": 160.00,
+        "required": true,
+        "distanceKm": 5,
+        "rateProvenance": "V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps"
+      },
+      "delivery": {
+        "total": 62.50,
+        "zoneName": "Local",
+        "distanceKm": 5,
+        "rateProvenance": "V2 hardcoded DELIVERY_ZONES (Local zone), distance approx via Google Maps"
+      }
+    },
+    "tolerance": {
+      "absoluteDollars": 1.00,
+      "percentOfTotal": 0.005
+    }
+  }
+}

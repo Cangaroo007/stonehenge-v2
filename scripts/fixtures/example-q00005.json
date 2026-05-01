@@ -1,0 +1,19 @@
+{
+  "meta": {
+    "fixtureId": "example-q00005",
+    "sourceQuoteNumber": "Q-00005",
+    "customerName": "Self-test (V2 vs V2)",
+    "corpusPath": "(self-test, no corpus PDF)",
+    "notes": "Self-test fixture: V2 calculator's own past output. Should always PASS — if it FAILs, the harness is broken. Self-test: every field in the expected block matches V2's own breakdown for quote 114. The reconciliation check should pass cleanly: 9744.16 - 1161.74 + 858.24 = 9440.66."
+  },
+  "target": {
+    "quoteNumber": "Q-00005"
+  },
+  "expected": {
+    "baseSubtotal": 9744.16,
+    "rulesDiscount": 1161.74,
+    "subtotalAfterRules": 8582.42,
+    "gstAmount": 858.24,
+    "totalIncGst": 9440.66
+  }
+}

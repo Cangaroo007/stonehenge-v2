@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "fixtureId": "q23114-crafted-interiors-everton",
+    "sourceQuoteNumber": "Q23114",
+    "customerName": "Crafted Interiors",
+    "endClient": "Everton Hills, Brisbane (customer external ref Q2026-021)",
+    "jobAddress": "Everton Hills, Brisbane (no street address on PDF)",
+    "corpusPath": "Crafted-Interiors/2026-04-21_Q23114_Everton-Hills/",
+    "notes": "DUAL QUOTE REFERENCE: NCS quote number = Q23114. Customer (Crafted Interiors) internal reference = Q2026-021. PDF title is 'Quote - Q23114 - Q2026-021 Everton Hills'. This surfaces the V2 backlog item 'client external reference field on quote' — V2 currently has only one quote-number field; multi-stakeholder builds (NCS reference + customer reference) need both visible. Schema not extended this session; observation logged in session log.\n\n=== TWO-OPTION QUOTE — V3 CONCEPT GAP ===\n\nQ23114 PDF presents TWO mutually exclusive options for the SAME kitchen layout:\n  Option 1: Alpha Surfaces Collection 1 — Excl GST $4,405.95, GST $440.60, Incl GST $4,846.54.\n  Option 2: Alpha Surfaces Collection 2 — Excl GST $4,757.95, GST $475.80, Incl GST $5,233.74.\nThere is NO grand subtotal in the PDF — options are choose-one.\n\nV3-concept gap: 'option pricing on a quote'. V2 currently models a quote as a single priced configuration. NCS issues option-quotes where customer chooses one. Lossy translation strategy: model in V2 as TWO separate quotes (Q23114-Opt1 and Q23114-Opt2), then mark the chosen one as accepted. Confirm with Jay.\n\nThis fixture captures Option 1 (Collection 1) as the canonical single-config build target. Option 2 should produce a sibling fixture once option modelling is decided.\n\n=== BUILD-SPEC FROM DRAWING ===\n\nDrawing annotations (TOPS.pdf):\n  COLOUR — ALPHA SURFACES COLLECTION 1 OPTION FOR 2 (so Collection 1 is the base preference)\n  THICKNESS — 20mm\n  CUT OUTS — 1× UM SINK, 1× CT (cooktop)\n  EDGES — Pencil round (different from Q23113's Standard Arris)\n\nKitchen layout — U-shape, 3 pieces:\n  Top arm horizontal piece: 2390 × 600 × 20mm\n  Left arm vertical piece: 2150 × 600 × 20mm\n  Right arm vertical piece: 2450 × 900 × 20mm with a 450mm Radius End at the bottom and a Post Cutout at the rounded end.\n  Outer envelope dimensions on drawing: 2990 wide × 2150 tall (left arm) × 2450 tall (right arm) × 600 deep top arm × 900 deep right arm. The 2390 horizontal length presumably belongs to the top piece, with 600mm and 900mm corner overlap belonging to side arms (1700-vs-2700 corner-ownership convention as in Q23112).\n\n  Cutouts:\n    1× Undermount Sink ($300 per Beau)\n    1× Cooktop ($65 standard)\n    1× Post Cutout (small notch at radius end — AMBIGUOUS, treated as $65 standard)\n  Edge features:\n    1× 450mm Radius End on the right arm — curved/rounded end. Not a cutout. Curved edge profile. NOT in Beau's rate sheet at a rate; the perimeter contribution from the rounded semicircle (π × 450 ≈ 1414mm) is included in cutting + polishing Lm but the curved-fab labour premium is not modelled.\n\nMaterial: Option 1 = Alpha Surfaces Collection 1. Drawing says 'Pencil round' edge profile on all seen edges.\n\nTotal area:\n  2150 × 600 = 1.290 m²\n  2390 × 600 = 1.434 m²\n  2450 × 900 = 2.205 m² (rough; actual radius end reduces this slightly)\n  Total ≈ 4.929 m²\n\n=== V3-CONCEPT GAPS SURFACED ===\n  1. Option pricing on a quote (NCS issues quotes with multiple stone-collection options for the same geometry).\n  2. Dual quote reference (NCS number + customer internal reference).\n  3. Curved/radius end edge profile — V2 edge model handles straight edges; curved-end fabrication is a separate skill not parametrically modelled.\n  4. Post cutout — small structural notch around a building post. Cutout taxonomy may need a 'structural notch' class.\n\n=== AMBIGUOUS ITEMS ===\n  - Post cutout rate: standard or specialty?\n  - 450mm radius end — labour premium not in Beau's rate sheet.\n  - Pencil round edge profile vs Standard Arris — V2 has both ARRIS_EDGE_ID and MITERED_EDGE_ID; pencil round is yet another profile (small radius). Maps to V2 if a 'PENCIL_ROUND' edge profile exists or is added.\n  - Per-piece seen-edge length: drawing has red 'x' marks indicating join/edge transitions but per-edge polish length not machine-extractable.\n\n=== ncsImpliedBreakdown DERIVATION (Option 1, Collection 1) ===\n\nMaterials (Collection 1 ~ Jewel-tier $537/slab Customer Price):\n  3 pieces (2150×600, 2390×600, 2450×900) totalling 4.93 m². Slab 5.2164 m².\n  Pack analysis: 2450×900 + 2390×600 fit on Slab 1 (2450 fits in 3220; combined 900+600 = 1500 < 1620 height). 2150×600 needs Slab 2 (only 120mm strip remains on Slab 1).\n  2 slabs × $537 = $1,074.00.\n  Provenance: 'Alpha Surfaces catalog Mar26 — Option 1 = Collection 1, $537/slab Customer Price (representative: Jewel/Crystal/Brilliance/Graphite/Bondi/Fraser); 2 slabs needed for 3-piece U-shape'.\n\n  Note: Quote PDF says 'Alpha Surfaces Collection 1' without naming the specific colour. Collection 1 is a tier (6 colours all priced identically at $537/slab Customer Price). The fixture captures the tier-level price; colour selection is a customer choice within the tier.\n\nCutting (Beau 20mm $17.50/Lm — perimeters):\n  2150 × 600: 5.5 Lm\n  2390 × 600: 5.98 Lm\n  2450 × 900: 6.7 Lm rectangular; with 450R radius end perimeter is 6.31 Lm (replacing 1800mm rectangular end with 1414mm semicircle). Use 6.31 Lm.\n  Total: 5.5 + 5.98 + 6.31 = 17.79 Lm.\n  17.79 × $17.50 = $311.33.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; perimeter; right arm radius-end perimeter computed via π×R'.\n\nPolishing (Beau 20mm $45/Lm — APPROXIMATE seen edges):\n  Estimating front-edge + 1 short end seen per piece (kitchen U-shape convention):\n    2150 × 600 (left arm): front 2150 + bottom end 600 = 2.75 Lm\n    2390 × 600 (top arm): bottom 2390 = 2.39 Lm (both side ends butt-join to side arms)\n    2450 × 900 (right arm): front 2450 + radius semicircle 1.414 Lm = 3.864 Lm\n  Total: 2.75 + 2.39 + 3.86 = 9.00 Lm.\n  9.00 × $45.00 = $405.00.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; APPROXIMATE seen-edge length per kitchen U-shape convention (front + open ends + radius perimeter)'.\n\nCutouts:\n  1× Undermount sink $300 + 1× Cooktop $65 + 1× Post cutout $65 (AMBIGUOUS) = $430.00, 3 items.\n  Provenance: 'Beau rate sheet 2026-01-27: undermount sink $300, standard cutout $65 each (cooktop, post cutout — post cutout AMBIGUOUS, treated as standard)'.\n\nInstallation:\n  null. Note: 95 km Regional install likely costs more than a Local install; this is a substantial unmodelled component.\n  Provenance: 'Not in Beau rate sheet 2026-01-27 — needs Jay'.\n\nTemplating:\n  Distance Kunda Park HQ → Everton Hills, Brisbane ≈ 95 km. Regional zone (31-100 km). $150 + $2.00 × 95 = $340.00. Required=true.\n  Provenance: 'V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps; Regional zone (95 km within 100 km cap)'.\n\nDelivery:\n  95 km → Regional zone. $75 + $3.00 × 95 = $360.00.\n  Provenance: 'V2 hardcoded DELIVERY_ZONES (Regional zone, 31-100 km), distance approx via Google Maps; if precise route exceeds 100 km switch to Remote ($100 + $3.50/km)'.\n\nSum of populated implied components (Option 1):\n  1074.00 + 311.33 + 405.00 + 430.00 + 340.00 + 360.00 = $2,920.33\n  NCS Option 1 Excl GST: $4,405.95\n  Gap: $1,485.62 — installation labour at distance + radius-end fab premium + margin. Plausible for a 95 km Regional kitchen install.\n\n  Cross-check Option 2: NCS diff vs Option 1 = $352.00 ex GST. Materials diff (Collection 2 - Collection 1) = ($689 - $537) × 2 slabs = $304. Plus margin uplift ~$48. Internally consistent."
+  },
+  "target": {
+    "quoteNumber": "PENDING_BUILD"
+  },
+  "expected": {
+    "baseSubtotal": null,
+    "rulesDiscount": null,
+    "subtotalAfterRules": 4405.95,
+    "gstAmount": 440.60,
+    "totalIncGst": 4846.54,
+    "ncsImpliedBreakdown": {
+      "materials": {
+        "total": 1074.00,
+        "rateProvenance": "Alpha Surfaces catalog Mar26 — Option 1 = Collection 1, $537/slab Customer Price; 2 slabs needed for 3-piece U-shape"
+      },
+      "cutting": {
+        "total": 311.33,
+        "totalLm": 17.79,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; perimeter; right arm 450R radius-end perimeter computed via π×R"
+      },
+      "polishing": {
+        "total": 405.00,
+        "totalLm": 9.00,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; APPROXIMATE seen-edge length per kitchen U-shape convention (front + open ends + radius perimeter)"
+      },
+      "cutouts": {
+        "total": 430.00,
+        "itemCount": 3,
+        "rateProvenance": "Beau rate sheet 2026-01-27: undermount sink $300, standard cutout $65 each (cooktop, post cutout — post cutout AMBIGUOUS, treated as standard)"
+      },
+      "templating": {
+        "total": 340.00,
+        "required": true,
+        "distanceKm": 95,
+        "rateProvenance": "V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps; Regional zone (95 km within 100 km cap)"
+      },
+      "delivery": {
+        "total": 360.00,
+        "zoneName": "Regional",
+        "distanceKm": 95,
+        "rateProvenance": "V2 hardcoded DELIVERY_ZONES (Regional zone, 31-100 km), distance approx via Google Maps"
+      }
+    },
+    "tolerance": {
+      "absoluteDollars": 1.00,
+      "percentOfTotal": 0.005
+    }
+  }
+}

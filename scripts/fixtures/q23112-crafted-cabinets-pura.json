@@ -1,0 +1,58 @@
+{
+  "meta": {
+    "fixtureId": "q23112-crafted-cabinets-pura",
+    "sourceQuoteNumber": "Q23112",
+    "customerName": "Crafted Cabinetry",
+    "endClient": "Crafted Cabinets — Pura, 25 Surf Rd, Alexandra Headland (Rev A)",
+    "jobAddress": "25 Surf Rd, Alexandra Headland",
+    "corpusPath": "NCS-Standalone-Quotes/2026-04-21_Q23112_No-Source-Request/",
+    "notes": "STONE: Alpha Surfaces — Jewel AZ003P, 20mm Polish (Collection 01). Drawing also annotates 'Alpha Zero' / 'Pencil Edgework to seen edges'. Per Mar-26 Alpha catalog: Jewel polished 3220×1620×20mm, Customer Price (Northcoast wholesale) $537/slab, indicative $105/m². Slab area 5.2164 m².\n\nNAME DISCREPANCY: Quote PDF 'For:' field is 'Crafted Cabinetry'. Drawing title is 'Crafted Cab - Pura - Alex Heads'. Corpus folder uses 'Crafted Cabinets'. Treating 'Crafted Cabinetry' (PDF) as authoritative customerName.\n\n=== BUILD-SPEC FROM DRAWING + QUOTE ===\n\nTwo rooms, both 20mm:\n\nROOM 1: 20MM Kitchen — NCS line item $3,201.00\n  L-shaped run (3 pieces) plus a separate island.\n  Piece K1 — Vertical leg corner piece: 1700 × 600 × 20mm.\n    Edges: LEFT 1700 = Wall (unfinished). TOP 600 = Wall. RIGHT 1700 split: top 600mm = butt JOIN to K2; bottom 1100mm = Seen Edge. BOTTOM 600 = Seen Edge.\n    Includes 1× Cooktop cutout.\n  Piece K2 — Horizontal arm: 2700 × 600 × 20mm.\n    Edges: TOP 2700 = Wall. RIGHT 600 = 'Panel' (AMBIGUOUS — labelled Panel not Wall not Seen; treated as Seen for polish estimate, may overstate). BOTTOM 2700 = Seen Edge. LEFT 600 = butt JOIN to K1.\n    Includes 1× Undermount Sink cutout.\n  Piece K3 — Island: 1900 × 900 × 20mm.\n    All four edges Seen Edge. No cutouts. Standalone.\n\nROOM 2: 20MM Ensuite — NCS line item $312.00\n  Piece E1 — 1100 × 600 × 20mm.\n    Edges: TOP 1100 = Wall. LEFT 600, RIGHT 600, BOTTOM 1100 = Seen Edge.\n    Includes 1× Vessel Basin cutout (drawn as small circle — AMBIGUOUS whether full vessel cutout or tap hole; treated as standard cutout $65).\n\nJOB-WIDE:\n  4 pieces total (3 kitchen + 1 ensuite).\n  3 cutouts (1 undermount sink, 1 cooktop, 1 vessel basin).\n  1 butt join (K1↔K2). No angled mitres. No waterfall ends.\n  Total area: K1 1.02 + K2 1.62 + K3 1.71 + E1 0.66 = 5.01 m².\n\n=== V3-CONCEPT GAPS ===\n  Multi-room single quote (kitchen + ensuite): NCS bundles into one quote total. V2 supports this natively.\n  'Panel' edge label: V2 edge model has Wall / Seen / Mitred. Panel is AMBIGUOUS — needs Jay to confirm whether it should be modelled as Seen+polished or as Wall (unfinished against cabinet panel). Treated as Seen here (more inclusive).\n  Vessel basin cutout — is V2's catalog of cutout types granular enough to distinguish vessel basin (tap hole only) from undermount basin (full cutout)? Possibly a future cutout-type extension; not surfaced as urgent.\n\n=== AMBIGUOUS ITEMS (would not block V2 build, Jay can resolve in 30s) ===\n  - K2 RIGHT 600mm 'Panel' edge: polished or not?\n  - E1 vessel basin: standard cutout ($65) or undermount-equivalent ($300)?\n\n=== ncsImpliedBreakdown DERIVATION (line by line) ===\n\nMaterials:\n  4 pieces (1700×600, 2700×600, 1900×900, 1100×600) totalling 5.01 m².\n  Slab 3220×1620 = 5.2164 m². 1700×600 cannot pack onto a single slab alongside 2700×600 + 1900×900 + 1100×600 (verified by manual layout — slab height 1620 with 600+900 already used leaves only 120mm in the third strip, insufficient for any remaining piece). Therefore 2 slabs needed.\n  2 × $537 = $1,074.00.\n  Provenance: 'Alpha Surfaces catalog Mar26 Collection 01: Jewel 20mm Polish $537/slab Customer Price; 2 slabs needed for 4-piece layout'.\n\nCutting (Beau rate $17.50/Lm for 20mm):\n  K1 perimeter 4.6 + K2 6.6 + K3 5.6 + E1 3.4 = 20.2 Lm.\n  20.2 × $17.50 = $353.50.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; total piece perimeter'.\n\nPolishing (Beau rate $45.00/Lm for 20mm):\n  K1 seen 1.7 + K2 seen 3.3 (incl. AMBIGUOUS Panel edge) + K3 seen 5.6 + E1 seen 2.3 = 12.9 Lm.\n  12.9 × $45.00 = $580.50.\n  Provenance: 'Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; seen-edge length only; K2 Panel edge included as conservative upper bound'.\n\nCutouts (Beau rate sheet):\n  1× undermount sink $300 + 1× cooktop $65 + 1× vessel basin $65 (treated as standard) = $430.00, 3 items.\n  Provenance: 'Beau rate sheet 2026-01-27: undermount sink $300, standard cutout $65 each (cooktop, vessel basin)'.\n\nInstallation:\n  null. Beau rate sheet did not include an installation rate.\n  Provenance: 'Not in Beau rate sheet 2026-01-27 — needs Jay'.\n\nTemplating:\n  Distance Kunda Park HQ → 25 Surf Rd Alexandra Headland ≈ 9 km. $150 + $2.00 × 9 = $168.00. Required=true (no supply-only flag on drawing or quote).\n  Provenance: 'V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps'.\n\nDelivery:\n  9 km → Local zone. $50 + $2.50 × 9 = $72.50.\n  Provenance: 'V2 hardcoded DELIVERY_ZONES (Local zone), distance approx via Google Maps'.\n\nSum of populated implied components:\n  1074.00 + 353.50 + 580.50 + 430.00 + 168.00 + 72.50 = $2,678.50\n  NCS Total Excl GST: $3,513.00\n  Gap: $834.50 — this is the unmodelled installation component plus any NCS margin. Plausible given Beau rate sheet excludes install."
+  },
+  "target": {
+    "quoteNumber": "PENDING_BUILD"
+  },
+  "expected": {
+    "baseSubtotal": null,
+    "rulesDiscount": null,
+    "subtotalAfterRules": 3513.00,
+    "gstAmount": 351.30,
+    "totalIncGst": 3864.30,
+    "ncsImpliedBreakdown": {
+      "materials": {
+        "total": 1074.00,
+        "rateProvenance": "Alpha Surfaces catalog Mar26 Collection 01: Jewel 20mm Polish $537/slab Customer Price; 2 slabs needed for 4-piece layout"
+      },
+      "cutting": {
+        "total": 353.50,
+        "totalLm": 20.2,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm cut $17.50/Lm; total piece perimeter"
+      },
+      "polishing": {
+        "total": 580.50,
+        "totalLm": 12.9,
+        "rateProvenance": "Beau rate sheet 2026-01-27 — 20mm polish $45.00/Lm; seen-edge length only; K2 Panel edge included as conservative upper bound"
+      },
+      "cutouts": {
+        "total": 430.00,
+        "itemCount": 3,
+        "rateProvenance": "Beau rate sheet 2026-01-27: undermount sink $300, standard cutout $65 each (cooktop, vessel basin)"
+      },
+      "templating": {
+        "total": 168.00,
+        "required": true,
+        "distanceKm": 9,
+        "rateProvenance": "V2 hardcoded TEMPLATING_RATE, distance approx via Google Maps"
+      },
+      "delivery": {
+        "total": 72.50,
+        "zoneName": "Local",
+        "distanceKm": 9,
+        "rateProvenance": "V2 hardcoded DELIVERY_ZONES (Local zone), distance approx via Google Maps"
+      }
+    },
+    "tolerance": {
+      "absoluteDollars": 1.00,
+      "percentOfTotal": 0.005
+    }
+  }
+}
