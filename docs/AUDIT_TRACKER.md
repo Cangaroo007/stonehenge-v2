@@ -730,3 +730,16 @@ TEMPLATE-MANAGE-1 done
 - ✅ TotalBreakdownAccordion.tsx: per-piece reducer untouched (correct scope for `oversize.joinCost`); separate post-reduce sum reads JOIN items from `calculation?.breakdown?.services?.items` and adds the total into `fabricationTotals.join`. Flows through to both the displayed Join line and `fabricationSubtotal`.
 - ✅ Calculator, rules engine, and API routes untouched — calculator was already correct.
 - ✅ Verified via `npx tsc --noEmit` — no new errors introduced.
+## 2026-05-05 — DRAW-SCHEMA
+- **Title:** 3 new tables (`drawing_imports`, `drawing_import_runs`, `ai_events`) + 3 enums for Drawing AI pipeline foundation
+- **Status:** ✅ Resolved
+- **Branch:** feat/draw-schema
+- **What:** V3-portable foundation for the Drawing AI extraction pipeline. Three new Postgres tables and three Prisma enums added to the schema. Existing `drawings` model (uuid String id, customer-scoped) left untouched — the new `drawing_imports` model is the V3-portable record (autoincrement Int id, company-scoped, `drawing_class` + `drawing_format` enums). New table names and Prisma model names match: `drawing_imports`, `drawing_import_runs`, `ai_events` (snake_case to match existing 61 models — no `@@map()` directives).
+- **Enums:** `DrawingClass` (A_PENCIL_SKETCH, B_SHOP_DRAWING, C_CAD_BENCHTOP, D_CABINETRY_PACK, E_CONSTRUCTION_PLAN), `DrawingFormat` (PDF, JPEG, PNG, HEIC, DXF, DWG, IFC), `ImportRunStatus` (RUNNING, COMPLETED, FAILED, CANCELLED). All PascalCase per Prisma convention and matching the existing enum style (`LaminationMethod`, `ServiceType`, `FabricationCategory`).
+- **Reverse relations added** (additive only — no existing fields touched):
+  - `companies`: `drawingImports drawing_imports[]`, `drawingImportRuns drawing_import_runs[]`, `aiEvents ai_events[]`
+  - `quotes`: `drawingImports drawing_imports[]`, `aiEvents ai_events[]` (existing `drawings drawings[]` untouched)
+- **FK cascade behaviours:** company FKs `ON DELETE RESTRICT` (3); quote FKs `ON DELETE SET NULL` (2); `drawing_import_runs.drawing_import_id` `ON DELETE CASCADE`; `ai_events.drawing_import_id` `ON DELETE SET NULL`.
+- **FK column rename note:** original spec used `drawing_id` as the FK on `drawing_import_runs` and `ai_events`. Since the parent table was renamed `drawings` → `drawing_imports`, the FK was renamed to `drawing_import_id` for consistency with the parent table name (matches the existing schema convention of FK = `<parent_singular>_id`).
+- **Migration:** `prisma/migrations/20260505000000_draw_schema_foundation/migration.sql` (115 lines). Generated via `prisma migrate diff --from-schema-datasource ... --to-schema-datamodel ... --script` (read-only introspection — `prisma migrate dev` failed on shadow-DB replay of an older migration, P3006/P1014, unrelated to this change). Application path per CLAUDE.md "manual SQL + resolve" workflow: `psql < migration.sql` then `prisma migrate resolve --applied 20260505000000_draw_schema_foundation`.
+- ✅ `npx prisma validate` clean. `npx prisma generate` produced client v5.22.0. `npx tsc --noEmit` zero errors.

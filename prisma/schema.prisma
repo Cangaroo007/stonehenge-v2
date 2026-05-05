@@ -85,6 +85,9 @@ model companies {
   unitBlockProjects    unit_block_projects[]
   customRoomPresets    custom_room_presets[]
   drawingLearningRules drawing_learning_rules[]
+  drawingImports       drawing_imports[]
+  drawingImportRuns    drawing_import_runs[]
+  aiEvents             ai_events[]
 }
 
 model customers {
@@ -679,6 +682,8 @@ model quotes {
   buyerChangeSnapshots   buyer_change_snapshots[]
   versions               quote_versions[]
   options                quote_options[]
+  drawingImports         drawing_imports[]
+  aiEvents               ai_events[]
 
   // Status lifecycle fields
   status_changed_at DateTime?
@@ -929,6 +934,31 @@ model price_list_uploads {
 
   @@index([supplier_id])
   @@index([company_id])
+}
+
+enum DrawingClass {
+  A_PENCIL_SKETCH
+  B_SHOP_DRAWING
+  C_CAD_BENCHTOP
+  D_CABINETRY_PACK
+  E_CONSTRUCTION_PLAN
+}
+
+enum DrawingFormat {
+  PDF
+  JPEG
+  PNG
+  HEIC
+  DXF
+  DWG
+  IFC
+}
+
+enum ImportRunStatus {
+  RUNNING
+  COMPLETED
+  FAILED
+  CANCELLED
 }
 
 enum PriceListStatus {
@@ -1649,4 +1679,79 @@ model strip_configurations {
   @@unique([company_id, stripType])
   @@index([company_id])
   @@map("strip_configurations")
+}
+
+model drawing_imports {
+  id            Int                   @id @default(autoincrement())
+  companyId     Int                   @map("company_id")
+  quoteId       Int?                  @map("quote_id")
+  originalUrl   String                @map("original_url")
+  filename      String
+  mimeType      String                @map("mime_type")
+  pageCount     Int?                  @map("page_count")
+  drawingClass  DrawingClass?         @map("drawing_class")
+  drawingFormat DrawingFormat?        @map("drawing_format")
+  metadata      Json                  @default("{}")
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  companies     companies             @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  quotes        quotes?               @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+  importRuns    drawing_import_runs[]
+  aiEvents      ai_events[]
+
+  @@index([companyId])
+  @@index([quoteId])
+}
+
+model drawing_import_runs {
+  id              String          @id @default(uuid())
+  companyId       Int             @map("company_id")
+  drawingImportId Int             @map("drawing_import_id")
+  pipeline        String
+  status          ImportRunStatus
+  startedAt       DateTime        @map("started_at")
+  completedAt     DateTime?       @map("completed_at")
+  durationMs      Int?            @map("duration_ms")
+  confidence      Decimal?        @db.Decimal(4, 3)
+  outputPieces    Json            @default("[]") @map("output_pieces")
+  errors          Json            @default("[]")
+  costAud         Decimal?        @db.Decimal(8, 4) @map("cost_aud")
+  metadata        Json            @default("{}")
+  createdAt       DateTime        @default(now()) @map("created_at")
+
+  companies       companies       @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  drawing_imports drawing_imports @relation(fields: [drawingImportId], references: [id], onDelete: Cascade)
+
+  @@index([drawingImportId])
+  @@index([companyId, pipeline])
+}
+
+model ai_events {
+  id              String           @id @default(uuid())
+  companyId       Int              @map("company_id")
+  kind            String
+  drawingImportId Int?             @map("drawing_import_id")
+  quoteId         Int?             @map("quote_id")
+  inputJson       Json             @map("input_json")
+  outputJson      Json             @map("output_json")
+  finalJson       Json?            @map("final_json")
+  diffJson        Json?            @map("diff_json")
+  confidence      Decimal?         @db.Decimal(4, 3)
+  model           String?
+  promptVersion   String?          @map("prompt_version")
+  drawingClass    DrawingClass?    @map("drawing_class")
+  durationMs      Int?             @map("duration_ms")
+  costAud         Decimal?         @db.Decimal(8, 4) @map("cost_aud")
+  createdAt       DateTime         @default(now()) @map("created_at")
+  metadata        Json             @default("{}")
+
+  companies       companies        @relation(fields: [companyId], references: [id], onDelete: Restrict)
+  drawing_imports drawing_imports? @relation(fields: [drawingImportId], references: [id], onDelete: SetNull)
+  quotes          quotes?          @relation(fields: [quoteId], references: [id], onDelete: SetNull)
+
+  @@index([companyId])
+  @@index([kind])
+  @@index([drawingClass])
+  @@index([createdAt])
 }

@@ -1449,3 +1449,103 @@ TEMPLATE-MANAGE-1 done
 - QuoteCostSummaryBar.tsx: `computeFabricationBreakdown(pieces, serviceItems)` — second arg added; loop adds JOIN service-item subtotals into the existing `joins` accumulator. Both the displayed "Joins" line and the Fabrication Subtotal pick up corner joins
 - TotalBreakdownAccordion.tsx: per-piece reducer untouched; post-reduce sum adds JOIN service-item subtotals into `fabricationTotals.join`. Flows through to the displayed "Join" line and `fabricationSubtotal`
 - Calculator, rules engine, and API routes untouched — calculator was already pricing the joins into the quote total; only the display surfaces had to change
+
+## 2026-05-05 — DRAW-SCHEMA — Drawing AI pipeline foundation tables
+
+V3-portable schema for the Drawing AI extraction pipeline. Three new tables, three new enums, additive only — existing `drawings` model (uuid id, customer-scoped) left untouched. New table names match Prisma model names (snake_case, no `@@map()`).
+
+### Enum: `DrawingClass`
+PascalCase Prisma enum, mapped to Postgres enum type `DrawingClass`. Values: `A_PENCIL_SKETCH`, `B_SHOP_DRAWING`, `C_CAD_BENCHTOP`, `D_CABINETRY_PACK`, `E_CONSTRUCTION_PLAN`. Used by `drawing_imports.drawing_class` (`@map("drawing_class")`) and `ai_events.drawing_class` (`@map("drawing_class")`).
+
+### Enum: `DrawingFormat`
+PascalCase Prisma enum, mapped to Postgres enum type `DrawingFormat`. Values: `PDF`, `JPEG`, `PNG`, `HEIC`, `DXF`, `DWG`, `IFC`. Used by `drawing_imports.drawing_format` (`@map("drawing_format")`).
+
+### Enum: `ImportRunStatus`
+PascalCase Prisma enum, mapped to Postgres enum type `ImportRunStatus`. Values: `RUNNING`, `COMPLETED`, `FAILED`, `CANCELLED`. Used by `drawing_import_runs.status`.
+
+### Model: `drawing_imports`
+The V3-portable drawing record. Sits alongside the legacy `drawings` model (which stays for V2 compatibility).
+
+| Prisma field   | DB column        | Type             | Nullable | Notes |
+|---|---|---|---|---|
+| `id`            | `id`             | SERIAL (Int)     | no  | `@id @default(autoincrement())` |
+| `companyId`     | `company_id`     | INTEGER          | no  | FK → `companies(id)` ON DELETE RESTRICT |
+| `quoteId`       | `quote_id`       | INTEGER          | yes | FK → `quotes(id)` ON DELETE SET NULL |
+| `originalUrl`   | `original_url`   | TEXT             | no  | R2 / external storage URL |
+| `filename`      | `filename`       | TEXT             | no  | |
+| `mimeType`      | `mime_type`      | TEXT             | no  | |
+| `pageCount`     | `page_count`     | INTEGER          | yes | PDFs/multi-page only |
+| `drawingClass`  | `drawing_class`  | DrawingClass     | yes | A–E classification |
+| `drawingFormat` | `drawing_format` | DrawingFormat    | yes | Format guess from MIME / extension |
+| `metadata`      | `metadata`       | JSONB            | no  | `@default("{}")` |
+| `createdAt`     | `created_at`     | TIMESTAMP(3)     | no  | `@default(CURRENT_TIMESTAMP)` |
+| `updatedAt`     | `updated_at`     | TIMESTAMP(3)     | no  | `@updatedAt` |
+
+Relations: `companies`, `quotes?`, `importRuns drawing_import_runs[]`, `aiEvents ai_events[]`.
+
+Indexes: `(company_id)`, `(quote_id)`.
+
+### Model: `drawing_import_runs`
+One row per pipeline run against a drawing. Records pipeline name, status, timing, confidence, output, errors, cost.
+
+| Prisma field      | DB column            | Type             | Nullable | Notes |
+|---|---|---|---|---|
+| `id`               | `id`                 | TEXT (uuid)      | no  | `@id @default(uuid())` |
+| `companyId`        | `company_id`         | INTEGER          | no  | FK → `companies(id)` ON DELETE RESTRICT |
+| `drawingImportId`  | `drawing_import_id`  | INTEGER          | no  | FK → `drawing_imports(id)` ON DELETE CASCADE |
+| `pipeline`         | `pipeline`           | TEXT             | no  | Pipeline identifier (e.g. `claude-4-sonnet-v1`) |
+| `status`           | `status`             | ImportRunStatus  | no  | RUNNING / COMPLETED / FAILED / CANCELLED |
+| `startedAt`        | `started_at`         | TIMESTAMP(3)     | no  | |
+| `completedAt`      | `completed_at`       | TIMESTAMP(3)     | yes | |
+| `durationMs`       | `duration_ms`        | INTEGER          | yes | Wall-clock duration |
+| `confidence`       | `confidence`         | DECIMAL(4,3)     | yes | 0.000–1.000 model confidence |
+| `outputPieces`     | `output_pieces`      | JSONB            | no  | `@default("[]")` — extracted pieces |
+| `errors`           | `errors`             | JSONB            | no  | `@default("[]")` — error array |
+| `costAud`          | `cost_aud`           | DECIMAL(8,4)     | yes | Per-run AUD cost |
+| `metadata`         | `metadata`           | JSONB            | no  | `@default("{}")` |
+| `createdAt`        | `created_at`         | TIMESTAMP(3)     | no  | `@default(CURRENT_TIMESTAMP)` |
+
+Relations: `companies`, `drawing_imports`.
+
+Indexes: `(drawing_import_id)`, `(company_id, pipeline)`.
+
+### Model: `ai_events`
+Generic audit log for any AI invocation in the system (drawing extraction, future pipelines, future agent calls). Tracks input, output, final-after-edit, diff, confidence, model, prompt version.
+
+| Prisma field       | DB column           | Type             | Nullable | Notes |
+|---|---|---|---|---|
+| `id`                | `id`                | TEXT (uuid)      | no  | `@id @default(uuid())` |
+| `companyId`         | `company_id`        | INTEGER          | no  | FK → `companies(id)` ON DELETE RESTRICT |
+| `kind`              | `kind`              | TEXT             | no  | Event type discriminator (e.g. `drawing.extract`) |
+| `drawingImportId`   | `drawing_import_id` | INTEGER          | yes | FK → `drawing_imports(id)` ON DELETE SET NULL |
+| `quoteId`           | `quote_id`          | INTEGER          | yes | FK → `quotes(id)` ON DELETE SET NULL |
+| `inputJson`         | `input_json`        | JSONB            | no  | Prompt + context sent to model |
+| `outputJson`        | `output_json`       | JSONB            | no  | Raw model output |
+| `finalJson`         | `final_json`        | JSONB            | yes | Output after human edits |
+| `diffJson`          | `diff_json`         | JSONB            | yes | Diff between output_json and final_json |
+| `confidence`        | `confidence`        | DECIMAL(4,3)     | yes | |
+| `model`             | `model`             | TEXT             | yes | e.g. `claude-opus-4-7` |
+| `promptVersion`     | `prompt_version`    | TEXT             | yes | Prompt template version tag |
+| `drawingClass`      | `drawing_class`     | DrawingClass     | yes | Classification at time of event |
+| `durationMs`        | `duration_ms`       | INTEGER          | yes | |
+| `costAud`           | `cost_aud`          | DECIMAL(8,4)     | yes | |
+| `createdAt`         | `created_at`        | TIMESTAMP(3)     | no  | `@default(CURRENT_TIMESTAMP)` |
+| `metadata`          | `metadata`          | JSONB            | no  | `@default("{}")` |
+
+Relations: `companies`, `drawing_imports?`, `quotes?`.
+
+Indexes: `(company_id)`, `(kind)`, `(drawing_class)`, `(created_at)`.
+
+### Reverse relations added on existing models (additive only)
+- `companies`: `drawingImports drawing_imports[]`, `drawingImportRuns drawing_import_runs[]`, `aiEvents ai_events[]`
+- `quotes`: `drawingImports drawing_imports[]`, `aiEvents ai_events[]` (existing `drawings drawings[]` untouched)
+
+### Migration
+`prisma/migrations/20260505000000_draw_schema_foundation/migration.sql` (115 lines). Generated via `prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --script` (read-only introspection; `prisma migrate dev` could not run because of a shadow-DB replay failure on an older unrelated migration — P3006/P1014). Applied via the project's manual SQL workflow: `psql < migration.sql` then `prisma migrate resolve --applied 20260505000000_draw_schema_foundation`.
+
+### Naming-convention notes for future readers
+- Model name = table name = snake_case (matches all 61 pre-existing models).
+- Field names = camelCase Prisma fields with `@map("snake_case")` for snake_case DB columns (V3-portable).
+- Enums = PascalCase (matches existing `LaminationMethod`, `ServiceType`, `FabricationCategory`).
+- FK column convention: `<parent_singular>_id` (e.g. `drawing_import_id` for parent `drawing_imports`, `company_id` for parent `companies`).
+- Singular-relation field name on the foreign side = parent model name (e.g. `companies companies @relation(...)`, `drawing_imports drawing_imports @relation(...)`).
