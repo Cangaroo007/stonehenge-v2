@@ -461,15 +461,14 @@ export function getFinishableEdgeLengthsMm(
   if (shapeType === 'U_SHAPE' && shapeConfig && 'leftLeg' in shapeConfig) {
     const cfg = shapeConfig as UShapeConfig;
     if (!cfg.leftLeg || !cfg.back || !cfg.rightLeg) return {};
-    const bottomSpan = cfg.leftLeg.width_mm + cfg.back.length_mm + cfg.rightLeg.width_mm;
     return {
       top_left:    cfg.leftLeg.width_mm,
       outer_left:  cfg.leftLeg.length_mm,
-      bottom:      bottomSpan,
+      bottom:      cfg.back.length_mm,
       outer_right: cfg.rightLeg.length_mm,
       top_right:   cfg.rightLeg.width_mm,
       inner_right: cfg.rightLeg.length_mm - cfg.back.width_mm,
-      back_inner:  cfg.back.length_mm,
+      back_inner:  cfg.back.length_mm - cfg.leftLeg.width_mm - cfg.rightLeg.width_mm,
       inner_left:  cfg.leftLeg.length_mm - cfg.back.width_mm,
     };
   }
