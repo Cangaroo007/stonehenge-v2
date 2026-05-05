@@ -721,3 +721,12 @@ TEMPLATE-MANAGE-1 done
 - ✅ Both finally branches (override + main) release the guard and fire queued payload
 - ✅ Self-call not awaited — prevents unbounded chain
 - ✅ QuickViewPieceRow.tsx untouched — parent-owned guard (Path B chosen over Path A type propagation)
+## 2026-05-05 — B5-CALC-JOIN-DISPLAY
+- **Title:** Corner joins for L/U shapes showing $0 in summary bar and accordion
+- **Status:** ✅ Resolved
+- **PR:** #633 (pending)
+- **Root cause:** UI components only read `p.oversize.joinCost` (multi-slab rectangle joins). Corner joins for L-shape and U-shape pieces are emitted by the calculator as `serviceType: 'JOIN'` items in `breakdown.services.items` (pricing-calculator-v2.ts lines 1303, 1313, 1361, 1375). Both display surfaces missed that branch — the calculator was correctly pricing the joins into the quote total, but the breakdown lines rendered $0.
+- ✅ QuoteCostSummaryBar.tsx: `computeFabricationBreakdown` signature extended to accept `serviceItems`; sums `subtotal` of every item with `serviceType === 'JOIN'` into the existing `joins` accumulator. ServiceBreakdown imported from `@/lib/types/pricing`. Call site passes `breakdown.services?.items ?? []`.
+- ✅ TotalBreakdownAccordion.tsx: per-piece reducer untouched (correct scope for `oversize.joinCost`); separate post-reduce sum reads JOIN items from `calculation?.breakdown?.services?.items` and adds the total into `fabricationTotals.join`. Flows through to both the displayed Join line and `fabricationSubtotal`.
+- ✅ Calculator, rules engine, and API routes untouched — calculator was already correct.
+- ✅ Verified via `npx tsc --noEmit` — no new errors introduced.

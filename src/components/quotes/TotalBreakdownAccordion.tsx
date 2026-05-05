@@ -42,6 +42,12 @@ export default function TotalBreakdownAccordion({
     { cutting: 0, edgeProfiles: 0, join: 0, grainMatching: 0, cutouts: 0 }
   );
 
+  // Corner joins for L/U shapes are emitted as JOIN service items by the
+  // calculator; oversize.joinCost only covers multi-slab rectangle joins.
+  fabricationTotals.join += (calculation?.breakdown?.services?.items ?? [])
+    .filter((s) => s.serviceType === 'JOIN')
+    .reduce((sum, s) => sum + (s.subtotal ?? 0), 0);
+
   const fabricationSubtotal =
     fabricationTotals.cutting +
     fabricationTotals.edgeProfiles +

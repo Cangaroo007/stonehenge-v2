@@ -1443,3 +1443,9 @@ TEMPLATE-MANAGE-1 done
 - Component savePieceImmediate (QuickViewPieceRow.tsx) unchanged — still calls onSavePiece fire-and-forget
 - Design rationale: onSavePiece prop signature is void (not Promise), so guard cannot live in the component — parent owns the async boundary
 - Behaviour: concurrent saves of the same piece serialise automatically; concurrent saves of different pieces still run in parallel
+## 2026-05-05 — B5-CALC-JOIN-DISPLAY
+- QuoteCostSummaryBar.tsx and TotalBreakdownAccordion.tsx now read corner join costs from `calculation.breakdown.services.items` (filtered to `serviceType === 'JOIN'`, summing `subtotal`) in addition to per-piece `oversize.joinCost`
+- Two distinct join sources in the calculator: per-piece `oversize.joinCost` covers multi-slab rectangle joins; `services.items[]` with `serviceType: 'JOIN'` covers corner joins for L-shape and U-shape pieces (emitted by pricing-calculator-v2.ts at lines 1303, 1313, 1361, 1375)
+- QuoteCostSummaryBar.tsx: `computeFabricationBreakdown(pieces, serviceItems)` — second arg added; loop adds JOIN service-item subtotals into the existing `joins` accumulator. Both the displayed "Joins" line and the Fabrication Subtotal pick up corner joins
+- TotalBreakdownAccordion.tsx: per-piece reducer untouched; post-reduce sum adds JOIN service-item subtotals into `fabricationTotals.join`. Flows through to the displayed "Join" line and `fabricationSubtotal`
+- Calculator, rules engine, and API routes untouched — calculator was already pricing the joins into the quote total; only the display surfaces had to change
