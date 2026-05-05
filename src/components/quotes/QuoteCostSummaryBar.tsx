@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
-import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
+import type { CalculationResult, PiecePricingBreakdown, ServiceBreakdown } from '@/lib/types/pricing';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -14,7 +14,10 @@ interface QuoteCostSummaryBarProps {
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
-function computeFabricationBreakdown(pieces: PiecePricingBreakdown[]) {
+function computeFabricationBreakdown(
+  pieces: PiecePricingBreakdown[],
+  serviceItems: ServiceBreakdown[],
+) {
   let cutting = 0;
   let edgeProfiles = 0;
   let cutouts = 0;
@@ -35,6 +38,12 @@ function computeFabricationBreakdown(pieces: PiecePricingBreakdown[]) {
     if (p.oversize) {
       joins += p.oversize.joinCost ?? 0;
     }
+  }
+
+  // Corner joins for L/U shapes are emitted as JOIN service items by the
+  // calculator; oversize.joinCost only covers multi-slab rectangle joins.
+  for (const s of serviceItems) {
+    if (s.serviceType === 'JOIN') joins += s.subtotal ?? 0;
   }
 
   const subtotal = cutting + edgeProfiles + cutouts + joins;
@@ -58,10 +67,11 @@ export default function QuoteCostSummaryBar({
   if (!breakdown) return null;
 
   const pieces = (breakdown.pieces ?? []) as PiecePricingBreakdown[];
+  const serviceItems = breakdown.services?.items ?? [];
 
   const fab =
     pieces.length > 0
-      ? computeFabricationBreakdown(pieces)
+      ? computeFabricationBreakdown(pieces, serviceItems)
       : {
           cutting: 0,
           edgeProfiles: breakdown.edges?.total ?? 0,
