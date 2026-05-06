@@ -145,6 +145,7 @@ export interface CalculationResult {
   quoteId: string;
   subtotal: number;
   totalDiscount: number;
+  rulesDiscount?: number;
   total: number;
   gstRate: number;
   gstAmount: number;

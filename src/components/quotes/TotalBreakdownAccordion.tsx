@@ -4,6 +4,85 @@ import { useState } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 
+// ── Unit + detail-string helpers ─────────────────────────────────────────────
+
+function unitShort(unit: string): string {
+  switch (unit) {
+    case 'LINEAR_METRE': return 'Lm';
+    case 'SQUARE_METRE': return 'm²';
+    case 'FIXED': return '';
+    case 'PER_SLAB': return 'slab';
+    default: return unit;
+  }
+}
+
+function unitLabel(unit: string): string {
+  switch (unit) {
+    case 'LINEAR_METRE': return 'per Lm';
+    case 'SQUARE_METRE': return 'per m²';
+    case 'FIXED': return 'fixed';
+    case 'PER_SLAB': return 'per slab';
+    default: return unit;
+  }
+}
+
+function buildMaterialsDetail(
+  m: NonNullable<CalculationResult['breakdown']['materials']> | undefined,
+): string | null {
+  if (!m) return null;
+  const parts: string[] = [];
+  if (m.pricingBasis === 'PER_SLAB' && m.slabCount != null && m.slabRate != null) {
+    const label = `${m.slabCount} slab${m.slabCount === 1 ? '' : 's'}${m.materialName ? ' ' + m.materialName : ''}`;
+    parts.push(`${label} × ${formatCurrency(m.slabRate)}`);
+  } else if (m.adjustedAreaM2 != null && m.appliedRate != null) {
+    parts.push(`${m.adjustedAreaM2.toFixed(2)} m² × ${formatCurrency(m.appliedRate)}/m²`);
+  } else if (m.totalAreaM2 != null && m.appliedRate != null) {
+    parts.push(`${m.totalAreaM2.toFixed(2)} m² × ${formatCurrency(m.appliedRate)}/m²`);
+  }
+  if (m.margin && m.margin.marginAmount > 0) {
+    parts.push(`+ ${m.margin.effectiveMarginPercent.toFixed(0)}% margin (${formatCurrency(m.margin.marginAmount)})`);
+  }
+  return parts.length ? parts.join(' ') : null;
+}
+
+function buildInstallationDetail(pieces: PiecePricingBreakdown[]): string | null {
+  const sample = pieces.find(p => p.fabrication.installation);
+  if (!sample?.fabrication.installation) return null;
+  const { rate, unit } = sample.fabrication.installation;
+  const totalQuantity = pieces.reduce(
+    (sum, p) => sum + (p.fabrication.installation?.quantity ?? 0),
+    0,
+  );
+  if (totalQuantity <= 0) return null;
+  return `${totalQuantity.toFixed(2)} ${unitShort(unit)} × ${formatCurrency(rate)} ${unitLabel(unit)}`;
+}
+
+// NEEDS CALCULATOR CHANGE — deferred: DELIVERY_ZONES base + per-km rates are
+// computed inside pricing-calculator-v2.ts (constant DELIVERY_ZONES at L73)
+// but not exposed on `breakdown.delivery`. Once the calculator returns
+// `breakdown.delivery.baseRate` and `breakdown.delivery.ratePerKm`, append the
+// rate breakdown here.
+function buildDeliveryDetail(
+  d: NonNullable<CalculationResult['breakdown']['delivery']> | undefined,
+): string | null {
+  if (!d) return null;
+  const parts: string[] = [];
+  if (d.zone) parts.push(`${d.zone} zone`);
+  if (d.distanceKm != null) parts.push(`${d.distanceKm.toFixed(1)} km`);
+  return parts.length ? parts.join(' · ') : null;
+}
+
+// NEEDS CALCULATOR CHANGE — deferred: TEMPLATING_RATE { baseCharge, ratePerKm }
+// (constant at L79 of pricing-calculator-v2.ts) is not exposed on
+// `breakdown.templating`. Once the calculator returns `breakdown.templating.baseCharge`
+// and `breakdown.templating.ratePerKm`, append `${base} base + ${km} km × ${perKm}/km`.
+function buildTemplatingDetail(
+  t: NonNullable<CalculationResult['breakdown']['templating']> | undefined,
+): string | null {
+  if (!t || t.distanceKm == null) return null;
+  return `${t.distanceKm.toFixed(1)} km`;
+}
+
 interface TotalBreakdownAccordionProps {
   /** The quote total (inc. GST) for the collapsed display */
   totalIncGst: number;
@@ -55,7 +134,12 @@ export default function TotalBreakdownAccordion({
     fabricationTotals.grainMatching +
     fabricationTotals.cutouts;
 
-  const materialsTotal = calculation?.breakdown?.materials?.total ?? 0;
+  const materialsBreakdown = calculation?.breakdown?.materials ?? undefined;
+  const materialsTotal = materialsBreakdown?.total ?? 0;
+  const materialsDetail = buildMaterialsDetail(materialsBreakdown);
+  const installationDetail = buildInstallationDetail(pieces);
+  const deliveryDetail = buildDeliveryDetail(calculation?.breakdown?.delivery ?? undefined);
+  const templatingDetail = buildTemplatingDetail(calculation?.breakdown?.templating ?? undefined);
 
   // Installation: sum from per-piece breakdowns
   const installationTotal = pieces.reduce(
@@ -155,20 +239,35 @@ export default function TotalBreakdownAccordion({
           {/* Materials */}
           <div className="flex items-center justify-between text-sm text-gray-700 px-1">
             <span>Materials</span>
-            <span className="font-medium tabular-nums">{formatCurrency(materialsTotal)}</span>
+            <div className="flex items-center gap-2">
+              {materialsDetail && (
+                <span className="text-[11px] text-gray-400">{materialsDetail}</span>
+              )}
+              <span className="font-medium tabular-nums">{formatCurrency(materialsTotal)}</span>
+            </div>
           </div>
 
           {/* Installation */}
           <div className="flex items-center justify-between text-sm text-gray-700 px-1">
             <span>Installation</span>
-            <span className="font-medium tabular-nums">{formatCurrency(installationTotal)}</span>
+            <div className="flex items-center gap-2">
+              {installationDetail && (
+                <span className="text-[11px] text-gray-400">{installationDetail}</span>
+              )}
+              <span className="font-medium tabular-nums">{formatCurrency(installationTotal)}</span>
+            </div>
           </div>
 
           {/* Delivery — hidden when zero */}
           {deliveryTotal > 0 && (
             <div className="flex items-center justify-between text-sm text-gray-700 px-1">
               <span>Delivery</span>
-              <span className="font-medium tabular-nums">{formatCurrency(deliveryTotal)}</span>
+              <div className="flex items-center gap-2">
+                {deliveryDetail && (
+                  <span className="text-[11px] text-gray-400">{deliveryDetail}</span>
+                )}
+                <span className="font-medium tabular-nums">{formatCurrency(deliveryTotal)}</span>
+              </div>
             </div>
           )}
 
@@ -176,7 +275,12 @@ export default function TotalBreakdownAccordion({
           {templatingTotal > 0 && (
             <div className="flex items-center justify-between text-sm text-gray-700 px-1">
               <span>Templating</span>
-              <span className="font-medium tabular-nums">{formatCurrency(templatingTotal)}</span>
+              <div className="flex items-center gap-2">
+                {templatingDetail && (
+                  <span className="text-[11px] text-gray-400">{templatingDetail}</span>
+                )}
+                <span className="font-medium tabular-nums">{formatCurrency(templatingTotal)}</span>
+              </div>
             </div>
           )}
 
@@ -196,6 +300,14 @@ export default function TotalBreakdownAccordion({
             <span className="font-medium">Subtotal (excl. GST)</span>
             <span className="font-semibold tabular-nums">{formatCurrency(subtotal)}</span>
           </div>
+
+          {/* Pricing Adjustment — rules-engine discount applied to subtotal */}
+          {calculation?.rulesDiscount != null && calculation.rulesDiscount > 0 && (
+            <div className="flex items-center justify-between text-sm text-green-600 px-1">
+              <span>Pricing Adjustment</span>
+              <span className="font-medium tabular-nums">-{formatCurrency(calculation.rulesDiscount)}</span>
+            </div>
+          )}
 
           {/* Discount */}
           {discount > 0 && (
