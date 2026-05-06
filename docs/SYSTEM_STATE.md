@@ -1717,3 +1717,97 @@ Pattern matches `oversize`: a single rolled-up number summing `joinCost + grainM
 ### Australian spelling
 
 Row labels are language-neutral (`Corner Join`, `Corner Grain Matching`). Comments unchanged.
+
+## 2026-05-06 — CALC-FIX-SUBTOTAL-TRANSPARENCY — Pricing Adjustment row + per-line rate × quantity detail
+
+Two-base subtotal/GST mismatch surfaced in the audit ($2,021.21 displayed subtotal vs $1,920.15 GST base for Quote 156): the calculator emits both bases plus the `rulesDiscount` figure that bridges them, but the type didn't declare the field and the UI rendered no row for it. Two surgical edits — type addition + UI extension. Calculator math untouched.
+
+### `src/lib/types/pricing.ts` — `CalculationResult.rulesDiscount`
+
+Added an optional `rulesDiscount?: number;` field to the `CalculationResult` interface (line 148, between `totalDiscount` and `total`):
+
+```typescript
+export interface CalculationResult {
+  quoteId: string;
+  subtotal: number;
+  totalDiscount: number;
+  rulesDiscount?: number;   // ← NEW
+  total: number;
+  gstRate: number;
+  gstAmount: number;
+  totalIncGst: number;
+  ...
+}
+```
+
+The runtime return value of `calculateQuotePrice` already included `rulesDiscount: rulesDiscountTotal` at `pricing-calculator-v2.ts:1948` — this edit just declares the type so consumers can read it without a cast. Pure additive; no field renamed or restructured. Optional (`?`) because legacy callers and stub returns may not populate it.
+
+### `src/components/quotes/TotalBreakdownAccordion.tsx` — Pricing Adjustment row + detail spans
+
+#### Pricing Adjustment row (Gate 1)
+
+Inserted between the existing Subtotal row and Discount block:
+
+```jsx
+{/* Pricing Adjustment — rules-engine discount applied to subtotal */}
+{calculation?.rulesDiscount != null && calculation.rulesDiscount > 0 && (
+  <div className="flex items-center justify-between text-sm text-green-600 px-1">
+    <span>Pricing Adjustment</span>
+    <span className="font-medium tabular-nums">-{formatCurrency(calculation.rulesDiscount)}</span>
+  </div>
+)}
+```
+
+- Renders only when `rulesDiscount > 0` — hidden on quotes with no rules-engine discount.
+- Same `text-sm text-green-600 px-1` styling as the existing positive-Discount branch (consistent visual treatment for "money off the customer").
+- Label is `Pricing Adjustment` per spec — not "Rules Discount" (internal terminology).
+- Reads `calculation.rulesDiscount` directly; no UI-side computation.
+
+#### Rate × quantity detail spans (Gate 2)
+
+Six new module-level helpers at the top of the file:
+
+| Helper | Returns | Source data |
+|---|---|---|
+| `unitShort(unit)` | Lm / m² / "" / slab | switch over `LINEAR_METRE`/`SQUARE_METRE`/`FIXED`/`PER_SLAB`. Mirrors the helper used in `QuickViewPieceRow.tsx:543` and `PieceRow.tsx:212`. |
+| `unitLabel(unit)` | per Lm / per m² / fixed / per slab | matching pair to `unitShort`. |
+| `buildMaterialsDetail(materials)` | `"{N} slab(s) {name} × ${rate} + {N}% margin (${amount})"` (PER_SLAB) or `"{m²} × ${rate}/m²"` (PER_SQUARE_METRE) or `null` | `breakdown.materials.{slabCount, materialName, slabRate, margin, pricingBasis, adjustedAreaM2, appliedRate}` — all from `MaterialBreakdown`. Margin block included only when `margin.marginAmount > 0`. |
+| `buildInstallationDetail(pieces)` | `"{Σquantity} {unitShort} × ${rate} {unitLabel}"` or `null` | sums `pieces[].fabrication.installation.quantity`; rate from any sample piece (uniform per service). |
+| `buildDeliveryDetail(delivery)` | `"{zone} zone · {km} km"` or `null` | `breakdown.delivery.{zone, distanceKm}`. **Rate breakdown DEFERRED** (see below). |
+| `buildTemplatingDetail(templating)` | `"{km} km"` or `null` | `breakdown.templating.distanceKm`. **Rate breakdown DEFERRED**. |
+
+Each of the four target rows (Materials, Installation, Delivery, Templating) wraps its right-hand `<span>` in a `flex items-center gap-2` div with a conditional `<span className="text-[11px] text-gray-400">{detail}</span>` for the formula text. The wrapping mirrors the QuickViewPieceRow Cutting / Edge Profiles inline-detail pattern. Existing visibility conditions (`{deliveryTotal > 0 && ...}`, `{templatingTotal > 0 && ...}`) untouched.
+
+#### NEEDS CALCULATOR CHANGE — DEFERRED
+
+Two constants live inside `pricing-calculator-v2.ts` but are not exposed on the breakdown:
+- `DELIVERY_ZONES` (line 73) — array of `{ baseRate, ratePerKm, ... }` per zone.
+- `TEMPLATING_RATE` (line 79) — `{ baseCharge: 150, ratePerKm: 2.0 }`.
+
+To complete the spec's intended Delivery / Templating display (`$X base + $Y/km`), a future sprint must:
+1. Add `baseRate` and `ratePerKm` to `breakdown.delivery` (and update the type in `pricing.ts:172-179`).
+2. Add `baseCharge` and `ratePerKm` to `breakdown.templating` (and update the type in `pricing.ts:180-186`).
+3. Append the rate string to the helpers above — both have `// NEEDS CALCULATOR CHANGE — deferred` comments at the top so the next sprint finds them via grep.
+
+### Australian spelling
+
+All new labels and detail strings are language-neutral (`Pricing Adjustment`, `slab`, `zone`, `km`, `margin`). Existing comments preserved.
+
+### Reconciliation example (Quote 156)
+
+```
+Materials                       $617.55     1 slab Jewel × $537.00 + 15% margin ($80.55)
+Installation                    $403.20     2.88 m² × $140.00 per m²
+Delivery                        $106.37     Local zone · 22.5 km
+Templating                      $195.09     22.5 km
+                              ----------
+Subtotal (excl. GST)          $2,021.21    ← calculation.subtotal (pre-rules)
+Pricing Adjustment             -$101.06    ← NEW: calculation.rulesDiscount
+Discount                          $0.00    ← unchanged: order-level discount
+                              ----------
+GST (10%)                       $192.02    ← calculation.gstAmount (10% of $1,920.15)
+                              ----------
+Total (incl. GST)             $2,112.17    ← calculation.totalIncGst
+```
+
+Math now reconciles for the user: 2,021.21 − 101.06 − 0 = 1,920.15; × 1.10 = 2,112.17.
