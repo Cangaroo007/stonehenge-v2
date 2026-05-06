@@ -795,3 +795,17 @@ TEMPLATE-MANAGE-1 done
   - `src/lib/types/pricing.ts` (+1)
   - `src/components/quotes/TotalBreakdownAccordion.tsx` (+117 net)
 - ✅ `npx tsc --noEmit` zero errors.
+## 2026-05-06 — CALC-FIX-PDF-READONLY
+- **Title:** PDF service is now read-only against `quotes` — eliminates last-writer-wins drift between PDF generation and UI render
+- **Status:** ✅ Resolved
+- **Branch:** fix/calc-fix-pdf-readonly
+- **Audit reference:** `CALCULATOR-AUDIT-REPORT.md` — for Quote 156 the Kitchen pieceTotal moved $1,659.75 → $1,719.75 (+$60) between PDF generation and UI render, the rules engine drifted $98.06 → $101.06 between the two runs, combined $62.70 discrepancy. Root cause: TWO writers to the same DB row — both the UI calculate route AND the PDF service called `calculateQuotePrice` and persisted the result back to `quotes.{subtotal, tax_amount, total, calculation_breakdown, calculated_at}`. Last writer wins.
+- **Architectural fix:** make the PDF service a pure reader. It still calls `calculateQuotePrice` for fresh numbers (the PDF must reflect current state), but it does NOT write the result back to the DB. The UI calculate route at `src/app/api/quotes/[id]/calculate/route.ts:103` becomes the single canonical writer to the persisted calculation fields.
+- ✅ **quote-pdf-service.ts:** removed the 16-line `try { prisma.quotes.update({...}) } catch (e) { console.error(...) }` persist block and its leading comment (was lines 252-266). Removed the now-unused `import type { Prisma } from '@prisma/client'` (was line 10 — line 261 was the only reference, via `Prisma.InputJsonValue` cast). Extended the comment above `calculateQuotePrice` to record the new invariant: *"The UI calculate route is the single canonical writer; the PDF service is read-only against the quotes table to avoid last-writer-wins drift between PDF generation and UI render."*
+- **No downstream impact** — Gate 0 confirmed the PDF service never read back from `quote.subtotal`/`quote.tax_amount`/`quote.total`/`quote.calculation_breakdown` (zero grep matches). All downstream code in `assembleQuotePdfData` consumes `calcBreakdown.*` directly. The persist block was a side-effect-only operation that the PDF service did not depend on.
+- **No other writers** — Gate 2 verified: `src/app/api/quotes/[id]/pdf/route.ts` has zero `.update`/`.create`/`.upsert`/`.delete` calls (only one read: `prisma.quote_templates.findFirst` for styling). `src/components/QuotePDF.tsx` has zero Prisma calls (pure renderer; the `.create` grep hit was `StyleSheet.create()` from `@react-pdf/renderer`).
+- **Calculator math untouched** — `pricing-calculator-v2.ts` unchanged per spec.
+- **Verification scenario for Quote 156 (Rule 28 / Rule 53):** after Railway deploys, open the quote in the UI and download the PDF — Subtotal/Total must match across both surfaces. Generate a PDF without editing — `quote.calculated_at` must NOT advance (it would have, before this change). Open Network tab during PDF generation — no `PUT/PATCH/POST /api/quotes/[id]` requests fire. Adjacent regression: edit any piece and save — the UI calculate route still writes; `calculated_at` advances; the displayed total updates.
+- **Files changed:** 1 file, 4 insertions, 17 deletions, -13 net.
+  - `src/lib/services/quote-pdf-service.ts` (-13)
+- ✅ `npx tsc --noEmit` zero errors.

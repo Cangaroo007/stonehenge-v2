@@ -7,7 +7,6 @@
  */
 
 import prisma from '@/lib/db';
-import type { Prisma } from '@prisma/client';
 import { edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
@@ -246,24 +245,12 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
     select: { id: true, name: true },
   });
 
-  // 4. Always recalculate for PDF — ensures accurate client-facing document
+  // 4. Always recalculate for PDF — ensures accurate client-facing document.
+  //    The UI calculate route is the single canonical writer; the PDF service
+  //    is read-only against the quotes table to avoid last-writer-wins drift
+  //    between PDF generation and UI render.
   const calcBreakdown = await calculateQuotePrice(quoteId.toString());
 
-  // Persist fresh result back to DB so UI also benefits
-  try {
-    await prisma.quotes.update({
-      where: { id: quoteId },
-      data: {
-        subtotal: calcBreakdown.subtotal,
-        tax_amount: calcBreakdown.gstAmount,
-        total: calcBreakdown.totalIncGst,
-        calculated_at: new Date(),
-        calculation_breakdown: calcBreakdown as unknown as Prisma.InputJsonValue,
-      },
-    });
-  } catch (e) {
-    console.error('[pdf-service] Failed to persist fresh calculation:', e);
-  }
   const pieceBreakdownMap = new Map<number, PiecePricingBreakdown>();
   if (calcBreakdown?.breakdown?.pieces) {
     for (const pb of calcBreakdown.breakdown.pieces) {
