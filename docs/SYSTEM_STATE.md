@@ -1894,3 +1894,96 @@ The expanded comment is the durable record of the invariant — it lives next to
 ### Australian spelling
 
 Comments use Australian spelling. No user-facing strings introduced or modified.
+
+## 2026-05-06 — CALC-FIX-EDGE-NAMES — PDF resolves edge_type IDs to names before abbreviating
+
+The PDF service's edge summary used to abbreviate the **raw edge_type ID** (a Prisma CUID like `"cmlar3eu20006znatmv7mbivv"`) instead of the human profile name. `edgeCode()`'s keyword fallthrough then returned `id.substring(0, 3).toUpperCase()` = `"CML"` for every edge in the system, regardless of profile. This sprint adds an `edge_types` lookup so the PDF passes the resolved name (`"Mitered"`, `"Arris"`, `"Pencil Round"`, etc.) to `edgeCode()`.
+
+### Architectural change in `src/lib/services/quote-pdf-service.ts`
+
+```
+piece.edge_top: "cmlar3eu20006znatmv7mbivv"   (CUID, opaque)
+                         ▼
+edgeNameMap.get(id)                            ← NEW: resolves via edge_types.findMany
+                         ▼
+"Mitered"                                      (human name from edge_types.name)
+                         ▼
+edgeCode("Mitered")                            ← unchanged in edge-utils.ts
+                         ▼
+"MIT" (or "M" for Australian "Mitred" spelling) → no longer "CML"
+```
+
+### What changed
+
+**Lookup added (after the existing `cutout_types.findMany`):**
+
+```typescript
+const edgeTypes = await prisma.edge_types.findMany({
+  select: { id: true, name: true },
+});
+const edgeNameMap = new Map<string, string>();
+for (const et of edgeTypes) {
+  edgeNameMap.set(et.id, et.name);
+}
+```
+
+Read-only — consistent with the single-writer invariant established in CALC-FIX-PDF-READONLY. Same shape as the pre-existing `cutout_types` lookup pattern.
+
+**`buildEdgeSummary` signature extended** (local helper, not exported — single call site in this file):
+
+```typescript
+function buildEdgeSummary(
+  edges: { top, bottom, left, right: string | null },
+  edgeNameMap: Map<string, string>,    // ← NEW second arg
+): string { ... }
+```
+
+**Resolution cascade inside the loop** (replaced `if (profile && profile.toLowerCase() !== 'raw')` block):
+
+```typescript
+for (const { side, profile } of sides) {
+  if (!profile) continue;
+  // piece.edge_* columns store edge_type IDs (CUIDs). Resolve to the human
+  // name so edgeCode() can keyword-match correctly. Unknown IDs fall through
+  // as "Unknown" rather than producing a garbage 3-letter substring.
+  const name = edgeNameMap.get(profile) ?? 'Unknown';
+  if (name.toLowerCase() === 'raw') continue;
+  const code = edgeCode(name);
+  if (code === 'RAW') continue;
+  if (!edgeMap[code]) edgeMap[code] = [];
+  edgeMap[code].push(side);
+}
+```
+
+### What edge name produces what code (post-fix)
+
+| `edge_types.name` | `edgeCode(name)` returns | Match path |
+|---|---|---|
+| `"Pencil Round"` | `PR` | `pencil` keyword |
+| `"Bullnose"` | `BN` | `bullnose` keyword |
+| `"Ogee"` | `OG` | `ogee` keyword |
+| `"Mitred"` (Australian) | `M` | `mitr` keyword |
+| `"Mitered"` (American) | `MIT` | substring(0,3) fallback (`"mitered"` does not contain contiguous `"mitr"`) |
+| `"Beveled"` / `"Bevelled"` | `BV` | `bevel` keyword |
+| `"Arris"` | `ARR` | substring(0,3) fallback |
+| `"Raw"` | filtered out (skip) | L182 raw-check |
+| `null` (DB null) | filtered out (skip) | L177 null-check |
+| Unknown ID (deactivated edge) | `UNK` | substring(0,3) fallback on the literal `"Unknown"` string |
+
+### What `edgeCode` does (unchanged in this sprint)
+
+Lives at `src/lib/utils/edge-utils.ts:53-63`. Pure stateless function. Keyword cascade: `pencil` / `bullnose` / `ogee` / `mitr` / `bevel` / `polish`. Fallback: `name.substring(0, 3).toUpperCase()`. Returns `"RAW"` for null/undefined input. Used by other consumers (`PieceVisualEditor.tsx`, `RoomPieceSVG.tsx`, etc.) — preserved per Rule 6/7.
+
+### Shaped pieces (L/U) — known gap, deferred
+
+The PDF service has no code path for surfacing shaped-piece edges. Grep for `shapeConfig|shape_config.*edges|edge_arc_config` in `quote-pdf-service.ts` returns zero matches. For L/U pieces, the rectangle path's `piece.edge_top` etc. are all `null`, so `edgeSummary` is empty. Their actual edges live in `shape_config.edges` JSON per rulebook §59 ("L/U Shape Rules") — surfacing those in the PDF is a separate gap, scheduled for the PDF overhaul sprint (Sprint 7+).
+
+### Defensive behaviour
+
+- Null edge ID → skipped (no row in summary).
+- Edge ID not in `edgeNameMap` (e.g. an edge_type that's been deactivated or removed since the quote was created) → falls through as `"Unknown"` → `edgeCode("Unknown")` → `"UNK"`. PDF doesn't crash, doesn't silently mislabel.
+- Two layers of raw-skip: the resolved-name check (`name.toLowerCase() === 'raw'`) and the post-`edgeCode` check (`code === 'RAW'`). The latter catches any future name that happens to start with the letters `R-A-W`.
+
+### Australian spelling
+
+The DB's `edge_types.name` may store either `"Mitered"` (American) or `"Mitred"` (Australian, per Rule 10). `edgeCode` produces `MIT` or `M` respectively — both correct, neither `CML`. The cosmetic difference is downstream of `edgeCode`'s keyword design; if Sean wants the abbreviation aligned to a specific style, that's a separate change to `edgeCode` itself (out of scope this sprint).
