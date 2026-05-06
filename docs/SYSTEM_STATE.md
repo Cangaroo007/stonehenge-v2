@@ -1635,3 +1635,85 @@ drawingClass:    newClass                 (denormalised — index-supported quer
 - File-type validation accepts mime OR extension to handle CAD files arriving as `application/octet-stream`.
 - All three new routes export `dynamic = 'force-dynamic'`.
 - Australian spelling — `"Unauthorised"` in 401 responses; `sanitiseFilename` helper.
+
+## 2026-05-06 — CALC-FIX-CORNERJOINS — Corner-join row in piece breakdown + PDF data threading
+
+Fix follows the audit at `CALCULATOR-AUDIT-REPORT.md` §2.10 ("THE PHANTOM $96"). Two surgical edits — both pure additions, no existing lines restructured.
+
+### `src/components/quotes/QuickViewPieceRow.tsx` — Corner Join + Corner Grain Matching rows
+
+The piece-cost-breakdown block (around line 2500-2640) renders, in order: Cutting → Curved Cutting → Edge Profiles (grouped by edge type) → Join (oversize) → Grain Matching (oversize) → **Corner Join (NEW)** → **Corner Grain Matching (NEW)** → Cutouts → Material → Installation.
+
+The two new rows fire on `breakdown.cornerJoin` (an optional field set by `pricing-calculator-v2.ts:1588-1596` when a piece's geometry has `cornerJoins > 0` — i.e. L-shape or U-shape):
+
+```jsx
+{/* Corner Join (L/U shape) */}
+{breakdown.cornerJoin && breakdown.cornerJoin.joinCost > 0 && (
+  <div className="flex items-center justify-between text-xs text-gray-600">
+    <span>Corner Join ({breakdown.cornerJoin.cornerJoins} join{breakdown.cornerJoin.cornerJoins !== 1 ? 's' : ''})</span>
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-gray-400">
+        {breakdown.cornerJoin.joinLengthLm.toFixed(2)} Lm × {formatCurrency(breakdown.cornerJoin.joinRate)}
+      </span>
+      <span className="font-medium tabular-nums">{formatCurrency(breakdown.cornerJoin.joinCost)}</span>
+    </div>
+  </div>
+)}
+{/* Corner Grain Matching (L/U shape) */}
+{breakdown.cornerJoin && breakdown.cornerJoin.grainMatchingSurcharge > 0 && (
+  <div className="flex items-center justify-between text-xs text-gray-600">
+    <span>Corner Grain Matching ({(breakdown.cornerJoin.grainMatchingSurchargeRate * 100).toFixed(0)}%)</span>
+    <span className="font-medium tabular-nums">{formatCurrency(breakdown.cornerJoin.grainMatchingSurcharge)}</span>
+  </div>
+)}
+```
+
+Both rows use the same JSX shape as the existing oversize-Join and oversize-Grain rows (className, flex layout, rate-detail span, tabular-nums amount span). The pluralisation `join{...!== 1 ? 's' : ''}` matches the existing oversize-Join row exactly.
+
+For Quote 156's U-shape Kitchen (`back.width_mm` = 600mm, `cornerJoins` = 2): Corner Join row will display `Corner Join (2 joins) · 1.20 Lm × $80.00 · $96.00`.
+
+### `src/lib/services/quote-pdf-service.ts` — `cornerJoin` field on PDF pricing struct
+
+`QuotePdfPiece.pricing` (interface, line 40-49) and the runtime literal (line 314-326) now include a `cornerJoin: number` field, sitting between `oversize` and `pieceTotal`:
+
+```typescript
+pricing: {
+  material: number;
+  cutting: number;
+  edges: number;
+  cutouts: number;
+  installation: number;
+  oversize: number;
+  cornerJoin: number;   // ← NEW
+  pieceTotal: number;
+};
+```
+
+```typescript
+const pricing = {
+  material: pb?.materials?.total ?? 0,
+  cutting: pb?.fabrication?.cutting?.total ?? 0,
+  edges: pb?.fabrication?.edges?.reduce((sum, e) => sum + e.total, 0) ?? 0,
+  cutouts: pb?.fabrication?.cutouts?.reduce((sum, c) => sum + c.total, 0) ?? 0,
+  installation: pb?.fabrication?.installation?.total ?? 0,
+  oversize: pb?.oversize ? (pb.oversize.joinCost + pb.oversize.grainMatchingSurcharge) : 0,
+  cornerJoin: pb?.cornerJoin                                     // ← NEW
+    ? (pb.cornerJoin.joinCost + pb.cornerJoin.grainMatchingSurcharge)
+    : 0,
+  pieceTotal: pb?.pieceTotal ?? 0,
+};
+```
+
+Pattern matches `oversize`: a single rolled-up number summing `joinCost + grainMatchingSurcharge`. The PDF renderer layout (lines 256-479) is untouched — `cornerJoin` is dormant data threading awaiting Sprint 7's PDF overhaul. `pieceTotal` already includes the corner-join cost (from calculator line 1597), so adding `cornerJoin` to the struct introduces no aggregation drift.
+
+### Quote-total surfaces — already correct (no change this sprint)
+
+`TotalBreakdownAccordion.tsx:48` and `QuoteCostSummaryBar.tsx:46` aggregate `serviceType === 'JOIN'` from `calculation.breakdown.services.items[]` (added in PR #633 / B5-CALC-JOIN-DISPLAY, 2026-05-05). The calculator emits BOTH oversize-rectangle joins (`pricing-calculator-v2.ts:1301-1310`, name `'Join - <strategy> (PieceName)'`) AND L/U corner joins (`pricing-calculator-v2.ts:1360-1366`, name `'Corner Join - <Shape> (PieceName)'`) under the same `JOIN` discriminator, so the quote-total Join line already includes corner joins via that path.
+
+### Adjacent regression flagged (out of scope this sprint)
+
+`TotalBreakdownAccordion.tsx:33-43` per-piece reducer reads `acc.join += p.oversize?.joinCost ?? 0`, AND `:46-50` post-reduce sum adds `services.items` filtered to `JOIN`. The calculator emits oversize joins as service items too, so for OVERSIZE rectangle pieces the join cost may currently appear in BOTH paths — potential double-count. Not triggered for Quote 156 (U-shape Kitchen isn't oversize). To be addressed in a separate sprint that refactors the reducer to a single source of truth.
+
+### Australian spelling
+
+Row labels are language-neutral (`Corner Join`, `Corner Grain Matching`). Comments unchanged.

@@ -44,6 +44,7 @@ export interface QuotePdfPiece {
     cutouts: number;
     installation: number;
     oversize: number;
+    cornerJoin: number;
     pieceTotal: number;
   };
   sortOrder: number;
@@ -321,6 +322,9 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         installation: pb?.fabrication?.installation?.total ?? 0,
         oversize: pb?.oversize
           ? (pb.oversize.joinCost + pb.oversize.grainMatchingSurcharge)
+          : 0,
+        cornerJoin: pb?.cornerJoin
+          ? (pb.cornerJoin.joinCost + pb.cornerJoin.grainMatchingSurcharge)
           : 0,
         pieceTotal: pb?.pieceTotal ?? 0,
       };
