@@ -1549,3 +1549,89 @@ Indexes: `(company_id)`, `(kind)`, `(drawing_class)`, `(created_at)`.
 - Enums = PascalCase (matches existing `LaminationMethod`, `ServiceType`, `FabricationCategory`).
 - FK column convention: `<parent_singular>_id` (e.g. `drawing_import_id` for parent `drawing_imports`, `company_id` for parent `companies`).
 - Singular-relation field name on the foreign side = parent model name (e.g. `companies companies @relation(...)`, `drawing_imports drawing_imports @relation(...)`).
+
+## 2026-05-06 — DRAW-UPLOAD — Drawing upload pipeline + mechanical classifier
+
+Phase 1 sprint 2 of 3 for the Drawing AI extraction pipeline. Three new files, no existing files modified.
+
+### `src/lib/services/drawing-classifier.ts`
+Pure function `classifyDrawing(input: ClassificationInput): ClassificationResult`. No DB, no fetch, no logging — only throws on unrecognised file format (contract violation; upload route's allow-list prevents this in practice).
+
+`ClassificationInput`: `filename`, `mimeType`, `fileSize`, `pageCount` (number | null), `hasTextLayer` (boolean | null), `pdfProducer` (string | null).
+
+`ClassificationResult`: `drawingClass` (DrawingClass enum), `drawingFormat` (DrawingFormat enum), `confidence` (0–1), `signals` (string[] including a `"File size: {N}KB"` entry).
+
+**Format detection.** Mime checked first (`application/pdf`, `image/jpeg`, `image/png`, `image/heic`, `application/dxf`); falls back to filename extension when mime is generic or empty. Recognised extensions: `pdf, jpg, jpeg, png, heic, dxf, dwg, ifc`.
+
+**Classification rules:**
+- `DXF` → C_CAD_BENCHTOP 0.95
+- `DWG` → C_CAD_BENCHTOP 0.95
+- `IFC` → E_CONSTRUCTION_PLAN 0.95
+- `JPEG / PNG / HEIC` → A_PENCIL_SKETCH 0.7
+- `PDF` cascade (precedence matters):
+  1. `pageCount >= 10` → D_CABINETRY_PACK 0.85 (wins over CAD-producer detection)
+  2. CAD producer matched (`microstation`, `autocad`, `illustrator`, `libreoffice`, `revit`, `vectorworks`, `sketchup`, `archicad`, `bentley` — case-insensitive substring against `pdfProducer`):
+     - `(hasTextLayer === true && pageCount <= 3)` → C_CAD_BENCHTOP 0.9
+     - `(pageCount 4–9)` → E_CONSTRUCTION_PLAN 0.75
+     - else → C_CAD_BENCHTOP 0.8
+  3. `hasTextLayer === false` → A_PENCIL_SKETCH 0.6 (note `=== false`, not falsy — null doesn't trigger)
+  4. `(pageCount <= 3 && hasTextLayer === true)` → B_SHOP_DRAWING 0.7
+  5. default → B_SHOP_DRAWING 0.5 (also fires when pageCount/hasTextLayer/producer are all null)
+
+### `src/app/api/drawings/upload/route.ts`
+`POST /api/drawings/upload` — multipart form upload. Form fields: `file` (required), `quoteId` (optional, positive integer string).
+
+**Auth:** `getCurrentUser()` from `@/lib/auth`. 401 on missing user; 403 on missing `companyId`.
+
+**Validation:**
+- Mime allow-list (`application/pdf`, `image/jpeg`, `image/jpg`, `image/png`, `image/heic`, `application/dxf`, `image/vnd.dxf`, `application/acad`, `image/vnd.dwg`, `application/x-step`, `model/ifc`).
+- Extension allow-list (`pdf`, `jpg`, `jpeg`, `png`, `heic`, `dxf`, `dwg`, `ifc`).
+- Accepts when EITHER mime OR extension matches (CAD files commonly arrive with `application/octet-stream`).
+- Max file size: 50MB.
+- `quoteId` must be a positive integer if provided.
+
+**R2 upload:** `uploadToR2(key, buffer, contentType)` from `@/lib/storage/r2`. Key format: `drawings/{companyId}/{Date.now()}-{safeName}` where `safeName` is the filename with path components stripped and `[^A-Za-z0-9._-]` replaced with `_`. R2 errors caught and returned as 500 with the underlying message; non-R2 errors caught by the outer try/catch.
+
+**PDF metadata:** `extractPdfMetadata(buffer)` uses `pdf-lib` (existing dependency — no new packages installed). Returns `{ pageCount, pdfProducer, hasTextLayer }`. `hasTextLayer` is always null — `pdfjs-dist` text extraction is out of scope; TODO comment in code. Parse failures (encrypted/corrupt PDFs) caught and returned as all-null metadata; upload still succeeds.
+
+**Drawing record:** `prisma.drawing_imports.create({ data: { companyId, quoteId, originalUrl: storageKey, filename, mimeType, pageCount, drawingClass, drawingFormat, metadata: { classification: { confidence, signals }, pdf: isPdf ? { producer, hasTextLayer } : null } } })`. The `metadata` JSON column captures classifier output for audit/debug; first-class enum columns hold `drawingClass` and `drawingFormat`.
+
+**Response:** `201 { drawing: <prisma record>, classification: <ClassificationResult> }`.
+
+### `src/app/api/drawings/[id]/classify/route.ts`
+`PATCH /api/drawings/[id]/classify` — manual override of mechanical classification. Body: `{ drawingClass: DrawingClass }`.
+
+**Auth:** same pattern as upload (`getCurrentUser` → 401; missing companyId → 403).
+
+**Path id:** `[id]` parsed as integer (drawing_imports has SERIAL id). Non-integer/non-positive ids return 400. The `[id]` URL segment is shared with legacy `drawings/[id]/file` and `drawings/[id]/thumbnail` routes (which operate on `prisma.drawings`'s string uuid id) — no Next.js routing collision because the sub-paths differ (`/classify` vs `/file` vs `/thumbnail`).
+
+**Body validation:** JSON parse wrapped in try/catch (400 on malformed). `drawingClass` validated against `Object.values(DrawingClass)` runtime enum values; invalid values return 400 with the full allow-list. Uses `Array.from(VALID_CLASSES)` per CLAUDE.md "Arrays from Sets" Railway rule.
+
+**Ownership check:** `prisma.drawing_imports.findFirst({ where: { id, companyId } })`. Returns 404 if the row doesn't exist OR belongs to a different company.
+
+**No-op short-circuit:** when `existing.drawingClass === newClass`, returns the unchanged record with no `ai_events` row written and no transaction.
+
+**Old confidence retrieval:** `(existing.metadata as unknown as { classification?: { confidence?: number } } | null)?.classification?.confidence ?? null` — uses the documented `as unknown as` double-cast pattern for Prisma JSON columns. Returns null on malformed metadata (defensive).
+
+**Atomic update:** `prisma.$transaction(async (tx) => { ... })` wraps `tx.ai_events.create(...)` and `tx.drawing_imports.update(...)`. Both succeed or both fail.
+
+**`ai_events` row payload (the AI flywheel's first data capture point):**
+```
+kind:            'drawing_class_correction'
+drawingImportId: id
+quoteId:         existing.quoteId        (propagated for downstream filtering)
+inputJson:       { originalClass: oldClass, confidence: oldConfidence }
+outputJson:      { correctedClass: newClass }
+diffJson:        { ai: oldClass, user: newClass }
+drawingClass:    newClass                 (denormalised — index-supported queries on ai_events.drawing_class)
+```
+
+**Response:** `200 { drawing: <updated record> }`.
+
+### Codebase patterns adopted (and intentional deviations from sprint spec)
+- Auth helper: `getCurrentUser` (not `requireAuth`) — matches every existing upload route in the codebase.
+- Prisma import: `import prisma from '@/lib/db'` (default import, NOT `import { prisma } from '@/lib/prisma'`).
+- Filename sanitisation strips path components first to prevent traversal in the R2 key.
+- File-type validation accepts mime OR extension to handle CAD files arriving as `application/octet-stream`.
+- All three new routes export `dynamic = 'force-dynamic'`.
+- Australian spelling — `"Unauthorised"` in 401 responses; `sanitiseFilename` helper.
