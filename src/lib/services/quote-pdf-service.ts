@@ -156,12 +156,15 @@ function resolveCutoutTypeName(
 
 // ── Edge Summary ─────────────────────────────────────────────────────────────
 
-function buildEdgeSummary(edges: {
-  top: string | null;
-  bottom: string | null;
-  left: string | null;
-  right: string | null;
-}): string {
+function buildEdgeSummary(
+  edges: {
+    top: string | null;
+    bottom: string | null;
+    left: string | null;
+    right: string | null;
+  },
+  edgeNameMap: Map<string, string>,
+): string {
   const edgeMap: Record<string, string[]> = {};
   const sides: Array<{ side: string; profile: string | null }> = [
     { side: 'front', profile: edges.top },
@@ -171,13 +174,16 @@ function buildEdgeSummary(edges: {
   ];
 
   for (const { side, profile } of sides) {
-    if (profile && profile.toLowerCase() !== 'raw') {
-      const code = edgeCode(profile);
-      if (code !== 'RAW') {
-        if (!edgeMap[code]) edgeMap[code] = [];
-        edgeMap[code].push(side);
-      }
-    }
+    if (!profile) continue;
+    // piece.edge_* columns store edge_type IDs (CUIDs). Resolve to the human
+    // name so edgeCode() can keyword-match correctly. Unknown IDs fall through
+    // as "Unknown" rather than producing a garbage 3-letter substring.
+    const name = edgeNameMap.get(profile) ?? 'Unknown';
+    if (name.toLowerCase() === 'raw') continue;
+    const code = edgeCode(name);
+    if (code === 'RAW') continue;
+    if (!edgeMap[code]) edgeMap[code] = [];
+    edgeMap[code].push(side);
   }
 
   return Object.entries(edgeMap)
@@ -244,6 +250,19 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
   const cutoutTypes = await prisma.cutout_types.findMany({
     select: { id: true, name: true },
   });
+
+  // 3. Fetch all edge types so piece.edge_top etc. (edge_type IDs) can be
+  //    resolved to human-readable names ("Arris", "Pencil Round", "Mitered",
+  //    "Beveled", "Raw") before the PDF edge summary is built. Without this
+  //    lookup, the raw CUID gets passed to edgeCode() and the keyword fallback
+  //    returns the first three letters — every edge displays as "CML".
+  const edgeTypes = await prisma.edge_types.findMany({
+    select: { id: true, name: true },
+  });
+  const edgeNameMap = new Map<string, string>();
+  for (const et of edgeTypes) {
+    edgeNameMap.set(et.id, et.name);
+  }
 
   // 4. Always recalculate for PDF — ensures accurate client-facing document.
   //    The UI calculate route is the single canonical writer; the PDF service
@@ -326,7 +345,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         areaSqm: toNumber(piece.area_sqm),
         materialName: piece.material_name,
         edges,
-        edgeSummary: buildEdgeSummary(edges),
+        edgeSummary: buildEdgeSummary(edges, edgeNameMap),
         cutouts: resolvedCutouts,
         cutoutSummary: cutoutSummaryParts.join(', '),
         pricing,
