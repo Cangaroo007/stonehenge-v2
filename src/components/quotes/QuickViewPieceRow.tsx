@@ -2569,6 +2569,25 @@ export default function QuickViewPieceRow({
                   <span className="font-medium tabular-nums">{formatCurrency(breakdown.oversize.grainMatchingSurcharge)}</span>
                 </div>
               )}
+              {/* Corner Join (L/U shape) */}
+              {breakdown.cornerJoin && breakdown.cornerJoin.joinCost > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>Corner Join ({breakdown.cornerJoin.cornerJoins} join{breakdown.cornerJoin.cornerJoins !== 1 ? 's' : ''})</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] text-gray-400">
+                      {breakdown.cornerJoin.joinLengthLm.toFixed(2)} Lm &times; {formatCurrency(breakdown.cornerJoin.joinRate)}
+                    </span>
+                    <span className="font-medium tabular-nums">{formatCurrency(breakdown.cornerJoin.joinCost)}</span>
+                  </div>
+                </div>
+              )}
+              {/* Corner Grain Matching (L/U shape) */}
+              {breakdown.cornerJoin && breakdown.cornerJoin.grainMatchingSurcharge > 0 && (
+                <div className="flex items-center justify-between text-xs text-gray-600">
+                  <span>Corner Grain Matching ({(breakdown.cornerJoin.grainMatchingSurchargeRate * 100).toFixed(0)}%)</span>
+                  <span className="font-medium tabular-nums">{formatCurrency(breakdown.cornerJoin.grainMatchingSurcharge)}</span>
+                </div>
+              )}
               {/* Cutouts */}
               {breakdown.fabrication.cutouts && breakdown.fabrication.cutouts.filter(c => c.total > 0).map((cutout, idx) => (
                 <div key={`${cutout.cutoutTypeId}-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
