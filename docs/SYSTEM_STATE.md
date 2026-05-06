@@ -1811,3 +1811,86 @@ Total (incl. GST)             $2,112.17    ← calculation.totalIncGst
 ```
 
 Math now reconciles for the user: 2,021.21 − 101.06 − 0 = 1,920.15; × 1.10 = 2,112.17.
+
+## 2026-05-06 — CALC-FIX-PDF-READONLY — PDF service is read-only against `quotes`
+
+The PDF service used to be a second writer to `quotes.{subtotal, tax_amount, total, calculation_breakdown, calculated_at}`. As of this sprint, **the UI calculate route at `src/app/api/quotes/[id]/calculate/route.ts:103` is the single canonical writer**; the PDF service calls `calculateQuotePrice` for fresh numbers but never persists the result.
+
+### Architectural invariant (post-CALC-FIX-PDF-READONLY)
+
+```
+                pricing-calculator-v2.ts → calculateQuotePrice(quoteId)
+                            (pure function — no DB writes)
+                                       │
+                  ┌────────────────────┴───────────────────┐
+                  │                                        │
+        (writes once, here only)                 (read-only — uses
+                  │                              calcBreakdown directly)
+                  ▼                                        ▼
+   /api/quotes/[id]/calculate/route.ts:103     quote-pdf-service.ts
+   prisma.quotes.update({                       NO DB WRITE
+     subtotal, tax_amount, total,
+     calculated_at, calculation_breakdown
+   })
+```
+
+For any given quote, only one code path can persist the calculation result. There is no longer a sequence in which "the PDF run computed slightly different numbers and overwrote what the UI had stored", or vice versa. Quote 156's $62.70 PDF↔UI drift cannot recur.
+
+### `src/lib/services/quote-pdf-service.ts` — what changed
+
+**Removed (was lines 252-266):**
+
+```typescript
+// Persist fresh result back to DB so UI also benefits
+try {
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: {
+      subtotal: calcBreakdown.subtotal,
+      tax_amount: calcBreakdown.gstAmount,
+      total: calcBreakdown.totalIncGst,
+      calculated_at: new Date(),
+      calculation_breakdown: calcBreakdown as unknown as Prisma.InputJsonValue,
+    },
+  });
+} catch (e) {
+  console.error('[pdf-service] Failed to persist fresh calculation:', e);
+}
+```
+
+**Removed (was line 10):** `import type { Prisma } from '@prisma/client';` — the `Prisma.InputJsonValue` cast on the persist block was the only reference; import is now unused.
+
+**Replaced (the comment above `calculateQuotePrice`)**:
+
+```typescript
+// 4. Always recalculate for PDF — ensures accurate client-facing document.
+//    The UI calculate route is the single canonical writer; the PDF service
+//    is read-only against the quotes table to avoid last-writer-wins drift
+//    between PDF generation and UI render.
+const calcBreakdown = await calculateQuotePrice(quoteId.toString());
+```
+
+The expanded comment is the durable record of the invariant — it lives next to the `calculateQuotePrice` call so a future contributor adding "let me persist this for the UI's benefit" sees the prohibition before they edit.
+
+### What stays in `quote-pdf-service.ts`
+
+- `prisma.quotes.findUnique` (line 207) — read-only fetch of the source quote.
+- `prisma.cutout_types.findMany` (line 244) — read-only lookup table for cutout-type names.
+- `calculateQuotePrice(quoteId.toString())` (line 252) — fresh calculation for PDF rendering. NOT cached, NOT stale-tolerant; the PDF is always derived from current piece state.
+- All downstream consumption of `calcBreakdown.*` — `pieceBreakdownMap`, `pieceTotalMap`, the per-piece `pricing` struct on `QuotePdfPiece` (which already includes `cornerJoin` from the CALC-FIX-CORNERJOINS sprint).
+
+### What stays unchanged elsewhere
+
+- `pricing-calculator-v2.ts` — calculator math untouched (spec constraint).
+- `src/app/api/quotes/[id]/calculate/route.ts:103` — the single canonical `prisma.quotes.update`. Persists `subtotal`, `tax_amount`, `total`, `calculation_breakdown`, `calculated_at` per the existing UI flow.
+- `src/app/api/quotes/[id]/pdf/route.ts` — verified zero `.update`/`.create`/`.upsert`/`.delete` calls; only one read (`prisma.quote_templates.findFirst` for PDF styling).
+- `src/components/QuotePDF.tsx` — pure renderer, no Prisma calls. (`StyleSheet.create()` from `@react-pdf/renderer` is unrelated.)
+
+### Freshness implications
+
+- The PDF rendering path no longer writes `calculated_at`. Generating a PDF does not advance the freshness timestamp on the quote. If a downstream consumer (audit log, version snapshotter, dashboard "last activity" widget) was reading `calculated_at` and treating PDF generation as a freshness event, it will now treat PDF generation as inert — which is the correct semantics for a render-only operation.
+- The displayed `Subtotal` / `Total` in the UI and the `Subtotal` / `Total` in the issued PDF are now sourced from independent invocations of `calculateQuotePrice` against the same input state. They will agree exactly so long as no piece edit lands between the UI render and the PDF render. If an edit does land, the next UI re-render and the next PDF generation will both reflect it.
+
+### Australian spelling
+
+Comments use Australian spelling. No user-facing strings introduced or modified.
