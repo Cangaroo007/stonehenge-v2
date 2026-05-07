@@ -11,6 +11,7 @@ import {
   Page,
   Text,
   View,
+  Image,
   StyleSheet,
   Font,
   renderToBuffer,
@@ -28,6 +29,8 @@ export interface PdfTemplateSettings {
   companyPhone: string | null;
   companyEmail: string | null;
   companyAddress: string | null;
+  /** Logo image URL (R2 public URL or external) — rendered on cover page when set. */
+  companyLogoUrl: string | null;
 
   // Display settings
   showPieceBreakdown: boolean;
@@ -48,6 +51,10 @@ export interface PdfTemplateSettings {
   termsAndConditions: string | null;
   validityDays: number;
   footerText: string | null;
+
+  // Signoff (cover page "Yours Sincerely" block — sourced from companies.signature_name/title)
+  signoffName: string | null;
+  signoffTitle: string | null;
 }
 
 // ── Default Settings (Northcoast format) ─────────────────────────────────────
@@ -58,6 +65,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: PdfTemplateSettings = {
   companyPhone: '07 5476 7636',
   companyEmail: 'admin@northcoaststone.com.au',
   companyAddress: '20 Hitech Drive, Kunda Park QLD 4556',
+  companyLogoUrl: null,
 
   showPieceBreakdown: true,
   showEdgeDetails: true,
@@ -75,6 +83,9 @@ export const DEFAULT_TEMPLATE_SETTINGS: PdfTemplateSettings = {
   termsAndConditions: null,
   validityDays: 30,
   footerText: null,
+
+  signoffName: null,
+  signoffTitle: null,
 };
 
 // ── Styles ───────────────────────────────────────────────────────────────────
@@ -309,6 +320,158 @@ const styles = StyleSheet.create({
     fontSize: 7,
     color: GRAY,
   },
+  // ── Cover Page ──
+  coverHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 6,
+  },
+  coverHeaderLeft: {
+    flex: 1,
+  },
+  coverHeaderRight: {
+    width: 120,
+    alignItems: 'flex-end' as const,
+  },
+  coverCompanyName: {
+    fontSize: 16,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    marginBottom: 4,
+  },
+  coverCompanyDetail: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    marginTop: 1,
+  },
+  coverLogo: {
+    maxWidth: 120,
+    maxHeight: 80,
+    objectFit: 'contain' as const,
+  },
+  coverDivider: {
+    height: 1,
+    backgroundColor: BORDER_GRAY,
+    marginTop: 12,
+    marginBottom: 18,
+  },
+  coverQuoteTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 4,
+  },
+  coverQuoteTitle: {
+    fontSize: 14,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    flex: 1,
+  },
+  coverQuoteDate: {
+    fontSize: 10,
+    color: DARK_GRAY,
+  },
+  coverRevision: {
+    fontSize: 10,
+    color: GRAY,
+    marginBottom: 14,
+  },
+  coverForLine: {
+    fontSize: 10,
+    color: DARK_GRAY,
+    marginBottom: 14,
+  },
+  coverForLabel: {
+    fontFamily: 'Helvetica-Bold',
+  },
+  coverPara: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    lineHeight: 1.4,
+    marginBottom: 8,
+  },
+  coverNoteHeader: {
+    fontSize: 9,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    marginTop: 6,
+    marginBottom: 4,
+    textDecoration: 'underline' as const,
+  },
+  coverNoteBullet: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    lineHeight: 1.4,
+    paddingLeft: 12,
+    marginBottom: 14,
+  },
+  coverCostBlock: {
+    marginTop: 8,
+    marginBottom: 16,
+  },
+  coverCostRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginBottom: 3,
+  },
+  coverCostLabel: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: DARK_GRAY,
+    width: 180,
+  },
+  coverCostValue: {
+    fontSize: 10,
+    color: DARK_GRAY,
+    textAlign: 'right' as const,
+    minWidth: 90,
+  },
+  coverGrandTotalRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    marginTop: 4,
+    paddingTop: 4,
+    borderTopWidth: 0.5,
+    borderTopColor: BORDER_GRAY,
+  },
+  coverGrandTotalLabel: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    width: 180,
+  },
+  coverGrandTotalValue: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    textAlign: 'right' as const,
+    minWidth: 90,
+  },
+  coverTermsPara: {
+    fontSize: 8,
+    color: GRAY,
+    lineHeight: 1.4,
+    marginBottom: 8,
+  },
+  coverSignoffBlock: {
+    marginTop: 28,
+  },
+  coverSignoffLine: {
+    fontSize: 10,
+    color: DARK_GRAY,
+    marginBottom: 4,
+  },
+  coverSignoffName: {
+    fontSize: 10,
+    fontFamily: 'Helvetica-Bold',
+    color: DARK_GRAY,
+    marginTop: 18,
+  },
+  coverSignoffTitle: {
+    fontSize: 9,
+    color: GRAY,
+  },
 });
 
 // ── Currency Formatting ──────────────────────────────────────────────────────
@@ -325,6 +488,135 @@ function fmtCurrency(amount: number): string {
 const h = React.createElement;
 
 // ── Component Builders ───────────────────────────────────────────────────────
+
+/**
+ * Page 1 — cover page in NCS Q22338 layout:
+ *   company header (left) + logo (right) → quote title + date → "For:" line
+ *   → intro paragraphs → PLEASE NOTE → cost summary → terms paragraphs → signoff
+ *
+ * Boilerplate paragraphs are currently hardcoded to the NCS reference text.
+ * TODO: thread `companies.quote_intro_text_1/2/3`, `quote_please_note`, and
+ * `quote_terms_text_1/2/3/4` through PdfTemplateSettings so each tenant can
+ * override the wording. Schema columns already exist on the `companies` table.
+ */
+function renderCoverPage(
+  data: QuotePdfData,
+  settings: PdfTemplateSettings,
+): React.ReactElement {
+  const customerOrg =
+    data.customer?.company || data.customer?.name || 'Customer';
+  const projectLabel = data.projectName || data.projectAddress || 'Job';
+  const titleLine = data.quoteNumber
+    ? `Quote - ${data.quoteNumber} - ${projectLabel}`
+    : `Quote (Draft) - ${projectLabel}`;
+
+  // TODO: tenant-configurable via companies.quote_intro_text_1/2/3
+  const introParas = [
+    `Please see below for our price break down for your quotation as per the plans supplied. Any differences in stonework at measure and fabrication stage will be charged accordingly.`,
+    `This quote is for supply, fabrication and local installation of stonework.`,
+    `Thank you for the opportunity in submitting this quotation. We look forward to working with you.`,
+  ];
+
+  // TODO: tenant-configurable via companies.quote_please_note
+  const pleaseNote = `This Quote is based on the proviso that all stonework is the same colour and fabricated and installed at the same time. Any variation from this assumption will require re-quoting.`;
+
+  // TODO: tenant-configurable via companies.quote_terms_text_1/2/3/4
+  const termsParas = [
+    `Upon acceptance of this quotation you hereby certify that the above information is true and correct. You acknowledge and agree that you have read, understand, and agree to our Terms of Trade, which apply to all of our dealings with you.`,
+    `Please read this quote carefully for all details regarding edge thickness, stone colour and work description. We require a 50% deposit and completed purchase order upon acceptance of this quote. Please contact our office${settings.companyEmail ? ` via email ${settings.companyEmail}` : ''} if you wish to proceed.`,
+    `This quote is valid for ${settings.validityDays} days, on the exception of being signed off as a job, where it will be valid for a 3-month period.`,
+  ];
+
+  return h(Page, { size: 'A4', style: styles.page, key: 'cover', wrap: true },
+    // 1. Company header (left) + logo (right)
+    h(View, { style: styles.coverHeaderRow },
+      h(View, { style: styles.coverHeaderLeft },
+        h(Text, { style: styles.coverCompanyName }, settings.companyName),
+        settings.companyAbn
+          ? h(Text, { style: styles.coverCompanyDetail }, `ABN: ${settings.companyAbn}`)
+          : null,
+        settings.companyAddress
+          ? h(Text, { style: styles.coverCompanyDetail }, settings.companyAddress)
+          : null,
+        settings.companyPhone
+          ? h(Text, { style: styles.coverCompanyDetail }, `Phone: ${settings.companyPhone}`)
+          : null,
+        settings.companyEmail
+          ? h(Text, { style: styles.coverCompanyDetail }, settings.companyEmail)
+          : null,
+      ),
+      h(View, { style: styles.coverHeaderRight },
+        settings.companyLogoUrl
+          ? h(Image, { style: styles.coverLogo, src: settings.companyLogoUrl })
+          : null,
+      ),
+    ),
+
+    // 2. Divider under header
+    h(View, { style: styles.coverDivider }),
+
+    // 3. Quote title + date
+    h(View, { style: styles.coverQuoteTitleRow },
+      h(Text, { style: styles.coverQuoteTitle }, titleLine),
+      h(Text, { style: styles.coverQuoteDate }, `Date: ${data.quoteDate}`),
+    ),
+    h(Text, { style: styles.coverRevision }, `Revision ${data.revision}`),
+
+    // 4. "For:" line
+    h(Text, { style: styles.coverForLine },
+      h(Text, { style: styles.coverForLabel }, 'For: '),
+      customerOrg,
+    ),
+
+    // 5. Intro paragraphs
+    ...introParas.map((p, i) =>
+      h(Text, { style: styles.coverPara, key: `intro-${i}` }, p),
+    ),
+
+    // 6. PLEASE NOTE block
+    h(Text, { style: styles.coverNoteHeader }, 'PLEASE NOTE:'),
+    h(Text, { style: styles.coverNoteBullet }, `• ${pleaseNote}`),
+
+    // 7. Cost summary (Cost / GST / Total Including GST)
+    h(View, { style: styles.coverCostBlock },
+      h(View, { style: styles.coverCostRow },
+        h(Text, { style: styles.coverCostLabel }, 'Cost:'),
+        h(Text, { style: styles.coverCostValue }, fmtCurrency(data.subtotalExGst)),
+      ),
+      h(View, { style: styles.coverCostRow },
+        h(Text, { style: styles.coverCostLabel }, settings.gstLabel.replace(/\s*\([^)]*\)/, '') + ':'),
+        h(Text, { style: styles.coverCostValue }, fmtCurrency(data.gstAmount)),
+      ),
+      h(View, { style: styles.coverGrandTotalRow },
+        h(Text, { style: styles.coverGrandTotalLabel }, 'Total Including GST:'),
+        h(Text, { style: styles.coverGrandTotalValue }, fmtCurrency(data.totalIncGst)),
+      ),
+    ),
+
+    // 8-10. Terms paragraphs (acceptance + deposit + validity)
+    ...termsParas.map((p, i) =>
+      h(Text, { style: styles.coverTermsPara, key: `terms-${i}` }, p),
+    ),
+
+    // 11. Signoff block
+    h(View, { style: styles.coverSignoffBlock },
+      h(Text, { style: styles.coverSignoffLine }, 'Yours Sincerely'),
+      settings.signoffName
+        ? h(Text, { style: styles.coverSignoffName }, settings.signoffName)
+        : null,
+      settings.signoffTitle
+        ? h(Text, { style: styles.coverSignoffTitle }, settings.signoffTitle)
+        : null,
+      // Fall back to company name when no individual signoff is configured.
+      !settings.signoffName
+        ? h(Text, { style: styles.coverSignoffName }, settings.companyName)
+        : null,
+    ),
+
+    // 12. Page footer (page number + footer text — same as breakdown page)
+    buildPageFooter(settings),
+  );
+}
 
 function buildHeader(settings: PdfTemplateSettings) {
   return h(View, { key: 'header' },
@@ -619,13 +911,20 @@ export async function renderQuotePdf(
     ...sectionsConfig,
   };
 
-  // Build the document tree
+  // Build the document tree — two pages:
+  //   Page 1: cover page (NCS Q22338 layout: company → quote title → For → intro
+  //           → PLEASE NOTE → cost summary → terms → signoff)
+  //   Page 2+: detail breakdown (header → rooms → charges → totals → terms)
   const doc = h(Document, {
     title: `Quote ${data.quoteNumber}`,
     author: settings.companyName,
     subject: `Quote for ${data.customer?.name || 'Customer'}`,
   },
-    h(Page, { size: 'A4', style: styles.page, wrap: true },
+    // Page 1 — cover
+    renderCoverPage(data, settings),
+
+    // Page 2+ — detail breakdown
+    h(Page, { size: 'A4', style: styles.page, key: 'breakdown', wrap: true },
       // Company header
       buildHeader(settings),
 

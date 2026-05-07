@@ -2288,3 +2288,149 @@ The breakdown fields are named `baseCharge` (not `baseRate`) to match the source
 | Quote with `templatingRequired: false` | `finalCost: 0` → row hidden by upstream `templatingTotal > 0` guard |
 | Legacy stored breakdown (pre-this-sprint) | `baseCharge`/`ratePerKm` undefined on the JSON object → helpers fall through to existing zone+distance / distance-only outputs |
 | Distance > 500 km (no zone matches) | `getDeliveryZone` returns null → `matchedDeliveryZone` null → both fields null on breakdown → helper omits rate string |
+
+## 2026-05-07 — PDF-COVER-PAGE — Issued PDF gains a cover page (page 1) matching NCS Q22338
+
+The PDF used to render as a single page that opened directly into the room/piece breakdown. As of this sprint the issued PDF is a two-page document: **Page 1 = cover page** in the NCS Q22338 layout (company branding → quote summary → acceptance terms → signoff); **Page 2+ = the detail breakdown** built across Sprints 1-6, completely untouched.
+
+### Document tree
+
+```
+Document
+├── Page 1 (cover) — renderCoverPage(data, settings)
+│   • Company header (name/ABN/address/phone/email) + logo right
+│   • Divider
+│   • Quote title + date
+│   • Revision line
+│   • "For: {customer org}" line
+│   • Intro paragraphs (3 — NCS boilerplate, hardcoded with TODO)
+│   • PLEASE NOTE: header + bullet
+│   • Cost summary (Cost / GST / Total Including GST)
+│   • Terms paragraphs (3 — acceptance + deposit + validity)
+│   • Signoff block (Yours Sincerely → name → title)
+│   • Page footer (Page 1 of N)
+│
+└── Page 2+ (breakdown) — UNCHANGED from Sprint 6
+    • buildHeader + buildQuoteInfo
+    • room sections (with parts dimensions per CALC-FIX-PDF-DIMENSIONS,
+      edge names per CALC-FIX-EDGE-NAMES)
+    • buildCharges (delivery/templating/installation w/ rate detail
+      per CALC-EXPOSE-RATE-DETAIL)
+    • buildTotals (subtotal → rules-discount → GST → grand total)
+    • buildTerms
+    • buildPageFooter (Page 2 of N)
+```
+
+Page numbering uses react-pdf's `render: ({pageNumber, totalPages}) => …` prop on the existing `buildPageFooter` — both pages call it, so "Page X of N" works automatically across however many pages the breakdown overflows to.
+
+### `PdfTemplateSettings` extended
+
+```typescript
+export interface PdfTemplateSettings {
+  // Header
+  companyName: string;
+  companyAbn: string | null;
+  companyPhone: string | null;
+  companyEmail: string | null;
+  companyAddress: string | null;
+  /** Logo image URL (R2 public URL or external) — rendered on cover page when set. */
+  companyLogoUrl: string | null;          // ← NEW
+  // ... existing display + pricing + footer fields ...
+  // Signoff (cover page "Yours Sincerely" block — sourced from companies.signature_name/title)
+  signoffName: string | null;             // ← NEW
+  signoffTitle: string | null;            // ← NEW
+}
+```
+
+`DEFAULT_TEMPLATE_SETTINGS` updated with `companyLogoUrl: null`, `signoffName: null`, `signoffTitle: null`.
+
+### API route wiring (`src/app/api/quotes/[id]/pdf/route.ts`)
+
+```typescript
+// Single template fetch became a Promise.all with the company row for signoff.
+const [template, company] = await Promise.all([
+  prisma.quote_templates.findFirst({ where: { company_id: ..., is_default: true } }),
+  prisma.companies.findUnique({
+    where: { id: ... },
+    select: { signature_name: true, signature_title: true },
+  }),
+]);
+
+// templateSettings build adds:
+companyLogoUrl: template.logo_url,
+signoffName: company?.signature_name ?? null,
+signoffTitle: company?.signature_title ?? null,
+```
+
+Two queries fire concurrently — no extra latency.
+
+### Filename fix (`pdf/route.ts`)
+
+```typescript
+// Filename falls back when quote_number is null (draft / unsaved quote) so
+// the browser doesn't download "null.pdf".
+const filename = `${data.quoteNumber ?? `Q-${quoteId}-DRAFT`}.pdf`;
+```
+
+| Quote state | Old filename | New filename |
+|---|---|---|
+| Saved (quote_number set) | `Q-156.pdf` | `Q-156.pdf` (unchanged) |
+| Draft (quote_number null) | `null.pdf` | `Q-156-DRAFT.pdf` |
+
+### `renderCoverPage(data, settings)` — page 1 component
+
+Lives in `quote-pdf-renderer.ts`. Returns a `<Page>` element (NOT a `<View>`) so react-pdf treats it as a top-level page. Reuses the existing `styles.page` for outer padding so margins match the breakdown page exactly.
+
+Boilerplate paragraphs are hardcoded NCS Q22338 wording with `// TODO: tenant-configurable via companies.quote_intro_text_*` markers above each block:
+
+```typescript
+// TODO: tenant-configurable via companies.quote_intro_text_1/2/3
+const introParas = [
+  `Please see below for our price break down for your quotation as per the plans supplied. ...`,
+  `This quote is for supply, fabrication and local installation of stonework.`,
+  `Thank you for the opportunity in submitting this quotation. We look forward to working with you.`,
+];
+
+// TODO: tenant-configurable via companies.quote_please_note
+const pleaseNote = `This Quote is based on the proviso that all stonework is the same colour and fabricated and installed at the same time. Any variation from this assumption will require re-quoting.`;
+
+// TODO: tenant-configurable via companies.quote_terms_text_1/2/3/4
+const termsParas = [
+  `Upon acceptance of this quotation you hereby certify that the above information is true and correct. ...`,
+  `Please read this quote carefully ... We require a 50% deposit ... Please contact our office${settings.companyEmail ? ` via email ${settings.companyEmail}` : ''} if you wish to proceed.`,
+  `This quote is valid for ${settings.validityDays} days, on the exception of being signed off as a job, where it will be valid for a 3-month period.`,
+];
+```
+
+Schema columns already exist (`companies.quote_intro_text_1/2/3`, `quote_please_note`, `quote_terms_text_1/2/3/4`) — a future sprint threads them through `PdfTemplateSettings` without relocating any strings.
+
+### Defensive fallbacks (cover page)
+
+| Input | Fallback |
+|---|---|
+| `data.quoteNumber == null` | Title degrades to `Quote (Draft) - {project}` |
+| `data.projectName == null` | Falls back to `data.projectAddress`, then `'Job'` |
+| `data.customer == null` (or no `company`/`name`) | "For: Customer" |
+| `settings.companyLogoUrl == null` | Right column of header is empty (header collapses cleanly) |
+| `settings.signoffName == null` | Falls back to `settings.companyName` in the bold signoff slot |
+| `settings.signoffTitle == null` | Title line omitted |
+
+No null guards crash; every degradation produces a sensible visual outcome.
+
+### Cover-page styles
+
+22 new entries under `// ── Cover Page ──` in `StyleSheet.create({...})`. Style language matches the existing breakdown page exactly:
+- Colour palette: `BLUE` accent, `DARK_GRAY` body text, `GRAY` muted detail, `BORDER_GRAY` rules.
+- Font family: `Helvetica` body / `Helvetica-Bold` for bold elements.
+- Sizes: 16pt company name, 14pt quote title, 11pt grand total, 10pt body, 9pt details, 8pt terms.
+
+### Decisions made (worth flagging)
+
+1. **Date format:** spec showed `DD/MM/YYYY`; used existing `formatAustralianDate` long form (`"7 May 2026"`) for consistency with the breakdown page. Mixing two formats across pages would be unprofessional.
+2. **GST label on cover:** strips parenthetical from `settings.gstLabel` (`"GST (10%)"`) to `"GST:"` via `gstLabel.replace(/\s*\([^)]*\)/, '') + ':'`. NCS Q22338 cover has the percentage implicit; the parenthetical stays on the breakdown page.
+3. **Boilerplate hardcoded** per spec rather than fetched from `companies.quote_*` columns — explicit TODO markers point future sprints at the schema.
+4. **Logo rendering:** `<Image src={settings.companyLogoUrl} />` only renders when truthy. If the URL is set but unreachable at render time, react-pdf throws — server-side networking concern for a separate sprint.
+
+### Australian spelling
+
+All cover-page strings either neutral (`stonework`, `fabricated`, `installed`, `deposit`) or already Australian (`colour` in PLEASE NOTE block matches the schema/Bible spelling). No US/UK divergent words introduced.
