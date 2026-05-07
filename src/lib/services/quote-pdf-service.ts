@@ -57,6 +57,12 @@ export interface QuotePdfPiece {
     lengthMm: number;
     widthMm: number;
   }>;
+  /**
+   * Piece role: BENCHTOP / ISLAND / VANITY / SHELF / PANEL / OTHER (main
+   * pieces) or WATERFALL / SPLASHBACK (attachments). Drives the NCS-style
+   * additionals bullets in the room breakdown ("- 1 x Waterfall End").
+   */
+  pieceType: string | null;
   sortOrder: number;
 }
 
@@ -405,6 +411,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         cutoutSummary: cutoutSummaryParts.join(', '),
         pricing,
         parts,
+        pieceType: piece.piece_type ?? null,
         sortOrder: piece.sort_order,
       });
     }
