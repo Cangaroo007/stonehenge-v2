@@ -43,13 +43,20 @@ export async function GET(
       throw err;
     }
 
-    // Load default template settings for this company
-    const template = await prisma.quote_templates.findFirst({
-      where: {
-        company_id: authResult.user.companyId,
-        is_default: true,
-      },
-    });
+    // Load default template settings for this company, plus the company row
+    // (signature_name / signature_title for cover-page signoff).
+    const [template, company] = await Promise.all([
+      prisma.quote_templates.findFirst({
+        where: {
+          company_id: authResult.user.companyId,
+          is_default: true,
+        },
+      }),
+      prisma.companies.findUnique({
+        where: { id: authResult.user.companyId },
+        select: { signature_name: true, signature_title: true },
+      }),
+    ]);
 
     // Build template settings from DB template (with Northcoast defaults)
     let templateSettings: Partial<PdfTemplateSettings> | undefined;
@@ -60,6 +67,7 @@ export async function GET(
         companyPhone: template.company_phone,
         companyEmail: template.company_email,
         companyAddress: template.company_address,
+        companyLogoUrl: template.logo_url,
         showPieceBreakdown: template.show_piece_breakdown,
         showEdgeDetails: template.show_edge_details,
         showCutoutDetails: template.show_cutout_details,
@@ -74,6 +82,8 @@ export async function GET(
         termsAndConditions: template.terms_and_conditions,
         validityDays: template.validity_days,
         footerText: template.footer_text,
+        signoffName: company?.signature_name ?? null,
+        signoffTitle: company?.signature_title ?? null,
       };
     }
 
@@ -85,10 +95,14 @@ export async function GET(
     // Render PDF
     const pdfBuffer = await renderQuotePdf(data, templateSettings, sectionsConfig);
 
+    // Filename falls back when quote_number is null (draft / unsaved quote) so
+    // the browser doesn't download "null.pdf".
+    const filename = `${data.quoteNumber ?? `Q-${quoteId}-DRAFT`}.pdf`;
+
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
-        'Content-Disposition': `attachment; filename="${data.quoteNumber}.pdf"`,
+        'Content-Disposition': `attachment; filename="${filename}"`,
         'Cache-Control': 'no-store',
       },
     });
