@@ -920,3 +920,33 @@ TEMPLATE-MANAGE-1 done
   - `src/lib/services/quote-pdf-service.ts` (+7) — `pieceType` field on `QuotePdfPiece`, populated from DB
   - `src/lib/services/quote-pdf-renderer.ts` (+178) — replaced room styles, removed `buildPieceRow`, rewrote `buildRoomSection`, added 3 helpers (`isMainPiece` / `attachmentLabel` / `pieceDescriptionLines`), relabelled `buildTotals`
 - ✅ `npx tsc --noEmit` zero errors.
+## 2026-05-07 — CALC-FIX-RULES-TRANSPARENCY
+- **Title:** Replaced the single "Pricing Adjustment: -$X" line with one indented line per firing pricing rule, each labelled with the admin-configured rule name and adjustment percentage
+- **Status:** ✅ Resolved
+- **Branch:** fix/calc-fix-rules-transparency
+- **Audit reference:** Sprint 2 (CALC-FIX-SUBTOTAL-TRANSPARENCY, PR #639) surfaced the rules-engine discount as a single line item — a major improvement over the previously invisible $98.06 gap, but still too vague. Quoters saw `-$98.06` with no idea how many rules fired, what each was called, or which rule contributed what.
+- **Root cause / context:** The calculator was already building a complete `appliedRules: AppliedRule[]` array at `pricing-calculator-v2.ts:1871-1888` (one entry per rule with `ruleName`, `discountAmount`, `appliesTo`, `adjustmentValue`) AND already returning it via `CalculationResult.appliedRules` at line 2003. The `AppliedRule` type at `pricing.ts:73-82` already had every field needed for the UI. The data was fully exposed end-to-end — only the UI was reading the rolled-up `rulesDiscount` scalar instead of consuming the per-rule array.
+- **Naming clarification (Gate 0):** "rules engine" in this codebase refers to TWO different concepts. (1) `pricing-rules-engine.ts` is the FABRICATION formula engine (cutting / edges / cutouts) — NOT touched. (2) The DISCOUNT-rules engine lives inline in `pricing-calculator-v2.ts:1857-1925` and reads from the `pricing_rules_engine` Prisma model. This sprint's territory is (2), and only the UI consumption surface.
+- ✅ **Gate 1 — calculator/types: NO-OP confirmed.** The data was already exposed:
+  - `appliedRules: AppliedRule[]` declared on `CalculationResult` (`pricing.ts:198`)
+  - `AppliedRule` interface at `pricing.ts:73-82` with `ruleId, ruleName, priority, effect, discountAmount?, appliesTo?, adjustmentValue?`
+  - Calculator builds the array at `pricing-calculator-v2.ts:1871` and returns it at line 2003
+  - Sum invariant: each rule's `discountAmount` (loop 1, line 1871) equals its contribution to `rulesDiscountTotal` (loop 2, line 1900). Both loops do identical math — `appliedRules.reduce((s, r) => s + (r.discountAmount ?? 0), 0) === rulesDiscount` for any quote.
+- ✅ **Gate 2 — UI rewrite** (`TotalBreakdownAccordion.tsx`):
+  - Added two helpers in the component body alongside the existing `materialsDetail` / `installationDetail` / etc. computations:
+    - `firingRules = (calculation?.appliedRules ?? []).filter(r => (r.discountAmount ?? 0) > 0)` — filters to rules that actually contributed (inactive rules and non-percentage rules carry `discountAmount === 0`).
+    - `hasRulesDiscount = calculation?.rulesDiscount != null && calculation.rulesDiscount > 0` — used for the legacy fallback branch.
+  - Replaced the single Pricing Adjustment block with a three-branch render:
+    - **Per-rule path:** when `firingRules.length > 0`, render each as an indented green line (`text-xs text-green-600 px-1 pl-4`) with `"{ruleName} ({adjustmentValue}%)"` left and `-{formatCurrency(discountAmount)}` right.
+    - **Legacy fallback:** when `firingRules` is empty but `rulesDiscount > 0`, render the existing `"Pricing Adjustment: -$X"` single line. Stored `calculation_breakdown` JSONs persisted before this sprint don't have `appliedRules` populated — those quotes still display the legacy line until they're recalculated.
+    - **Zero case:** when both `firingRules` is empty AND `rulesDiscount === 0`, render nothing (existing behaviour preserved).
+- **Decisions made (worth flagging):**
+  1. **Indent style:** `text-xs text-green-600 px-1 pl-4` chosen for visual hierarchy under the Subtotal line. `text-xs` is smaller than the parent `text-sm`; `pl-4` provides the indent. Matches the spec's "smaller/lighter than current Pricing Adjustment line" guidance.
+  2. **`adjustmentValue` formatting:** raw value stringified with `%` suffix, e.g. `5` → `"(5%)"`, `5.5` → `"(5.5%)"`. No `.toFixed()` since the calculator already passes a JS `number` (the `Decimal` → `Number` conversion happens upstream at line 1888).
+  3. **`!` non-null assertions** in the legacy fallback branch (`calculation!.rulesDiscount!`): justified by the `hasRulesDiscount` boolean check (TypeScript can't narrow across the helper-const boundary). Same pattern as prior sprints.
+  4. **No new helpers extracted:** the inline `pct` ternary and `discountAmount ?? 0` guard are local enough that pulling them into a `formatRuleLine` helper would be premature abstraction (Rule 7 — three similar lines beats a forced helper).
+- **No changes to:** `pricing-calculator-v2.ts` (Gate 1 confirmed no-op), `pricing.ts` (type already complete), `pricing-rules-engine.ts` (different concept — fabrication engine), the API route, the PDF service, the PDF renderer (Sprints 7A/7B intact).
+- **Verification scenario for Quote 156 (Rule 28 / Rule 53):** after Railway deploys and the quote is recalculated, the Quote Total accordion shows one indented line per firing rule — e.g. `"Tier 3 client discount (5%)" -$73.06` and `"Edge profile volume adjustment" -$25.00` — between Subtotal and Discount. The lines sum to the previous single-line `"Pricing Adjustment"` total. Adjacent regression: quotes whose stored breakdown predates this sprint show the legacy single line until recalculated; quotes with no firing rules render no Pricing Adjustment area at all.
+- **Files changed:** 1 file, 40 insertions, 7 deletions, +33 net.
+  - `src/components/quotes/TotalBreakdownAccordion.tsx` (+33) — `firingRules` + `hasRulesDiscount` helpers in component body; three-branch render (per-rule lines / legacy fallback / hidden) replaces the single Pricing Adjustment block
+- ✅ `npx tsc --noEmit` zero errors.

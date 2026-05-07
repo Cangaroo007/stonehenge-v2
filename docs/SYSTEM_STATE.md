@@ -2582,3 +2582,137 @@ A follow-up cleanup sprint can remove them. They cost nothing at runtime; removi
 ### Australian spelling
 
 Helper-function strings use Australian-neutral terms (`Benchtop`, `Splashback`, `Waterfall End`, `Description`, `cutout`). No US-spelling words introduced.
+
+## 2026-05-07 — CALC-FIX-RULES-TRANSPARENCY — Quote Total shows one line per firing pricing rule
+
+The "Pricing Adjustment" line introduced in Sprint 2 (CALC-FIX-SUBTOTAL-TRANSPARENCY) was a single rolled-up `-$X` figure. As of this sprint each firing pricing rule renders its own indented green line under the Subtotal — labelled with the admin-configured rule name plus the percentage in parentheses. The data was already exposed end-to-end by the calculator; only the UI consumption surface changed.
+
+### Two "rules engines" — disambiguation
+
+| Concept | File / Model | Touched this sprint? |
+|---|---|---|
+| Fabrication formula engine — cutting / edges / cutouts / installation | `src/lib/services/pricing-rules-engine.ts` | NO |
+| Discount-rules engine — percentage adjustments on materials / edges / all | inline at `pricing-calculator-v2.ts:1857-1925`, reads from `pricing_rules_engine` Prisma model | YES (UI only) |
+
+### Calculator data surface (unchanged this sprint)
+
+The `CalculationResult.appliedRules: AppliedRule[]` array was already populated. Per `pricing.ts:73-82`:
+
+```typescript
+export interface AppliedRule {
+  ruleId: string;
+  ruleName: string;
+  priority: number;
+  effect: string;
+  discountAmount?: number;
+  appliesTo?: string;
+  adjustmentValue?: number;
+}
+```
+
+Calculator builds the array at `pricing-calculator-v2.ts:1871-1888` (one entry per rule, with `discountAmount === 0` for inactive or non-percentage rules) and returns it at line 2003. The rolled-up `rulesDiscount: number` field is the sum of `appliedRules[].discountAmount` — both are returned for redundancy and legacy-callers.
+
+### UI rewrite (`src/components/quotes/TotalBreakdownAccordion.tsx`)
+
+#### Helpers added in the component body
+
+```typescript
+// Per-rule pricing-adjustment lines. Calculator already populates
+// calculation.appliedRules with each rule's name + amount + applies-to (see
+// CALC-FIX-RULES-TRANSPARENCY). Filter to rules that actually fired (qty > 0)
+// — inactive rules and non-percentage rules carry discountAmount === 0.
+const firingRules = (calculation?.appliedRules ?? []).filter(
+  (r) => (r.discountAmount ?? 0) > 0,
+);
+const hasRulesDiscount =
+  calculation?.rulesDiscount != null && calculation.rulesDiscount > 0;
+```
+
+#### JSX — three-branch render
+
+```typescript
+{firingRules.length > 0
+  ? firingRules.map((rule) => {
+      const pct =
+        rule.adjustmentValue != null && rule.adjustmentValue !== 0
+          ? ` (${rule.adjustmentValue}%)`
+          : '';
+      return (
+        <div
+          key={`rule-${rule.ruleId}`}
+          className="flex items-center justify-between text-xs text-green-600 px-1 pl-4"
+        >
+          <span>{rule.ruleName}{pct}</span>
+          <span className="font-medium tabular-nums">
+            -{formatCurrency(rule.discountAmount ?? 0)}
+          </span>
+        </div>
+      );
+    })
+  : hasRulesDiscount && (
+      <div className="flex items-center justify-between text-sm text-green-600 px-1">
+        <span>Pricing Adjustment</span>
+        <span className="font-medium tabular-nums">
+          -{formatCurrency(calculation!.rulesDiscount!)}
+        </span>
+      </div>
+    )}
+```
+
+### Render outcomes
+
+| Input | Output |
+|---|---|
+| `appliedRules` has 2+ rules with `discountAmount > 0` | Multiple indented green lines (`text-xs`, `pl-4`), one per rule |
+| `appliedRules` has 1 firing rule | Single indented line for that rule |
+| `appliedRules` has only zero-discount entries | `firingRules.length === 0` → falls to legacy fallback |
+| `appliedRules: []` but `rulesDiscount > 0` (legacy stored breakdown) | Single un-indented `"Pricing Adjustment" -$X` line — preserves Sprint 2 behaviour for old quotes |
+| `appliedRules: []` and `rulesDiscount === 0` | Renders nothing — section hidden |
+| Rule with `adjustmentValue == null/0` | Label shows just `{ruleName}` without the `(N%)` suffix |
+
+### Reconciliation example (Quote 156 with two firing rules)
+
+Before:
+```
+Subtotal (excl. GST)               $2,021.21
+Pricing Adjustment                   -$98.06    ← rolled-up, opaque
+Discount                              $0.00
+GST (10%)                           $192.32
+Total (incl. GST)                 $2,115.47
+```
+
+After:
+```
+Subtotal (excl. GST)               $2,021.21
+   Tier 3 client discount (5%)       -$73.06    ← named, indented
+   Edge profile volume adjustment    -$25.00    ← named, indented
+Discount                              $0.00
+GST (10%)                           $192.32
+Total (incl. GST)                 $2,115.47
+```
+
+The math is identical (sum invariant maintained); the visibility into which rules fired is now complete.
+
+### What did NOT change
+
+- `pricing-calculator-v2.ts` — Gate 1 was a no-op. Calculator already builds `appliedRules`.
+- `pricing.ts` — `AppliedRule` and `CalculationResult.appliedRules` already declared.
+- `pricing-rules-engine.ts` — different concept (fabrication formula engine), unrelated to discount rules.
+- API route, PDF service, PDF renderer (Sprints 7A/7B), `QuoteCostSummaryBar.tsx`.
+- The rolled-up `rulesDiscount` field — still returned, still populated, used as the legacy-fallback signal.
+
+### Defensive behaviour (legacy-quote compatibility)
+
+- A stored `calculation_breakdown` JSON persisted before this sprint has either `appliedRules: []` (if the calculator was already running this code path before deploy) or a missing `appliedRules` field (older versions). Both shapes coalesce to `firingRules.length === 0` via the `?? []` fallback, dropping the render to the legacy single-line branch when `rulesDiscount > 0`.
+- A stored breakdown with `appliedRules` populated but every entry's `discountAmount === 0` (e.g. all rules were inactive at calc time) also falls through to the legacy branch only if `rulesDiscount > 0` — which it won't be, so the section hides.
+
+### Decisions made (for future readers)
+
+1. **Indent style** — `text-xs text-green-600 px-1 pl-4`. `text-xs` (vs parent `text-sm`) provides the "smaller" cue; `pl-4` provides the indent. Green stays as the "money off" semantic.
+2. **`adjustmentValue` formatting** — raw number stringified with `%`, e.g. `5` → `"(5%)"`. No `.toFixed()` — calculator already converts `Decimal` → `Number` upstream at line 1888.
+3. **No new helpers extracted** — the `pct` ternary and `discountAmount ?? 0` are local; abstracting them into `formatRuleLine` would be premature (Rule 7).
+4. **Legacy fallback uses `!` non-null assertions** — justified by the `hasRulesDiscount` check immediately above (TypeScript can't narrow across the helper-const boundary).
+
+### Australian spelling
+
+No new user-facing strings introduced. Rule names come from `pricing_rules_engine.name` (admin-configured per tenant); their spelling is the tenant's responsibility.
