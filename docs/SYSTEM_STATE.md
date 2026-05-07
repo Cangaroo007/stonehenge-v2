@@ -2122,3 +2122,169 @@ The bounding-box `2840 × 2180mm` is replaced by three actual fabrication parts 
 ### Australian spelling
 
 Part names (`Back`, `Left Leg`, `Right Leg`, `Leg 1`, `Leg 2`) and the `1 @ L × W mm (Name)` template are all language-neutral. No new comments introduce US spellings.
+
+## 2026-05-07 — CALC-EXPOSE-RATE-DETAIL — Calculator surfaces zone + templating rates on breakdown
+
+Closes the Sprint 2 deferred TODO. Previously the calculator computed delivery/templating costs internally using the hardcoded `DELIVERY_ZONES` (line 73 of `pricing-calculator-v2.ts`) and `TEMPLATING_RATE` (line 79) constants but never exposed the per-zone `baseCharge`/`ratePerKm` on the breakdown object. The Quote Total UI could only show `"Local zone · 22.5 km"` and `"22.5 km"` instead of the full formula. This sprint threads the rates through.
+
+### Type extensions in `src/lib/types/pricing.ts`
+
+```typescript
+delivery?: {
+  address: string | null;
+  distanceKm: number | null;
+  zone: string | null;
+  calculatedCost: number | null;
+  overrideCost: number | null;
+  finalCost: number;
+  /** Zone base charge ($) — null when zone is not matched (no distance). */
+  baseCharge?: number | null;          // ← NEW
+  /** Zone per-km rate ($/km) — null when zone is not matched. */
+  ratePerKm?: number | null;           // ← NEW
+};
+templating?: {
+  required: boolean;
+  distanceKm: number | null;
+  calculatedCost: number | null;
+  overrideCost: number | null;
+  finalCost: number;
+  /** Templating base charge ($) — from TEMPLATING_RATE constant. */
+  baseCharge?: number | null;          // ← NEW
+  /** Templating per-km rate ($/km) — from TEMPLATING_RATE constant. */
+  ratePerKm?: number | null;           // ← NEW
+};
+```
+
+Both fields optional — legacy stored `calculation_breakdown` JSONs persisted before this sprint don't have them; UI must handle either shape.
+
+### Calculator changes in `src/lib/services/pricing-calculator-v2.ts`
+
+#### Delivery — post-block zone lookup (auto-calc path untouched)
+
+```typescript
+// Resolve the matched delivery zone (if distance is known) so its rates can
+// be exposed on the breakdown. Independent of the auto-calc path above —
+// works for both freshly-calculated and saved-cost quotes.
+const matchedDeliveryZone =
+  deliveryDistanceKm !== null
+    ? getDeliveryZone(deliveryDistanceKm, DELIVERY_ZONES)
+    : null;
+
+const deliveryBreakdown = {
+  address: deliveryAddress,
+  distanceKm: deliveryDistanceKm,
+  zone: deliveryZoneName || quoteAny.deliveryZone?.name || null,
+  calculatedCost: calculatedDeliveryCost,
+  overrideCost: quoteAny.overrideDeliveryCost ? Number(quoteAny.overrideDeliveryCost) : null,
+  finalCost: quoteAny.overrideDeliveryCost
+    ? Number(quoteAny.overrideDeliveryCost)
+    : (calculatedDeliveryCost ?? 0),
+  // NEW — coerced because DeliveryZone fields are typed `number | { toString(): string }`
+  // for Prisma Decimal compatibility (distance-service.ts:8-9).
+  baseCharge: matchedDeliveryZone ? Number(matchedDeliveryZone.baseCharge) : null,
+  ratePerKm: matchedDeliveryZone ? Number(matchedDeliveryZone.ratePerKm) : null,
+};
+```
+
+The auto-calc block above (`if (deliveryAddress && calculatedDeliveryCost === null) { ... }`) is unchanged. The lookup is deliberately separate so it runs for BOTH freshly-calculated quotes (where `getDeliveryZone` was already called inside the block but its result was scoped locally) AND saved-cost quotes (where the block doesn't fire at all).
+
+#### Templating — direct field copy from TEMPLATING_RATE
+
+```typescript
+const templatingBreakdown = {
+  required: templatingRequired,
+  distanceKm: ...,
+  calculatedCost: calculatedTemplatingCost,
+  overrideCost: ...,
+  finalCost: templatingRequired ? ... : 0,
+  baseCharge: TEMPLATING_RATE.baseCharge,    // ← NEW: 150.0
+  ratePerKm: TEMPLATING_RATE.ratePerKm,      // ← NEW: 2.0
+};
+```
+
+`TEMPLATING_RATE` is a const literal so its types are inferred as plain `number`. No coercion needed.
+
+#### What did NOT change in the calculator
+
+- `deliveryBreakdown.finalCost` formula — still `overrideDeliveryCost ?? calculatedDeliveryCost ?? 0`.
+- `templatingBreakdown.finalCost` formula — still `templatingRequired ? (override ?? calculated ?? 0) : 0`.
+- The auto-calc try/catch block (lines 1736-1751) — completely untouched.
+- `calculateDeliveryCostFn` and `calculateTemplatingCostFn` — not modified.
+- `getDeliveryZone` — used unchanged.
+
+### UI changes in `src/components/quotes/TotalBreakdownAccordion.tsx`
+
+Removed both `// NEEDS CALCULATOR CHANGE — deferred:` comment blocks (lines 60-64 and 75-78 of the prior version).
+
+#### `buildDeliveryDetail` — appends rate breakdown when fully populated
+
+```typescript
+function buildDeliveryDetail(
+  d: NonNullable<CalculationResult['breakdown']['delivery']> | undefined,
+): string | null {
+  if (!d) return null;
+  const parts: string[] = [];
+  if (d.zone) parts.push(`${d.zone} zone`);
+  if (d.distanceKm != null) parts.push(`${d.distanceKm.toFixed(1)} km`);
+  // baseCharge + ratePerKm are exposed by the calculator (CALC-EXPOSE-RATE-DETAIL).
+  // Legacy stored breakdowns may lack these fields — guard both before appending.
+  if (d.baseCharge != null && d.ratePerKm != null) {
+    parts.push(`${formatCurrency(d.baseCharge)} base + ${formatCurrency(d.ratePerKm)}/km`);
+  }
+  return parts.length ? parts.join(' · ') : null;
+}
+```
+
+For Quote 156 (Local zone, 22.5 km): returns `"Local zone · 22.5 km · $50.00 base + $2.50/km"`. Legacy stored breakdown without the rate fields: returns `"Local zone · 22.5 km"` (existing behaviour preserved).
+
+#### `buildTemplatingDetail` — three-branch cascade
+
+```typescript
+function buildTemplatingDetail(
+  t: NonNullable<CalculationResult['breakdown']['templating']> | undefined,
+): string | null {
+  if (!t) return null;
+  // Full formula when calculator exposed both rates AND the distance is known.
+  if (t.baseCharge != null && t.ratePerKm != null && t.distanceKm != null) {
+    return `${formatCurrency(t.baseCharge)} base + ${t.distanceKm.toFixed(1)} km × ${formatCurrency(t.ratePerKm)}/km`;
+  }
+  // Fallback: distance-only when rates unknown (legacy stored breakdown).
+  if (t.distanceKm != null) return `${t.distanceKm.toFixed(1)} km`;
+  return null;
+}
+```
+
+For Quote 156: returns `"$150.00 base + 22.5 km × $2.00/km"`. Legacy stored breakdown: returns `"22.5 km"` (existing behaviour preserved).
+
+### Output reconciliation (Quote 156 example)
+
+Before:
+```
+Materials                       $617.55     1 slab Jewel × $537.00 + 15% margin ($80.55)
+Installation                    $403.20     2.88 m² × $140.00 per m²
+Delivery                        $106.37     Local zone · 22.5 km
+Templating                      $195.09     22.5 km
+```
+
+After:
+```
+Materials                       $617.55     1 slab Jewel × $537.00 + 15% margin ($80.55)
+Installation                    $403.20     2.88 m² × $140.00 per m²
+Delivery                        $106.37     Local zone · 22.5 km · $50.00 base + $2.50/km
+Templating                      $195.09     $150.00 base + 22.5 km × $2.00/km
+```
+
+Every line in the Quote Total now shows complete rate × quantity / formula detail.
+
+### Naming note
+
+The breakdown fields are named `baseCharge` (not `baseRate`) to match the source-of-truth constants `DELIVERY_ZONES[*].baseCharge` and `TEMPLATING_RATE.baseCharge` plus the `DeliveryZone` interface in `distance-service.ts:4-11`. A rename to `baseRate` would touch those constants and their cost-formula consumers (`calculateDeliveryCostFn`, `calculateTemplatingCostFn`), which is outside this sprint's surgical scope.
+
+### Defensive behaviour summary
+
+| Scenario | What happens |
+|---|---|
+| Quote with no delivery address | `distanceKm` null → `matchedDeliveryZone` null → `baseCharge`/`ratePerKm` both null → helper returns null → row hidden by upstream `deliveryTotal > 0` guard |
+| Quote with `templatingRequired: false` | `finalCost: 0` → row hidden by upstream `templatingTotal > 0` guard |
+| Legacy stored breakdown (pre-this-sprint) | `baseCharge`/`ratePerKm` undefined on the JSON object → helpers fall through to existing zone+distance / distance-only outputs |
+| Distance > 500 km (no zone matches) | `getDeliveryZone` returns null → `matchedDeliveryZone` null → both fields null on breakdown → helper omits rate string |

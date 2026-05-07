@@ -1750,6 +1750,14 @@ export async function calculateQuotePrice(
     }
   }
 
+  // Resolve the matched delivery zone (if distance is known) so its rates can
+  // be exposed on the breakdown. Independent of the auto-calc path above —
+  // works for both freshly-calculated and saved-cost quotes.
+  const matchedDeliveryZone =
+    deliveryDistanceKm !== null
+      ? getDeliveryZone(deliveryDistanceKm, DELIVERY_ZONES)
+      : null;
+
   const deliveryBreakdown = {
     address: deliveryAddress,
     distanceKm: deliveryDistanceKm,
@@ -1759,6 +1767,10 @@ export async function calculateQuotePrice(
     finalCost: quoteAny.overrideDeliveryCost
       ? Number(quoteAny.overrideDeliveryCost)
       : (calculatedDeliveryCost ?? 0),
+    // Coerce — DeliveryZone.baseCharge is typed `number | { toString(): string }`
+    // for Prisma Decimal compatibility; the breakdown surface uses plain numbers.
+    baseCharge: matchedDeliveryZone ? Number(matchedDeliveryZone.baseCharge) : null,
+    ratePerKm: matchedDeliveryZone ? Number(matchedDeliveryZone.ratePerKm) : null,
   };
 
   // Calculate templating cost — guard: if templatingRequired is false, cost is always $0
@@ -1773,6 +1785,8 @@ export async function calculateQuotePrice(
           ? Number(quoteAny.overrideTemplatingCost)
           : (calculatedTemplatingCost ?? 0))
       : 0,
+    baseCharge: TEMPLATING_RATE.baseCharge,
+    ratePerKm: TEMPLATING_RATE.ratePerKm,
   };
 
   // Calculate initial subtotal from aggregate values.
