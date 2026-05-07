@@ -10,6 +10,7 @@ import prisma from '@/lib/db';
 import { edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import type { ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -46,6 +47,16 @@ export interface QuotePdfPiece {
     cornerJoin: number;
     pieceTotal: number;
   };
+  /**
+   * For L/U-shaped pieces: individual part dimensions (back, legs).
+   * Undefined for rectangles and other single-shape pieces — those keep the
+   * existing `lengthMm × widthMm` bounding-box display.
+   */
+  parts?: Array<{
+    name: string;
+    lengthMm: number;
+    widthMm: number;
+  }>;
   sortOrder: number;
 }
 
@@ -155,6 +166,48 @@ function resolveCutoutTypeName(
 }
 
 // ── Edge Summary ─────────────────────────────────────────────────────────────
+
+/**
+ * For L/U-shaped pieces, extract individual part dimensions from `shape_config`
+ * so the PDF renderer can list each part instead of the bounding box.
+ *
+ *   L_SHAPE  → 2 parts: Leg 1, Leg 2
+ *   U_SHAPE  → 3 parts: Back, Left Leg, Right Leg
+ *
+ * Returns `undefined` for rectangles and other single-shape pieces — those
+ * keep the existing `lengthMm × widthMm` bounding-box display.
+ */
+function buildPartsFromShapeConfig(
+  shapeType: string | null | undefined,
+  shapeConfig: unknown,
+): QuotePdfPiece['parts'] {
+  if (!shapeConfig) return undefined;
+  // Prisma JSONB columns come through as plain JsonValue; double-cast to the
+  // typed union (Rule 9 — Prisma JSON double cast).
+  const cfg = shapeConfig as unknown as ShapeConfig;
+  if (!cfg) return undefined;
+
+  if (shapeType === 'L_SHAPE' && (cfg as LShapeConfig).shape === 'L_SHAPE') {
+    const c = cfg as LShapeConfig;
+    if (!c.leg1 || !c.leg2) return undefined;
+    return [
+      { name: 'Leg 1', lengthMm: c.leg1.length_mm, widthMm: c.leg1.width_mm },
+      { name: 'Leg 2', lengthMm: c.leg2.length_mm, widthMm: c.leg2.width_mm },
+    ];
+  }
+
+  if (shapeType === 'U_SHAPE' && (cfg as UShapeConfig).shape === 'U_SHAPE') {
+    const c = cfg as UShapeConfig;
+    if (!c.back || !c.leftLeg || !c.rightLeg) return undefined;
+    return [
+      { name: 'Back',      lengthMm: c.back.length_mm,     widthMm: c.back.width_mm },
+      { name: 'Left Leg',  lengthMm: c.leftLeg.length_mm,  widthMm: c.leftLeg.width_mm },
+      { name: 'Right Leg', lengthMm: c.rightLeg.length_mm, widthMm: c.rightLeg.width_mm },
+    ];
+  }
+
+  return undefined;
+}
 
 function buildEdgeSummary(
   edges: {
@@ -335,6 +388,8 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         pieceTotal: pb?.pieceTotal ?? 0,
       };
 
+      const parts = buildPartsFromShapeConfig(piece.shape_type, piece.shape_config);
+
       pdfPieces.push({
         id: piece.id,
         name: piece.name,
@@ -349,6 +404,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         cutouts: resolvedCutouts,
         cutoutSummary: cutoutSummaryParts.join(', '),
         pricing,
+        parts,
         sortOrder: piece.sort_order,
       });
     }

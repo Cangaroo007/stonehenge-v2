@@ -824,3 +824,24 @@ TEMPLATE-MANAGE-1 done
 - **Files changed:** 1 file, 33 insertions, 14 deletions, +19 net.
   - `src/lib/services/quote-pdf-service.ts` (+19)
 - ✅ `npx tsc --noEmit` zero errors.
+## 2026-05-06 — CALC-FIX-PDF-DIMENSIONS
+- **Title:** L/U-shaped pieces in PDF showed bounding-box dimensions instead of individual part dimensions; now match NCS Q22338 format
+- **Status:** ✅ Resolved
+- **Branch:** fix/calc-fix-pdf-dimensions
+- **Audit reference:** `CALCULATOR-AUDIT-REPORT.md` — PDF renderer line 412 used `${piece.lengthMm} × ${piece.widthMm}mm` which is the bounding box (`2840 × 2180mm` for U-shape Kitchen). NCS reference quote Q22338 lists individual parts (`1 @ 965 × 600`, `1 @ 1200 × 600`, etc.). The per-leg dimensions live in `shape_config.{back, leftLeg, rightLeg}` (or `leg1, leg2` for L-shape) but were never threaded into the PDF data model.
+- **Root cause:** `QuotePdfPiece` carried only the rectangle `lengthMm`/`widthMm` columns from the DB row, which for shaped pieces are populated as the bounding-box rectangle. The shape's actual part dimensions in `quote_pieces.shape_config` (JSONB column) were available on the prisma piece row but never extracted.
+- ✅ **quote-pdf-service.ts (data model):** added optional `parts?: Array<{ name: string; lengthMm: number; widthMm: number }>` to the `QuotePdfPiece` interface (purely additive — `?` optional, no field renamed). Imported `ShapeConfig`, `LShapeConfig`, `UShapeConfig` types from `@/lib/types/shapes` (type-only imports). Added `buildPartsFromShapeConfig(shapeType, shapeConfig)` helper that double-casts the JSONB through `as unknown as ShapeConfig` (Rule 9), checks both the DB column `shape_type` AND the JSON discriminator `cfg.shape` for agreement, and returns:
+  - `L_SHAPE` → 2 parts: `Leg 1` (leg1.length × leg1.width), `Leg 2` (leg2.length × leg2.width).
+  - `U_SHAPE` → 3 parts: `Back` (back.length × back.width), `Left Leg`, `Right Leg`.
+  - Anything else (rectangle, radius, circle, concave arc, rounded rect, malformed config) → `undefined` so renderer falls back to bounding box.
+- ✅ **quote-pdf-renderer.ts (display):** extended `buildPieceRow` (line 407) with a `hasParts = piece.parts != null && piece.parts.length > 0` boolean. When true: top-row dimensions slot is empty (`''`); each part is pushed as a leading detail row in the format `1 @ {L} × {W}mm ({Name})` — matching the NCS Q22338 reference exactly. When false: existing `${piece.lengthMm} × ${piece.widthMm}mm` template fires unchanged. Other detail rows (description, edges, cutouts, material) flow after the parts.
+- **Defensive behaviour:** `buildPartsFromShapeConfig` returns `undefined` on null shape_config, missing legs, or discriminator mismatch (e.g. `shape_type === 'U_SHAPE'` but `cfg.shape !== 'U_SHAPE'`) — protecting against partially-built pieces or legacy data drift.
+- **Out of scope (deferred to Sprint 7+ PDF overhaul):**
+  - Curved pieces (`RADIUS_END`, `FULL_CIRCLE`, `CONCAVE_ARC`, `ROUNDED_RECT`) — fall through to bounding box. Their dimension fields (radius, diameter, etc.) need a separate display path.
+  - The empty top-row dimensions slot for L/U pieces relies on flexbox preserving column alignment with empty Text. If layout shifts emerge in production, that's a styling adjustment, not a correctness fix.
+- **No changes to:** `pricing-calculator-v2.ts`, `pricing-rules-engine.ts`, UI calculate route, `QuotePDF.tsx`, builder-UI parts components (`PieceRow.tsx`, `QuickViewPieceRow.tsx`, etc. — they already display per-leg dims via direct shape_config reads).
+- **Verification scenario for Quote 156 (Rule 28 / Rule 53):** after Railway deploys, the U-shape Kitchen piece in the PDF shows three detail rows immediately below the piece name: `1 @ 2840 × 600mm (Back)`, `1 @ 1580 × 600mm (Left Leg)`, `1 @ 1580 × 600mm (Right Leg)` — instead of the bounding-box `2840 × 2180mm` in the top row. Adjacent regression: any all-rectangle quote shows the existing `{lengthMm} × {widthMm}mm` per piece, no parts rows.
+- **Files changed:** 2 files, 68 insertions, 1 deletion, +67 net.
+  - `src/lib/services/quote-pdf-service.ts` (+56) — `parts?` field on `QuotePdfPiece`, type imports, `buildPartsFromShapeConfig` helper, wiring at assembly site
+  - `src/lib/services/quote-pdf-renderer.ts` (+11) — conditional parts-as-details branch in `buildPieceRow`
+- ✅ `npx tsc --noEmit` zero errors.
