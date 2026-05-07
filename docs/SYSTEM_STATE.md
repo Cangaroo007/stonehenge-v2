@@ -2434,3 +2434,151 @@ No null guards crash; every degradation produces a sensible visual outcome.
 ### Australian spelling
 
 All cover-page strings either neutral (`stonework`, `fabricated`, `installed`, `deposit`) or already Australian (`colour` in PLEASE NOTE block matches the schema/Bible spelling). No US/UK divergent words introduced.
+
+## 2026-05-07 — PDF-ROOM-BREAKDOWN — Page 2+ rebuilt as NCS Q22338 description-style room blocks
+
+The breakdown page used to render each piece as an independent visual row with its own price column. As of this sprint each room renders as a single description-style block matching the NCS Q22338 reference: thickness-prefixed title left + room price right, then `Description:` label → per-piece description lines → bullet additionals → italic material → divider.
+
+### Page-2 layout (post-sprint)
+
+```
+40mm Kitchen                                                    $1,719.75
+Description:
+40mm U-Shaped Benchtops
+1 @ 2840 × 600
+1 @ 1580 × 600
+1 @ 1580 × 600
+- 1 x Undermount Sink cutout
+- 1 x Hotplate cutout
+Jewel                                                  ← italic material name
+─────────────────────────────────────────────          ← 0.5px BORDER_GRAY rule
+
+20mm Splashbacks                                                    $312.00
+Description:
+1100 × 600 × 20mm Benchtop
+- 1 x GPO cutout
+Jewel
+─────────────────────────────────────────────
+
+                                                Total Excl. GST    $2,021.21
+                                                GST                  $192.02
+                                                Total Incl. GST    $2,112.17
+
+                                                                Page 2 of 2
+```
+
+### `QuotePdfPiece.pieceType` (new field)
+
+```typescript
+export interface QuotePdfPiece {
+  // ... existing fields ...
+  parts?: Array<{ name: string; lengthMm: number; widthMm: number }>;
+  /**
+   * Piece role: BENCHTOP / ISLAND / VANITY / SHELF / PANEL / OTHER (main
+   * pieces) or WATERFALL / SPLASHBACK (attachments). Drives the NCS-style
+   * additionals bullets in the room breakdown ("- 1 x Waterfall End").
+   */
+  pieceType: string | null;     // ← NEW
+  sortOrder: number;
+}
+```
+
+Populated from `quote_pieces.piece_type` (schema column already existed with default `'BENCHTOP'`). Required (not optional) on the type — the schema default guarantees the field is present at runtime; null fallback in the assembly is purely defensive.
+
+### Renderer architecture (`src/lib/services/quote-pdf-renderer.ts`)
+
+#### Three new helpers
+
+```typescript
+function isMainPiece(p: QuotePdfPiece): boolean {
+  const t = (p.pieceType ?? 'BENCHTOP').toUpperCase();
+  return t !== 'WATERFALL' && t !== 'SPLASHBACK';
+}
+
+function attachmentLabel(p: QuotePdfPiece): string {
+  const t = (p.pieceType ?? '').toUpperCase();
+  if (t === 'WATERFALL') return 'Waterfall End';
+  if (t === 'SPLASHBACK') return 'Splashback';
+  return 'Attachment';
+}
+
+function pieceDescriptionLines(p: QuotePdfPiece): string[] {
+  // L/U pieces: header + part dims (uses `parts` array from CALC-FIX-PDF-DIMENSIONS).
+  // Rectangles: single "L × W × Tmm Benchtop" line.
+  if (p.parts && p.parts.length > 0) {
+    const shape = p.parts.length === 3 ? 'U-Shaped Benchtops'
+                : p.parts.length === 2 ? 'L-Shaped Benchtop'
+                : 'Shaped Benchtop';
+    return [`${p.thicknessMm}mm ${shape}`, ...p.parts.map(part =>
+      `1 @ ${part.lengthMm} × ${part.widthMm}`)];
+  }
+  return [`${p.lengthMm} × ${p.widthMm} × ${p.thicknessMm}mm Benchtop`];
+}
+```
+
+#### Rewritten `buildRoomSection`
+
+Replaces the previous flat-list-of-piece-rows rendering. New flow:
+
+1. **Compact-mode early return** — when `settings.showPieceBreakdown === false`, render title + price + divider only.
+2. **Split pieces** — `mainPieces` (benchtops/islands/etc.) vs `attachmentPieces` (waterfalls/splashbacks). Edge case: room with only attachments (e.g. dedicated "Splashbacks" room) → all pieces become main so the room renders something.
+3. **Title row** — `"{dominant thickness}mm {room.name}"` left, `fmtCurrency(room.roomTotal)` right (when `showRoomTotals`).
+4. **Description block** — single `Description:` label, then every main piece's `pieceDescriptionLines()` flattened into one list.
+5. **Bullets** — attachments first (`- 1 x Waterfall End`), then cutouts across all pieces (`- {qty} x {name} cutout`). Cutout suffix always singular for simplicity.
+6. **Material** — italic, first non-null `materialName` from main pieces. Multi-material per-room is a deferred gap.
+7. **Divider** — 0.5px `BORDER_GRAY` rule between rooms.
+
+#### Removed code
+
+- `buildPieceRow` — local helper, only caller was the old `buildRoomSection`. Verified no external consumers via grep at Gate 0. Net ~50 lines deleted.
+- Old `// ── Room Section ──` style block (`roomHeader` / `roomName` / `roomTotal`) — replaced with the description-style room-block styles.
+
+#### Orphan styles (left intentionally — Rule 7)
+
+These StyleSheet entries no longer have any code references but remain in the StyleSheet object as inert dictionary entries:
+- `styles.pieceRow`, `pieceTopRow`, `pieceName`, `pieceDimensions`, `piecePrice`, `pieceDetail` (consumed only by the removed `buildPieceRow`).
+
+A follow-up cleanup sprint can remove them. They cost nothing at runtime; removing in this sprint would be restructuring beyond the task scope.
+
+### `buildTotals` labels — NCS terminology
+
+| Old label | New label |
+|---|---|
+| `Subtotal (excl. GST)` | `Total Excl. GST` |
+| `settings.gstLabel` (e.g. `GST (10%)`) | `GST` (fixed string — percentage is implicit) |
+| `Total (incl. GST)` | `Total Incl. GST` |
+
+`settings.gstLabel` is no longer consulted by `buildTotals`. The setting still exists on `PdfTemplateSettings` for backward compat but has no effect on this rendering path.
+
+### What did NOT change
+
+- `pricing-calculator-v2.ts` — calculator math untouched (per spec).
+- `renderCoverPage` — cover page from Sprint 7A intact; Document tree still produces 2 pages.
+- `buildHeader`, `buildQuoteInfo`, `buildCharges`, `buildTerms`, `buildPageFooter` — unchanged.
+- API route, UI calculate route, `TotalBreakdownAccordion.tsx`, `QuotePDF.tsx`.
+- Page numbering — automatic via existing `buildPageFooter` render prop. "Page 1 of N" / "Page 2 of N" continues to work.
+- `QuotePdfRoom` type, `roomTotal` calculation — all already in place from prior sprints.
+
+### Defensive behaviour
+
+| Scenario | What renders |
+|---|---|
+| Room with only attachments (no benchtop) | All-attachments branch — pieces become "main", description block populated |
+| Room with mixed-material pieces | First non-null `materialName` from main pieces shown; others not surfaced |
+| Piece with `pieceType` null/undefined | Treated as BENCHTOP (default) — main piece, drives description |
+| Empty room (no pieces) | Filtered upstream by the assembly's `if (roomTotal === 0) continue` (line 418) — doesn't render |
+| `settings.showPieceBreakdown === false` | Compact mode: title + price + divider only |
+| L-shape with `parts.length === 2` | Header `"40mm L-Shaped Benchtop"` + 2 part lines |
+| U-shape with `parts.length === 3` | Header `"40mm U-Shaped Benchtops"` + 3 part lines |
+| Other shape with non-2/non-3 parts | Header `"40mm Shaped Benchtop"` + N part lines |
+
+### Decisions made (worth flagging for future readers)
+
+1. **Edge profile dropped from room title.** NCS Q22338 example shows `"40mm Mitred Kitchen"` but Stonehenge edge profiles are per-side and `edgeSummary` is text like `"ARR on front and bottom, MIT on left"`. No clean single profile name without fuzzy mode-detection + a renderer-level edge-name lookup (currently scoped to the data assembly). Title is `"{thickness}mm {room.name}"` for now.
+2. **Cutout suffix always singular.** Renders `"- 1 x Undermount Sink cutout"` even for qty > 1. Pluralisation skipped for simplicity.
+3. **`pricingMode` ('itemised' vs 'room_total') no longer affects pieces.** Previously gated per-piece price visibility via the deleted `buildPieceRow`. New room block always shows ONE room price (gated only by `showRoomTotals`).
+4. **Orphan StyleSheet entries left in place** per Rule 7. Follow-up cleanup sprint can sweep.
+
+### Australian spelling
+
+Helper-function strings use Australian-neutral terms (`Benchtop`, `Splashback`, `Waterfall End`, `Description`, `cutout`). No US-spelling words introduced.

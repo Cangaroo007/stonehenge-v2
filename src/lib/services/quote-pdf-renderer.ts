@@ -155,27 +155,59 @@ const styles = StyleSheet.create({
     color: DARK_GRAY,
     marginBottom: 6,
   },
-  // ── Room Section ──
-  roomHeader: {
+  // ── Room Section (NCS Q22338 description-style block) ──
+  roomBlock: {
+    marginTop: 14,
+    marginBottom: 6,
+  },
+  roomTitleRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
-    backgroundColor: LIGHT_GRAY,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    marginTop: 12,
+    alignItems: 'flex-start',
     marginBottom: 4,
-    borderRadius: 2,
   },
-  roomName: {
-    fontSize: 10,
+  roomTitle: {
+    fontSize: 11,
+    fontFamily: 'Helvetica-Bold',
+    color: '#111827',
+    flex: 1,
+  },
+  roomBlockPrice: {
+    fontSize: 11,
     fontFamily: 'Helvetica-Bold',
     color: DARK_GRAY,
+    textAlign: 'right' as const,
+    minWidth: 80,
   },
-  roomTotal: {
-    fontSize: 10,
+  roomDescLabel: {
+    fontSize: 9,
     fontFamily: 'Helvetica-Bold',
     color: DARK_GRAY,
+    marginTop: 2,
+    marginBottom: 2,
+  },
+  roomDescLine: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    marginBottom: 1,
+  },
+  roomBullet: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    marginBottom: 1,
+    paddingLeft: 8,
+  },
+  roomMaterial: {
+    fontSize: 9,
+    color: DARK_GRAY,
+    fontStyle: 'italic' as const,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  roomBlockDivider: {
+    height: 0.5,
+    backgroundColor: BORDER_GRAY,
+    marginTop: 4,
   },
   // ── Piece Row ──
   pieceRow: {
@@ -696,73 +728,148 @@ function buildQuoteInfo(data: QuotePdfData) {
   );
 }
 
-function buildPieceRow(
-  piece: QuotePdfPiece,
-  settings: PdfTemplateSettings,
-  showPrice: boolean,
-): React.ReactElement {
-  // L/U-shaped pieces have an array of part dimensions (Back, legs). When
-  // present, list each part as a detail row below the piece name and leave
-  // the top-row dimensions slot empty — matching the NCS reference format
-  // (Q22338) of "1 @ L × W mm (Part)" per part. Rectangle and other
-  // single-shape pieces keep the bounding-box `lengthMm × widthMm` display.
-  const hasParts = piece.parts != null && piece.parts.length > 0;
-  const dimensions = hasParts ? '' : `${piece.lengthMm} × ${piece.widthMm}mm`;
-  const details: string[] = [];
+// ── Room block helpers (NCS Q22338 description-style format) ────────────────
 
-  if (hasParts) {
-    for (const p of piece.parts!) {
-      details.push(`1 @ ${p.lengthMm} × ${p.widthMm}mm (${p.name})`);
-    }
-  }
-  if (settings.showPieceDescriptions && piece.description) {
-    details.push(piece.description);
-  }
-  if (settings.showEdgeDetails && piece.edgeSummary) {
-    details.push(`Edges: ${piece.edgeSummary}`);
-  }
-  if (settings.showCutoutDetails && piece.cutoutSummary) {
-    details.push(`Cutouts: ${piece.cutoutSummary}`);
-  }
-  if (settings.showMaterialPerPiece && piece.materialName) {
-    details.push(`Material: ${piece.materialName}`);
-  }
-
-  return h(View, { style: styles.pieceRow, key: `piece-${piece.id}` },
-    h(View, { style: styles.pieceTopRow },
-      h(Text, { style: styles.pieceName },
-        `${piece.name}`,
-      ),
-      h(Text, { style: styles.pieceDimensions }, dimensions),
-      showPrice
-        ? h(Text, { style: styles.piecePrice }, fmtCurrency(piece.pricing.pieceTotal))
-        : null,
-    ),
-    ...details.map((detail, i) =>
-      h(Text, { style: styles.pieceDetail, key: `detail-${piece.id}-${i}` }, detail),
-    ),
-  );
+/**
+ * Pieces split into "main" (driving the description) and "attachment" (rendered
+ * as bullet additionals). Attachments are WATERFALL and SPLASHBACK piece types.
+ * If a room is ALL attachments (e.g. a "Splashbacks" room with no benchtop),
+ * treat them as main pieces so the room renders something meaningful.
+ */
+function isMainPiece(p: QuotePdfPiece): boolean {
+  const t = (p.pieceType ?? 'BENCHTOP').toUpperCase();
+  return t !== 'WATERFALL' && t !== 'SPLASHBACK';
 }
 
+/** Bullet label for an attachment piece. */
+function attachmentLabel(p: QuotePdfPiece): string {
+  const t = (p.pieceType ?? '').toUpperCase();
+  if (t === 'WATERFALL') return 'Waterfall End';
+  if (t === 'SPLASHBACK') return 'Splashback';
+  return 'Attachment';
+}
+
+/**
+ * Per-piece description lines for the room block.
+ *   L/U pieces  → header line ("40mm U-Shaped Benchtops") + part dims ("1 @ L × W").
+ *   Rectangles  → single line ("L × W × Tmm Benchtop").
+ */
+function pieceDescriptionLines(p: QuotePdfPiece): string[] {
+  const lines: string[] = [];
+  if (p.parts && p.parts.length > 0) {
+    const shape = p.parts.length === 3 ? 'U-Shaped Benchtops'
+                : p.parts.length === 2 ? 'L-Shaped Benchtop'
+                : 'Shaped Benchtop';
+    lines.push(`${p.thicknessMm}mm ${shape}`);
+    for (const part of p.parts) {
+      lines.push(`1 @ ${part.lengthMm} × ${part.widthMm}`);
+    }
+  } else {
+    lines.push(`${p.lengthMm} × ${p.widthMm} × ${p.thicknessMm}mm Benchtop`);
+  }
+  return lines;
+}
+
+/**
+ * Page 2+ — room breakdown block in NCS Q22338 layout:
+ *   {thickness}mm {room name}                                        $room total
+ *   Description:
+ *   {per-main-piece description + part dims}
+ *   - {N} x {Cutout name} cutout
+ *   - 1 x Waterfall End / Splashback
+ *   {Material name}
+ *   ────────────────────────────────────────────
+ */
 function buildRoomSection(
   room: QuotePdfRoom,
   settings: PdfTemplateSettings,
 ): React.ReactElement {
-  const showPiecePrice = settings.pricingMode === 'itemised';
-  const showRoomTotal = settings.showRoomTotals && settings.pricingMode !== 'total_only';
+  if (!settings.showPieceBreakdown) {
+    // Compact mode (room totals only) — header row + price.
+    return h(View, { style: styles.roomBlock, key: `room-${room.id}`, wrap: false },
+      h(View, { style: styles.roomTitleRow },
+        h(Text, { style: styles.roomTitle }, room.name),
+        settings.showRoomTotals
+          ? h(Text, { style: styles.roomBlockPrice }, fmtCurrency(room.roomTotal))
+          : null,
+      ),
+      h(View, { style: styles.roomBlockDivider }),
+    );
+  }
 
-  return h(View, { key: `room-${room.id}`, wrap: false },
-    // Room header bar
-    h(View, { style: styles.roomHeader },
-      h(Text, { style: styles.roomName }, room.name),
-      showRoomTotal
-        ? h(Text, { style: styles.roomTotal }, fmtCurrency(room.roomTotal))
+  let mainPieces = room.pieces.filter(isMainPiece);
+  let attachmentPieces = room.pieces.filter(p => !isMainPiece(p));
+  if (mainPieces.length === 0) {
+    mainPieces = room.pieces;
+    attachmentPieces = [];
+  }
+
+  // Room title — "{dominant thickness}mm {room name}". Edge profile in title
+  // is deliberately omitted — Stonehenge pieces can carry mixed edge profiles
+  // per side, so a single profile token would be misleading. The per-piece
+  // description carries the thickness; the materialName line carries the stone.
+  const dominantThickness = mainPieces[0]?.thicknessMm ?? null;
+  const roomLabel = dominantThickness != null
+    ? `${dominantThickness}mm ${room.name}`
+    : room.name;
+
+  // Description lines (one block, all main pieces concatenated).
+  const descLines: string[] = [];
+  for (const p of mainPieces) {
+    for (const line of pieceDescriptionLines(p)) {
+      descLines.push(line);
+    }
+  }
+
+  // Bullet additionals — attachment pieces first, then cutouts across all
+  // pieces in the room (so a benchtop's cutouts AND a waterfall's cutouts
+  // both show under the room).
+  const bulletLines: string[] = [];
+  for (const a of attachmentPieces) {
+    bulletLines.push(`- 1 x ${attachmentLabel(a)}`);
+  }
+  if (settings.showCutoutDetails) {
+    for (const p of room.pieces) {
+      for (const c of p.cutouts) {
+        if (c.quantity > 0) {
+          bulletLines.push(`- ${c.quantity} x ${c.name} cutout`);
+        }
+      }
+    }
+  }
+
+  // Material name — first non-null materialName from the main pieces. If a
+  // room has multiple materials, only the first is surfaced (room-level
+  // multi-material display is a separate gap).
+  const materialName = mainPieces.find(p => p.materialName)?.materialName ?? null;
+
+  return h(View, { style: styles.roomBlock, key: `room-${room.id}`, wrap: false },
+    // Title row: room label left, room total right.
+    h(View, { style: styles.roomTitleRow },
+      h(Text, { style: styles.roomTitle }, roomLabel),
+      settings.showRoomTotals
+        ? h(Text, { style: styles.roomBlockPrice }, fmtCurrency(room.roomTotal))
         : null,
     ),
-    // Pieces
-    settings.showPieceBreakdown
-      ? room.pieces.map(piece => buildPieceRow(piece, settings, showPiecePrice))
+    // Description block (only when there's main piece content).
+    descLines.length > 0
+      ? h(View, null,
+          h(Text, { style: styles.roomDescLabel }, 'Description:'),
+          ...descLines.map((line, i) =>
+            h(Text, { style: styles.roomDescLine, key: `desc-${room.id}-${i}` }, line),
+          ),
+        )
       : null,
+    // Additionals bullets.
+    ...bulletLines.map((b, i) =>
+      h(Text, { style: styles.roomBullet, key: `bullet-${room.id}-${i}` }, b),
+    ),
+    // Material name.
+    materialName
+      ? h(Text, { style: styles.roomMaterial }, materialName)
+      : null,
+    // Divider between rooms.
+    h(View, { style: styles.roomBlockDivider }),
   );
 }
 
@@ -851,22 +958,20 @@ function buildTotals(
   data: QuotePdfData,
   settings: PdfTemplateSettings,
 ): React.ReactElement {
+  // Labels match NCS Q22338: "Total Excl. GST" / "GST" / "Total Incl. GST".
   return h(View, { style: styles.totalsSection, key: 'totals' },
-    // Subtotal ex GST
     h(View, { style: styles.totalRow },
-      h(Text, { style: styles.totalLabel }, 'Subtotal (excl. GST)'),
+      h(Text, { style: styles.totalLabel }, 'Total Excl. GST'),
       h(Text, { style: styles.totalValue }, fmtCurrency(data.subtotalExGst)),
     ),
-    // GST
     settings.showGst
       ? h(View, { style: styles.totalRow },
-          h(Text, { style: styles.totalLabel }, settings.gstLabel),
+          h(Text, { style: styles.totalLabel }, 'GST'),
           h(Text, { style: styles.totalValue }, fmtCurrency(data.gstAmount)),
         )
       : null,
-    // Grand total
     h(View, { style: styles.grandTotalRow },
-      h(Text, { style: styles.grandTotalLabel }, 'Total (incl. GST)'),
+      h(Text, { style: styles.grandTotalLabel }, 'Total Incl. GST'),
       h(Text, { style: styles.grandTotalValue }, fmtCurrency(data.totalIncGst)),
     ),
   );
