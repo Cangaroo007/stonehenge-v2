@@ -177,6 +177,10 @@ export interface CalculationResult {
       calculatedCost: number | null;
       overrideCost: number | null;
       finalCost: number;
+      /** Zone base charge ($) — null when zone is not matched (no distance). */
+      baseCharge?: number | null;
+      /** Zone per-km rate ($/km) — null when zone is not matched. */
+      ratePerKm?: number | null;
     };
     templating?: {
       required: boolean;
@@ -184,6 +188,10 @@ export interface CalculationResult {
       calculatedCost: number | null;
       overrideCost: number | null;
       finalCost: number;
+      /** Templating base charge ($) — from TEMPLATING_RATE constant. */
+      baseCharge?: number | null;
+      /** Templating per-km rate ($/km) — from TEMPLATING_RATE constant. */
+      ratePerKm?: number | null;
     };
     pieces?: PiecePricingBreakdown[];
   };

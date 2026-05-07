@@ -57,11 +57,6 @@ function buildInstallationDetail(pieces: PiecePricingBreakdown[]): string | null
   return `${totalQuantity.toFixed(2)} ${unitShort(unit)} × ${formatCurrency(rate)} ${unitLabel(unit)}`;
 }
 
-// NEEDS CALCULATOR CHANGE — deferred: DELIVERY_ZONES base + per-km rates are
-// computed inside pricing-calculator-v2.ts (constant DELIVERY_ZONES at L73)
-// but not exposed on `breakdown.delivery`. Once the calculator returns
-// `breakdown.delivery.baseRate` and `breakdown.delivery.ratePerKm`, append the
-// rate breakdown here.
 function buildDeliveryDetail(
   d: NonNullable<CalculationResult['breakdown']['delivery']> | undefined,
 ): string | null {
@@ -69,18 +64,25 @@ function buildDeliveryDetail(
   const parts: string[] = [];
   if (d.zone) parts.push(`${d.zone} zone`);
   if (d.distanceKm != null) parts.push(`${d.distanceKm.toFixed(1)} km`);
+  // baseCharge + ratePerKm are exposed by the calculator (CALC-EXPOSE-RATE-DETAIL).
+  // Legacy stored breakdowns may lack these fields — guard both before appending.
+  if (d.baseCharge != null && d.ratePerKm != null) {
+    parts.push(`${formatCurrency(d.baseCharge)} base + ${formatCurrency(d.ratePerKm)}/km`);
+  }
   return parts.length ? parts.join(' · ') : null;
 }
 
-// NEEDS CALCULATOR CHANGE — deferred: TEMPLATING_RATE { baseCharge, ratePerKm }
-// (constant at L79 of pricing-calculator-v2.ts) is not exposed on
-// `breakdown.templating`. Once the calculator returns `breakdown.templating.baseCharge`
-// and `breakdown.templating.ratePerKm`, append `${base} base + ${km} km × ${perKm}/km`.
 function buildTemplatingDetail(
   t: NonNullable<CalculationResult['breakdown']['templating']> | undefined,
 ): string | null {
-  if (!t || t.distanceKm == null) return null;
-  return `${t.distanceKm.toFixed(1)} km`;
+  if (!t) return null;
+  // Full formula when calculator exposed both rates AND the distance is known.
+  if (t.baseCharge != null && t.ratePerKm != null && t.distanceKm != null) {
+    return `${formatCurrency(t.baseCharge)} base + ${t.distanceKm.toFixed(1)} km × ${formatCurrency(t.ratePerKm)}/km`;
+  }
+  // Fallback: distance-only when rates unknown (legacy stored breakdown).
+  if (t.distanceKm != null) return `${t.distanceKm.toFixed(1)} km`;
+  return null;
 }
 
 interface TotalBreakdownAccordionProps {
