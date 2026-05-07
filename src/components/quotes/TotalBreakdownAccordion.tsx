@@ -143,6 +143,16 @@ export default function TotalBreakdownAccordion({
   const deliveryDetail = buildDeliveryDetail(calculation?.breakdown?.delivery ?? undefined);
   const templatingDetail = buildTemplatingDetail(calculation?.breakdown?.templating ?? undefined);
 
+  // Per-rule pricing-adjustment lines. Calculator already populates
+  // calculation.appliedRules with each rule's name + amount + applies-to (see
+  // CALC-FIX-RULES-TRANSPARENCY). Filter to rules that actually fired (qty > 0)
+  // — inactive rules and non-percentage rules carry discountAmount === 0.
+  const firingRules = (calculation?.appliedRules ?? []).filter(
+    (r) => (r.discountAmount ?? 0) > 0,
+  );
+  const hasRulesDiscount =
+    calculation?.rulesDiscount != null && calculation.rulesDiscount > 0;
+
   // Installation: sum from per-piece breakdowns
   const installationTotal = pieces.reduce(
     (sum, p) => sum + (p.fabrication.installation?.total ?? 0),
@@ -303,13 +313,36 @@ export default function TotalBreakdownAccordion({
             <span className="font-semibold tabular-nums">{formatCurrency(subtotal)}</span>
           </div>
 
-          {/* Pricing Adjustment — rules-engine discount applied to subtotal */}
-          {calculation?.rulesDiscount != null && calculation.rulesDiscount > 0 && (
-            <div className="flex items-center justify-between text-sm text-green-600 px-1">
-              <span>Pricing Adjustment</span>
-              <span className="font-medium tabular-nums">-{formatCurrency(calculation.rulesDiscount)}</span>
-            </div>
-          )}
+          {/* Pricing Adjustment — one indented line per firing rule when
+              calculation.appliedRules is populated; legacy fallback to a single
+              "Pricing Adjustment" line when only the rolled-up rulesDiscount is
+              available (stored breakdowns predating CALC-FIX-RULES-TRANSPARENCY). */}
+          {firingRules.length > 0
+            ? firingRules.map((rule) => {
+                const pct =
+                  rule.adjustmentValue != null && rule.adjustmentValue !== 0
+                    ? ` (${rule.adjustmentValue}%)`
+                    : '';
+                return (
+                  <div
+                    key={`rule-${rule.ruleId}`}
+                    className="flex items-center justify-between text-xs text-green-600 px-1 pl-4"
+                  >
+                    <span>{rule.ruleName}{pct}</span>
+                    <span className="font-medium tabular-nums">
+                      -{formatCurrency(rule.discountAmount ?? 0)}
+                    </span>
+                  </div>
+                );
+              })
+            : hasRulesDiscount && (
+                <div className="flex items-center justify-between text-sm text-green-600 px-1">
+                  <span>Pricing Adjustment</span>
+                  <span className="font-medium tabular-nums">
+                    -{formatCurrency(calculation!.rulesDiscount!)}
+                  </span>
+                </div>
+              )}
 
           {/* Discount */}
           {discount > 0 && (
