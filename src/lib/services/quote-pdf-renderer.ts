@@ -409,9 +409,20 @@ function buildPieceRow(
   settings: PdfTemplateSettings,
   showPrice: boolean,
 ): React.ReactElement {
-  const dimensions = `${piece.lengthMm} × ${piece.widthMm}mm`;
+  // L/U-shaped pieces have an array of part dimensions (Back, legs). When
+  // present, list each part as a detail row below the piece name and leave
+  // the top-row dimensions slot empty — matching the NCS reference format
+  // (Q22338) of "1 @ L × W mm (Part)" per part. Rectangle and other
+  // single-shape pieces keep the bounding-box `lengthMm × widthMm` display.
+  const hasParts = piece.parts != null && piece.parts.length > 0;
+  const dimensions = hasParts ? '' : `${piece.lengthMm} × ${piece.widthMm}mm`;
   const details: string[] = [];
 
+  if (hasParts) {
+    for (const p of piece.parts!) {
+      details.push(`1 @ ${p.lengthMm} × ${p.widthMm}mm (${p.name})`);
+    }
+  }
   if (settings.showPieceDescriptions && piece.description) {
     details.push(piece.description);
   }

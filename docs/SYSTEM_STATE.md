@@ -1987,3 +1987,138 @@ The PDF service has no code path for surfacing shaped-piece edges. Grep for `sha
 ### Australian spelling
 
 The DB's `edge_types.name` may store either `"Mitered"` (American) or `"Mitred"` (Australian, per Rule 10). `edgeCode` produces `MIT` or `M` respectively — both correct, neither `CML`. The cosmetic difference is downstream of `edgeCode`'s keyword design; if Sean wants the abbreviation aligned to a specific style, that's a separate change to `edgeCode` itself (out of scope this sprint).
+
+## 2026-05-06 — CALC-FIX-PDF-DIMENSIONS — PDF lists L/U part dimensions instead of bounding box
+
+The PDF renderer used to print the bounding-box rectangle for every piece (`${piece.lengthMm} × ${piece.widthMm}mm`). For L/U-shaped pieces this collapses real fabrication geometry into a single misleading rectangle (`2840 × 2180mm` for Quote 156's U-shape Kitchen). This sprint threads `shape_config` part dimensions through the PDF data model so each leg appears as its own line, matching the NCS reference quote Q22338 format.
+
+### `src/lib/services/quote-pdf-service.ts` — data model + assembly
+
+#### `QuotePdfPiece.parts?` (new optional field)
+
+```typescript
+export interface QuotePdfPiece {
+  ...
+  pricing: { ... };
+  /**
+   * For L/U-shaped pieces: individual part dimensions (back, legs).
+   * Undefined for rectangles and other single-shape pieces — those keep the
+   * existing `lengthMm × widthMm` bounding-box display.
+   */
+  parts?: Array<{
+    name: string;
+    lengthMm: number;
+    widthMm: number;
+  }>;
+  sortOrder: number;
+}
+```
+
+Purely additive. `?` optional. The bounding-box `lengthMm`/`widthMm` fields stay on the type — they're still authoritative for rectangles and the fallback for any shape whose parts cannot be derived.
+
+#### `buildPartsFromShapeConfig(shapeType, shapeConfig)` (new helper)
+
+```typescript
+function buildPartsFromShapeConfig(
+  shapeType: string | null | undefined,
+  shapeConfig: unknown,
+): QuotePdfPiece['parts'] {
+  if (!shapeConfig) return undefined;
+  const cfg = shapeConfig as unknown as ShapeConfig;
+  if (!cfg) return undefined;
+
+  if (shapeType === 'L_SHAPE' && (cfg as LShapeConfig).shape === 'L_SHAPE') {
+    const c = cfg as LShapeConfig;
+    if (!c.leg1 || !c.leg2) return undefined;
+    return [
+      { name: 'Leg 1', lengthMm: c.leg1.length_mm, widthMm: c.leg1.width_mm },
+      { name: 'Leg 2', lengthMm: c.leg2.length_mm, widthMm: c.leg2.width_mm },
+    ];
+  }
+  if (shapeType === 'U_SHAPE' && (cfg as UShapeConfig).shape === 'U_SHAPE') {
+    const c = cfg as UShapeConfig;
+    if (!c.back || !c.leftLeg || !c.rightLeg) return undefined;
+    return [
+      { name: 'Back',      lengthMm: c.back.length_mm,     widthMm: c.back.width_mm },
+      { name: 'Left Leg',  lengthMm: c.leftLeg.length_mm,  widthMm: c.leftLeg.width_mm },
+      { name: 'Right Leg', lengthMm: c.rightLeg.length_mm, widthMm: c.rightLeg.width_mm },
+    ];
+  }
+  return undefined;
+}
+```
+
+| Input shape | Returns |
+|---|---|
+| `L_SHAPE` with both legs | 2 parts: `Leg 1`, `Leg 2` |
+| `U_SHAPE` with back + both legs | 3 parts: `Back`, `Left Leg`, `Right Leg` |
+| `RECTANGLE` (or null shape_type) | `undefined` |
+| `RADIUS_END`, `FULL_CIRCLE`, `CONCAVE_ARC`, `ROUNDED_RECT` | `undefined` (deferred to PDF overhaul) |
+| Discriminator mismatch (`shape_type === 'U_SHAPE'` but `cfg.shape !== 'U_SHAPE'`) | `undefined` |
+| Missing leg fields | `undefined` |
+
+The dual-discriminator check (DB column AND JSON discriminator must agree) is defence against partially-built pieces and legacy data drift. JSONB access uses the documented Rule 9 `as unknown as ShapeConfig` double-cast.
+
+#### Assembly wiring
+
+In the per-piece loop:
+
+```typescript
+const parts = buildPartsFromShapeConfig(piece.shape_type, piece.shape_config);
+
+pdfPieces.push({
+  ...
+  pricing,
+  parts,
+  sortOrder: piece.sort_order,
+});
+```
+
+### `src/lib/services/quote-pdf-renderer.ts` — display
+
+`buildPieceRow` (line 407) gained one boolean and a leading details push:
+
+```typescript
+const hasParts = piece.parts != null && piece.parts.length > 0;
+const dimensions = hasParts ? '' : `${piece.lengthMm} × ${piece.widthMm}mm`;
+const details: string[] = [];
+
+if (hasParts) {
+  for (const p of piece.parts!) {
+    details.push(`1 @ ${p.lengthMm} × ${p.widthMm}mm (${p.name})`);
+  }
+}
+// existing description / edges / cutouts / material details unchanged below
+```
+
+When `hasParts` is true: the top-row dimensions slot becomes empty (preserving the `[name | dim | price]` flex layout) and each part renders as a leading detail row. When false: the original `lengthMm × widthMm` template fires — rectangle and curved pieces continue to show the bounding box exactly as before.
+
+### Reconciliation example (Quote 156 Kitchen, U-shape)
+
+Before:
+```
+Kitchen U-Shape Benchtop      2840 × 2180mm                           $1,719.75
+Edges: ARR on front
+Cutouts: 1× U/M Sink, 1× HP
+```
+
+After:
+```
+Kitchen U-Shape Benchtop                                              $1,719.75
+1 @ 2840 × 600mm (Back)
+1 @ 1580 × 600mm (Left Leg)
+1 @ 1580 × 600mm (Right Leg)
+Edges: ARR on front
+Cutouts: 1× U/M Sink, 1× HP
+```
+
+The bounding-box `2840 × 2180mm` is replaced by three actual fabrication parts — matches the NCS Q22338 line-item format exactly.
+
+### Out of scope (PDF overhaul deferred)
+
+- Curved pieces' radius / diameter / corner-radius dimensions — `buildPartsFromShapeConfig` returns `undefined` for `RADIUS_END`, `FULL_CIRCLE`, `CONCAVE_ARC`, `ROUNDED_RECT`; renderer falls back to bounding box. Their geometry needs a separate display path with shape-specific labels (`Ø {diameter} mm`, `R{radius} mm` end, etc.).
+- Empty top-row dimensions slot — relies on flexbox + empty `Text` preserving column alignment. If a layout shift emerges in production for L/U pieces, that's cosmetic styling, not a correctness fix.
+
+### Australian spelling
+
+Part names (`Back`, `Left Leg`, `Right Leg`, `Leg 1`, `Leg 2`) and the `1 @ L × W mm (Name)` template are all language-neutral. No new comments introduce US spellings.
