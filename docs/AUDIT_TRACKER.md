@@ -950,3 +950,26 @@ TEMPLATE-MANAGE-1 done
 - **Files changed:** 1 file, 40 insertions, 7 deletions, +33 net.
   - `src/components/quotes/TotalBreakdownAccordion.tsx` (+33) — `firingRules` + `hasRulesDiscount` helpers in component body; three-branch render (per-rule lines / legacy fallback / hidden) replaces the single Pricing Adjustment block
 - ✅ `npx tsc --noEmit` zero errors.
+
+## 2026-05-08 — PDF-NCS-BRANDING
+- ✅ **PDF-NCS-BRANDING:** Logo fallback from `companies.logo_storage_key` via presigned R2 URL. NCS navy palette (`#1B3A6B`). Page 2 breakdown title + column headers added.
+- **Status:** ✅ Resolved
+- **Branch:** fix/pdf-ncs-branding
+- **Context:** Sprint 7A wired `template.logo_url` → `settings.companyLogoUrl` → cover-page `<Image>`. But `quote_templates` is empty in production, so the cover page rendered logoless. Sprint goal: extract NCS logo from `ncs-reference.pdf`, surface it on the PDF, and tighten branding (logo size, NCS palette, page-2 breakdown title and column header row).
+- ✅ **Gate 0 — logo plumbing (Option C, code fallback):** R2 credentials only live in Railway, not local `.env`, so the original "tsx upload" path was unworkable. Pivoted to a one-line route change: when `quote_templates` has no row (or `template.logo_url` is null), fall back to `companies.logo_storage_key` and call `getDownloadUrl` to produce an absolute presigned R2 URL — react-pdf fetches it server-side. `template.logo_url` still wins if explicitly set. Once the user uploads a logo via the existing `Settings → Company Logo` UI (`POST /api/company/logo`), the next PDF render auto-picks it up — no further DB or code changes needed.
+- ✅ **Gate 1 — cover & breakdown branding:**
+  - Logo container widened (`coverHeaderRight.width` 120 → 180) and logo dimensions bumped (`coverLogo.maxWidth` 120 → 170, `maxHeight` 80 → 90) to fit the NCS logo's ≈2:1 aspect.
+  - `BLUE` constant retuned `#2563eb` → `#1B3A6B` (NCS navy). Cascades to the page-2 accent line and `grandTotalValue`. `coverCompanyName` switched from `#111827` to `BLUE` so the cover company name carries the brand-blue weight visible in NCS Q22338.
+  - New `buildBreakdownHeader(data)` renders `"{projectName || quoteNumber || 'Quote'} Breakdown"` (13pt bold NCS-blue) plus a column header row (`Name | Unit Cost | Quantity | Cost`, flex 3/1/1/1, right-aligned numerics, 1pt bottom border, 8pt uppercase grey labels). Wired into the page-2 tree right after `buildQuoteInfo`, before the rooms.
+- **Decisions made:**
+  1. **Option C over R2 upload** — keeps Sean unblocked (no need to paste R2 creds or production auth cookie) and produces a permanent, automatic fix instead of a one-time data update. The `companies.logo_storage_key` UI flow already exists; this sprint just connects it to the PDF.
+  2. **`getDownloadUrl` (presigned) over `/api/company/logo/view` (redirect)** — server-side rendering doesn't need to chase a 302. Fresh presigned URL per PDF render, 1-hour expiry, no redirect-following surprise.
+  3. **Empty-template branch added** — when `template === null` but `fallbackLogoUrl` or company signoff fields exist, build a minimal `templateSettings` so the renderer's defaults merge with the logo/signoff. Without this, the renderer would fall through to pure `DEFAULT_TEMPLATE_SETTINGS` (logoUrl: null) even with the fallback computed.
+  4. **`GRAY` and `BORDER_GRAY` left untouched** — close enough to the NCS spec values (`#9EA2A6` / accent grey); tightening further without a visual diff risks over-tweaking.
+- **No changes to:** `pricing-calculator-v2.ts`, `quote-pdf-service.ts`, `r2.ts` (already had `getDownloadUrl`), `companies.logo_storage_key` schema (already existed), `quote_templates` table (no row inserted).
+- **Verification scenario (Rule 28 / Rule 53):** after Railway deploys, generate a PDF for any quote — page 1 cover header shows NCS logo top-right (≈170pt wide) and company name in NCS navy. Page 2 opens with `"{Project} Breakdown"` title + `Name | Unit Cost | Quantity | Cost` header row before the room blocks. Grand total figure renders in NCS navy instead of bright blue. Until a logo is uploaded via Settings, the cover renders without a logo (existing pre-sprint behaviour). Adjacent regression: existing room blocks, totals, terms, and signoff render unchanged from Sprint 7B.
+- **Files changed:** 3 files, 68 insertions, 8 deletions.
+  - `src/app/api/quotes/[id]/pdf/route.ts` (+16/−3) — `getDownloadUrl` import; `logo_storage_key` added to companies select; `fallbackLogoUrl` computed once; `template.logo_url ?? fallbackLogoUrl` cascade; minimal-templateSettings branch when template is null
+  - `src/lib/services/quote-pdf-renderer.ts` (+49/−5) — `BLUE` retuned to NCS navy; `coverHeaderRight` and `coverLogo` resized; `coverCompanyName` colour swapped to BLUE; 4 new breakdown-header styles; `buildBreakdownHeader` helper; wired into page-2 tree
+  - `.gitignore` (+3) — `ncs-reference.pdf` excluded
+- ✅ `npx tsc --noEmit` zero errors.

@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { assembleQuotePdfData } from '@/lib/services/quote-pdf-service';
 import { renderQuotePdf } from '@/lib/services/quote-pdf-renderer';
 import type { PdfTemplateSettings } from '@/lib/services/quote-pdf-renderer';
+import { getDownloadUrl } from '@/lib/storage/r2';
 
 export const dynamic = 'force-dynamic';
 
@@ -54,9 +55,16 @@ export async function GET(
       }),
       prisma.companies.findUnique({
         where: { id: authResult.user.companyId },
-        select: { signature_name: true, signature_title: true },
+        select: { signature_name: true, signature_title: true, logo_storage_key: true },
       }),
     ]);
+
+    // Fall back to companies.logo_storage_key when the template doesn't carry
+    // a logo_url — getDownloadUrl returns an absolute presigned R2 URL that
+    // react-pdf can fetch server-side.
+    const fallbackLogoUrl = company?.logo_storage_key
+      ? await getDownloadUrl(company.logo_storage_key, 3600)
+      : null;
 
     // Build template settings from DB template (with Northcoast defaults)
     let templateSettings: Partial<PdfTemplateSettings> | undefined;
@@ -67,7 +75,7 @@ export async function GET(
         companyPhone: template.company_phone,
         companyEmail: template.company_email,
         companyAddress: template.company_address,
-        companyLogoUrl: template.logo_url,
+        companyLogoUrl: template.logo_url ?? fallbackLogoUrl,
         showPieceBreakdown: template.show_piece_breakdown,
         showEdgeDetails: template.show_edge_details,
         showCutoutDetails: template.show_cutout_details,
@@ -82,6 +90,13 @@ export async function GET(
         termsAndConditions: template.terms_and_conditions,
         validityDays: template.validity_days,
         footerText: template.footer_text,
+        signoffName: company?.signature_name ?? null,
+        signoffTitle: company?.signature_title ?? null,
+      };
+    } else if (fallbackLogoUrl || company?.signature_name || company?.signature_title) {
+      // No template row, but we still have logo / signoff to surface.
+      templateSettings = {
+        companyLogoUrl: fallbackLogoUrl,
         signoffName: company?.signature_name ?? null,
         signoffTitle: company?.signature_title ?? null,
       };

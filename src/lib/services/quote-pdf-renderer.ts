@@ -90,7 +90,7 @@ export const DEFAULT_TEMPLATE_SETTINGS: PdfTemplateSettings = {
 
 // ── Styles ───────────────────────────────────────────────────────────────────
 
-const BLUE = '#2563eb';
+const BLUE = '#1B3A6B';
 const DARK_GRAY = '#374151';
 const GRAY = '#6b7280';
 const LIGHT_GRAY = '#f3f4f6';
@@ -155,6 +155,32 @@ const styles = StyleSheet.create({
     color: DARK_GRAY,
     marginBottom: 6,
   },
+  // ── Breakdown header (NCS Q22338: "{Project} Breakdown" + column row) ──
+  breakdownTitle: {
+    fontSize: 13,
+    fontFamily: 'Helvetica-Bold',
+    color: BLUE,
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  breakdownColRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: BORDER_GRAY,
+    paddingBottom: 4,
+    marginBottom: 4,
+  },
+  breakdownColLabel: {
+    fontSize: 8,
+    fontFamily: 'Helvetica-Bold',
+    color: GRAY,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 0.5,
+  },
+  breakdownColName: { flex: 3 },
+  breakdownColUnit: { flex: 1, textAlign: 'right' as const },
+  breakdownColQty: { flex: 1, textAlign: 'right' as const },
+  breakdownColCost: { flex: 1, textAlign: 'right' as const },
   // ── Room Section (NCS Q22338 description-style block) ──
   roomBlock: {
     marginTop: 14,
@@ -363,13 +389,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   coverHeaderRight: {
-    width: 120,
+    width: 180,
     alignItems: 'flex-end' as const,
   },
   coverCompanyName: {
     fontSize: 16,
     fontFamily: 'Helvetica-Bold',
-    color: '#111827',
+    color: BLUE,
     marginBottom: 4,
   },
   coverCompanyDetail: {
@@ -378,8 +404,8 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   coverLogo: {
-    maxWidth: 120,
-    maxHeight: 80,
+    maxWidth: 170,
+    maxHeight: 90,
     objectFit: 'contain' as const,
   },
   coverDivider: {
@@ -728,6 +754,21 @@ function buildQuoteInfo(data: QuotePdfData) {
   );
 }
 
+// ── Breakdown header (NCS Q22338 page 2: project title + column labels) ────
+
+function buildBreakdownHeader(data: QuotePdfData): React.ReactElement {
+  const projectLabel = data.projectName || data.quoteNumber || 'Quote';
+  return h(View, { key: 'breakdown-header' },
+    h(Text, { style: styles.breakdownTitle }, `${projectLabel} Breakdown`),
+    h(View, { style: styles.breakdownColRow },
+      h(Text, { style: [styles.breakdownColLabel, styles.breakdownColName] }, 'Name'),
+      h(Text, { style: [styles.breakdownColLabel, styles.breakdownColUnit] }, 'Unit Cost'),
+      h(Text, { style: [styles.breakdownColLabel, styles.breakdownColQty] }, 'Quantity'),
+      h(Text, { style: [styles.breakdownColLabel, styles.breakdownColCost] }, 'Cost'),
+    ),
+  );
+}
+
 // ── Room block helpers (NCS Q22338 description-style format) ────────────────
 
 /**
@@ -1035,6 +1076,9 @@ export async function renderQuotePdf(
 
       // Quote info (number, date, customer, job address, material)
       buildQuoteInfo(data),
+
+      // "{Project} Breakdown" title + column header row (NCS Q22338 page 2)
+      buildBreakdownHeader(data),
 
       // Room sections
       ...data.rooms.map(room => buildRoomSection(room, settings)),
