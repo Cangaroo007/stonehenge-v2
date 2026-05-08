@@ -2716,3 +2716,74 @@ The math is identical (sum invariant maintained); the visibility into which rule
 ### Australian spelling
 
 No new user-facing strings introduced. Rule names come from `pricing_rules_engine.name` (admin-configured per tenant); their spelling is the tenant's responsibility.
+
+## 2026-05-08 — PDF-NCS-BRANDING — Logo fallback + NCS palette + page-2 breakdown title/column header
+
+### `src/app/api/quotes/[id]/pdf/route.ts` — logo fallback
+
+Reads `companies.logo_storage_key` (added to the existing `prisma.companies.findUnique` select alongside `signature_name` / `signature_title`). When present, calls `getDownloadUrl(company.logo_storage_key, 3600)` from `@/lib/storage/r2` to produce an absolute presigned R2 URL (1-hour expiry). React-pdf fetches that URL server-side during render — no redirect, no auth cookie, no extra round-trip. `template.logo_url` still wins when explicitly set (`template.logo_url ?? fallbackLogoUrl`). When `quote_templates` has no row at all (current state for company_id = 1), a minimal `templateSettings` is built with just `companyLogoUrl`, `signoffName`, `signoffTitle` so the fallback flows through to the renderer's default merge.
+
+```ts
+const fallbackLogoUrl = company?.logo_storage_key
+  ? await getDownloadUrl(company.logo_storage_key, 3600)
+  : null;
+// ... template branch: companyLogoUrl: template.logo_url ?? fallbackLogoUrl
+// ... no-template branch: templateSettings = { companyLogoUrl: fallbackLogoUrl, signoffName, signoffTitle }
+```
+
+This means uploading a logo via the existing `Settings → Company Logo` UI (`POST /api/company/logo`, which stores in R2 and writes `companies.logo_storage_key`) is now sufficient to make the logo appear on every PDF — no `quote_templates` row required.
+
+### `src/lib/services/quote-pdf-renderer.ts` — branding refinements
+
+**Logo sizing** — `coverHeaderRight.width` 120 → 180, `coverLogo.maxWidth` 120 → 170, `maxHeight` 80 → 90. Sized for the NCS logo's ≈1.96:1 aspect ratio (1092 × 558 source); at 170pt wide the logo lands ≈170 × 87, comfortably inside the 90pt height cap.
+
+**Palette** — `const BLUE` retuned `#2563eb` → `#1B3A6B` (NCS navy). Used in two existing places (`accentLine.backgroundColor` on page 2, `grandTotalValue.color` for the total figure) plus a new third place: `coverCompanyName.color` was `#111827`, now `BLUE`. `GRAY` (`#6b7280`), `LIGHT_GRAY` (`#f3f4f6`), `BORDER_GRAY` (`#e5e7eb`), and `DARK_GRAY` (`#374151`) untouched.
+
+**Page-2 breakdown header** — new `buildBreakdownHeader(data)` builder, called from the page-2 tree immediately after `buildQuoteInfo` and before the room map:
+
+```
+{Project Name} Breakdown                                       ← 13pt bold, NCS navy
+─────────────────────────────────────────────────────────
+NAME            UNIT COST       QUANTITY        COST     ← 8pt bold uppercase grey, 1pt bottom border
+─────────────────────────────────────────────────────────
+{room blocks…}
+```
+
+Project label resolves `data.projectName || data.quoteNumber || 'Quote'`. Column row uses `flex: 3 / 1 / 1 / 1` with `textAlign: 'right'` on the three numeric columns. Header renders once at the top of page 2 — not repeated per room (the existing per-room price line continues to drive room totals).
+
+### Logo plumbing summary (post-sprint, end-to-end)
+
+```
+Settings UI uploads logo
+  → POST /api/company/logo
+  → uploadToR2(storageKey, buffer, mime)         // src/lib/storage/r2.ts
+  → companies.logo_storage_key = storageKey      // single source of truth
+
+PDF render
+  → /api/quotes/[id]/pdf reads companies.logo_storage_key
+  → getDownloadUrl(storageKey, 3600s)            // presigned R2 URL
+  → settings.companyLogoUrl = presigned URL
+  → renderCoverPage → <Image src={settings.companyLogoUrl} />
+```
+
+If `quote_templates.logo_url` is ever populated by the template editor, it takes precedence over the fallback (`template.logo_url ?? fallbackLogoUrl`) — preserves the original Sprint 7A path for tenants who choose to set a custom URL there.
+
+### `.gitignore` — local-only reference asset
+
+`ncs-reference.pdf` (the source NCS quote used to extract the logo and design the cover layout) is now in `.gitignore`. Lives at the repo root for local reference only; `git check-ignore` confirms it's excluded.
+
+### What did NOT change
+
+`pricing-calculator-v2.ts`, `quote-pdf-service.ts` (data assembly unchanged — same `QuotePdfData` shape feeds the new breakdown header), `r2.ts` (already exposed `getDownloadUrl`), `companies` schema (`logo_storage_key` already existed from the prior logo-upload sprint), `quote_templates` schema or rows (still empty in production — fallback handles it). `renderCoverPage` body unchanged — only its styles tweaked. `buildHeader`, `buildQuoteInfo`, `buildRoomSection`, `buildCharges`, `buildTotals`, `buildTerms`, `buildPageFooter` all untouched.
+
+### Decisions made (worth flagging for future readers)
+
+1. **Code fallback over R2 upload (Option C)** — the spec walked through extracting the logo, uploading to R2, and updating `quote_templates.logo_url`. Two blockers surfaced: (a) R2 credentials live only in Railway, not local `.env`; (b) `quote_templates` has zero rows in production. Pivoting to a one-line route change avoided a brittle one-off data update and produced a permanent, automatic fix that also benefits future tenants.
+2. **`getDownloadUrl` over `/api/company/logo/view`** — the existing view endpoint redirects to a presigned URL, but react-pdf's server-side image fetcher would have to follow the 302. Calling `getDownloadUrl` directly returns the same presigned URL with one fewer hop and zero ambiguity about redirect handling.
+3. **Empty-template branch** — without it, when `template === null` the route would skip building `templateSettings` entirely; the renderer would then merge `undefined` into `DEFAULT_TEMPLATE_SETTINGS` (which has `companyLogoUrl: null`) and the fallback would never reach the cover page. The new `else if (fallbackLogoUrl || company?.signature_name || company?.signature_title)` branch ensures the fallback flows through.
+4. **`coverCompanyName` colour change** — small but visually meaningful. Previously near-black (`#111827`), now NCS navy. Pairs the cover header text with the brand accent and the grand total. Decided here rather than deferred because spec D explicitly called it out.
+5. **`GRAY` / `BORDER_GRAY` left alone** — the NCS spec lists `#9EA2A6` for secondary text, close to but not identical to the existing `#6b7280`. Without a side-by-side visual diff against the NCS reference, a blind palette swap risked over-correction. Logged here for a future polish pass if Sean wants to take it tighter.
+
+### Australian spelling
+
+No new user-facing strings. The `"Breakdown"` title and column labels (`Name`, `Unit Cost`, `Quantity`, `Cost`) match the NCS Q22338 reference exactly.

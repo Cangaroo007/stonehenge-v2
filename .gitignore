@@ -44,3 +44,6 @@ next-env.d.ts
 # Prisma
 prisma/migrations/*/migration_lock.toml
 scripts/db-connect.sh
+
+# Local-only reference assets (not committed)
+ncs-reference.pdf
