@@ -477,6 +477,29 @@ export default function ExpandedPieceViewClient({
     [edgeTypes, pieceData?.edgeDetails]
   );
 
+  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT, L/U shapes)
+  const effectiveShapeType = (editFields?.shapeType ?? 'RECTANGLE') as ShapeType;
+  const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
+    if (!editFields) return {} as Record<string, string | null>;
+
+    if (effectiveShapeType === 'L_SHAPE' || effectiveShapeType === 'U_SHAPE') {
+      const cfg = editFields.shapeConfig as unknown as Record<string, unknown>;
+      const edges = (cfg?.edges as Record<string, string | null>) ?? {};
+      return { ...edges };
+    }
+    if (effectiveShapeType !== 'ROUNDED_RECT') return {} as Record<string, string | null>;
+    return {
+      top: editFields.edgeTop,
+      right: editFields.edgeRight,
+      bottom: editFields.edgeBottom,
+      left: editFields.edgeLeft,
+      corner_tl: editFields.cornerEdgeTl,
+      corner_tr: editFields.cornerEdgeTr,
+      corner_bl: editFields.cornerEdgeBl,
+      corner_br: editFields.cornerEdgeBr,
+    };
+  }, [effectiveShapeType, editFields]);
+
   // ── Loading state ──────────────────────────────────────────────────────────
 
   if (loading) {
@@ -507,27 +530,6 @@ export default function ExpandedPieceViewClient({
   const breakdown = pieceData.costBreakdown;
   const isMitred = editFields.laminationMethod === 'MITRED';
   const isPromotedStrip = isMitred && promotionThresholdMm != null && editFields.widthMm > promotionThresholdMm;
-
-  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT, L/U shapes)
-  const effectiveShapeType = (editFields.shapeType ?? 'RECTANGLE') as ShapeType;
-  const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
-    if (effectiveShapeType === 'L_SHAPE' || effectiveShapeType === 'U_SHAPE') {
-      const cfg = editFields.shapeConfig as unknown as Record<string, unknown>;
-      const edges = (cfg?.edges as Record<string, string | null>) ?? {};
-      return { ...edges };
-    }
-    if (effectiveShapeType !== 'ROUNDED_RECT') return {} as Record<string, string | null>;
-    return {
-      top: editFields.edgeTop,
-      right: editFields.edgeRight,
-      bottom: editFields.edgeBottom,
-      left: editFields.edgeLeft,
-      corner_tl: editFields.cornerEdgeTl,
-      corner_tr: editFields.cornerEdgeTr,
-      corner_bl: editFields.cornerEdgeBl,
-      corner_br: editFields.cornerEdgeBr,
-    };
-  }, [effectiveShapeType, editFields.shapeConfig, editFields.edgeTop, editFields.edgeRight, editFields.edgeBottom, editFields.edgeLeft, editFields.cornerEdgeTl, editFields.cornerEdgeTr, editFields.cornerEdgeBl, editFields.cornerEdgeBr]);
 
   return (
     <div className="min-h-screen bg-gray-50">

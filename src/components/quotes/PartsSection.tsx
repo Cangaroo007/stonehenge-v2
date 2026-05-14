@@ -795,22 +795,6 @@ export default function PartsSection({
     });
   }, [rooms, breakdownMap, optimizerResult, externalRelationships]);
 
-  const totalPartsCount = roomPartsData.reduce((sum, r) => sum + r.totalParts, 0);
-
-  if (totalPartsCount === 0) return null;
-
-  const toggleRoom = (roomId: number) => {
-    setExpandedRooms((prev) => {
-      const next = new Set(prev);
-      if (next.has(roomId)) {
-        next.delete(roomId);
-      } else {
-        next.add(roomId);
-      }
-      return next;
-    });
-  };
-
   // ── Strip width overrides cache ─────────────────────────────────────────
   // Tracks per-piece overrides locally so pills render correctly before re-fetch
   const [pieceOverrides, setPieceOverrides] = useState<Record<number, Record<string, number> | null>>({});
@@ -864,6 +848,22 @@ export default function PartsSection({
       setPieceOverrides(prev => ({ ...prev, [parentPieceId]: existing }));
     }
   }, [quoteId, pieceOverrides, onStripWidthChange]);
+
+  const totalPartsCount = roomPartsData.reduce((sum, r) => sum + r.totalParts, 0);
+
+  if (totalPartsCount === 0) return null;
+
+  const toggleRoom = (roomId: number) => {
+    setExpandedRooms((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) {
+        next.delete(roomId);
+      } else {
+        next.add(roomId);
+      }
+      return next;
+    });
+  };
 
   // ── Strip-to-piece promotion handler ──────────────────────────────────────
   async function handlePromoteStrip(part: Part, parentPiece: QuotePiece, stripKey: string) {

@@ -108,6 +108,7 @@ export default function QuoteLevelCostSections({
   );
 
   const addressInputRef = useRef<HTMLInputElement>(null);
+  const isEditMode = mode === 'edit';
 
   const handleRecalculateDelivery = async () => {
     if (!quoteId || isRecalculating) return;
@@ -139,24 +140,6 @@ export default function QuoteLevelCostSections({
       setIsRecalculating(false);
     }
   };
-  // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
-  if (!calculation.breakdown) {
-    return null;
-  }
-
-  const delivery = calculation.breakdown.delivery;
-  const templating = calculation.breakdown.templating;
-
-  // Aggregate installation from per-piece breakdowns
-  const installationData = aggregateInstallation(calculation);
-
-  const hasDeliveryData = !!(delivery && (delivery.address || delivery.distanceKm || delivery.zone));
-  const hasTemplatingData = !!(templating && (templating.required || templating.finalCost > 0));
-  const hasInstallationData = installationData.totalCost > 0 || installationData.items.length > 0;
-
-  const isEditMode = mode === 'edit';
-  const showDeliveryToggle = isEditMode && onDeliveryEnabledChange;
-
   useEffect(() => {
     const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
     if (!apiKey || !isEditMode || !onDeliveryAddressChange) return;
@@ -196,6 +179,23 @@ export default function QuoteLevelCostSections({
       pacContainers.forEach(el => el.remove());
     };
   }, [isEditMode, onDeliveryAddressChange]);
+
+  // Guard: if breakdown is missing (e.g. malformed JSON from DB), render nothing
+  if (!calculation.breakdown) {
+    return null;
+  }
+
+  const delivery = calculation.breakdown.delivery;
+  const templating = calculation.breakdown.templating;
+
+  // Aggregate installation from per-piece breakdowns
+  const installationData = aggregateInstallation(calculation);
+
+  const hasDeliveryData = !!(delivery && (delivery.address || delivery.distanceKm || delivery.zone));
+  const hasTemplatingData = !!(templating && (templating.required || templating.finalCost > 0));
+  const hasInstallationData = installationData.totalCost > 0 || installationData.items.length > 0;
+
+  const showDeliveryToggle = isEditMode && onDeliveryEnabledChange;
 
   // In edit mode, always show the section (for the delivery toggle)
   // In view mode, only show if there's data

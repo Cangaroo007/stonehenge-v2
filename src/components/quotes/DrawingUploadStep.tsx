@@ -35,7 +35,6 @@ export default function DrawingUploadStep({
   const [projectName, setProjectName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   // State for streamlined results view
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const [analysisData, setAnalysisData] = useState<any>(null);
   const [draftQuoteId, setDraftQuoteId] = useState<number | null>(null);
 

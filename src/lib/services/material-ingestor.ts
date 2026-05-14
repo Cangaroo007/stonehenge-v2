@@ -296,11 +296,9 @@ export async function ingestPriceList(
     throw new Error('No text response from Claude');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsed = parseClaudeJson(textBlock.text) as any;
 
   // Assign stable IDs and resolve collisions
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const extractedData: ProposedMaterial[] = (parsed.materials ?? []).map((m: any) => {
     const _id = uuidv4();
     const [slabLengthMm, slabWidthMm] = normaliseDimensions(
@@ -359,7 +357,6 @@ export async function ingestPriceList(
   });
 
   // Build uncertainties with stable IDs
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const uncertainties: Uncertainty[] = (parsed.uncertainties ?? []).map((u: any) => {
     const relatedMaterialIds = extractedData
       .filter((m) =>
@@ -418,12 +415,10 @@ export async function refineProposal(
     throw new Error('No text response from Claude');
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const parsed = parseClaudeJson(textBlock.text) as any;
 
   // Merge only changed materials by _id
   const updatedById = new Map<string, Partial<ProposedMaterial>>(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (parsed.updatedMaterials ?? []).map((m: any) => [m._id as string, m]),
   );
 
@@ -441,7 +436,6 @@ export async function refineProposal(
 
   // Append new uncertainties surfaced by the command
   const newUncertainties: Uncertainty[] = (parsed.newUncertainties ?? []).map(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     (u: any) => ({
       id: uuidv4(),
       severity: u.severity,
