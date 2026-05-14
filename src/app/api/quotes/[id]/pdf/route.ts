@@ -110,9 +110,25 @@ export async function GET(
     // Render PDF
     const pdfBuffer = await renderQuotePdf(data, templateSettings, sectionsConfig);
 
-    // Filename falls back when quote_number is null (draft / unsaved quote) so
-    // the browser doesn't download "null.pdf".
-    const filename = `${data.quoteNumber ?? `Q-${quoteId}-DRAFT`}.pdf`;
+    // Filename pattern: "{quoteNumber} - {customer} - {project} rev{N}.pdf"
+    // (e.g. "Q22338 - Glover - Buderim rev2.pdf"). Customer and project segments
+    // are skipped when missing; "Untitled Quote" is treated as a placeholder and
+    // falls back to the project address.
+    const quotePart = data.quoteNumber ?? `Q-${quoteId}-DRAFT`;
+    const customerPart = data.customer?.name?.trim() || null;
+    const projectName = data.projectName?.trim();
+    const projectPart =
+      projectName && projectName !== 'Untitled Quote'
+        ? projectName
+        : data.projectAddress?.trim() || null;
+    const revPart = `rev${data.revision}`;
+    const segments = [quotePart, customerPart, projectPart].filter(Boolean);
+    // Strip filesystem-unsafe characters (and the double quote that would break
+    // the Content-Disposition header) and collapse runs of whitespace.
+    const filename = `${segments.join(' - ')} ${revPart}.pdf`
+      .replace(/[/\\:*?"<>|]/g, '-')
+      .replace(/\s+/g, ' ')
+      .trim();
 
     return new Response(new Uint8Array(pdfBuffer), {
       headers: {
