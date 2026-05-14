@@ -100,13 +100,34 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Job Number
 - Default Thickness (usually 20mm or 40mm)
 
-### For Each Stone Piece:
+### For Each Quote-Ready Stone Piece:
 - Piece number if marked
 - Room/area label
 - Length in millimetres (null if unreadable)
 - Width in millimetres (null if unreadable)
 - Shape: RECTANGLE, L_SHAPE, U_SHAPE, or IRREGULAR
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
+
+## FABRICATION CUT-LIST RULES
+
+You are not creating a visual summary of the drawing. You are creating quote rows for fabrication.
+
+Northcoast-style quotes are built from physical pieces, not overall footprints:
+- A kitchen drawn as an L-shape is usually two straight pieces unless the drawing explicitly labels it as one fabricated shaped piece.
+- A kitchen drawn as a U-shape is usually three straight pieces unless the drawing explicitly labels it as one fabricated shaped piece.
+- Islands, vanities, laundries, WIP benches, powder-room tops, waterfalls, panels, splashbacks, drop fronts, and loose returns are separate quote pieces.
+- If a drawing says two or three units are the same, expand them into separate physical pieces for each unit. Do not return "x2" or grouped summary rows.
+- If a run is split by joins, posts, appliances, or dimension segments, return the separate quote-ready segments shown by the drawing.
+- Put each cutout on the piece that physically contains it.
+
+## DIMENSION SANITY CHECKS
+
+Before returning JSON, audit your own pieces:
+- Do not use the full bounding rectangle of an L/U/kitchen footprint as one piece dimension.
+- A normal wall benchtop is commonly around 500-900mm deep. If width is much larger, explain why in notes or split the shape.
+- Large values such as 3000 x 2757 or 5914 x 3346 are usually footprint envelopes, not quoteable stone pieces. Split them into the visible runs if dimensions are shown.
+- If you can read multiple run dimensions along one outline, each run should normally become a separate piece.
+- If you cannot determine the split, return the uncertain dimensions as null and ask clarification questions rather than guessing.
 
 ### Confidence Scoring:
 - 0.9–1.0: Clear dimension line, no ambiguity
