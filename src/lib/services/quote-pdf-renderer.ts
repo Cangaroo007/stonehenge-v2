@@ -702,6 +702,7 @@ function buildHeader(settings: PdfTemplateSettings) {
 }
 
 function buildQuoteInfo(data: QuotePdfData) {
+  const displayQuoteNumber = data.quoteNumber || `Q-${data.quoteId}-DRAFT`;
   const customerName = data.customer?.name || '';
   const customerCompany = data.customer?.company || '';
   const contactName = data.contact
@@ -712,7 +713,7 @@ function buildQuoteInfo(data: QuotePdfData) {
     // Left column: quote details
     h(View, { style: styles.infoColumn },
       h(Text, { style: styles.infoLabel }, 'QUOTE NUMBER'),
-      h(Text, { style: styles.infoValueBold }, data.quoteNumber),
+      h(Text, { style: styles.infoValueBold }, displayQuoteNumber),
       h(Text, { style: styles.infoLabel }, 'DATE'),
       h(Text, { style: styles.infoValue }, data.quoteDate),
       data.validUntil
@@ -1056,13 +1057,14 @@ export async function renderQuotePdf(
     ...getDefaultSectionsConfig('COMPREHENSIVE'),
     ...sectionsConfig,
   };
+  const displayQuoteNumber = data.quoteNumber || `Q-${data.quoteId}-DRAFT`;
 
   // Build the document tree — two pages:
   //   Page 1: cover page (NCS Q22338 layout: company → quote title → For → intro
   //           → PLEASE NOTE → cost summary → terms → signoff)
   //   Page 2+: detail breakdown (header → rooms → charges → totals → terms)
   const doc = h(Document, {
-    title: `Quote ${data.quoteNumber}`,
+    title: `Quote ${displayQuoteNumber}`,
     author: settings.companyName,
     subject: `Quote for ${data.customer?.name || 'Customer'}`,
   },

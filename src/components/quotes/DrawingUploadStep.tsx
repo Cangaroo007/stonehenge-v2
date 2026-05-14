@@ -418,8 +418,36 @@ export default function DrawingUploadStep({
   if (analysisState === 'results' && analysisData && draftQuoteId) {
     const importAndRedirect = async (mode?: string) => {
       // Import pieces from analysis into the draft quote
-      const analysis = analysisData as { rooms?: Array<{ name: string; pieces: Array<{ name: string; length: number; width: number; thickness: number; notes?: string | null }>}>; metadata?: { defaultThickness?: number } };
-      const pieces: { name: string; length: number; width: number; thickness: number; room: string; notes: string | null }[] = [];
+      const analysis = analysisData as { rooms?: Array<{ name: string; pieces: Array<{
+        name: string;
+        length: number;
+        width: number;
+        thickness: number;
+        notes?: string | null;
+        materialId?: number | null;
+        material?: string | null;
+        materialName?: string | null;
+        edgeTop?: string | null;
+        edgeBottom?: string | null;
+        edgeLeft?: string | null;
+        edgeRight?: string | null;
+        cutouts?: Array<{ name?: string; type?: string; quantity?: number }>;
+      }>}>; metadata?: { defaultThickness?: number } };
+      const pieces: Array<{
+        name: string;
+        length: number;
+        width: number;
+        thickness: number;
+        room: string;
+        notes: string | null;
+        materialId?: number | null;
+        material?: string | null;
+        edgeTop?: string | null;
+        edgeBottom?: string | null;
+        edgeLeft?: string | null;
+        edgeRight?: string | null;
+        cutouts?: Array<{ name?: string; type?: string; quantity?: number }>;
+      }> = [];
       for (const room of analysis.rooms || []) {
         for (const piece of room.pieces || []) {
           pieces.push({
@@ -429,6 +457,13 @@ export default function DrawingUploadStep({
             thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
             room: room.name || 'Kitchen',
             notes: piece.notes || null,
+            materialId: piece.materialId ?? null,
+            material: piece.materialName || piece.material || null,
+            edgeTop: piece.edgeTop || null,
+            edgeBottom: piece.edgeBottom || null,
+            edgeLeft: piece.edgeLeft || null,
+            edgeRight: piece.edgeRight || null,
+            cutouts: piece.cutouts || [],
           });
         }
       }

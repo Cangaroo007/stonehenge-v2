@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
 
     // 3. Generate quote number using existing pattern
     const lastQuote = await prisma.quotes.findFirst({
+      where: { quote_number: { not: null } },
       orderBy: { id: 'desc' },
       select: { quote_number: true },
     });

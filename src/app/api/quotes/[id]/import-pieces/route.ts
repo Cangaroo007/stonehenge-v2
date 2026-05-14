@@ -9,12 +9,18 @@ interface ImportPieceData {
   width: number;
   thickness?: number;
   room?: string;
+  materialId?: number | null;
   material?: string;
   notes?: string;
   edgeTop?: string;
   edgeBottom?: string;
   edgeLeft?: string;
   edgeRight?: string;
+  cutouts?: Array<{
+    name?: string;
+    type?: string;
+    quantity?: number;
+  }>;
 }
 
 interface ImportRequest {
@@ -144,6 +150,14 @@ export async function POST(
         const lengthMm = Math.round(pieceData.length);
         const widthMm = Math.round(pieceData.width);
         const thicknessMm = pieceData.thickness || 20;
+        const cutouts = Array.isArray(pieceData.cutouts)
+          ? pieceData.cutouts
+              .map((cutout) => ({
+                name: cutout.name || cutout.type || 'Cutout',
+                quantity: cutout.quantity ?? 1,
+              }))
+              .filter((cutout) => cutout.name)
+          : [];
 
         // Calculate area
         const areaSqm = (lengthMm * widthMm) / 1_000_000;
@@ -157,7 +171,7 @@ export async function POST(
             width_mm: widthMm,
             thickness_mm: thicknessMm,
             area_sqm: areaSqm,
-            material_id: null,
+            material_id: pieceData.materialId ?? null,
             material_name: pieceData.material || null,
             // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
             // Kept to avoid null constraint violations. Do not read this value for display.
@@ -166,7 +180,7 @@ export async function POST(
             // Kept to avoid null constraint violations. Do not read this value for display.
             total_cost: 0,
             sort_order: sortOrder++,
-            cutouts: [],
+            cutouts,
             edge_top: pieceData.edgeTop || null,
             edge_bottom: pieceData.edgeBottom || null,
             edge_left: pieceData.edgeLeft || null,
