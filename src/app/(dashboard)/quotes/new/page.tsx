@@ -1,18 +1,18 @@
 import NewQuoteWizard from '@/components/quotes/NewQuoteWizard';
 import ClassicQuoteBuilder from '@/components/quotes/ClassicQuoteBuilder';
+import CreateDraftQuoteRedirect from '@/components/quotes/CreateDraftQuoteRedirect';
 
 export const dynamic = 'force-dynamic';
 
 /**
- * /quotes/new — renders the New Quote wizard with 3 options:
- *   1. From Drawing — upload PDF, AI extracts pieces
- *   2. From Template — pick a starter template, assign materials
- *   3. Manual — blank draft quote, add pieces manually
+ * /quotes/new — creates a blank draft and opens the quote editor.
+ * The editor itself exposes Import Drawing, From Template, and Manual controls.
  *
  * Accepts optional ?customerId=<id> to pre-assign a customer.
  *
  * ?mode=classic — bypasses wizard, shows the old pre-wizard builder
  *   (creates draft + redirects to edit mode). Accessible via "Build Quote" left nav.
+ * ?mode=wizard — shows the old 3-choice creation wizard.
  */
 export default async function NewQuotePage({
   searchParams,
@@ -32,10 +32,18 @@ export default async function NewQuotePage({
     );
   }
 
-  // Default → show wizard (Manual / Drawing / Template)
+  if (mode === 'wizard') {
+    return (
+      <div className="space-y-6">
+        <NewQuoteWizard customerId={safeCustomerId} />
+      </div>
+    );
+  }
+
+  // Default → create a blank draft and use the quote editor as the main workspace.
   return (
     <div className="space-y-6">
-      <NewQuoteWizard customerId={safeCustomerId} />
+      <CreateDraftQuoteRedirect customerId={safeCustomerId} />
     </div>
   );
 }
