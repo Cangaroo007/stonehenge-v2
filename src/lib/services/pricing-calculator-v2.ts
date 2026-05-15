@@ -239,21 +239,52 @@ function scaleCost(currentCost: number, currentQuantity: number, overrideQuantit
   return currentCost * (overrideQuantity / currentQuantity);
 }
 
-function applyQuantityOverrideToEdgeItems(
-  items: Array<{ lm: number; cost: number }>,
-  targetLm: number
+function applyQuantityOverrideToEdgeItems<T extends { lm: number; cost: number }>(
+  items: T[],
+  targetLm: number,
+  matches: (item: T) => boolean = () => true
 ): number {
-  const currentLm = items.reduce((sum, item) => sum + item.lm, 0);
-  if (currentLm <= 0) return 0;
+  const selected = items.filter(matches);
+  const currentLm = selected.reduce((sum, item) => sum + item.lm, 0);
+  if (currentLm <= 0) return items.reduce((sum, item) => sum + item.cost, 0);
 
-  let newCost = 0;
-  for (const item of items) {
+  for (const item of selected) {
     const itemTargetLm = targetLm * (item.lm / currentLm);
     item.cost = scaleCost(item.cost, item.lm, itemTargetLm);
     item.lm = itemTargetLm;
-    newCost += item.cost;
   }
-  return newCost;
+  return items.reduce((sum, item) => sum + item.cost, 0);
+}
+
+function sumEdgeItemsLm(items: Array<{ lm: number }>): number {
+  return items.reduce((sum, item) => sum + item.lm, 0);
+}
+
+function edgeOverrideMatchesLine(
+  override: PricingOverrideRecord,
+  item: { edgeTypeId: number },
+  edgeTypeReverseMap: Map<number, { isMitred?: boolean | null }>
+): boolean {
+  const token = normalizeOverrideToken(override.category);
+  if (token === 'ALL' || token === 'EDGE' || token === 'POLISH' || token === 'EDGE_PROFILE') {
+    return true;
+  }
+
+  const isMitredEdge = edgeTypeReverseMap.get(item.edgeTypeId)?.isMitred === true;
+  if (token === 'MITRE_POLISH') return isMitredEdge;
+  if (token === 'NORMAL_POLISH') return !isMitredEdge;
+
+  return false;
+}
+
+function isEdgeOverrideCategory(override: PricingOverrideRecord): boolean {
+  const token = normalizeOverrideToken(override.category);
+  return token === 'ALL' ||
+    token === 'EDGE' ||
+    token === 'POLISH' ||
+    token === 'EDGE_PROFILE' ||
+    token === 'NORMAL_POLISH' ||
+    token === 'MITRE_POLISH';
 }
 
 export interface EnhancedCalculationResult extends CalculationResult {
@@ -1356,17 +1387,21 @@ export async function calculateQuotePrice(
     const piece = allPieces[i];
     if (!piece) continue;
 
-    const edgeCategory: OverrideCategory = isMitredPiece(piece) ? 'MITRE_POLISH' : 'NORMAL_POLISH';
-    const edgeLmOverride = pricingOverrides.find(o =>
+    const edgeLmOverrides = pricingOverrides.filter(o =>
       overrideAppliesToPiece(o, piece.id) &&
       normalizeOverrideToken(o.override_type) === 'LM' &&
-      categoryMatches(o, edgeCategory, piece)
+      isEdgeOverrideCategory(o) &&
+      ep.edgeProfiles.items.some(item => edgeOverrideMatchesLine(o, item, edgeTypeReverseMap))
     );
-    if (edgeLmOverride) {
+    for (const edgeLmOverride of edgeLmOverrides) {
       const before = ep.edgeProfiles.cost;
       const targetLm = overrideValue(edgeLmOverride);
-      ep.edgeProfiles.cost = applyQuantityOverrideToEdgeItems(ep.edgeProfiles.items, targetLm);
-      ep.edgeProfiles.lm = targetLm;
+      ep.edgeProfiles.cost = applyQuantityOverrideToEdgeItems(
+        ep.edgeProfiles.items,
+        targetLm,
+        item => edgeOverrideMatchesLine(edgeLmOverride, item, edgeTypeReverseMap)
+      );
+      ep.edgeProfiles.lm = sumEdgeItemsLm(ep.edgeProfiles.items);
       const delta = ep.edgeProfiles.cost - before;
       appliedPricingOverrides.push({
         id: edgeLmOverride.id,
@@ -1390,7 +1425,7 @@ export async function calculateQuotePrice(
         },
       },
       {
-        category: edgeCategory,
+        category: 'EDGE',
         apply: multiplier => {
           const before = ep.edgeProfiles.cost;
           for (const item of ep.edgeProfiles.items) {
@@ -1428,11 +1463,26 @@ export async function calculateQuotePrice(
       const multiplierOverrides = pricingOverrides.filter(o =>
         overrideAppliesToPiece(o, piece.id) &&
         normalizeOverrideToken(o.override_type) === 'MULTIPLIER' &&
-        categoryMatches(o, adjustment.category, piece)
+        (adjustment.category === 'EDGE'
+          ? isEdgeOverrideCategory(o) && ep.edgeProfiles.items.some(item => edgeOverrideMatchesLine(o, item, edgeTypeReverseMap))
+          : categoryMatches(o, adjustment.category, piece))
       );
       for (const override of multiplierOverrides) {
         const multiplier = overrideValue(override);
-        const delta = adjustment.apply(multiplier);
+        let delta: number;
+        if (adjustment.category === 'EDGE') {
+          const before = ep.edgeProfiles.cost;
+          for (const item of ep.edgeProfiles.items) {
+            if (edgeOverrideMatchesLine(override, item, edgeTypeReverseMap)) {
+              item.cost *= multiplier;
+              item.rate *= multiplier;
+            }
+          }
+          ep.edgeProfiles.cost = ep.edgeProfiles.items.reduce((sum, item) => sum + item.cost, 0);
+          delta = ep.edgeProfiles.cost - before;
+        } else {
+          delta = adjustment.apply(multiplier);
+        }
         appliedPricingOverrides.push({
           id: override.id,
           pieceId: piece.id,

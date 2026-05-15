@@ -109,7 +109,7 @@ export interface PiecePricingResult {
   name: string
   cutting:        { lm: number; ratePerLm: number; cost: number }
   curvedCutting:  { lm: number; ratePerLm: number; cost: number } | null
-  edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; lm: number; rate: number; cost: number }> }
+  edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; position?: EngineEdge['position'] | 'ARC'; lm: number; rate: number; cost: number }> }
   cutouts:        { cost: number; items: Array<{ type: string; qty: number; rate: number; cost: number }> }
   join:           { lm: number; rate: number; cost: number } | null
   grainSurcharge: { base: number; rate: number; cost: number } | null
@@ -207,7 +207,7 @@ export function ruleEdgeProfiles(
     const rate = catRate
       ? (piece.thickness_mm >= 40 ? catRate.rate40mm : catRate.rate20mm)
       : 0  // $0 = intentionally free profile (e.g. Arris, Pencil Round)
-    items.push({ edgeTypeId: edge.edgeTypeId!, lm, rate, cost: lm * rate })
+    items.push({ edgeTypeId: edge.edgeTypeId!, position: edge.position, lm, rate, cost: lm * rate })
   }
 
   // ARC EDGE PROFILES
@@ -229,7 +229,7 @@ export function ruleEdgeProfiles(
     if (piece.shapeType === 'FULL_CIRCLE' && arcConfig.perimeter) {
       const lm = piece.arcLengthLm
       const rate = lookupArcRate(arcConfig.perimeter)
-      items.push({ edgeTypeId: Number(arcConfig.perimeter), lm, rate, cost: lm * rate })
+      items.push({ edgeTypeId: Number(arcConfig.perimeter), position: 'ARC', lm, rate, cost: lm * rate })
     }
 
     // RADIUS_END — one or two arc ends
@@ -242,7 +242,7 @@ export function ruleEdgeProfiles(
         const edgeTypeIdStr = arcConfig[key]
         if (edgeTypeIdStr) {
           const rate = lookupArcRate(edgeTypeIdStr)
-          items.push({ edgeTypeId: Number(edgeTypeIdStr), lm: lmPerEnd, rate, cost: lmPerEnd * rate })
+          items.push({ edgeTypeId: Number(edgeTypeIdStr), position: 'ARC', lm: lmPerEnd, rate, cost: lmPerEnd * rate })
         }
       }
     }
@@ -256,7 +256,7 @@ export function ruleEdgeProfiles(
       for (const corner of activeCorners) {
         const edgeTypeIdStr = arcConfig[corner]!
         const rate = lookupArcRate(edgeTypeIdStr)
-        items.push({ edgeTypeId: Number(edgeTypeIdStr), lm: lmPerCorner, rate, cost: lmPerCorner * rate })
+        items.push({ edgeTypeId: Number(edgeTypeIdStr), position: 'ARC', lm: lmPerCorner, rate, cost: lmPerCorner * rate })
       }
     }
   }
