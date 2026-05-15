@@ -7,6 +7,7 @@ export interface MaterialPickerMaterial {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  pricePerSlab?: number | null;
   supplier?: { id: string; name: string } | null;
 }
 
@@ -31,6 +32,18 @@ interface MaterialPickerV2Props {
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD', minimumFractionDigits: 0, maximumFractionDigits: 0 }).format(amount);
+}
+
+function conservativeMaterialPrice(material: MaterialPickerMaterial): number {
+  return material.pricePerSlab && material.pricePerSlab > 0
+    ? material.pricePerSlab
+    : material.pricePerSqm ?? 0;
+}
+
+function materialPriceLabel(material: MaterialPickerMaterial): string {
+  return material.pricePerSlab && material.pricePerSlab > 0
+    ? `${formatCurrency(material.pricePerSlab)}/slab`
+    : `${formatCurrency(material.pricePerSqm)}/m²`;
 }
 
 export default function MaterialPickerV2({
@@ -114,7 +127,8 @@ export default function MaterialPickerV2({
     );
   }, [materials, search]);
 
-  // Collection conservative price (per sqm): use the most expensive colour.
+  // Collection conservative price: use the most expensive slab price when
+  // available, otherwise fall back to the most expensive per-m² rate.
   const collectionMaxMaterial = useMemo(() => {
     if (!selectedCollection) return null;
     const inCollection = materials.filter(m => {
@@ -124,7 +138,7 @@ export default function MaterialPickerV2({
     });
     if (!inCollection.length) return null;
     return inCollection.reduce((max, m) =>
-      (m.pricePerSqm ?? 0) > (max.pricePerSqm ?? 0) ? m : max
+      conservativeMaterialPrice(m) > conservativeMaterialPrice(max) ? m : max
     );
   }, [materials, selectedCollection, selectedSupplier]);
 
@@ -198,7 +212,7 @@ export default function MaterialPickerV2({
                   <span className="text-gray-400 flex-shrink-0 w-[100px] truncate">{mat.supplier?.name ?? ''}</span>
                   <span className="text-gray-400 flex-shrink-0 w-[120px] truncate">{mat.collection ?? ''}</span>
                   <span className="flex-1 truncate font-medium">{mat.name}</span>
-                  <span className="text-gray-400 flex-shrink-0">{formatCurrency(mat.pricePerSqm)}/m&sup2;</span>
+                  <span className="text-gray-400 flex-shrink-0">{materialPriceLabel(mat)}</span>
                 </button>
               ))}
               {searchFiltered.length === 0 && (
@@ -276,7 +290,7 @@ export default function MaterialPickerV2({
                         }`}
                       >
                         <span className="truncate">{mat.name}</span>
-                        <span className="text-gray-400 ml-1 flex-shrink-0">{formatCurrency(mat.pricePerSqm)}</span>
+                        <span className="text-gray-400 ml-1 flex-shrink-0">{materialPriceLabel(mat)}</span>
                       </button>
                     ))}
                     {selectedCollection && collectionMaxMaterial && (
@@ -285,7 +299,7 @@ export default function MaterialPickerV2({
                           onClick={handleUseCollectionMax}
                           className="w-full text-left px-3 py-1.5 text-xs text-amber-600 italic hover:bg-amber-50 transition-colors"
                         >
-                          Use collection max {formatCurrency(collectionMaxMaterial.pricePerSqm)}/m&sup2;
+                          Use collection max {materialPriceLabel(collectionMaxMaterial)}
                         </button>
                       </div>
                     )}

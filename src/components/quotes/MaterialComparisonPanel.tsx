@@ -19,6 +19,8 @@ export interface ComparisonSlot {
   materialId: number;
   materialName: string;
   collectionId?: string | null;
+  collectionName?: string | null;
+  collectionOnly?: boolean;
   useCollectionAvg: boolean;
   subtotal: number;
   gstAmount: number;
@@ -68,6 +70,11 @@ export default function MaterialComparisonPanel({
     savedSlots.forEach((s, i) => { if (s && i < MAX_SLOTS) initial[i] = s.materialId; });
     return initial;
   });
+  const [selectedCollectionInfo, setSelectedCollectionInfo] = useState<Array<{
+    collectionOnly: true;
+    collectionName: string;
+    displayName: string;
+  } | null>>([null, null, null]);
   const [loadingSlots, setLoadingSlots] = useState<boolean[]>([false, false, false]);
   const [switchingSlot, setSwitchingSlot] = useState<number | null>(null);
 
@@ -84,7 +91,13 @@ export default function MaterialComparisonPanel({
       const res = await fetch(`/api/quotes/${quoteId}/estimate-material`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slotIndex, materialId: String(materialId) }),
+        body: JSON.stringify({
+          slotIndex,
+          materialId: String(materialId),
+          collectionOnly: selectedCollectionInfo[slotIndex]?.collectionOnly ?? false,
+          collectionName: selectedCollectionInfo[slotIndex]?.collectionName ?? null,
+          displayName: selectedCollectionInfo[slotIndex]?.displayName ?? null,
+        }),
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
@@ -98,7 +111,7 @@ export default function MaterialComparisonPanel({
     } finally {
       setLoadingSlots(prev => { const n = [...prev]; n[slotIndex] = false; return n; });
     }
-  }, [quoteId, selectedMaterialIds]);
+  }, [quoteId, selectedCollectionInfo, selectedMaterialIds]);
 
   const clearSlot = useCallback(async (slotIndex: number) => {
     await fetch(`/api/quotes/${quoteId}/estimate-material`, {
@@ -200,11 +213,24 @@ export default function MaterialComparisonPanel({
               <MaterialPickerV2
                 materials={materials}
                 value={selectedMaterialIds[slotIndex]}
-                onChange={(id) => {
+                onChange={(id, _mat, collectionInfo) => {
                   setSelectedMaterialIds(prev => {
                     const n = [...prev]; n[slotIndex] = id; return n;
                   });
+                  setSelectedCollectionInfo(prev => {
+                    const n = [...prev];
+                    n[slotIndex] = collectionInfo?.collectionOnly
+                      ? {
+                          collectionOnly: true,
+                          collectionName: collectionInfo.collectionName,
+                          displayName: collectionInfo.displayName,
+                        }
+                      : null;
+                    return n;
+                  });
                 }}
+                collectionOnly={selectedCollectionInfo[slotIndex]?.collectionOnly ?? false}
+                collectionName={selectedCollectionInfo[slotIndex]?.collectionName ?? null}
               />
 
               {/* Estimate button — shown when no result yet, or for re-estimation */}

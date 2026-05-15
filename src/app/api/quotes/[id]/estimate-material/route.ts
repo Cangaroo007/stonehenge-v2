@@ -34,7 +34,15 @@ export async function POST(
   }
 
   const body = await request.json();
-  const { slotIndex, materialId, useCollectionAvg = false, collectionId } = body;
+  const {
+    slotIndex,
+    materialId,
+    useCollectionAvg = false,
+    collectionId,
+    collectionOnly = false,
+    collectionName = null,
+    displayName = null,
+  } = body;
 
   if (typeof slotIndex !== 'number' || slotIndex < 0 || slotIndex >= MAX_SLOTS) {
     return NextResponse.json(
@@ -138,8 +146,12 @@ export async function POST(
   const slotResult = {
     slotIndex,
     materialId: Number(materialId),
-    materialName: material.name,
-    collectionId: collectionId ?? null,
+    materialName: collectionOnly && typeof displayName === 'string' && displayName.trim()
+      ? displayName.trim()
+      : material.name,
+    collectionId: collectionId ?? collectionName ?? null,
+    collectionName: typeof collectionName === 'string' ? collectionName : null,
+    collectionOnly: Boolean(collectionOnly),
     useCollectionAvg,
     ...estimateResult,
     calculatedAt: new Date().toISOString(),
