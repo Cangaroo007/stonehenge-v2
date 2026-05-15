@@ -1476,6 +1476,20 @@ export default function PieceVisualEditor({
   // Check if piece has at least one non-raw edge (for save template button)
   const hasNonRawEdge = !!(edgeTop || edgeBottom || edgeLeft || edgeRight);
 
+  const getSuppressedEdgeLabel = useCallback((edgeId: string) => {
+    const attachedType = attachedPieceTypes?.[edgeId];
+    if (attachedType === 'WATERFALL') return 'Waterfall join';
+    if (attachedType === 'SPLASHBACK') return 'Splashback join';
+    return 'Against wall';
+  }, [attachedPieceTypes]);
+
+  const getSuppressedEdgeHelp = useCallback((edgeId: string) => {
+    const attachedType = attachedPieceTypes?.[edgeId];
+    if (attachedType === 'WATERFALL') return 'Waterfall join - return strip suppressed';
+    if (attachedType === 'SPLASHBACK') return 'Splashback join - return strip suppressed';
+    return 'Wall edge - no profile or lamination strip';
+  }, [attachedPieceTypes]);
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -2215,17 +2229,25 @@ export default function PieceVisualEditor({
               style={{ left: popover.x, top: popover.y - 32 }}
             >
               <button
-                onClick={() => handleWallEdgeToggle(popover.side)}
+                onClick={() => {
+                  if (attachedPieceTypes?.[popover.side]) return;
+                  handleWallEdgeToggle(popover.side);
+                }}
+                disabled={!!attachedPieceTypes?.[popover.side]}
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  noStripEdges.includes(popover.side)
+                  attachedPieceTypes?.[popover.side]
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed'
+                    : noStripEdges.includes(popover.side)
                     ? 'bg-slate-700 text-white border-slate-600'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                {noStripEdges.includes(popover.side) ? 'Against wall' : 'Against wall'}
+                {getSuppressedEdgeLabel(popover.side)}
               </button>
               {noStripEdges.includes(popover.side) && (
-                <span className="ml-2 text-xs text-slate-400">No lamination</span>
+                <span className="ml-2 text-xs text-slate-400">
+                  {attachedPieceTypes?.[popover.side] ? 'Join edge' : 'No lamination'}
+                </span>
               )}
             </div>
           )}
@@ -2250,7 +2272,7 @@ export default function PieceVisualEditor({
               style={{ left: popover.x, top: popover.y }}
             >
               <div className="text-xs text-slate-500">
-                Wall edge — no profile or lamination strip
+                {getSuppressedEdgeHelp(popover.side)}
               </div>
               <button
                 onClick={() => setPopover(null)}
@@ -2330,17 +2352,25 @@ export default function PieceVisualEditor({
               style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y - 32 }}
             >
               <button
-                onClick={() => handleWallEdgeToggle(shapeEdgePopover.edgeId)}
+                onClick={() => {
+                  if (attachedPieceTypes?.[shapeEdgePopover.edgeId]) return;
+                  handleWallEdgeToggle(shapeEdgePopover.edgeId);
+                }}
+                disabled={!!attachedPieceTypes?.[shapeEdgePopover.edgeId]}
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
-                  noStripEdges.includes(shapeEdgePopover.edgeId)
+                  attachedPieceTypes?.[shapeEdgePopover.edgeId]
+                    ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed'
+                    : noStripEdges.includes(shapeEdgePopover.edgeId)
                     ? 'bg-slate-700 text-white border-slate-600'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
-                {noStripEdges.includes(shapeEdgePopover.edgeId) ? 'Against wall' : 'Against wall'}
+                {getSuppressedEdgeLabel(shapeEdgePopover.edgeId)}
               </button>
               {noStripEdges.includes(shapeEdgePopover.edgeId) && (
-                <span className="ml-2 text-xs text-slate-400">No lamination</span>
+                <span className="ml-2 text-xs text-slate-400">
+                  {attachedPieceTypes?.[shapeEdgePopover.edgeId] ? 'Join edge' : 'No lamination'}
+                </span>
               )}
             </div>
           )}
@@ -2371,7 +2401,7 @@ export default function PieceVisualEditor({
               style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y }}
             >
               <div className="text-xs text-slate-500">
-                Wall edge — no profile or lamination strip
+                {getSuppressedEdgeHelp(shapeEdgePopover.edgeId)}
               </div>
               <button
                 onClick={() => setShapeEdgePopover(null)}

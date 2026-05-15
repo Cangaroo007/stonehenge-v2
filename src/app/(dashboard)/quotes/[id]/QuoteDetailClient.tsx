@@ -4552,6 +4552,19 @@ export default function QuoteDetailClient({
           onDiscountDisplayModeChange={setDiscountDisplayMode}
         />
 
+        <div className="card p-4">
+          <PricingOverridesPanel
+            quoteId={parseInt(quoteIdStr)}
+            pieces={editPricingOverridePieces}
+            mode="edit"
+            appliedOverrides={(calculation as any)?.appliedPricingOverrides ?? []}
+            onChanged={() => {
+              triggerRecalculate();
+              fetchQuote();
+            }}
+          />
+        </div>
+
         {/* Piece Stats */}
         <div className="card p-4">
           <h4 className="text-sm font-semibold text-gray-700 mb-2">Piece Statistics</h4>
