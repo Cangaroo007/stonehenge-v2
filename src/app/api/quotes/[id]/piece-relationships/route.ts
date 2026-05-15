@@ -5,6 +5,7 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 const VALID_RELATION_TYPES = [
   'WATERFALL',
   'SPLASHBACK',
+  'RETURN',
   'RETURN_END',
   'WINDOW_SILL',
   'ISLAND',
@@ -101,7 +102,8 @@ export async function POST(
     const body = await request.json();
     const { sourcePieceId, targetPieceId, relationType, side, grainMatch = false, notes } = body;
     // Accept relationshipType as alias (edge-attach UI sends this name)
-    const relationshipType = relationType || body.relationshipType;
+    const rawRelationshipType = relationType || body.relationshipType;
+    const relationshipType = rawRelationshipType === 'RETURN_END' ? 'RETURN' : rawRelationshipType;
 
     // Validate required fields
     if (!sourcePieceId || !targetPieceId || !relationshipType) {
@@ -152,6 +154,20 @@ export async function POST(
         { error: 'Both pieces must belong to this quote' },
         { status: 400 }
       );
+    }
+
+    const shouldShareRoom = ['WATERFALL', 'SPLASHBACK', 'RETURN'].includes(relationshipType);
+    if (shouldShareRoom) {
+      const sourcePiece = await prisma.quote_pieces.findUnique({
+        where: { id: sourcePieceId },
+        select: { room_id: true },
+      });
+      if (sourcePiece?.room_id) {
+        await prisma.quote_pieces.update({
+          where: { id: targetPieceId },
+          data: { room_id: sourcePiece.room_id },
+        });
+      }
     }
 
     const relationship = await prisma.piece_relationships.create({

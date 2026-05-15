@@ -16,7 +16,13 @@ interface MaterialPickerV2Props {
   onChange: (
     materialId: number | null,
     material: MaterialPickerMaterial | null,
-    collectionInfo?: { collectionOnly: true; collectionName: string } | null
+    collectionInfo?: {
+      collectionOnly: true;
+      collectionName: string;
+      displayName: string;
+      pricingMaterialId: number;
+      pricingMaterialName: string;
+    } | null
   ) => void;
   placeholder?: string;
   collectionOnly?: boolean;
@@ -108,26 +114,37 @@ export default function MaterialPickerV2({
     );
   }, [materials, search]);
 
-  // Collection average price (per sqm)
-  const collectionAvgPrice = useMemo(() => {
+  // Collection conservative price (per sqm): use the most expensive colour.
+  const collectionMaxMaterial = useMemo(() => {
     if (!selectedCollection) return null;
-    const inCollection = materials.filter(m => m.collection === selectedCollection);
+    const inCollection = materials.filter(m => {
+      if (m.collection !== selectedCollection) return false;
+      if (selectedSupplier && m.supplier?.id !== selectedSupplier) return false;
+      return true;
+    });
     if (!inCollection.length) return null;
-    const avg = inCollection.reduce((sum, m) => sum + (m.pricePerSqm ?? 0), 0) / inCollection.length;
-    return Math.round(avg);
-  }, [materials, selectedCollection]);
+    return inCollection.reduce((max, m) =>
+      (m.pricePerSqm ?? 0) > (max.pricePerSqm ?? 0) ? m : max
+    );
+  }, [materials, selectedCollection, selectedSupplier]);
 
   const handleSelectMaterial = (mat: MaterialPickerMaterial) => {
     onChange(mat.id, mat);
     setOpen(false);
   };
 
-  const handleUseCollectionAvg = () => {
-    if (!selectedCollection) return;
-    const inCollection = materials.filter(m => m.collection === selectedCollection);
-    if (!inCollection.length) return;
-    const first = inCollection[0];
-    onChange(first.id, first, { collectionOnly: true, collectionName: selectedCollection });
+  const handleUseCollectionMax = () => {
+    if (!selectedCollection || !collectionMaxMaterial) return;
+    const displayName = collectionMaxMaterial.supplier?.name
+      ? `${collectionMaxMaterial.supplier.name} — ${selectedCollection}`
+      : selectedCollection;
+    onChange(collectionMaxMaterial.id, collectionMaxMaterial, {
+      collectionOnly: true,
+      collectionName: selectedCollection,
+      displayName,
+      pricingMaterialId: collectionMaxMaterial.id,
+      pricingMaterialName: collectionMaxMaterial.name,
+    });
     setOpen(false);
     setSearch('');
     setSelectedSupplier(null);
@@ -262,13 +279,13 @@ export default function MaterialPickerV2({
                         <span className="text-gray-400 ml-1 flex-shrink-0">{formatCurrency(mat.pricePerSqm)}</span>
                       </button>
                     ))}
-                    {selectedCollection && collectionAvgPrice != null && (
+                    {selectedCollection && collectionMaxMaterial && (
                       <div className="border-t border-gray-100 mt-1 pt-1">
                         <button
-                          onClick={handleUseCollectionAvg}
+                          onClick={handleUseCollectionMax}
                           className="w-full text-left px-3 py-1.5 text-xs text-amber-600 italic hover:bg-amber-50 transition-colors"
                         >
-                          Use collection avg ~{formatCurrency(collectionAvgPrice)}/m&sup2;
+                          Use collection max {formatCurrency(collectionMaxMaterial.pricePerSqm)}/m&sup2;
                         </button>
                       </div>
                     )}

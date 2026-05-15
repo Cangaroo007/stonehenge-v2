@@ -324,28 +324,36 @@ export default function EdgePanel({
         <div className="border-t border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Wall Edges</h4>
-            <span className="text-xs text-gray-400">Against-wall edges suppress strips and polishing</span>
+            <span className="text-xs text-gray-400">Against-wall edges suppress exposed-edge charging</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {allEdgeIds.map((edgeId) => {
+              const attachedType = attachedPieceTypes?.[edgeId];
               // Wall edge = in noStripEdges AND not a WF/SB-attached edge.
               // Per FABRICATION-RULES.md 10.1: noStripEdges is dual-purpose.
               // WF/SB attachment suppresses strips independently of wall designation.
-              const isWall = (noStripEdges?.includes(edgeId) ?? false) &&
-                !attachedPieceTypes?.[edgeId];
+              const isWall = (noStripEdges?.includes(edgeId) ?? false) && !attachedType;
               return (
                 <button
                   key={edgeId}
                   type="button"
-                  onClick={() => onToggleWallEdge(edgeId)}
+                  onClick={() => {
+                    if (attachedType) return;
+                    onToggleWallEdge(edgeId);
+                  }}
+                  disabled={!!attachedType}
+                  title={attachedType ? `${humaniseEdgeId(edgeId)} has an attached ${attachedType.toLowerCase()}` : undefined}
                   className={`px-2.5 py-1 text-xs rounded-full border transition-colors flex items-center gap-1 ${
-                    isWall
+                    attachedType
+                      ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed'
+                      : isWall
                       ? 'bg-stone-600 text-white border-stone-600'
                       : 'bg-white text-gray-600 border-gray-300 hover:border-stone-400 hover:bg-stone-50'
                   }`}
                 >
                   {isWall && <span>🧱</span>}
                   {humaniseEdgeId(edgeId)}
+                  {attachedType && <span className="font-semibold">({attachedType === 'WATERFALL' ? 'WF join' : 'SB join'})</span>}
                 </button>
               );
             })}

@@ -56,6 +56,8 @@ export interface InlinePieceData {
   thicknessMm: number;
   materialId: number | null;
   materialName: string | null;
+  materialCollectionOnly?: boolean;
+  materialCollectionName?: string | null;
   edgeTop: string | null;
   edgeBottom: string | null;
   edgeLeft: string | null;
@@ -467,6 +469,9 @@ export default function InlinePieceEditor({
     return t !== 20 && t !== 40 ? t.toString() : '';
   });
   const [materialId, setMaterialId] = useState<number | null>(piece.materialId);
+  const [materialCollectionOnly, setMaterialCollectionOnly] = useState(piece.materialCollectionOnly ?? false);
+  const [materialCollectionName, setMaterialCollectionName] = useState<string | null>(piece.materialCollectionName ?? null);
+  const [genericMaterialName, setGenericMaterialName] = useState<string | null>(piece.materialCollectionOnly ? piece.materialName : null);
   const [overrideMaterialCost, setOverrideMaterialCost] = useState<string>(
     piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
   );
@@ -565,6 +570,9 @@ export default function InlinePieceEditor({
     setThicknessMm(piece.thicknessMm);
     setEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
     setMaterialId(piece.materialId);
+    setMaterialCollectionOnly(piece.materialCollectionOnly ?? false);
+    setMaterialCollectionName(piece.materialCollectionName ?? null);
+    setGenericMaterialName(piece.materialCollectionOnly ? piece.materialName : null);
     setOverrideMaterialCost(
       piece.overrideMaterialCost != null ? String(piece.overrideMaterialCost) : ''
     );
@@ -871,7 +879,9 @@ export default function InlinePieceEditor({
       mitredCornerTreatment,
       edgeBuildups: Object.keys(edgeBuildups).length > 0 ? edgeBuildups : null,
       materialId,
-      materialName: selectedMaterial?.name || null,
+      materialName: materialCollectionOnly ? genericMaterialName : (selectedMaterial?.name || null),
+      materialCollectionOnly,
+      materialCollectionName,
       overrideMaterialCost: overrideMaterialCost !== ''
         ? parseFloat(overrideMaterialCost)
         : null,
@@ -1220,9 +1230,20 @@ export default function InlinePieceEditor({
                 <MaterialPickerV2
                   materials={materials as MaterialPickerMaterial[]}
                   value={materialId}
-                  onChange={(id) => {
+                  onChange={(id, _mat, collectionInfo) => {
                     setMaterialId(id);
+                    if (collectionInfo?.collectionOnly) {
+                      setMaterialCollectionOnly(true);
+                      setMaterialCollectionName(collectionInfo.collectionName);
+                      setGenericMaterialName(collectionInfo.displayName);
+                    } else {
+                      setMaterialCollectionOnly(false);
+                      setMaterialCollectionName(null);
+                      setGenericMaterialName(null);
+                    }
                   }}
+                  collectionOnly={materialCollectionOnly}
+                  collectionName={materialCollectionName}
                 />
               </div>
               <button

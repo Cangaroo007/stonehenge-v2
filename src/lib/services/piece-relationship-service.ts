@@ -100,16 +100,17 @@ export async function createRelationship(
     ? parseInt(input.parentPieceId, 10) : Number(input.parentPieceId);
   const targetId = typeof input.childPieceId === 'string'
     ? parseInt(input.childPieceId, 10) : Number(input.childPieceId);
+  const relationshipType = input.relationshipType;
 
   // Validate pieces exist and belong to the same quote
   const [parent, child] = await Promise.all([
     prisma.quote_pieces.findUnique({
       where: { id: sourceId },
-      select: { quote_rooms: { select: { quote_id: true } } },
+      select: { room_id: true, quote_rooms: { select: { quote_id: true } } },
     }),
     prisma.quote_pieces.findUnique({
       where: { id: targetId },
-      select: { quote_rooms: { select: { quote_id: true } } },
+      select: { room_id: true, quote_rooms: { select: { quote_id: true } } },
     }),
   ]);
 
@@ -123,15 +124,31 @@ export async function createRelationship(
     throw new Error('A piece cannot have a relationship with itself');
   }
 
-  const relationship = await prisma.piece_relationships.create({
-    data: {
-      source_piece_id: sourceId,
-      target_piece_id: targetId,
-      relation_type: input.relationshipType,       // Keep old string column in sync
-      relationship_type: input.relationshipType,    // New enum column
-      side: input.joinPosition ?? null,
-      notes: input.notes ?? null,
-    },
+  const sameRoomRelationshipTypes = new Set<RelationshipType>([
+    RelationshipType.WATERFALL,
+    RelationshipType.SPLASHBACK,
+    RelationshipType.RETURN,
+  ]);
+  const shouldShareRoom = sameRoomRelationshipTypes.has(relationshipType);
+
+  const relationship = await prisma.$transaction(async (tx) => {
+    if (shouldShareRoom && child.room_id !== parent.room_id) {
+      await tx.quote_pieces.update({
+        where: { id: targetId },
+        data: { room_id: parent.room_id },
+      });
+    }
+
+    return tx.piece_relationships.create({
+      data: {
+        source_piece_id: sourceId,
+        target_piece_id: targetId,
+        relation_type: relationshipType,       // Keep old string column in sync
+        relationship_type: relationshipType,    // New enum column
+        side: input.joinPosition ?? null,
+        notes: input.notes ?? null,
+      },
+    });
   });
 
   return toRelationshipData(relationship);

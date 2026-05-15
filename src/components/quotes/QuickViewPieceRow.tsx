@@ -1571,7 +1571,7 @@ export default function QuickViewPieceRow({
                   if (collectionInfo?.collectionOnly) {
                     savePieceImmediate({
                       materialId: mat?.id ?? null,
-                      materialName: mat?.name ?? null,
+                      materialName: collectionInfo.displayName,
                       materialCollectionOnly: true,
                       materialCollectionName: collectionInfo.collectionName,
                     });

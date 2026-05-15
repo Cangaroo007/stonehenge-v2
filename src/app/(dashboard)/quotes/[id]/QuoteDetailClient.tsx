@@ -3304,7 +3304,7 @@ export default function QuoteDetailClient({
                               };
                             })}
                             relationships={viewRelationships.filter(r =>
-                              roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+                              roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId)
                             )}
                             mode="view"
                             selectedPieceId={null}
@@ -4085,7 +4085,7 @@ export default function QuoteDetailClient({
                             roomName={room.name || 'Unassigned'}
                             pieces={spatialRoomPieces}
                             relationships={relationships.filter(r =>
-                              roomPieceIds.has(r.parentPieceId) || roomPieceIds.has(r.childPieceId)
+                              roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId)
                             )}
                             mode="edit"
                             selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
