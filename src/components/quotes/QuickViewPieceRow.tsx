@@ -747,10 +747,22 @@ export default function QuickViewPieceRow({
   const attachedPieceTypes = useMemo(() => {
     if (!relationships) return undefined;
     const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};
+    const oppositeEdge: Record<string, string> = {
+      top: 'bottom',
+      bottom: 'top',
+      left: 'right',
+      right: 'left',
+    };
     relationships.forEach(rel => {
       if (String(rel.parentPieceId) === String(piece.id) && rel.joinPosition) {
         if (rel.relationshipType === 'WATERFALL' || rel.relationshipType === 'SPLASHBACK') {
           map[rel.joinPosition.toLowerCase()] = rel.relationshipType;
+        }
+      }
+      if (String(rel.childPieceId) === String(piece.id) && rel.joinPosition) {
+        if (rel.relationshipType === 'WATERFALL' || rel.relationshipType === 'SPLASHBACK') {
+          const parentEdge = rel.joinPosition.toLowerCase();
+          map[oppositeEdge[parentEdge] ?? parentEdge] = rel.relationshipType;
         }
       }
     });

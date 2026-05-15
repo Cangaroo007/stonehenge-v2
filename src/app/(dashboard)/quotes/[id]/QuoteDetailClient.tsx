@@ -1394,6 +1394,8 @@ export default function QuoteDetailClient({
             pieceType: pendingWaterfallParentRef.current.type,
             laminationMethod: 'NONE',
             joinMethod: 'MITRED',
+            materialId: data.materialId ?? oldPiece?.materialId ?? null,
+            materialName: data.materialName ?? oldPiece?.materialName ?? null,
           }
         : data;
 
@@ -4913,6 +4915,8 @@ export default function QuoteDetailClient({
               lengthMm,
               widthMm,
               thicknessMm,
+              materialId: parentPiece.materialId ?? null,
+              materialName: parentPiece.materialName ?? null,
               laminationMethod: 'NONE',
             }),
           });
