@@ -233,6 +233,7 @@ export async function POST(
                 targetRelationships: {
                   select: {
                     source_piece_id: true,
+                    relation_type: true,
                     relationship_type: true,
                   },
                 },
@@ -406,14 +407,16 @@ export async function POST(
         const targets = (piece as unknown as {
           targetRelationships: Array<{
             source_piece_id: number;
+            relation_type: string;
             relationship_type: string | null;
           }>;
         }).targetRelationships ?? [];
 
         for (const rel of targets) {
+          const relationshipType = rel.relationship_type ?? rel.relation_type;
           if (
-            rel.relationship_type === 'WATERFALL' ||
-            rel.relationship_type === 'SPLASHBACK'
+            relationshipType === 'WATERFALL' ||
+            relationshipType === 'SPLASHBACK'
           ) {
             wfsbParentMap.set(piece.id.toString(), rel.source_piece_id.toString());
           }
