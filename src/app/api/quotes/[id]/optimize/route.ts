@@ -442,6 +442,9 @@ export async function POST(
       pieces.map((p: { materialId: string | null }) => p.materialId).filter(Boolean)
     );
     const isMultiMaterial = distinctMaterialIds.size > 1;
+    const materialIdByPieceId = new Map<string, string | null>(
+      pieces.map((p: { id: string; materialId: string | null }) => [p.id, p.materialId])
+    );
 
     // Collect unique material records from the pieces
     const materialRecords = new Map<string, QuotePieceRow['materials']>();
@@ -474,28 +477,33 @@ export async function POST(
         }
       );
 
-      // WF/SB pieces inherit primary material for slab allocation (Jay confirmed)
+      // WF/SB pieces inherit their parent material for slab allocation.
+      // Falling back to the first material is only a last resort for legacy data.
       const primaryMatIdForMulti = String(
         pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
       ) || null;
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { id: string; materialId: string | null }) => !!(p.materialId) || wfsbParentMap.has(p.id)).map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => ({
-          id: p.id,
-          width: p.width,
-          height: p.height,
-          label: p.label,
-          thickness: p.thickness,
-          finishedEdges: p.finishedEdges,
-          edgeTypeNames: p.edgeTypeNames,
-          shapeConfigEdges: p.shapeConfigEdges,
-          noStripEdges: p.noStripEdges,
-          laminationMethod: p.laminationMethod,
-          edgeBuildups: p.edgeBuildups,
-          materialId: p.materialId ?? primaryMatIdForMulti,
-          shapeType: p.shapeType,
-          shapeConfig: p.shapeConfig,
-          grainMatched: p.grainMatched,
-        })
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => {
+          const parentId = wfsbParentMap.get(p.id);
+          const parentMaterialId = parentId ? materialIdByPieceId.get(parentId) ?? null : null;
+          return {
+            id: p.id,
+            width: p.width,
+            height: p.height,
+            label: p.label,
+            thickness: p.thickness,
+            finishedEdges: p.finishedEdges,
+            edgeTypeNames: p.edgeTypeNames,
+            shapeConfigEdges: p.shapeConfigEdges,
+            noStripEdges: p.noStripEdges,
+            laminationMethod: p.laminationMethod,
+            edgeBuildups: p.edgeBuildups,
+            materialId: p.materialId ?? parentMaterialId ?? primaryMatIdForMulti,
+            shapeType: p.shapeType,
+            shapeConfig: p.shapeConfig,
+            grainMatched: p.grainMatched,
+          };
+        }
       );
 
       const primaryMaterialId = primaryMaterial

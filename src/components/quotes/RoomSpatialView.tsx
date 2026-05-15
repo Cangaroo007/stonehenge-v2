@@ -135,6 +135,10 @@ function formatCurrency(amount: number): string {
   return '$' + amount.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+function getPieceDisplayTotal(piece: QuotePiece): number | null {
+  return piece.pieceTotal ?? piece.slabCost ?? null;
+}
+
 function inferPieceType(piece: QuotePiece): string | null {
   if (piece.piece_type) return piece.piece_type;
 
@@ -697,7 +701,7 @@ export default function RoomSpatialView({
       <div className="border rounded-lg p-4 mb-6">
         {renderRoomHeader()}
         {renderRoomNotes()}
-        <div className="text-centre py-8">
+        <div className="text-center py-8">
           <p className="text-sm text-gray-400">No pieces in this room yet</p>
           {mode === 'edit' && onAddPiece && roomId && (
             <button
@@ -946,7 +950,7 @@ export default function RoomSpatialView({
                     <span className="font-medium text-gray-700 truncate">{pieceName}</span>
                   </span>
                   <span className="text-gray-400 flex-shrink-0 ml-2">
-                    {piece.slabCost != null ? formatCurrency(piece.slabCost) : '\u2014'}
+                    {getPieceDisplayTotal(piece) != null ? formatCurrency(getPieceDisplayTotal(piece)!) : '\u2014'}
                   </span>
                 </button>
               );
@@ -970,7 +974,7 @@ export default function RoomSpatialView({
                     <span className="text-xs font-semibold text-gray-800">{pieceName}</span>
                   </div>
                   <span className="text-xs font-medium text-blue-700">
-                    {piece.slabCost != null ? formatCurrency(piece.slabCost) : '\u2014'}
+                    {getPieceDisplayTotal(piece) != null ? formatCurrency(getPieceDisplayTotal(piece)!) : '\u2014'}
                   </span>
                 </button>
 

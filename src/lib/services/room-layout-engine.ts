@@ -49,8 +49,10 @@ const PIECE_GAP = 40;          // Gap between unrelated pieces
 const SPLASHBACK_GAP = 20;     // Gap between splashback and benchtop
 const UNRELATED_STACK_GAP = 30; // Vertical gap when stacking unrelated pieces
 
-// Piece types that are considered "primary" candidates
-const PRIMARY_TYPES = ['BENCHTOP', 'benchtop'];
+// Piece types that are considered primary surfaces in a room layout.
+// Attached vertical pieces like waterfalls/splashbacks should not become the
+// room anchor just because they have a larger face area than a vanity or top.
+const PRIMARY_TYPES = ['BENCHTOP', 'ISLAND', 'VANITY', 'LAUNDRY', 'WINDOW_SILL'];
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -70,8 +72,26 @@ function pieceArea(p: PieceInput): number {
  * Finds the primary piece in a room — the largest benchtop or island.
  * Falls back to the largest piece overall if no benchtop/island exists.
  */
-function findPrimaryPiece(pieces: PieceInput[]): PieceInput | null {
+function findPrimaryPiece(
+  pieces: PieceInput[],
+  relationships: RelationshipInput[] = []
+): PieceInput | null {
   if (pieces.length === 0) return null;
+
+  const pieceMap = new Map(pieces.map(p => [p.id, p]));
+  const childIds = new Set(relationships.map(r => r.childPieceId));
+  const relationshipParents = Array.from(
+    new Set(relationships.map(r => r.parentPieceId))
+  )
+    .filter(id => !childIds.has(id))
+    .map(id => pieceMap.get(id))
+    .filter((p): p is PieceInput => Boolean(p));
+
+  if (relationshipParents.length > 0) {
+    return relationshipParents.reduce((largest, p) =>
+      pieceArea(p) > pieceArea(largest) ? p : largest
+    );
+  }
 
   const primaryCandidates = pieces.filter(p =>
     isPrimaryCandidate(p.piece_type, p.description)
@@ -115,7 +135,7 @@ export function calculateRoomLayout(
   }
 
   // Find primary piece
-  const primary = findPrimaryPiece(pieces);
+  const primary = findPrimaryPiece(pieces, relationships);
   if (!primary) {
     return { pieces: [], viewBox: { width: MIN_SVG_WIDTH, height: 200 }, scale: 1 };
   }
