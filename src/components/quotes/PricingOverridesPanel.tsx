@@ -1,0 +1,284 @@
+'use client';
+
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { formatCurrency } from '@/lib/utils';
+
+type PricingOverride = {
+  id: number;
+  quoteId: number;
+  pieceId: number | null;
+  category: string;
+  overrideType: string;
+  value: number;
+  reason: string | null;
+  source: string | null;
+  isActive: boolean;
+};
+
+type OverridePiece = {
+  id: number;
+  name: string;
+  roomName?: string | null;
+};
+
+interface PricingOverridesPanelProps {
+  quoteId: number;
+  pieces: OverridePiece[];
+  mode?: 'view' | 'edit';
+  appliedOverrides?: Array<{
+    id: number;
+    pieceId?: number | null;
+    category: string;
+    overrideType: string;
+    value: number;
+    reason?: string | null;
+    amountDelta?: number;
+  }>;
+  onChanged?: () => void;
+}
+
+const CATEGORY_OPTIONS = [
+  ['NORMAL_CUT', 'Normal cut LM'],
+  ['MITRE_CUT', 'Mitre cut LM'],
+  ['NORMAL_POLISH', 'Normal polish / edge LM'],
+  ['MITRE_POLISH', 'Mitre polish / edge LM'],
+  ['CUTOUT', 'Cutouts'],
+  ['INSTALLATION', 'Installation'],
+  ['FABRICATION', 'Fabrication'],
+  ['ALL', 'Whole quote'],
+] as const;
+
+const TYPE_OPTIONS = [
+  ['LM', 'Chargeable LM'],
+  ['MULTIPLIER', 'Multiplier'],
+  ['FIXED_DELTA', 'Fixed adjustment'],
+] as const;
+
+function labelFor(options: readonly (readonly [string, string])[], value: string): string {
+  return options.find(([key]) => key === value)?.[1] ?? value.replace(/_/g, ' ');
+}
+
+function formatOverrideValue(override: PricingOverride | { overrideType: string; value: number }): string {
+  if (override.overrideType === 'MULTIPLIER') return `${override.value}x`;
+  if (override.overrideType === 'LM') return `${override.value} LM`;
+  return formatCurrency(override.value);
+}
+
+export default function PricingOverridesPanel({
+  quoteId,
+  pieces,
+  mode = 'view',
+  appliedOverrides = [],
+  onChanged,
+}: PricingOverridesPanelProps) {
+  const [overrides, setOverrides] = useState<PricingOverride[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [category, setCategory] = useState('MITRE_POLISH');
+  const [overrideType, setOverrideType] = useState('MULTIPLIER');
+  const [pieceId, setPieceId] = useState('');
+  const [value, setValue] = useState('');
+  const [reason, setReason] = useState('');
+  const [error, setError] = useState<string | null>(null);
+
+  const canEdit = mode === 'edit';
+
+  const loadOverrides = useCallback(async () => {
+    setLoading(true);
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/pricing-overrides`);
+      if (!response.ok) throw new Error('Failed to load pricing overrides');
+      setOverrides(await response.json());
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load pricing overrides');
+    } finally {
+      setLoading(false);
+    }
+  }, [quoteId]);
+
+  useEffect(() => {
+    loadOverrides();
+  }, [loadOverrides]);
+
+  const pieceNameById = useMemo(() => {
+    const map = new Map<number, string>();
+    for (const piece of pieces) {
+      map.set(piece.id, piece.roomName ? `${piece.roomName} - ${piece.name}` : piece.name);
+    }
+    return map;
+  }, [pieces]);
+
+  const saveOverride = async () => {
+    const numericValue = Number(value);
+    if (!Number.isFinite(numericValue)) {
+      setError('Enter a valid number for the override value.');
+      return;
+    }
+
+    setSaving(true);
+    setError(null);
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/pricing-overrides`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category,
+          overrideType,
+          value: numericValue,
+          pieceId: pieceId ? Number(pieceId) : null,
+          reason,
+        }),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}));
+        throw new Error(data.error || 'Failed to save pricing override');
+      }
+      setValue('');
+      setReason('');
+      setPieceId('');
+      await loadOverrides();
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to save pricing override');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const removeOverride = async (id: number) => {
+    if (!confirm('Remove this pricing override?')) return;
+    setError(null);
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/pricing-overrides/${id}`, {
+        method: 'DELETE',
+      });
+      if (!response.ok) throw new Error('Failed to remove pricing override');
+      await loadOverrides();
+      onChanged?.();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to remove pricing override');
+    }
+  };
+
+  const activeOverrides = overrides.filter(o => o.isActive);
+
+  return (
+    <div className="mt-4 border-t border-gray-200 pt-4">
+      <div className="flex items-center justify-between gap-3 mb-3">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-900">Pricing Overrides</h3>
+          <p className="text-xs text-gray-500">
+            Use for NCS-style judgement calls without changing the base calculator.
+          </p>
+        </div>
+        {loading && <span className="text-xs text-gray-400">Loading...</span>}
+      </div>
+
+      {error && (
+        <div className="mb-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {error}
+        </div>
+      )}
+
+      {canEdit && (
+        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
+          <select
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            className="input text-sm md:col-span-1"
+            aria-label="Override category"
+          >
+            {CATEGORY_OPTIONS.map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <select
+            value={overrideType}
+            onChange={(e) => setOverrideType(e.target.value)}
+            className="input text-sm md:col-span-1"
+            aria-label="Override type"
+          >
+            {TYPE_OPTIONS.map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <select
+            value={pieceId}
+            onChange={(e) => setPieceId(e.target.value)}
+            className="input text-sm md:col-span-1"
+            aria-label="Override piece"
+          >
+            <option value="">Whole quote</option>
+            {pieces.map(piece => (
+              <option key={piece.id} value={piece.id}>
+                {piece.roomName ? `${piece.roomName} - ${piece.name}` : piece.name}
+              </option>
+            ))}
+          </select>
+          <input
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            placeholder={overrideType === 'MULTIPLIER' ? '1.2' : overrideType === 'LM' ? '12.5' : '-250'}
+            className="input text-sm"
+            inputMode="decimal"
+          />
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason"
+            className="input text-sm md:col-span-1"
+          />
+          <button
+            type="button"
+            onClick={saveOverride}
+            disabled={saving}
+            className="btn-secondary text-sm"
+          >
+            {saving ? 'Saving...' : 'Add Override'}
+          </button>
+        </div>
+      )}
+
+      {activeOverrides.length === 0 ? (
+        <div className="text-xs text-gray-500 bg-gray-50 border border-gray-200 rounded-md px-3 py-2">
+          No active pricing overrides.
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {activeOverrides.map(override => (
+            <div
+              key={override.id}
+              className="flex items-start justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2"
+            >
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-amber-950">
+                  {labelFor(CATEGORY_OPTIONS, override.category)} - {formatOverrideValue(override)}
+                </div>
+                <div className="text-xs text-amber-800">
+                  {labelFor(TYPE_OPTIONS, override.overrideType)}
+                  {override.pieceId ? ` on ${pieceNameById.get(override.pieceId) ?? `Piece ${override.pieceId}`}` : ' on whole quote'}
+                  {override.reason ? ` - ${override.reason}` : ''}
+                </div>
+              </div>
+              {canEdit && (
+                <button
+                  type="button"
+                  onClick={() => removeOverride(override.id)}
+                  className="text-xs font-medium text-amber-900 hover:text-red-700"
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {appliedOverrides.length > 0 && (
+        <div className="mt-3 text-xs text-gray-500">
+          Applied this calculation: {appliedOverrides.length} override adjustment{appliedOverrides.length !== 1 ? 's' : ''}.
+        </div>
+      )}
+    </div>
+  );
+}

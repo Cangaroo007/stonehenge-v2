@@ -45,6 +45,7 @@ import InlinePieceEditor from '@/components/quotes/InlinePieceEditor';
 import type { InlinePieceData } from '@/components/quotes/InlinePieceEditor';
 import QuoteCostSummaryBar from '@/components/quotes/QuoteCostSummaryBar';
 import QuoteAdjustments from '@/components/quotes/QuoteAdjustments';
+import PricingOverridesPanel from '@/components/quotes/PricingOverridesPanel';
 import type { DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 import OptionTabsBar from '@/components/quotes/OptionTabsBar';
 import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
@@ -77,6 +78,8 @@ import WaterfallSplashbackModal, {
   MITERED_EDGE_ID,
 } from '@/components/quotes/WaterfallSplashbackModal';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
+
+type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
 
@@ -437,6 +440,7 @@ export default function QuoteDetailClient({
   const [showFromTemplate, setShowFromTemplate] = useState(false);
   const [importSuccessMessage, setImportSuccessMessage] = useState<string | null>(null);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [selectedPdfView, setSelectedPdfView] = useState<PdfViewMode>('default');
   const [showReadinessCheck, setShowReadinessCheck] = useState(false);
   const [waterfallModal, setWaterfallModal] = useState<{
     isOpen: boolean;
@@ -532,6 +536,24 @@ export default function QuoteDetailClient({
       };
     });
   }, [pieces, isActiveNonBaseOption, activeOverrideMap, materials]);
+
+  const editPricingOverridePieces = useMemo(() => (
+    effectivePieces.map(piece => ({
+      id: piece.id,
+      name: piece.name || `Piece ${piece.id}`,
+      roomName: piece.quote_rooms?.name ?? null,
+    }))
+  ), [effectivePieces]);
+
+  const viewPricingOverridePieces = useMemo(() => (
+    serverData.quote_rooms.flatMap(room =>
+      room.quote_pieces.map(piece => ({
+        id: piece.id,
+        name: piece.name || `Piece ${piece.id}`,
+        roomName: room.name,
+      }))
+    )
+  ), [serverData.quote_rooms]);
 
   // Recalculate all options when base pieces change
   const recalculateOptionsAfterPieceChange = useCallback(async () => {
@@ -2116,7 +2138,8 @@ export default function QuoteDetailClient({
   // checker will block PDF generation (chicken-and-egg). Persist pricing
   // BEFORE opening the readiness modal so the server-side check sees the
   // calculated total.
-  const handleOpenReadinessCheck = async () => {
+  const handleOpenReadinessCheck = async (pdfView: PdfViewMode = selectedPdfView) => {
+    setSelectedPdfView(pdfView);
     if (calculationRef.current) {
       try {
         await handleSaveQuote();
@@ -2128,10 +2151,11 @@ export default function QuoteDetailClient({
   };
 
   // ── Download PDF handler ──────────────────────────────────────────────────
-  const handleDownloadPdf = async () => {
+  const handleDownloadPdf = async (pdfView: PdfViewMode = selectedPdfView) => {
     setDownloadingPdf(true);
     try {
-      const response = await fetch(`/api/quotes/${quoteIdStr}/pdf`);
+      const qs = pdfView === 'default' ? '' : `?view=${pdfView}`;
+      const response = await fetch(`/api/quotes/${quoteIdStr}/pdf${qs}`);
       if (!response.ok) {
         const data = await response.json().catch(() => ({ error: 'Failed to generate PDF' }));
         throw new Error(data.error || `PDF generation failed (${response.status})`);
@@ -2988,7 +3012,18 @@ export default function QuoteDetailClient({
 
   const viewActionButtons = (
     <>
-      <button onClick={handleOpenReadinessCheck} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
+      <select
+        value={selectedPdfView}
+        onChange={(e) => setSelectedPdfView(e.target.value as PdfViewMode)}
+        className="input text-sm h-10 min-w-[150px]"
+        aria-label="PDF view"
+      >
+        <option value="default">Current style</option>
+        <option value="summary">Summary</option>
+        <option value="piece-totals">Piece totals</option>
+        <option value="detailed">Detailed calcs</option>
+      </select>
+      <button onClick={() => handleOpenReadinessCheck()} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
         {downloadingPdf || saving ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -3051,7 +3086,18 @@ export default function QuoteDetailClient({
         onPreviewPdf={handleOpenReadinessCheck}
         saving={saving}
       />
-      <button onClick={handleOpenReadinessCheck} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
+      <select
+        value={selectedPdfView}
+        onChange={(e) => setSelectedPdfView(e.target.value as PdfViewMode)}
+        className="input text-sm h-10 min-w-[150px]"
+        aria-label="PDF view"
+      >
+        <option value="default">Current style</option>
+        <option value="summary">Summary</option>
+        <option value="piece-totals">Piece totals</option>
+        <option value="detailed">Detailed calcs</option>
+      </select>
+      <button onClick={() => handleOpenReadinessCheck()} disabled={downloadingPdf || saving} className="btn-secondary flex items-center gap-2">
         {downloadingPdf || saving ? (
           <>
             <svg className="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
@@ -3486,6 +3532,12 @@ export default function QuoteDetailClient({
                 // View mode: no-op, but required by interface
               }}
               embedded
+            />
+            <PricingOverridesPanel
+              quoteId={serverData.id}
+              pieces={viewPricingOverridePieces}
+              mode="view"
+              appliedOverrides={(viewCalculation as any)?.appliedPricingOverrides ?? []}
             />
           </div>
         )}
@@ -4387,6 +4439,16 @@ export default function QuoteDetailClient({
                 fetchQuote();
               }}
               embedded
+            />
+            <PricingOverridesPanel
+              quoteId={parseInt(quoteIdStr)}
+              pieces={editPricingOverridePieces}
+              mode="edit"
+              appliedOverrides={(calculation as any)?.appliedPricingOverrides ?? []}
+              onChanged={() => {
+                triggerRecalculate();
+                fetchQuote();
+              }}
             />
           </div>
         )}
