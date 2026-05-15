@@ -2768,14 +2768,34 @@ export default function QuoteDetailClient({
     [effectivePieces]
   );
 
+  const pieceRoomById = useMemo(() => {
+    const map = new Map<string, number | null>();
+    for (const piece of effectivePieces) {
+      map.set(String(piece.id), piece.quote_rooms?.id ?? null);
+    }
+    return map;
+  }, [effectivePieces]);
+
   // WF-2c: Parent → children map for nested piece display
   const childPieceIds = useMemo(() => {
-    return new Set(relationships.map((r: PieceRelationshipData) => r.childPieceId));
-  }, [relationships]);
+    return new Set(
+      relationships
+        .filter((r: PieceRelationshipData) => {
+          const parentRoomId = pieceRoomById.get(r.parentPieceId);
+          const childRoomId = pieceRoomById.get(r.childPieceId);
+          return parentRoomId != null && parentRoomId === childRoomId;
+        })
+        .map((r: PieceRelationshipData) => r.childPieceId)
+    );
+  }, [pieceRoomById, relationships]);
 
   const parentToChildren = useMemo(() => {
     return relationships.reduce(
       (acc: Record<string, PieceRelationshipData[]>, rel: PieceRelationshipData) => {
+        const parentRoomId = pieceRoomById.get(rel.parentPieceId);
+        const childRoomId = pieceRoomById.get(rel.childPieceId);
+        if (parentRoomId == null || parentRoomId !== childRoomId) return acc;
+
         const parentId = rel.parentPieceId;
         if (!acc[parentId]) acc[parentId] = [];
         acc[parentId].push(rel);
@@ -2783,7 +2803,7 @@ export default function QuoteDetailClient({
       },
       {}
     );
-  }, [relationships]);
+  }, [pieceRoomById, relationships]);
 
   // View-mode relationships derived from server data (no extra API call needed)
   const viewRelationships = useMemo<PieceRelationshipData[]>(() => {
@@ -4095,7 +4115,7 @@ export default function QuoteDetailClient({
                               const el = document.getElementById(`piece-${pieceId}`);
                               if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
                             }}
-                            roomTotal={spatialRoomPieces.reduce((sum, p) => sum + (p.slabCost ?? 0), 0)}
+                            roomTotal={editRoomTotal}
                             quoteId={quoteIdStr}
                             onRelationshipChange={fetchRelationships}
                             roomId={room.id}

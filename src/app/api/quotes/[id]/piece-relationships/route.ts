@@ -100,7 +100,9 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { sourcePieceId, targetPieceId, relationType, side, grainMatch = false, notes } = body;
+    const { relationType, side, grainMatch = false, notes } = body;
+    const sourcePieceId = Number(body.sourcePieceId);
+    const targetPieceId = Number(body.targetPieceId);
     // Accept relationshipType as alias (edge-attach UI sends this name)
     const rawRelationshipType = relationType || body.relationshipType;
     const relationshipType = rawRelationshipType === 'RETURN_END' ? 'RETURN' : rawRelationshipType;
@@ -156,30 +158,32 @@ export async function POST(
       );
     }
 
-    const shouldShareRoom = ['WATERFALL', 'SPLASHBACK', 'RETURN'].includes(relationshipType);
-    if (shouldShareRoom) {
-      const sourcePiece = await prisma.quote_pieces.findUnique({
-        where: { id: sourcePieceId },
-        select: { room_id: true },
-      });
-      if (sourcePiece?.room_id) {
-        await prisma.quote_pieces.update({
-          where: { id: targetPieceId },
-          data: { room_id: sourcePiece.room_id },
+    const relationship = await prisma.$transaction(async (tx) => {
+      const shouldShareRoom = ['WATERFALL', 'SPLASHBACK', 'RETURN'].includes(relationshipType);
+      if (shouldShareRoom) {
+        const sourcePiece = await tx.quote_pieces.findUnique({
+          where: { id: sourcePieceId },
+          select: { room_id: true },
         });
+        if (sourcePiece?.room_id) {
+          await tx.quote_pieces.update({
+            where: { id: targetPieceId },
+            data: { room_id: sourcePiece.room_id },
+          });
+        }
       }
-    }
 
-    const relationship = await prisma.piece_relationships.create({
-      data: {
-        source_piece_id: sourcePieceId,
-        target_piece_id: targetPieceId,
-        relation_type: relationshipType,        // existing field — keep
-        relationship_type: relationshipType,    // typed enum — write together always
-        side: side || null,
-        grain_match: grainMatch,               // edge-attach grain direction flag
-        notes: notes ?? null,
-      },
+      return tx.piece_relationships.create({
+        data: {
+          source_piece_id: sourcePieceId,
+          target_piece_id: targetPieceId,
+          relation_type: relationshipType,        // existing field — keep
+          relationship_type: relationshipType,    // typed enum — write together always
+          side: side || null,
+          grain_match: grainMatch,               // edge-attach grain direction flag
+          notes: notes ?? null,
+        },
+      });
     });
 
     return NextResponse.json(relationship, { status: 201 });

@@ -9,7 +9,7 @@
  */
 
 import prisma from '@/lib/db';
-import type { Prisma } from '@prisma/client';
+import { RelationshipType, type Prisma } from '@prisma/client';
 import type {
   StarterTemplateData,
   StarterTemplatePiece,
@@ -18,6 +18,21 @@ import type {
   MaterialRole,
 } from '@/lib/types/starter-templates';
 import { inferMaterialRole } from '@/lib/types/starter-templates';
+
+const SAME_ROOM_RELATIONSHIP_TYPES = new Set<RelationshipType>([
+  RelationshipType.WATERFALL,
+  RelationshipType.SPLASHBACK,
+  RelationshipType.RETURN,
+]);
+
+function normalizeRelationshipType(relationType: string): RelationshipType | null {
+  const normalized = relationType.toUpperCase();
+  if (normalized === 'RETURN_END') return RelationshipType.RETURN;
+  if (normalized in RelationshipType) {
+    return RelationshipType[normalized as keyof typeof RelationshipType];
+  }
+  return null;
+}
 
 /**
  * Resolve a simple edge string (from seed data) to an edge_type ID.
@@ -161,9 +176,6 @@ export async function applyTemplateToQuote(
       where: { quote_id: actualQuoteId },
     });
 
-    // Track created pieces by name for relationship linking
-    const pieceIdsByName = new Map<string, number>();
-
     for (let roomIdx = 0; roomIdx < rooms.length; roomIdx++) {
       const templateRoom = rooms[roomIdx];
 
@@ -176,6 +188,11 @@ export async function applyTemplateToQuote(
         },
       });
       roomsCreated++;
+
+      // Relationship links in starter templates are room-local. Keeping this
+      // scoped prevents a repeated piece name in another room from being linked
+      // to the wrong parent and then hidden as an attached child.
+      const roomPieceIdsByName = new Map<string, number>();
 
       // Create pieces in this room
       for (let pieceIdx = 0; pieceIdx < templateRoom.pieces.length; pieceIdx++) {
@@ -241,23 +258,32 @@ export async function applyTemplateToQuote(
         });
 
         // Track for relationships
-        pieceIdsByName.set(templatePiece.name, piece.id);
+        roomPieceIdsByName.set(templatePiece.name, piece.id);
         piecesCreated++;
       }
 
       // Create piece relationships after all pieces in the room exist
       for (const templatePiece of templateRoom.pieces) {
         if (templatePiece.relatedTo) {
-          const sourcePieceId = pieceIdsByName.get(templatePiece.relatedTo.pieceName);
-          const targetPieceId = pieceIdsByName.get(templatePiece.name);
+          const sourcePieceId = roomPieceIdsByName.get(templatePiece.relatedTo.pieceName);
+          const targetPieceId = roomPieceIdsByName.get(templatePiece.name);
+          const relationshipType = normalizeRelationshipType(templatePiece.relatedTo.relationType);
 
-          if (sourcePieceId && targetPieceId) {
+          if (sourcePieceId && targetPieceId && relationshipType) {
             try {
+              if (SAME_ROOM_RELATIONSHIP_TYPES.has(relationshipType)) {
+                await tx.quote_pieces.update({
+                  where: { id: targetPieceId },
+                  data: { room_id: room.id },
+                });
+              }
+
               await tx.piece_relationships.create({
                 data: {
                   source_piece_id: sourcePieceId,
                   target_piece_id: targetPieceId,
-                  relation_type: templatePiece.relatedTo.relationType,
+                  relation_type: relationshipType,
+                  relationship_type: relationshipType,
                 },
               });
             } catch (err) {
