@@ -47,6 +47,7 @@ import type {
   PricingRuleWithOverrides,
   PiecePricingBreakdown,
   GrainMatchResult,
+  AppliedPricingOverride,
 } from '@/lib/types/pricing';
 
 /** Margin resolution result — tracks which source provided the margin */
@@ -164,6 +165,97 @@ interface MissingRate {
   description: string;
 }
 
+type PricingOverrideRecord = {
+  id: number;
+  quote_id: number;
+  piece_id: number | null;
+  category: string;
+  override_type: string;
+  value: { toNumber: () => number } | number;
+  reason: string | null;
+  source: string | null;
+  is_active: boolean;
+};
+
+type OverrideCategory =
+  | 'CUTTING'
+  | 'NORMAL_CUT'
+  | 'MITRE_CUT'
+  | 'EDGE'
+  | 'NORMAL_POLISH'
+  | 'MITRE_POLISH'
+  | 'CUTOUT'
+  | 'INSTALLATION'
+  | 'FABRICATION'
+  | 'ALL';
+
+function overrideValue(override: PricingOverrideRecord): number {
+  return typeof override.value === 'number' ? override.value : override.value.toNumber();
+}
+
+function normalizeOverrideToken(value: string): string {
+  return value.trim().toUpperCase().replace(/[\s-]+/g, '_');
+}
+
+function overrideAppliesToPiece(override: PricingOverrideRecord, pieceId: number): boolean {
+  return override.piece_id == null || override.piece_id === pieceId;
+}
+
+function isMitredPiece(piece: { thickness_mm: number; lamination_method?: unknown; edge_buildups?: unknown }): boolean {
+  const edgeBuildups = (piece.edge_buildups as Record<string, unknown> | null) ?? null;
+  return piece.thickness_mm >= 40 ||
+    piece.lamination_method === 'MITRED' ||
+    (edgeBuildups != null && Object.keys(edgeBuildups).length > 0);
+}
+
+function categoryMatches(
+  override: PricingOverrideRecord,
+  category: OverrideCategory,
+  piece?: { thickness_mm: number; lamination_method?: unknown; edge_buildups?: unknown }
+): boolean {
+  const token = normalizeOverrideToken(override.category);
+  if (token === 'ALL') return true;
+  if (token === category) return true;
+
+  if (category === 'CUTTING') {
+    return token === 'NORMAL_CUT' || token === 'MITRE_CUT';
+  }
+  if (category === 'EDGE') {
+    return token === 'NORMAL_POLISH' || token === 'MITRE_POLISH' || token === 'POLISH' || token === 'EDGE_PROFILE';
+  }
+
+  if (piece && (category === 'NORMAL_CUT' || category === 'NORMAL_POLISH')) {
+    return !isMitredPiece(piece) && (token === 'CUTTING' || token === 'EDGE' || token === 'POLISH');
+  }
+  if (piece && (category === 'MITRE_CUT' || category === 'MITRE_POLISH')) {
+    return isMitredPiece(piece) && (token === 'CUTTING' || token === 'EDGE' || token === 'POLISH');
+  }
+
+  return false;
+}
+
+function scaleCost(currentCost: number, currentQuantity: number, overrideQuantity: number): number {
+  if (currentQuantity <= 0) return 0;
+  return currentCost * (overrideQuantity / currentQuantity);
+}
+
+function applyQuantityOverrideToEdgeItems(
+  items: Array<{ lm: number; cost: number }>,
+  targetLm: number
+): number {
+  const currentLm = items.reduce((sum, item) => sum + item.lm, 0);
+  if (currentLm <= 0) return 0;
+
+  let newCost = 0;
+  for (const item of items) {
+    const itemTargetLm = targetLm * (item.lm / currentLm);
+    item.cost = scaleCost(item.cost, item.lm, itemTargetLm);
+    item.lm = itemTargetLm;
+    newCost += item.cost;
+  }
+  return newCost;
+}
+
 export interface EnhancedCalculationResult extends CalculationResult {
   missingRates?: MissingRate[];
   fabricationCategory?: string;
@@ -176,6 +268,7 @@ export interface EnhancedCalculationResult extends CalculationResult {
   discountAmount?: number;
   rulesDiscount?: number;
   rulesAdjustedSubtotal?: number;
+  appliedPricingOverrides?: AppliedPricingOverride[];
   breakdown: CalculationResult['breakdown'] & {
     services?: {
       items: ServiceBreakdown[];
@@ -303,6 +396,7 @@ export function calculateMaterialCost(
 ): MaterialBreakdown & { marginResolution: MarginResolution } {
   let totalAreaM2 = 0;
   let overriddenCost = 0;
+  let pieceMaterialOverrideCost = 0;
   let calculatedCost = 0;
 
   for (let idx = 0; idx < pieces.length; idx++) {
@@ -312,7 +406,9 @@ export function calculateMaterialCost(
 
     // Check for piece-level override — margin does NOT apply to overrides
     if (piece.overrideMaterialCost) {
-      overriddenCost += piece.overrideMaterialCost.toNumber();
+      const overrideCost = piece.overrideMaterialCost.toNumber();
+      overriddenCost += overrideCost;
+      pieceMaterialOverrideCost += overrideCost;
       continue;
     }
 
@@ -469,7 +565,7 @@ export function calculateMaterialCost(
   let authoritativeSubtotal = roundToTwo(finalSubtotalWithWaste);
   let authoritativeSlabCount = pricingBasis === 'PER_SLAB' && slabCount !== undefined ? Math.ceil(slabCount) : undefined;
   if (byMaterial.length > 1 || pricingBasis === 'PER_SLAB') {
-    authoritativeSubtotal = roundToTwo(byMaterial.reduce((sum, g) => sum + g.totalCost, 0));
+    authoritativeSubtotal = roundToTwo(pieceMaterialOverrideCost + byMaterial.reduce((sum, g) => sum + g.totalCost, 0));
     // Sum per-group slab counts for multi-material (more accurate than single aggregate)
     if (pricingBasis === 'PER_SLAB') {
       authoritativeSlabCount = byMaterial.reduce((sum, g) => sum + (g.slabCount ?? 0), 0);
@@ -725,6 +821,16 @@ export async function calculateQuotePrice(
   if (!quote) {
     throw new Error('Quote not found');
   }
+
+  const pricingOverrides = await prisma.quote_pricing_overrides.findMany({
+    where: {
+      quote_id: quoteIdNum,
+      company_id: quote.company_id,
+      is_active: true,
+    },
+    orderBy: { created_at: 'asc' },
+  }) as unknown as PricingOverrideRecord[];
+  const appliedPricingOverrides: AppliedPricingOverride[] = [];
 
   // Load pricing context using the quote's company
   const organisationId = `company-${quote.company_id}`;
@@ -1054,6 +1160,18 @@ export async function calculateQuotePrice(
     // Merge and deduplicate: wall edges + promoted edges
     const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges]));
 
+    // Optional richer build-up semantics. Existing edge_buildups data remains
+    // compatible; these flags only apply when explicitly present.
+    const chargeableEdgeConfig =
+      (piece.edge_buildups as unknown as Record<string, { chargePolish?: boolean; exposed?: boolean }> | null) ?? {};
+    edges = edges.map(edge => {
+      const cfg = chargeableEdgeConfig[edge.position.toLowerCase()];
+      if (cfg && (cfg.chargePolish === false || cfg.exposed === false)) {
+        return { ...edge, isFinished: false, edgeTypeId: null };
+      }
+      return edge;
+    });
+
     // Compute finished edge length in Lm for polishing (edges with profiles assigned).
     // Compute strip length in Lm for lamination (ALL edges minus wall edges).
     let finishedEdgesLm: number | undefined;
@@ -1108,6 +1226,33 @@ export async function calculateQuotePrice(
 
     // Promoted apron strip: only one cut along its length (not full perimeter)
     const isPromotedStrip = !!(piece as any).promoted_from_piece_id;
+    const defaultCuttingPerimeterLm = isPromotedStrip
+      ? (piece.length_mm ?? 0) / 1000
+      : isShapedPiece
+      ? getCuttingPerimeterLm(
+          (piece.shape_type ?? 'RECTANGLE') as ShapeType,
+          piece.shape_config as unknown as ShapeConfig,
+          piece.length_mm ?? 0,
+          piece.width_mm ?? 0,
+        )
+      : undefined;
+    const cutCategory: OverrideCategory = isMitredPiece(piece) ? 'MITRE_CUT' : 'NORMAL_CUT';
+    const cutLmOverride = pricingOverrides.find(o =>
+      overrideAppliesToPiece(o, piece.id) &&
+      normalizeOverrideToken(o.override_type) === 'LM' &&
+      categoryMatches(o, cutCategory, piece)
+    );
+    const cuttingPerimeterLm = cutLmOverride ? overrideValue(cutLmOverride) : defaultCuttingPerimeterLm;
+    if (cutLmOverride) {
+      appliedPricingOverrides.push({
+        id: cutLmOverride.id,
+        pieceId: piece.id,
+        category: cutLmOverride.category,
+        overrideType: cutLmOverride.override_type,
+        value: overrideValue(cutLmOverride),
+        reason: cutLmOverride.reason,
+      });
+    }
 
     enginePieces.push({
       id: String(piece.id),
@@ -1129,16 +1274,7 @@ export async function calculateQuotePrice(
       edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
-      cuttingPerimeterLm: isPromotedStrip
-        ? (piece.length_mm ?? 0) / 1000
-        : isShapedPiece
-        ? getCuttingPerimeterLm(
-            (piece.shape_type ?? 'RECTANGLE') as ShapeType,
-            piece.shape_config as unknown as ShapeConfig,
-            piece.length_mm ?? 0,
-            piece.width_mm ?? 0,
-          )
-        : undefined,
+      cuttingPerimeterLm,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,
@@ -1211,6 +1347,118 @@ export async function calculateQuotePrice(
       gstAmount: 0,
       totalIncGst: 0,
     };
+  }
+
+  // Apply auditable category overrides after the engine has produced normal
+  // line items. With no override records this is a no-op, preserving existing quotes.
+  for (let i = 0; i < engineResult.pieces.length; i++) {
+    const ep = engineResult.pieces[i];
+    const piece = allPieces[i];
+    if (!piece) continue;
+
+    const edgeCategory: OverrideCategory = isMitredPiece(piece) ? 'MITRE_POLISH' : 'NORMAL_POLISH';
+    const edgeLmOverride = pricingOverrides.find(o =>
+      overrideAppliesToPiece(o, piece.id) &&
+      normalizeOverrideToken(o.override_type) === 'LM' &&
+      categoryMatches(o, edgeCategory, piece)
+    );
+    if (edgeLmOverride) {
+      const before = ep.edgeProfiles.cost;
+      const targetLm = overrideValue(edgeLmOverride);
+      ep.edgeProfiles.cost = applyQuantityOverrideToEdgeItems(ep.edgeProfiles.items, targetLm);
+      ep.edgeProfiles.lm = targetLm;
+      const delta = ep.edgeProfiles.cost - before;
+      appliedPricingOverrides.push({
+        id: edgeLmOverride.id,
+        pieceId: piece.id,
+        category: edgeLmOverride.category,
+        overrideType: edgeLmOverride.override_type,
+        value: targetLm,
+        reason: edgeLmOverride.reason,
+        amountDelta: roundToTwo(delta),
+      });
+    }
+
+    const lineAdjustments: Array<{ category: OverrideCategory; apply: (multiplier: number) => number }> = [
+      {
+        category: isMitredPiece(piece) ? 'MITRE_CUT' : 'NORMAL_CUT',
+        apply: multiplier => {
+          const before = ep.cutting.cost;
+          ep.cutting.cost *= multiplier;
+          ep.cutting.ratePerLm *= multiplier;
+          return ep.cutting.cost - before;
+        },
+      },
+      {
+        category: edgeCategory,
+        apply: multiplier => {
+          const before = ep.edgeProfiles.cost;
+          for (const item of ep.edgeProfiles.items) {
+            item.cost *= multiplier;
+            item.rate *= multiplier;
+          }
+          ep.edgeProfiles.cost *= multiplier;
+          return ep.edgeProfiles.cost - before;
+        },
+      },
+      {
+        category: 'CUTOUT',
+        apply: multiplier => {
+          const before = ep.cutouts.cost;
+          for (const item of ep.cutouts.items) {
+            item.cost *= multiplier;
+            item.rate *= multiplier;
+          }
+          ep.cutouts.cost *= multiplier;
+          return ep.cutouts.cost - before;
+        },
+      },
+      {
+        category: 'INSTALLATION',
+        apply: multiplier => {
+          const before = ep.installation.cost;
+          ep.installation.cost *= multiplier;
+          ep.installation.ratePerSqm *= multiplier;
+          return ep.installation.cost - before;
+        },
+      },
+    ];
+
+    for (const adjustment of lineAdjustments) {
+      const multiplierOverrides = pricingOverrides.filter(o =>
+        overrideAppliesToPiece(o, piece.id) &&
+        normalizeOverrideToken(o.override_type) === 'MULTIPLIER' &&
+        categoryMatches(o, adjustment.category, piece)
+      );
+      for (const override of multiplierOverrides) {
+        const multiplier = overrideValue(override);
+        const delta = adjustment.apply(multiplier);
+        appliedPricingOverrides.push({
+          id: override.id,
+          pieceId: piece.id,
+          category: override.category,
+          overrideType: override.override_type,
+          value: multiplier,
+          reason: override.reason,
+          amountDelta: roundToTwo(delta),
+        });
+      }
+    }
+
+    const fabricationBefore = ep.subtotal;
+    ep.subtotal =
+      ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
+      ep.edgeProfiles.cost + ep.cutouts.cost +
+      (ep.join?.cost ?? 0) + (ep.grainSurcharge?.cost ?? 0) +
+      ep.installation.cost;
+    if (fabricationBefore !== ep.subtotal) {
+      // Keep aggregate engine totals consistent for downstream subtotal math.
+      engineResult.fabricationSubtotal = engineResult.pieces.reduce(
+        (sum, p) => sum + p.cutting.cost + (p.curvedCutting?.cost ?? 0) + p.edgeProfiles.cost + p.cutouts.cost + (p.join?.cost ?? 0) + (p.grainSurcharge?.cost ?? 0),
+        0
+      );
+      engineResult.installationSubtotal = engineResult.pieces.reduce((sum, p) => sum + p.installation.cost, 0);
+    }
   }
 
   // ─── Detect post-engine silent $0 rates for edges and cutouts ──────────────
@@ -1800,10 +2048,28 @@ export async function calculateQuotePrice(
     cutoutData.subtotal +
     serviceData.subtotal;
 
-  const baseSubtotal =
+  let baseSubtotal =
     piecesSubtotal +
     deliveryBreakdown.finalCost +
     templatingBreakdown.finalCost;
+
+  const fixedPricingAdjustments = pricingOverrides.filter(o =>
+    normalizeOverrideToken(o.override_type) === 'FIXED_DELTA' ||
+    normalizeOverrideToken(o.override_type) === 'FIXED_ADJUSTMENT'
+  );
+  for (const override of fixedPricingAdjustments) {
+    const delta = overrideValue(override);
+    baseSubtotal += delta;
+    appliedPricingOverrides.push({
+      id: override.id,
+      pieceId: override.piece_id,
+      category: override.category,
+      overrideType: override.override_type,
+      value: delta,
+      reason: override.reason,
+      amountDelta: roundToTwo(delta),
+    });
+  }
 
   // Load custom charges for this quote
   const customCharges = await prisma.quote_custom_charges.findMany({
@@ -2001,6 +2267,7 @@ export async function calculateQuotePrice(
       pieces: pieceBreakdowns,
     },
     appliedRules,
+    appliedPricingOverrides: appliedPricingOverrides.length > 0 ? appliedPricingOverrides : undefined,
     discounts: [],
     price_books: priceBookInfo,
     calculated_at: new Date(),

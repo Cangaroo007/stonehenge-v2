@@ -2,6 +2,26 @@ import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+
+async function recalculateQuote(quoteId: number) {
+  try {
+    const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+    await prisma.quotes.update({
+      where: { id: quoteId },
+      data: {
+        subtotal: calcResult.subtotal,
+        total: calcResult.total,
+        tax_amount: calcResult.gstAmount,
+        calculated_total: calcResult.total,
+        calculated_at: new Date(),
+        calculation_breakdown: calcResult as unknown as object,
+      },
+    });
+  } catch (error) {
+    console.error('Piece override changed but recalculation failed:', error);
+  }
+}
 
 // POST /api/quotes/[id]/pieces/[pieceId]/override
 export async function POST(
@@ -33,27 +53,53 @@ export async function POST(
 
     const body = await request.json();
     
+    const overrideFabricationCost =
+      body.overrideFabricationCost !== undefined
+        ? body.overrideFabricationCost
+        : body.overrideTotalCost !== undefined
+        ? body.overrideTotalCost
+        : undefined;
+
     // Validate that at least one override is provided
     if (
       body.overrideMaterialCost === undefined &&
-      body.overrideFeaturesCost === undefined &&
-      body.overrideTotalCost === undefined
+      body.overrideSlabPrice === undefined &&
+      overrideFabricationCost === undefined
     ) {
       return NextResponse.json(
         { error: 'At least one override value must be provided' },
         { status: 400 }
       );
     }
-    
-    // Update piece with overrides (fields are planned schema additions)
+
+    const currentPiece = await prisma.quote_pieces.findFirst({
+      where: {
+        id: pieceId,
+        quote_rooms: { quote_id: quoteId },
+      },
+      include: {
+        quote_rooms: {
+          include: {
+            quotes: {
+              select: { quote_number: true },
+            },
+          },
+        },
+      },
+    });
+
+    if (!currentPiece) {
+      return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
+    // Update piece with current schema override fields.
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {
-        overrideMaterialCost: body.overrideMaterialCost !== undefined ? body.overrideMaterialCost : undefined,
-        overrideFeaturesCost: body.overrideFeaturesCost !== undefined ? body.overrideFeaturesCost : undefined,
-        overrideTotalCost: body.overrideTotalCost !== undefined ? body.overrideTotalCost : undefined,
-        overrideReason: body.reason || null
-      } as any,
+        override_material_cost: body.overrideMaterialCost !== undefined ? body.overrideMaterialCost : undefined,
+        override_slab_price: body.overrideSlabPrice !== undefined ? body.overrideSlabPrice : undefined,
+        override_fabrication_cost: overrideFabricationCost !== undefined ? overrideFabricationCost : undefined,
+      },
       include: {
         quote_rooms: {
           include: {
@@ -78,8 +124,8 @@ export async function POST(
         quote_number: (piece as any).quote_rooms?.quotes?.quote_number,
         pieceName: piece.name,
         overrideMaterialCost: body.overrideMaterialCost,
-        overrideFeaturesCost: body.overrideFeaturesCost,
-        overrideTotalCost: body.overrideTotalCost,
+        overrideSlabPrice: body.overrideSlabPrice,
+        overrideFabricationCost,
         reason: body.reason,
         // DEPRECATED: material_cost/total_cost are unreliable — use quotes.calculation_breakdown
         // Kept for override audit context. Do not read these values for display.
@@ -88,6 +134,8 @@ export async function POST(
         originalTotalCost: Number(piece.total_cost)
       }
     });
+
+    await recalculateQuote(quoteId);
     
     return NextResponse.json({
       success: true,
@@ -99,10 +147,9 @@ export async function POST(
         materialCost: Number(piece.material_cost),
         featuresCost: Number(piece.features_cost),
         totalCost: Number(piece.total_cost),
-        overrideMaterialCost: (piece as any).overrideMaterialCost ? Number((piece as any).overrideMaterialCost) : null,
-        overrideFeaturesCost: (piece as any).overrideFeaturesCost ? Number((piece as any).overrideFeaturesCost) : null,
-        overrideTotalCost: (piece as any).overrideTotalCost ? Number((piece as any).overrideTotalCost) : null,
-        overrideReason: (piece as any).overrideReason
+        overrideMaterialCost: piece.override_material_cost ? Number(piece.override_material_cost) : null,
+        overrideSlabPrice: piece.override_slab_price ? Number(piece.override_slab_price) : null,
+        overrideFabricationCost: piece.override_fabrication_cost ? Number(piece.override_fabrication_cost) : null,
       }
     });
   } catch (error: any) {
@@ -145,11 +192,10 @@ export async function DELETE(
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {
-        overrideMaterialCost: null,
-        overrideFeaturesCost: null,
-        overrideTotalCost: null,
-        overrideReason: null
-      } as any,
+        override_material_cost: null,
+        override_slab_price: null,
+        override_fabrication_cost: null,
+      },
       include: {
         quote_rooms: {
           include: {
@@ -174,6 +220,8 @@ export async function DELETE(
         pieceName: piece.name
       }
     });
+
+    await recalculateQuote(quoteId);
     
     return NextResponse.json({
       success: true,

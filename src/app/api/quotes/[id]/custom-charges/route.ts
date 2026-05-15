@@ -49,7 +49,7 @@ export async function GET(
 
 /**
  * POST /api/quotes/[id]/custom-charges
- * Add a custom charge to a quote.
+ * Add a custom adjustment to a quote.
  * Body: { description: string, amount: number, sortOrder?: number }
  */
 export async function POST(
@@ -80,8 +80,8 @@ export async function POST(
       return NextResponse.json({ error: 'Description is required' }, { status: 400 });
     }
 
-    if (typeof amount !== 'number' || amount <= 0) {
-      return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 });
+    if (typeof amount !== 'number' || amount === 0) {
+      return NextResponse.json({ error: 'Amount must be a non-zero number' }, { status: 400 });
     }
 
     const charge = await prisma.quote_custom_charges.create({

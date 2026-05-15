@@ -230,6 +230,27 @@ const styles = StyleSheet.create({
     marginTop: 4,
     marginBottom: 4,
   },
+  roomPriceLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    fontSize: 8,
+    color: DARK_GRAY,
+    marginTop: 2,
+  },
+  roomPriceLabel: {
+    flex: 1,
+    color: DARK_GRAY,
+  },
+  roomPriceValue: {
+    minWidth: 72,
+    textAlign: 'right' as const,
+  },
+  roomCalcLine: {
+    fontSize: 7,
+    color: GRAY,
+    marginLeft: 10,
+    marginBottom: 1,
+  },
   roomBlockDivider: {
     height: 0.5,
     backgroundColor: BORDER_GRAY,
@@ -812,6 +833,36 @@ function pieceDescriptionLines(p: QuotePdfPiece): string[] {
   return lines;
 }
 
+function piecePriceLines(p: QuotePdfPiece, detailed: boolean): React.ReactElement[] {
+  const rows: React.ReactElement[] = [
+    h(View, { style: styles.roomPriceLine, key: `piece-price-${p.id}` },
+      h(Text, { style: styles.roomPriceLabel }, p.name || `${p.lengthMm} × ${p.widthMm}`),
+      h(Text, { style: styles.roomPriceValue }, fmtCurrency(p.pricing.pieceTotal)),
+    ),
+  ];
+
+  if (detailed) {
+    const detailParts = [
+      ['Material', p.pricing.material],
+      ['Cutting', p.pricing.cutting],
+      ['Edges', p.pricing.edges],
+      ['Cutouts', p.pricing.cutouts],
+      ['Install', p.pricing.installation],
+      ['Joins', p.pricing.oversize + p.pricing.cornerJoin],
+    ].filter(([, amount]) => Number(amount) !== 0);
+
+    for (const [label, amount] of detailParts) {
+      rows.push(
+        h(Text, { style: styles.roomCalcLine, key: `piece-price-${p.id}-${label}` },
+          `${label}: ${fmtCurrency(Number(amount))}`,
+        ),
+      );
+    }
+  }
+
+  return rows;
+}
+
 /**
  * Page 2+ — room breakdown block in NCS Q22338 layout:
  *   {thickness}mm {room name}                                        $room total
@@ -884,6 +935,8 @@ function buildRoomSection(
   // room has multiple materials, only the first is surfaced (room-level
   // multi-material display is a separate gap).
   const materialName = mainPieces.find(p => p.materialName)?.materialName ?? null;
+  const showPieceTotals = settings.pricingMode === 'itemised' || settings.showItemisedBreakdown;
+  const showDetailedCalculations = settings.showItemisedBreakdown;
 
   return h(View, { style: styles.roomBlock, key: `room-${room.id}`, wrap: false },
     // Title row: room label left, room total right.
@@ -910,6 +963,11 @@ function buildRoomSection(
     materialName
       ? h(Text, { style: styles.roomMaterial }, materialName)
       : null,
+    showPieceTotals
+      ? h(View, { key: `price-lines-${room.id}` },
+          ...room.pieces.flatMap(piece => piecePriceLines(piece, showDetailedCalculations)),
+        )
+      : null,
     // Divider between rooms.
     h(View, { style: styles.roomBlockDivider }),
   );
@@ -921,7 +979,7 @@ function buildCharges(
 ): React.ReactElement | null {
   const { delivery, templating, installation } = data.charges;
   const hasBaseCharges = delivery > 0 || templating > 0 || installation > 0;
-  const hasCustomCharges = sections.additionalCosts && data.customChargesTotal > 0;
+  const hasCustomCharges = sections.additionalCosts && data.customChargesTotal !== 0;
   const hasDiscount = sections.quoteDiscount && data.discountAmount > 0;
 
   if (!hasBaseCharges && !hasCustomCharges && !hasDiscount) return null;
@@ -960,7 +1018,7 @@ function buildCharges(
     if (sections.additionalCostDetails) {
       // Render each custom charge as its own line
       for (const charge of data.customCharges) {
-        if (charge.amount > 0) {
+        if (charge.amount !== 0) {
           rows.push(
             h(View, { style: styles.chargeRow, key: `charge-custom-${charge.description}` },
               h(Text, { style: styles.chargeLabel }, charge.description),

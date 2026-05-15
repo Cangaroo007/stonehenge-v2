@@ -80,6 +80,16 @@ export interface AppliedRule {
   adjustmentValue?: number;
 }
 
+export interface AppliedPricingOverride {
+  id: number;
+  pieceId?: number | null;
+  category: string;
+  overrideType: string;
+  value: number;
+  reason?: string | null;
+  amountDelta?: number;
+}
+
 export interface MaterialBreakdown {
   totalAreaM2: number;
   baseRate: number;
@@ -196,6 +206,7 @@ export interface CalculationResult {
     pieces?: PiecePricingBreakdown[];
   };
   appliedRules: AppliedRule[];
+  appliedPricingOverrides?: AppliedPricingOverride[];
   discounts: DiscountBreakdown[];
   price_books: { id: string; name: string } | null;
   calculated_at: Date;

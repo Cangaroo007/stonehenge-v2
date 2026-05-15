@@ -9,7 +9,7 @@ import { getDownloadUrl } from '@/lib/storage/r2';
 export const dynamic = 'force-dynamic';
 
 export async function GET(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
@@ -106,6 +106,35 @@ export async function GET(
     const sectionsConfig = template?.sections_config
       ? (template.sections_config as Record<string, boolean>)
       : undefined;
+
+    const pdfView = new URL(request.url).searchParams.get('view');
+    if (pdfView === 'summary') {
+      templateSettings = {
+        ...templateSettings,
+        showPieceBreakdown: false,
+        showRoomTotals: true,
+        pricingMode: 'room_total',
+        showItemisedBreakdown: false,
+      };
+    } else if (pdfView === 'piece-totals' || pdfView === 'pieceTotals') {
+      templateSettings = {
+        ...templateSettings,
+        showPieceBreakdown: true,
+        showRoomTotals: true,
+        pricingMode: 'itemised',
+        showItemisedBreakdown: false,
+      };
+    } else if (pdfView === 'detailed' || pdfView === 'calculations') {
+      templateSettings = {
+        ...templateSettings,
+        showPieceBreakdown: true,
+        showRoomTotals: true,
+        pricingMode: 'itemised',
+        showItemisedBreakdown: true,
+        showEdgeDetails: true,
+        showCutoutDetails: true,
+      };
+    }
 
     // Render PDF
     const pdfBuffer = await renderQuotePdf(data, templateSettings, sectionsConfig);

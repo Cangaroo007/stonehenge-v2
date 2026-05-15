@@ -47,8 +47,8 @@ export async function PATCH(
     }
 
     if (body.amount !== undefined) {
-      if (typeof body.amount !== 'number' || body.amount <= 0) {
-        return NextResponse.json({ error: 'Amount must be a positive number' }, { status: 400 });
+      if (typeof body.amount !== 'number' || body.amount === 0) {
+        return NextResponse.json({ error: 'Amount must be a non-zero number' }, { status: 400 });
       }
       updateData.amount = body.amount;
     }
