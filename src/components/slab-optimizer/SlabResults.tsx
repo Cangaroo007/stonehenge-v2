@@ -30,7 +30,11 @@ const PIECE_COLORS = [
 ];
 
 export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0, pieceCutouts }: SlabResultsProps) {
-  if (result.totalSlabs === 0) {
+  if (
+    result.totalSlabs === 0 &&
+    result.unplacedPieces.length === 0 &&
+    (!result.warnings || result.warnings.length === 0)
+  ) {
     return (
       <div className="text-center py-8 text-gray-500">
         No pieces to display

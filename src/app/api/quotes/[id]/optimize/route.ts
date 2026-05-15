@@ -445,6 +445,21 @@ export async function POST(
     const materialIdByPieceId = new Map<string, string | null>(
       pieces.map((p: { id: string; materialId: string | null }) => [p.id, p.materialId])
     );
+    const skippedOptimizationPieces = pieces
+      .filter((p: { width: number; height: number; materialId: string | null; id: string }) =>
+        p.width <= 0 ||
+        p.height <= 0 ||
+        (!p.materialId && !wfsbParentMap.has(p.id))
+      )
+      .map((p: { id: string; label: string; width: number; height: number; materialId: string | null }) => {
+        const reason = p.width <= 0 || p.height <= 0
+          ? 'invalid dimensions'
+          : 'no material assigned';
+        return `${p.label} (${reason})`;
+      });
+    const skippedWarnings = skippedOptimizationPieces.length > 0
+      ? [`${skippedOptimizationPieces.length} piece(s) skipped from slab optimisation: ${skippedOptimizationPieces.join('; ')}`]
+      : [];
 
     // Collect unique material records from the pieces
     const materialRecords = new Map<string, QuotePieceRow['materials']>();
@@ -527,7 +542,7 @@ export async function POST(
       const allUnplaced = multiResult.materialGroups.flatMap((g) =>
         g.optimizationResult.unplacedPieces
       );
-      const allWarnings = multiResult.warnings ?? [];
+      const allWarnings = [...(multiResult.warnings ?? []), ...skippedWarnings];
 
       logger.info(
         `[Optimize API] Multi-material complete: ${multiResult.totalSlabCount} total slabs, ${multiResult.overallWastePercentage.toFixed(2)}% waste`
@@ -652,6 +667,9 @@ export async function POST(
       mitreKerfWidth: mitreKerf,
       companyId: auth.user.companyId,
     });
+    if (skippedWarnings.length > 0) {
+      result.warnings = [...(result.warnings ?? []), ...skippedWarnings];
+    }
 
     // Piece count validation at the API level
     const totalPiecesIn = pieces.length;
