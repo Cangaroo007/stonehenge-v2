@@ -49,6 +49,7 @@ import type {
   GrainMatchResult,
   AppliedPricingOverride,
 } from '@/lib/types/pricing';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 /** Margin resolution result — tracks which source provided the margin */
 export interface MarginResolution {
@@ -1210,7 +1211,7 @@ export async function calculateQuotePrice(
     // Optional richer build-up semantics. Existing edge_buildups data remains
     // compatible; these flags only apply when explicitly present.
     const chargeableEdgeConfig =
-      (piece.edge_buildups as unknown as Record<string, { chargePolish?: boolean; exposed?: boolean }> | null) ?? {};
+      (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null) ?? {};
     edges = edges.map(edge => {
       const cfg = chargeableEdgeConfig[edge.position.toLowerCase()];
       if (cfg && (cfg.chargePolish === false || cfg.exposed === false)) {
@@ -1250,7 +1251,7 @@ export async function calculateQuotePrice(
         .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
     } else {
       // Rectangle: edges with build-up OR all edges minus wall edges for lamination
-      const edgeBuildups = (piece.edge_buildups as unknown as Record<string, { depth: number }>) ?? {};
+      const edgeBuildups = (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig>) ?? {};
       const hasEdgeBuildups = Object.keys(edgeBuildups).length > 0;
       const rectEdgeLengths: Record<string, number> = {
         top: piece.length_mm,
@@ -1272,17 +1273,45 @@ export async function calculateQuotePrice(
     }
 
     // Promoted apron strip: only one cut along its length (not full perimeter)
-    const isPromotedStrip = !!(piece as any).promoted_from_piece_id;
-    const defaultCuttingPerimeterLm = isPromotedStrip
-      ? (piece.length_mm ?? 0) / 1000
-      : isShapedPiece
-      ? getCuttingPerimeterLm(
-          (piece.shape_type ?? 'RECTANGLE') as ShapeType,
+    const hasCutChargeOverrides = Object.values(chargeableEdgeConfig).some(cfg => cfg?.chargeCut === false);
+    let chargeableCuttingPerimeterLm: number | undefined;
+    if (hasCutChargeOverrides) {
+      if (isShapedPiece && piece.shape_config) {
+        const finishableLengths = getFinishableEdgeLengthsMm(
+          shapeType,
           piece.shape_config as unknown as ShapeConfig,
           piece.length_mm ?? 0,
-          piece.width_mm ?? 0,
-        )
-      : undefined;
+          piece.width_mm ?? 0
+        );
+        chargeableCuttingPerimeterLm = Object.entries(finishableLengths)
+          .filter(([key]) => chargeableEdgeConfig[key]?.chargeCut !== false)
+          .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      } else {
+        const rectEdgeLengths: Record<string, number> = {
+          top: piece.length_mm ?? 0,
+          bottom: piece.length_mm ?? 0,
+          left: piece.width_mm ?? 0,
+          right: piece.width_mm ?? 0,
+        };
+        chargeableCuttingPerimeterLm = Object.entries(rectEdgeLengths)
+          .filter(([key]) => chargeableEdgeConfig[key]?.chargeCut !== false)
+          .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      }
+    }
+
+    const isPromotedStrip = !!(piece as any).promoted_from_piece_id;
+    const defaultCuttingPerimeterLm = chargeableCuttingPerimeterLm ?? (
+      isPromotedStrip
+        ? (piece.length_mm ?? 0) / 1000
+        : isShapedPiece
+        ? getCuttingPerimeterLm(
+            (piece.shape_type ?? 'RECTANGLE') as ShapeType,
+            piece.shape_config as unknown as ShapeConfig,
+            piece.length_mm ?? 0,
+            piece.width_mm ?? 0,
+          )
+        : undefined
+    );
     const cutCategory: OverrideCategory = isMitredPiece(piece) ? 'MITRE_CUT' : 'NORMAL_CUT';
     const cutLmOverride = pricingOverrides.find(o =>
       o.piece_id != null &&

@@ -119,8 +119,8 @@ export interface OptimizationInput {
     stripWidthOverrides?: Record<string, number> | null;
     // Lamination method — 'MITRED' generates face + return strips, 'LAMINATED' generates return only
     laminationMethod?: string | null;
-    // Per-edge build-up config: { top?: { depth: number }, ... }
-    edgeBuildups?: Record<string, { depth: number }> | null;
+    // Per-edge build-up config: { top?: { depth, exposed, chargeCut, chargePolish }, ... }
+    edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   }>;
   slabWidth: number;
   slabHeight: number;
@@ -180,3 +180,4 @@ export interface SlabCutoutInfo {
 
 // Re-export for convenience
 export type { Placement as SlabPlacement };
+import type { EdgeBuildupConfig } from './edge-buildup';

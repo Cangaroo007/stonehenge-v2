@@ -8,6 +8,7 @@ import type {
   MaterialGroupResult,
   OversizePieceInfo,
 } from '@/types/slab-optimization';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Input types ──────────────────────────────────────────────────────────────
 
@@ -45,7 +46,7 @@ export interface MultiMaterialPiece {
   /** Lamination method — 'MITRED' generates face + return strips */
   laminationMethod?: string | null;
   /** Per-edge build-up config */
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }
 
 export interface MaterialInfo {

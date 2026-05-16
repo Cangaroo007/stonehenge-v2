@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo } from 'react';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -12,14 +13,14 @@ export interface EdgePanelProps {
 
   // Current edge state (keyed by edge ID)
   edgeProfiles: Record<string, string | null>;
-  edgeBuildups: Record<string, { depth: number }>;
+  edgeBuildups: Record<string, EdgeBuildupConfig>;
 
   // Available options
   edgeTypes: Array<{ id: string; name: string }>;
 
   // Apply callbacks
   onApplyProfile: (edgeIds: string[], profileId: string | null) => void;
-  onApplyBuildup: (edgeIds: string[], depth: number | null) => void;
+  onApplyBuildup: (edgeIds: string[], depth: number | null, config?: EdgeBuildupConfig) => void;
 
   // Attach piece callbacks — only when exactly 1 edge selected
   onAttachWaterfall: (edgeId: string) => void;
@@ -35,6 +36,8 @@ export interface EdgePanelProps {
   // Optional
   disabled?: boolean;
 }
+
+export type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -68,6 +71,9 @@ export default function EdgePanel({
   const [pendingProfileId, setPendingProfileId] = useState<string | null | undefined>(undefined);
   const [pendingBuildupChoice, setPendingBuildupChoice] = useState<'off' | '20' | '40' | 'custom' | null>(null);
   const [customBuildupMm, setCustomBuildupMm] = useState('');
+  const [pendingExposed, setPendingExposed] = useState(true);
+  const [pendingChargeCut, setPendingChargeCut] = useState(true);
+  const [pendingChargePolish, setPendingChargePolish] = useState(true);
 
   const selectionCount = selectedEdgeIds.length;
   const hasSelection = selectionCount > 0;
@@ -91,7 +97,19 @@ export default function EdgePanel({
     const unique = Array.from(new Set(depths));
     if (unique.length > 1) return 'Currently: Mixed';
     const d = unique[0];
-    return d ? `Currently: ${d}mm` : 'Currently: Off';
+    if (!d) return 'Currently: Off';
+    const configs = selectedEdgeIds
+      .map((id) => edgeBuildups[id])
+      .filter(Boolean);
+    const allExposed = configs.every((cfg) => cfg.exposed !== false);
+    const allCutCharged = configs.every((cfg) => cfg.chargeCut !== false);
+    const allPolishCharged = configs.every((cfg) => cfg.chargePolish !== false);
+    const notes = [
+      !allExposed ? 'concealed' : null,
+      !allCutCharged ? 'cut not charged' : null,
+      !allPolishCharged ? 'polish not charged' : null,
+    ].filter(Boolean);
+    return `Currently: ${d}mm${notes.length ? ` (${notes.join(', ')})` : ''}`;
   }, [selectedEdgeIds, edgeBuildups, selectionCount]);
 
   const selectedEdgesAllTrueWalls = useMemo(
@@ -144,7 +162,18 @@ export default function EdgePanel({
 
   const handleApplyBuildup = () => {
     if (!hasSelection || pendingDepthMm === undefined || disabled) return;
-    onApplyBuildup(selectedEdgeIds, pendingDepthMm);
+    onApplyBuildup(
+      selectedEdgeIds,
+      pendingDepthMm,
+      pendingDepthMm === null
+        ? undefined
+        : {
+            depth: pendingDepthMm,
+            exposed: pendingExposed,
+            chargeCut: pendingChargeCut,
+            chargePolish: pendingChargePolish,
+          }
+    );
     setPendingBuildupChoice(null);
     setCustomBuildupMm('');
   };
@@ -284,6 +313,25 @@ export default function EdgePanel({
                 className="w-20 text-sm px-2 py-1 border border-gray-300 rounded focus:ring-1 focus:ring-primary-500 focus:border-primary-500"
               />
               <span className="text-xs text-gray-500">mm</span>
+            </div>
+          )}
+          {pendingBuildupChoice !== null && pendingBuildupChoice !== 'off' && (
+            <div className="grid grid-cols-1 gap-1.5 rounded-md border border-gray-200 bg-gray-50 p-2">
+              {[
+                { label: 'Exposed edge', checked: pendingExposed, onChange: setPendingExposed },
+                { label: 'Charge cutting', checked: pendingChargeCut, onChange: setPendingChargeCut },
+                { label: 'Charge polish/profile', checked: pendingChargePolish, onChange: setPendingChargePolish },
+              ].map((item) => (
+                <label key={item.label} className="flex items-center gap-2 text-xs text-gray-600">
+                  <input
+                    type="checkbox"
+                    checked={item.checked}
+                    onChange={(e) => item.onChange(e.target.checked)}
+                    className="h-3.5 w-3.5 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                  />
+                  {item.label}
+                </label>
+              ))}
             </div>
           )}
           <button

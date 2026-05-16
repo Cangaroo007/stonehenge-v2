@@ -30,6 +30,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -111,7 +112,7 @@ interface PieceData {
   overrideMaterialCost?: number | null;
   overrideSlabPrice?: number | null;
   overrideFabricationCost?: number | null;
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   materialCollectionOnly?: boolean;
   materialCollectionName?: string | null;
 }
@@ -200,7 +201,7 @@ function AccordionStripWidths({
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
   shapeType: ShapeType;
   onStripWidthChange?: () => void;
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }) {
   // Derive which edges generate strips — include edges with edge profile OR build-up
   const edges: string[] = [];
@@ -259,7 +260,7 @@ function AccordionStripWidths({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, { depth: number }> | null }> = await res.json();
+      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, EdgeBuildupConfig> | null }> = await res.json();
       const targets = allPieces.filter(p =>
         (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
         p.id !== piece.id
@@ -623,8 +624,8 @@ export default function QuickViewPieceRow({
     piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
   );
   const [overrideSaving, setOverrideSaving] = useState<'idle' | 'saving' | 'saved'>('idle');
-  const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, { depth: number }>>(
-    (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
+  const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, EdgeBuildupConfig>>(
+    (piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}
   );
   const [buildupSaveState, setBuildupSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   // Local edge profile state — updated optimistically before API response.
@@ -670,7 +671,7 @@ export default function QuickViewPieceRow({
     setLocalOverrideFabCost(
       piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
     );
-    setLocalEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
+    setLocalEdgeBuildups((piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {});
     setLocalEdges({
       edgeTop: piece.edgeTop ?? null,
       edgeBottom: piece.edgeBottom ?? null,
@@ -1012,7 +1013,13 @@ export default function QuickViewPieceRow({
     const next = { ...localEdgeBuildups };
     const profileField = edgeFieldMap[edge];
     if (active) {
-      next[edge] = { depth };
+      next[edge] = {
+        ...(next[edge] ?? {}),
+        depth,
+        exposed: next[edge]?.exposed ?? true,
+        chargeCut: next[edge]?.chargeCut ?? true,
+        chargePolish: next[edge]?.chargePolish ?? true,
+      };
     } else {
       delete next[edge];
     }
@@ -1576,7 +1583,7 @@ export default function QuickViewPieceRow({
           {/* Edge build-up pills (read-only) */}
           {piece.edgeBuildups && Object.keys(piece.edgeBuildups as Record<string, unknown>).length > 0 && (
             <div className="flex gap-1 flex-shrink-0">
-              {Object.entries(piece.edgeBuildups as Record<string, { depth: number }>).map(([edge, cfg]) => (
+              {Object.entries(piece.edgeBuildups as Record<string, EdgeBuildupConfig>).map(([edge, cfg]) => (
                 <span
                   key={edge}
                   className="px-1.5 py-0.5 text-[10px] font-medium bg-amber-100 text-amber-700 rounded border border-amber-200"
@@ -1686,11 +1693,11 @@ export default function QuickViewPieceRow({
                   onClick={(e) => {
                     e.stopPropagation();
                     const wallEdges = piece.noStripEdges ?? [];
-                    const next: Record<string, { depth: number }> = {};
+                    const next: Record<string, EdgeBuildupConfig> = {};
                     const profileOverrides: Record<string, string | null> = {};
                     (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
                       if (!wallEdges.includes(edge)) {
-                        next[edge] = { depth: 40 };
+                        next[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
                         profileOverrides[edgeFieldMap[edge]] = MITERED_EDGE_ID;
                       }
                     });
@@ -2122,8 +2129,8 @@ export default function QuickViewPieceRow({
                         className={`select-none ${isFinished || suppressed ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
                         fill={colour}
                       >
-                        {code}{!suppressed && piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
-                          ? ` ${(piece.edgeBuildups as Record<string, { depth: number }>)[side].depth}mm`
+                        {code}{!suppressed && piece.edgeBuildups && (piece.edgeBuildups as Record<string, EdgeBuildupConfig>)[side]
+                          ? ` ${(piece.edgeBuildups as Record<string, EdgeBuildupConfig>)[side].depth}mm`
                           : ''}
                       </text>
                     </g>
@@ -2370,7 +2377,7 @@ export default function QuickViewPieceRow({
                 })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
-                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
+                edgeBuildups={(piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}}
                 attachedPieceTypes={attachedPieceTypes}
                 externalSelectedEdgeIds={isEditMode ? selectedEdgeIds : undefined}
                 onEdgeClick={isEditMode ? (edgeId) => {
@@ -2392,7 +2399,7 @@ export default function QuickViewPieceRow({
                 selectedEdgeIds={selectedEdgeIds}
                 onSelectionChange={setSelectedEdgeIds}
                 edgeProfiles={edgePanelProfiles}
-                edgeBuildups={(piece.edgeBuildups as Record<string, { depth: number }>) ?? {}}
+                edgeBuildups={(piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}}
                 edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
                 onApplyProfile={(edgeIds, profileId) => {
                   // Atomic multi-edge profile save — one savePieceImmediate call.
@@ -2447,7 +2454,7 @@ export default function QuickViewPieceRow({
 
                   setSelectedEdgeIds([]);
                 }}
-                onApplyBuildup={(edgeIds, depth) => {
+                onApplyBuildup={(edgeIds, depth, config) => {
                   // Fix: build all edge updates atomically in one savePieceImmediate call.
                   // Calling handleEdgeBuildup per edge causes stale closure bug —
                   // each call reads the same localEdgeBuildups snapshot and last write wins.
@@ -2458,7 +2465,11 @@ export default function QuickViewPieceRow({
 
                   for (const edgeId of edgeIds) {
                     if (active) {
-                      next[edgeId] = { depth: depthValue };
+                      next[edgeId] = {
+                        ...(next[edgeId] ?? {}),
+                        ...(config ?? {}),
+                        depth: depthValue,
+                      };
                     } else {
                       delete next[edgeId];
                     }
@@ -2519,7 +2530,7 @@ export default function QuickViewPieceRow({
               }}
               shapeType={(piece.shapeType ?? 'RECTANGLE') as ShapeType}
               onStripWidthChange={onStripWidthChange}
-              edgeBuildups={fullPiece.edgeBuildups as Record<string, { depth: number }> | null}
+              edgeBuildups={fullPiece.edgeBuildups as Record<string, EdgeBuildupConfig> | null}
             />
           )}
 

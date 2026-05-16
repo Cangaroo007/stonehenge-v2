@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation';
 import prisma from '@/lib/db';
 import FullJobViewClient from './FullJobViewClient';
 import type { CalculationResult } from '@/lib/types/pricing';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 export const dynamic = 'force-dynamic';
 
@@ -64,7 +65,7 @@ export default async function FullJobViewPage({
       materialName: piece.material_name ?? piece.materials?.name ?? null,
       laminationMethod: piece.lamination_method,
       waterfallHeightMm: piece.waterfall_height_mm,
-      edge_buildups: piece.edge_buildups as Record<string, { depth: number }> | null ?? null,
+      edge_buildups: piece.edge_buildups as Record<string, EdgeBuildupConfig> | null ?? null,
       no_strip_edges: piece.no_strip_edges as string[] | null ?? null,
       sortOrder: piece.sort_order,
       sourceRelationships: ((piece as { sourceRelationships?: Array<{ id: number; source_piece_id: number; target_piece_id: number; relation_type: string; side: string | null }> }).sourceRelationships ?? []).map((rel) => ({

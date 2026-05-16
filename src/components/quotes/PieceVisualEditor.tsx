@@ -8,6 +8,7 @@ import type {
   ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
   RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig,
 } from '@/lib/types/shapes';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -178,7 +179,7 @@ export interface PieceVisualEditorProps {
   noStripEdges?: string[];
 
   /** Build-up depth per edge side — used to show e.g. "MIT 40mm" in labels */
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   /** Relationship type per edge side — used to show WF or SB instead of N-STR */
   attachedPieceTypes?: Record<string, 'WATERFALL' | 'SPLASHBACK'>;
 

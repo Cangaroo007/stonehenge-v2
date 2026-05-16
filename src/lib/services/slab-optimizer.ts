@@ -9,6 +9,7 @@ import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
 import prisma from '@/lib/db';
 import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, getOptimizerRects, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 interface Rect {
   x: number;
@@ -96,7 +97,7 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   /** Strip sub-type: FACE (front strip) or RETURN (return strip) or SUPPORT (support block) */
   stripSubType?: 'FACE' | 'RETURN' | 'SUPPORT';
   /** Per-edge build-up config */
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 };
 
 /**

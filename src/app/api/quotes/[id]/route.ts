@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 import { checkAndRecordQuoteChanges } from '@/lib/services/buyer-change-tracker';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 interface RoomData {
   name: string;
@@ -462,7 +463,7 @@ function transformPieceForClient(piece: any) {
     requiresGrainMatch: piece.requiresGrainMatch ?? false,
     noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
     stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
-    edgeBuildups: (piece.edge_buildups as unknown as Record<string, { depth: number }> | null) ?? null,
+    edgeBuildups: (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null) ?? null,
     edgeArcConfig: (piece.edge_arc_config as unknown as Record<string, string | null>) ?? null,
     sortOrder: piece.sort_order,
     // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown

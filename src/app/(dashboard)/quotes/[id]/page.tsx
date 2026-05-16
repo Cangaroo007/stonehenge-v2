@@ -3,6 +3,7 @@ import prisma from '@/lib/db';
 import QuoteDetailClient from './QuoteDetailClient';
 import type { ServerQuoteData } from './QuoteDetailClient';
 import type { QuoteMode } from '@/components/quotes/QuoteLayout';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 export const dynamic = 'force-dynamic';
 
@@ -141,7 +142,7 @@ export default async function QuoteDetailPage({
         shape_config: piece.shape_config as Record<string, unknown> | null,
         piece_type: piece.piece_type ?? 'BENCHTOP',
         requiresGrainMatch: piece.requiresGrainMatch ?? false,
-        edge_buildups: piece.edge_buildups as Record<string, { depth: number }> | null ?? null,
+        edge_buildups: piece.edge_buildups as Record<string, EdgeBuildupConfig> | null ?? null,
         no_strip_edges: piece.no_strip_edges as string[] | null ?? null,
         lamination_method: piece.lamination_method ?? null,
         overrideSlabPrice: piece.override_slab_price

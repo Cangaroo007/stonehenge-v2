@@ -5,6 +5,7 @@ import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { Placement, LaminationSummary } from '@/types/slab-optimization';
 import { formatCurrency } from '@/lib/utils';
 import { decomposeShapeIntoRects, getFinishableEdgeLengthsMm, type ShapeType, type ShapeConfig } from '@/lib/types/shapes';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
@@ -342,8 +343,8 @@ function derivePartsForPiece(
 
   // 2. Lamination strips — edge_buildups takes priority, optimizer data used for slab assignment only
   const edgeBuildupsForStrips =
-    (piece as unknown as { edgeBuildups?: Record<string, { depth: number }> | null }).edgeBuildups ??
-    (piece as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ??
+    (piece as unknown as { edgeBuildups?: Record<string, EdgeBuildupConfig> | null }).edgeBuildups ??
+    (piece as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> | null }).edge_buildups ??
     {};
   const hasEdgeBuildups = Object.keys(edgeBuildupsForStrips).length > 0;
 

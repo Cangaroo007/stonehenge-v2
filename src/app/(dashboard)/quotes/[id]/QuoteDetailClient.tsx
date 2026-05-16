@@ -30,6 +30,7 @@ import CustomerInfoAccordion from '@/components/quotes/CustomerInfoAccordion';
 import TotalBreakdownAccordion from '@/components/quotes/TotalBreakdownAccordion';
 import type { CalculationResult } from '@/lib/types/pricing';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 import type { RelationshipType } from '@prisma/client';
 
 // Expandable cost breakdown components
@@ -122,7 +123,7 @@ interface QuotePiece {
   overrideSlabPrice?: number | null;
   overrideFabricationCost?: number | null;
   noStripEdges?: string[];
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   edgeArcConfig?: Record<string, string | null> | null;
   stripWidthOverrides?: Record<string, number> | null;
   cutouts: PieceCutout[];
@@ -310,7 +311,7 @@ export interface ServerQuoteData {
   overrideMaterialCost?: number | null;
       overrideSlabPrice?: number | null;
       overrideFabricationCost?: number | null;
-      edge_buildups?: Record<string, { depth: number }> | null;
+      edge_buildups?: Record<string, EdgeBuildupConfig> | null;
       no_strip_edges?: string[] | null;
       piece_features: Array<{
         id: number;
@@ -3711,7 +3712,7 @@ export default function QuoteDetailClient({
               shapeConfig: p.shapeConfig ?? null,
               requiresGrainMatch: p.requiresGrainMatch ?? false,
               noStripEdges: (p.noStripEdges as string[]) ?? [],
-              edgeBuildups: (p as unknown as { edge_buildups?: Record<string, { depth: number }> }).edge_buildups ?? (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
+              edgeBuildups: (p as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> }).edge_buildups ?? (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
               overrideMaterialCost: p.overrideMaterialCost ?? null,
               overrideSlabPrice: p.overrideSlabPrice ?? null,
               overrideFabricationCost: p.overrideFabricationCost ?? null,
@@ -3743,7 +3744,7 @@ export default function QuoteDetailClient({
               shapeConfig: p.shapeConfig ?? null,
               stripWidthOverrides: p.stripWidthOverrides ?? null,
               noStripEdges: (p.noStripEdges as string[]) ?? [],
-              edgeBuildups: (p.edgeBuildups as Record<string, { depth: number }>) ?? null,
+              edgeBuildups: (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
               edgeArcConfig: (p.edgeArcConfig as Record<string, string | null>) ?? null,
               piece_type: p.pieceType ?? 'BENCHTOP',
             }}
@@ -4350,7 +4351,7 @@ export default function QuoteDetailClient({
                 edge_left: p.edgeLeft,
                 edge_right: p.edgeRight,
                 piece_type: p.pieceType,
-                edge_buildups: (p as unknown as { edge_buildups?: Record<string, { depth: number }> | null }).edge_buildups ?? (p as unknown as { edgeBuildups?: Record<string, { depth: number }> | null }).edgeBuildups ?? null,
+                edge_buildups: (p as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> | null }).edge_buildups ?? (p as unknown as { edgeBuildups?: Record<string, EdgeBuildupConfig> | null }).edgeBuildups ?? null,
                 no_strip_edges: (p as unknown as { noStripEdges?: string[] }).noStripEdges ?? [],
                 lamination_method: (p as unknown as { laminationMethod?: string | null }).laminationMethod ?? null,
                 sourceRelationships: [],
@@ -4932,7 +4933,7 @@ export default function QuoteDetailClient({
           // but should not happen silently (Jay confirmed this requirement)
           const parentPieceForCheck = effectivePieces.find(p => String(p.id) === parentPieceId);
           if (parentPieceForCheck) {
-            const existingBuildups = (parentPieceForCheck.edgeBuildups as Record<string, { depth: number }> | null) ?? {};
+            const existingBuildups = (parentPieceForCheck.edgeBuildups as Record<string, EdgeBuildupConfig> | null) ?? {};
             if (existingBuildups[selectedEdge]) {
               const edgeLabel = selectedEdge.charAt(0).toUpperCase() + selectedEdge.slice(1);
               const typeLabel = type === 'WATERFALL' ? 'waterfall' : 'splashback';
@@ -4987,7 +4988,7 @@ export default function QuoteDetailClient({
           await handlePieceEdgeChange(parentPieceId, selectedEdge, MITERED_EDGE_ID);
 
           // 3.5. Auto-remove build-up on joining edge + suppress its return strip
-          const currentBuildups = (parentPiece.edgeBuildups as Record<string, { depth: number }> | null) ?? {};
+          const currentBuildups = (parentPiece.edgeBuildups as Record<string, EdgeBuildupConfig> | null) ?? {};
           const currentNoStrip = (parentPiece.noStripEdges as string[]) ?? [];
           const hasBuildup = !!currentBuildups[selectedEdge];
           const alreadyNoStrip = currentNoStrip.includes(selectedEdge);

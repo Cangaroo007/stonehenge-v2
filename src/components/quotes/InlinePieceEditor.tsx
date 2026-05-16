@@ -9,6 +9,7 @@ import AutocompleteInput from '@/components/ui/AutocompleteInput';
 import type { ShapeType, LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
 import EdgePanel from '@/components/quotes/EdgePanel';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -70,7 +71,7 @@ export interface InlinePieceData {
   stripWidthOverrides?: Record<string, number> | null;
   lamination_method?: 'NONE' | 'LAMINATED' | 'MITRED';
   piece_type?: string | null;
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   edgeArcConfig?: Record<string, string | null> | null;
   noStripEdges?: string[] | null;
 }
@@ -227,7 +228,7 @@ function getDefaultStripWidthForEdge(edgeName: string): number {
 function getStripEdges(
   shapeType: ShapeType,
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null },
-  edgeBuildups?: Record<string, { depth: number }> | null,
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null,
 ): string[] {
   if (shapeType === 'RECTANGLE') {
     const edges: string[] = [];
@@ -277,7 +278,7 @@ function PerEdgeStripWidthTable({
   setStripWidthOverrides: (v: Record<string, number>) => void;
   quoteId?: number | string;
   onStripWidthChange?: () => void;
-  edgeBuildups?: Record<string, { depth: number }> | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }) {
   const edges = getStripEdges(shapeType, edgeSelections, edgeBuildups);
   const [applyingAll, setApplyingAll] = useState(false);
@@ -335,7 +336,7 @@ function PerEdgeStripWidthTable({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, { depth: number }> | null }> = await res.json();
+      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, EdgeBuildupConfig> | null }> = await res.json();
       const targets = allPieces.filter(p =>
         (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
         p.id !== piece.id
@@ -459,8 +460,8 @@ export default function InlinePieceEditor({
   const [lengthMm, setLengthMm] = useState(piece.lengthMm.toString());
   const [widthMm, setWidthMm] = useState(piece.widthMm.toString());
   const [thicknessMm, setThicknessMm] = useState(piece.thicknessMm);
-  const [edgeBuildups, setEdgeBuildups] = useState<Record<string, { depth: number }>>(
-    (piece.edgeBuildups as Record<string, { depth: number }>) ?? {}
+  const [edgeBuildups, setEdgeBuildups] = useState<Record<string, EdgeBuildupConfig>>(
+    (piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}
   );
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [shapeEdgeOverrides, setShapeEdgeOverrides] = useState<Record<string, string | null>>({});
@@ -568,7 +569,7 @@ export default function InlinePieceEditor({
     setLengthMm(piece.lengthMm.toString());
     setWidthMm(piece.widthMm.toString());
     setThicknessMm(piece.thicknessMm);
-    setEdgeBuildups((piece.edgeBuildups as Record<string, { depth: number }>) ?? {});
+    setEdgeBuildups((piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {});
     setMaterialId(piece.materialId);
     setMaterialCollectionOnly(piece.materialCollectionOnly ?? false);
     setMaterialCollectionName(piece.materialCollectionName ?? null);
@@ -1161,9 +1162,11 @@ export default function InlinePieceEditor({
                 onClick={(e) => {
                   e.stopPropagation();
                   const wallEdges = piece.noStripEdges ?? [];
-                  const updated: Record<string, { depth: number }> = {};
+                  const updated: Record<string, EdgeBuildupConfig> = {};
                   ['top', 'bottom', 'left', 'right'].forEach(edge => {
-                    if (!wallEdges.includes(edge)) updated[edge] = { depth: 40 };
+                    if (!wallEdges.includes(edge)) {
+                      updated[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
+                    }
                   });
                   setEdgeBuildups(updated);
                 }}
@@ -1188,7 +1191,10 @@ export default function InlinePieceEditor({
                           delete next[edge];
                           setEdgeBuildups(next);
                         } else {
-                          setEdgeBuildups({ ...edgeBuildups, [edge]: { depth: 40 } });
+                          setEdgeBuildups({
+                            ...edgeBuildups,
+                            [edge]: { depth: 40, exposed: true, chargeCut: true, chargePolish: true },
+                          });
                         }
                       }}
                       className={`px-2 py-1 text-xs rounded border transition-colors ${
@@ -1207,7 +1213,7 @@ export default function InlinePieceEditor({
                         value={buildup.depth}
                         onChange={e => setEdgeBuildups({
                           ...edgeBuildups,
-                          [edge]: { depth: parseInt(e.target.value) || 40 }
+                          [edge]: { ...buildup, depth: parseInt(e.target.value) || 40 }
                         })}
                         onClick={e => e.stopPropagation()}
                         className="w-14 px-1 py-1 text-xs border border-gray-300 rounded"
@@ -1973,12 +1979,12 @@ export default function InlinePieceEditor({
                   });
                   setSelectedEdgeIds([]);
                 }}
-                onApplyBuildup={(edgeIds, depth) => {
+                onApplyBuildup={(edgeIds, depth, config) => {
                   setEdgeBuildups(prev => {
                     const next = { ...prev };
                     edgeIds.forEach(id => {
                       if (depth === null) { delete next[id]; }
-                      else { next[id] = { depth }; }
+                      else { next[id] = { ...(next[id] ?? {}), ...(config ?? {}), depth }; }
                     });
                     return next;
                   });
