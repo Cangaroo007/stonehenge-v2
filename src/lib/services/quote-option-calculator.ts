@@ -12,6 +12,7 @@
 import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { calculateQuotePrice, type EnhancedCalculationResult } from './pricing-calculator-v2';
+import { withoutSavedSlabOptimizations } from './temporary-slab-optimization';
 
 /**
  * Calculate pricing for a specific quote option.
@@ -132,10 +133,13 @@ export async function calculateOptionPricing(
       }
     }
 
-    // Run the standard pricing calculator on the modified pieces
-    const result = await calculateQuotePrice(String(quoteId), {
-      materialMarginAdjustPercent,
-    });
+    // Run the standard pricing calculator on the modified pieces.
+    // Saved optimiser rows belong to the base quote, not this temporary option.
+    const result = await withoutSavedSlabOptimizations(quoteId, () =>
+      calculateQuotePrice(String(quoteId), {
+        materialMarginAdjustPercent,
+      })
+    );
 
     // Store cached totals on the option
     await storeOptionTotals(optionId, result);

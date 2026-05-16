@@ -13,6 +13,7 @@ import { requireAuth } from '@/lib/auth';
 import prisma from '@/lib/db';
 import { Prisma } from '@prisma/client';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { withoutSavedSlabOptimizations } from '@/lib/services/temporary-slab-optimization';
 
 export const dynamic = 'force-dynamic';
 
@@ -94,8 +95,11 @@ export async function POST(
       },
     });
 
-    // Run fresh calculation with swapped materials
-    const calc = await calculateQuotePrice(String(quoteId));
+    // Run fresh calculation with swapped materials. The saved optimiser result
+    // belongs to the real quote, not this temporary material comparison.
+    const calc = await withoutSavedSlabOptimizations(quoteId, () =>
+      calculateQuotePrice(String(quoteId))
+    );
 
     const materialCost = calc.breakdown.materials.subtotal;
     const fabricationCost = calc.breakdown.services?.subtotal ?? 0;
