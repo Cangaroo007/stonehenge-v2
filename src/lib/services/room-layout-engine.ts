@@ -364,6 +364,16 @@ function resolveOffset(
   return clamp(position, 0, maxOffset);
 }
 
+function normaliseEdgeSide(side: string | null | undefined, fallback: 'top' | 'bottom' | 'left' | 'right'): 'top' | 'bottom' | 'left' | 'right' {
+  const value = side?.trim().toLowerCase();
+  if (value === 'front') return 'top';
+  if (value === 'back') return 'bottom';
+  if (value === 'top' || value === 'bottom' || value === 'left' || value === 'right') {
+    return value;
+  }
+  return fallback;
+}
+
 function positionChild(
   parent: PieceInput,
   child: PieceInput,
@@ -377,7 +387,7 @@ function positionChild(
     case 'SPLASHBACK': {
       // side = 'top' → splashback sits behind (above in plan view) parent
       // side = 'bottom' → splashback sits in front (below in plan view) parent
-      const side = (joinPosition ?? 'top').toLowerCase();
+      const side = normaliseEdgeSide(joinPosition, 'top');
       const alongLength = side === 'top' || side === 'bottom';
       const childSpan = coverageMm ?? child.length_mm;
       const parentSpan = alongLength ? parent.length_mm : parent.width_mm;
@@ -416,7 +426,7 @@ function positionChild(
       // Waterfall drops from the named edge of the parent.
       // In plan view: right → extends right, left → extends left,
       // top → extends above (negative y), bottom → extends below.
-      const wfSide = (joinPosition ?? 'right').toLowerCase();
+      const wfSide = normaliseEdgeSide(joinPosition, 'right');
       switch (wfSide) {
         case 'right': {
           const childSpan = coverageMm ?? child.length_mm;
@@ -450,9 +460,9 @@ function positionChild(
           return {
             pieceId: child.id,
             x: offset,
-            y: -(child.length_mm),
+            y: -(child.width_mm),
             width: childSpan,
-            height: child.length_mm,
+            height: child.width_mm,
             rotation: 0,
             label: child.description,
           };
@@ -465,7 +475,7 @@ function positionChild(
             x: offset,
             y: parent.width_mm,
             width: childSpan,
-            height: child.length_mm,
+            height: child.width_mm,
             rotation: 0,
             label: child.description,
           };
