@@ -483,7 +483,8 @@ function derivePartsForPiece(
             if (!isMitrePiece) continue;
             // Legacy fallback: single strip per edge
             const edgeTypeId = piece[`edge_${edgeKey}` as keyof QuotePiece] as string | null;
-            const isMitre = edgeTypeId?.toLowerCase().includes('mitre') ?? false;
+            if (!edgeTypeId) continue;
+            const isMitre = isMitrePiece;
 
             const returnLabel = isMitrePiece && isMitre ? `${sideLabel} return strip` : `${sideLabel} strip`;
             parts.push({
