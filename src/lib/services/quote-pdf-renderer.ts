@@ -833,6 +833,11 @@ function pieceDescriptionLines(p: QuotePdfPiece): string[] {
   return lines;
 }
 
+function cuttingDetailLabel(item: NonNullable<QuotePdfPiece['pricing']['cuttingItems']>[number]): string {
+  const label = item.kind === 'BUILD_UP' ? 'Build-up/mitre cutting' : 'Normal cutting';
+  return item.side ? `${label} (${item.side})` : label;
+}
+
 function piecePriceLines(p: QuotePdfPiece, detailed: boolean): React.ReactElement[] {
   const rows: React.ReactElement[] = [
     h(View, { style: styles.roomPriceLine, key: `piece-price-${p.id}` },
@@ -855,6 +860,14 @@ function piecePriceLines(p: QuotePdfPiece, detailed: boolean): React.ReactElemen
       rows.push(
         h(Text, { style: styles.roomCalcLine, key: `piece-price-${p.id}-${label}` },
           `${label}: ${fmtCurrency(Number(amount))}`,
+        ),
+      );
+    }
+
+    for (const item of p.pricing.cuttingItems ?? []) {
+      rows.push(
+        h(Text, { style: styles.roomCalcLine, key: `piece-price-${p.id}-cut-${item.kind}-${item.side ?? 'all'}` },
+          `  ${cuttingDetailLabel(item)}: ${item.quantity} ${item.unit} x ${fmtCurrency(item.rate)} = ${fmtCurrency(item.total)}`,
         ),
       );
     }

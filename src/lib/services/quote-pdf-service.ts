@@ -46,6 +46,15 @@ export interface QuotePdfPiece {
     oversize: number;
     cornerJoin: number;
     pieceTotal: number;
+    cuttingItems?: Array<{
+      kind: 'NORMAL' | 'BUILD_UP';
+      side?: string;
+      quantity: number;
+      unit: string;
+      rate: number;
+      total: number;
+      effectiveThicknessMm: number;
+    }>;
   };
   /**
    * For L/U-shaped pieces: individual part dimensions (back, legs).
@@ -392,6 +401,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
           ? (pb.cornerJoin.joinCost + pb.cornerJoin.grainMatchingSurcharge)
           : 0,
         pieceTotal: pb?.pieceTotal ?? 0,
+        cuttingItems: pb?.fabrication?.cutting?.items ?? [],
       };
 
       const parts = buildPartsFromShapeConfig(piece.shape_type, piece.shape_config);

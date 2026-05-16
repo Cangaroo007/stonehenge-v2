@@ -3149,7 +3149,7 @@ export default function QuoteDetailClient({
         className="btn-secondary flex items-center gap-2"
         title="Jump to quote pricing overrides"
       >
-        Overrides
+        Pricing overrides
       </button>
       <select
         value={selectedPdfView}

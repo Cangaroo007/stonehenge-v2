@@ -38,10 +38,10 @@ interface PricingOverridesPanelProps {
 }
 
 const CATEGORY_OPTIONS = [
-  ['NORMAL_CUT', 'Normal cut LM'],
-  ['MITRE_CUT', 'Mitre cut LM'],
-  ['NORMAL_POLISH', 'Normal polish / edge LM'],
-  ['MITRE_POLISH', 'Mitre polish / edge LM'],
+  ['NORMAL_CUT', 'Normal cutting LM'],
+  ['MITRE_CUT', 'Build-up / mitre cutting LM'],
+  ['NORMAL_POLISH', 'Visible edge finish LM'],
+  ['MITRE_POLISH', 'Build-up edge finish LM'],
   ['CUTOUT', 'Cutouts'],
   ['INSTALLATION', 'Installation'],
   ['FABRICATION', 'Fabrication'],
@@ -49,10 +49,9 @@ const CATEGORY_OPTIONS = [
 ] as const;
 
 const TYPE_OPTIONS = [
-  ['LM', 'Chargeable LM'],
+  ['LM', 'Chargeable LM override'],
   ['MULTIPLIER', 'Multiplier'],
-  ['FIXED_DELTA', 'Fixed adjustment'],
-  ['FIXED_ADJUSTMENT', 'Fixed adjustment (alias)'],
+  ['FIXED_DELTA', 'Signed manual adjustment'],
 ] as const;
 
 function labelFor(options: readonly (readonly [string, string])[], value: string): string {
@@ -67,12 +66,12 @@ function formatOverrideValue(override: PricingOverride | { overrideType: string;
 
 function helperTextFor(overrideType: string): string {
   if (overrideType === 'LM') {
-    return 'Replaces the chargeable length for the selected category. With no piece selected, the LM is the total for the quote.';
+    return 'Replaces the chargeable length for the selected category. Pick a piece for a local correction, or leave it on whole quote for a quote-level correction.';
   }
   if (overrideType === 'MULTIPLIER') {
-    return 'Multiplies the selected category, e.g. 1.2 adds 20 percent and 0.9 discounts 10 percent.';
+    return 'Multiplies the selected category. Example: 1.2 adds 20 percent to build-up edge finish, 0.9 discounts 10 percent.';
   }
-  return 'Adds or subtracts dollars from the quote subtotal, e.g. 250 or -250.';
+  return 'Adds or subtracts dollars from the quote subtotal with an audit reason. Example: 250 or -250.';
 }
 
 export default function PricingOverridesPanel({
@@ -185,7 +184,7 @@ export default function PricingOverridesPanel({
         <div>
           <h3 className="text-sm font-semibold text-gray-900">Quote Pricing Overrides</h3>
           <p className="text-xs text-gray-500">
-            Use for NCS-style judgement calls without changing the base calculator. These are audit lines, not hidden maths.
+            Use for NCS-style judgement calls without changing the base calculator. These stay visible as audit lines.
           </p>
         </div>
         {loading && <span className="text-xs text-gray-400">Loading...</span>}
@@ -252,7 +251,7 @@ export default function PricingOverridesPanel({
               disabled={saving}
               className="btn-secondary text-sm"
             >
-              {saving ? 'Saving...' : 'Add Override'}
+              {saving ? 'Saving...' : 'Add pricing override'}
             </button>
           </div>
           <p className="text-[11px] text-gray-500 mb-3">
