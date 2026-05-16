@@ -39,12 +39,16 @@ export async function GET(
     // Build pieceId → pricing lookup from breakdown
     const piecePricingMap = new Map<string, { pieceTotal: number; slabCost: number }>();
     if (quote?.calculation_breakdown) {
-      const breakdown = quote.calculation_breakdown as unknown as { pieces: Array<{
-        pieceId: number;
-        pieceTotal: number;
-        materials?: { total: number };
-      }> };
-      for (const p of breakdown.pieces ?? []) {
+      const calculation = quote.calculation_breakdown as unknown as {
+        breakdown?: {
+          pieces?: Array<{
+            pieceId: number;
+            pieceTotal: number;
+            materials?: { total: number };
+          }>;
+        };
+      };
+      for (const p of calculation.breakdown?.pieces ?? []) {
         piecePricingMap.set(String(p.pieceId), {
           pieceTotal: p.pieceTotal ?? 0,
           slabCost: p.materials?.total ?? 0,
