@@ -4025,13 +4025,35 @@ export default function QuoteDetailClient({
               }
               let globalIndex = 0;
               const unassignedPieces = effectivePieces.filter(p => !p.quote_rooms?.id || !rooms.some(r => r.id === p.quote_rooms?.id));
+              const rootUnassignedPieces = unassignedPieces.filter(p => !childPieceIds.has(String(p.id)));
+              const attachedUnassignedPieces = rootUnassignedPieces.flatMap(p =>
+                (parentToChildren[String(p.id)] ?? [])
+                  .map(rel => effectivePieces.find(ep => String(ep.id) === rel.childPieceId))
+                  .filter((piece): piece is QuotePiece => !!piece)
+              );
+              const visibleUnassignedPieces = Array.from(
+                new Map(
+                  [...rootUnassignedPieces, ...attachedUnassignedPieces].map(p => [p.id, p])
+                ).values()
+              );
               return (
                 <>
                   {rooms.map(room => {
                     const roomPieces = effectivePieces.filter(p => p.quote_rooms?.id === room.id);
+                    const rootRoomPieces = roomPieces.filter(p => !childPieceIds.has(String(p.id)));
+                    const attachedPiecesForRoom = rootRoomPieces.flatMap(p =>
+                      (parentToChildren[String(p.id)] ?? [])
+                        .map(rel => effectivePieces.find(ep => String(ep.id) === rel.childPieceId))
+                        .filter((piece): piece is QuotePiece => !!piece)
+                    );
+                    const visibleRoomPieces = Array.from(
+                      new Map(
+                        [...rootRoomPieces, ...attachedPiecesForRoom].map(p => [p.id, p])
+                      ).values()
+                    );
                     const isCollapsed = !expandedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
-                    const spatialRoomPieces = roomPieces.map(p => {
+                    const spatialRoomPieces = visibleRoomPieces.map(p => {
                       const pb = breakdownMap.get(p.id);
                       return {
                         id: p.id,
@@ -4058,7 +4080,7 @@ export default function QuoteDetailClient({
                       };
                     });
                     const roomPieceIds = new Set(spatialRoomPieces.map(p => String(p.id)));
-                    const editRoomTotal = roomPieces.reduce((sum, p) => sum + (breakdownMap.get(p.id)?.pieceTotal ?? 0), 0);
+                    const editRoomTotal = visibleRoomPieces.reduce((sum, p) => sum + (breakdownMap.get(p.id)?.pieceTotal ?? 0), 0);
                     return (
                       <div key={room.id} className="space-y-2">
                         {/* Room header — collapsible */}
@@ -4077,7 +4099,7 @@ export default function QuoteDetailClient({
                               {room.name}
                             </h3>
                             <span className="text-xs text-gray-500 shrink-0">
-                              ({roomPieces.length} piece{roomPieces.length !== 1 ? 's' : ''})
+                              ({visibleRoomPieces.length} piece{visibleRoomPieces.length !== 1 ? 's' : ''})
                             </span>
                             {editRoomTotal > 0 && (
                               <span className="text-sm font-semibold text-amber-600 tabular-nums ml-auto shrink-0">
@@ -4162,10 +4184,9 @@ export default function QuoteDetailClient({
                         )}
                         {/* Room pieces (hidden when collapsed) — WF-2c: children nested under parents */}
                         {!isCollapsed && (
-                          roomPieces.length > 0 ? (
+                          rootRoomPieces.length > 0 ? (
                             <div className="space-y-2">
-                              {roomPieces
-                                .filter(p => !childPieceIds.has(String(p.id)))
+                              {rootRoomPieces
                                 .map(p => {
                                   globalIndex++;
                                   const childRels = parentToChildren[String(p.id)] ?? [];
@@ -4202,7 +4223,7 @@ export default function QuoteDetailClient({
                     );
                   })}
                   {/* Unassigned pieces */}
-                  {unassignedPieces.length > 0 && (
+                  {visibleUnassignedPieces.length > 0 && (
                     <div className="space-y-2">
                       <div
                         className="flex items-center justify-between px-3 py-2 bg-amber-50 rounded-lg border border-amber-200 cursor-pointer hover:bg-amber-100 transition-colors"
@@ -4219,7 +4240,7 @@ export default function QuoteDetailClient({
                             Unassigned
                           </h3>
                           <span className="text-xs text-amber-600">
-                            ({unassignedPieces.length} piece{unassignedPieces.length !== 1 ? 's' : ''})
+                            ({visibleUnassignedPieces.length} piece{visibleUnassignedPieces.length !== 1 ? 's' : ''})
                           </span>
                         </div>
                         <button
@@ -4231,8 +4252,7 @@ export default function QuoteDetailClient({
                       </div>
                       {expandedRooms.has(-1) && (
                         <div className="space-y-2">
-                          {unassignedPieces
-                            .filter(p => !childPieceIds.has(String(p.id)))
+                          {rootUnassignedPieces
                             .map(p => {
                               globalIndex++;
                               const childRels = parentToChildren[String(p.id)] ?? [];
