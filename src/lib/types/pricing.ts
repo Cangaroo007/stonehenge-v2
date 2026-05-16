@@ -259,6 +259,15 @@ export interface PiecePricingBreakdown {
       discount: number;
       total: number;
       discountPercentage: number;
+      items?: Array<{
+        kind: 'NORMAL' | 'BUILD_UP';
+        side?: string;
+        quantity: number;
+        unit: string;
+        rate: number;
+        total: number;
+        effectiveThicknessMm: number;
+      }>;
     };
     installation?: {
       quantity: number;

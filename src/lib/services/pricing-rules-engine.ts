@@ -64,6 +64,22 @@ export interface EngineCutout {
   quantity: number
 }
 
+export interface EngineCuttingSegment {
+  lm: number
+  kind?: 'NORMAL' | 'BUILD_UP'
+  position?: string
+  effectiveThicknessMm?: number
+}
+
+export interface EngineCuttingItem {
+  kind: 'NORMAL' | 'BUILD_UP'
+  position?: string
+  lm: number
+  ratePerLm: number
+  cost: number
+  effectiveThicknessMm: number
+}
+
 export interface EnginePiece {
   id: string
   name: string
@@ -80,6 +96,7 @@ export interface EnginePiece {
   // Shape geometry overrides — used for L/U shaped pieces.
   // When provided, these override the rectangular formula defaults.
   cuttingPerimeterLm?: number   // overrides 2*(l+w)/1000
+  cuttingSegments?: EngineCuttingSegment[] // explicit per-edge straight cut segments for mixed 20/40mm build-up rates
   areaSqm?: number              // overrides (l*w)/1_000_000
   finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
   stripLm?: number              // all edges minus wall edges — for lamination strip cost
@@ -109,7 +126,7 @@ export interface PricingEngineInput {
 export interface PiecePricingResult {
   id: string
   name: string
-  cutting:        { lm: number; ratePerLm: number; cost: number }
+  cutting:        { lm: number; ratePerLm: number; cost: number; items?: EngineCuttingItem[] }
   curvedCutting:  { lm: number; ratePerLm: number; cost: number } | null
   edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; position?: EngineEdge['position'] | 'ARC'; lm: number; rate: number; cost: number }> }
   cutouts:        { cost: number; items: Array<{ type: string; qty: number; rate: number; cost: number }> }
@@ -138,19 +155,41 @@ export interface QuotePricingResult {
  * RULE: Cutting — Pricing Bible v1.3 §3
  * Full perimeter × rate. All 4 sides, always.
  * NEVER filtered to finished edges only.
+ * When explicit straight-cut segments are provided, rate each segment by its
+ * effective thickness so 40mm build-up edges don't force normal 20mm edges up.
  */
 export function ruleCutting(
   piece: EnginePiece,
   rates: EngineServiceRate[],
   category: string
 ): PiecePricingResult['cutting'] {
-  const totalPerimeterLm = piece.cuttingPerimeterLm ?? 2 * (piece.length_mm + piece.width_mm) / 1000
-  const straightLm = Math.max(totalPerimeterLm - (piece.arcLengthLm ?? 0), 0)
   const rate = rates.find(r => r.serviceType === 'CUTTING' && r.fabricationCategory === category)
   if (!rate) throw new Error(
     `[PricingEngine] No CUTTING rate configured for category "${category}". ` +
     `Go to Pricing Admin → Service Rates to fix this.`
   )
+
+  const segments = piece.cuttingSegments?.filter(segment => segment.lm > 0) ?? []
+  if (segments.length > 0) {
+    const items = segments.map(segment => {
+      const thickness = segment.effectiveThicknessMm ?? piece.thickness_mm
+      const segmentRate = thickness >= 40 ? rate.rate40mm : rate.rate20mm
+      return {
+        kind: segment.kind ?? (thickness >= 40 && piece.thickness_mm < 40 ? 'BUILD_UP' : 'NORMAL'),
+        position: segment.position,
+        lm: segment.lm,
+        ratePerLm: segmentRate,
+        cost: segment.lm * segmentRate,
+        effectiveThicknessMm: thickness,
+      }
+    })
+    const lm = items.reduce((sum, item) => sum + item.lm, 0)
+    const cost = items.reduce((sum, item) => sum + item.cost, 0)
+    return { lm, ratePerLm: lm > 0 ? cost / lm : 0, cost, items }
+  }
+
+  const totalPerimeterLm = piece.cuttingPerimeterLm ?? 2 * (piece.length_mm + piece.width_mm) / 1000
+  const straightLm = Math.max(totalPerimeterLm - (piece.arcLengthLm ?? 0), 0)
   const ratePerLm = piece.thickness_mm >= 40 ? rate.rate40mm : rate.rate20mm
   return { lm: straightLm, ratePerLm, cost: straightLm * ratePerLm }
 }

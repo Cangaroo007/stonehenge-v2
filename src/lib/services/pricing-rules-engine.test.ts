@@ -47,6 +47,22 @@ test('TEST 1 — cutting uses full perimeter, all 4 sides', () => {
   expect(result.cost).toBeCloseTo(105.00)
 })
 
+test('cutting segments can price built-up edges without uprating the whole piece', () => {
+  const result = ruleCutting(makePiece({
+    cuttingSegments: [
+      { lm: 2, effectiveThicknessMm: 40 },
+      { lm: 4 },
+    ],
+  }), BASE_RATES, 'ENGINEERED')
+
+  expect(result.lm).toBeCloseTo(6.0)
+  expect(result.cost).toBeCloseTo((2 * 45.00) + (4 * 17.50))
+  expect(result.ratePerLm).toBeCloseTo(result.cost / result.lm)
+  expect(result.items).toHaveLength(2)
+  expect(result.items?.[0].ratePerLm).toBe(45.00)
+  expect(result.items?.[1].ratePerLm).toBe(17.50)
+})
+
 // NOTE: Tests 2 & 3 (polishing) removed — polishing is no longer a concept in StoneHenge.
 // Polishing was a misunderstanding; the cost is now covered by edge profile rates.
 
