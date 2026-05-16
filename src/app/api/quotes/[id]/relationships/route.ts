@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import prisma from '@/lib/db';
 import {
   getRelationshipsForQuote,
   createRelationship,
@@ -77,6 +78,9 @@ export async function POST(
 
   try {
     const relationship = await createRelationship(body);
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
     return NextResponse.json(relationship, { status: 201 });
   } catch (error) {
     const message = error instanceof Error ? error.message : 'Failed to create relationship';

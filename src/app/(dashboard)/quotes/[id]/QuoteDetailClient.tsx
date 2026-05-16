@@ -754,6 +754,13 @@ export default function QuoteDetailClient({
         edgeBottom: p.edgeBottom,
         edgeLeft: p.edgeLeft,
         edgeRight: p.edgeRight,
+        shapeType: p.shapeType,
+        shapeConfig: p.shapeConfig,
+        pieceType: p.pieceType,
+        requiresGrainMatch: p.requiresGrainMatch,
+        noStripEdges: p.noStripEdges ?? [],
+        edgeBuildups: p.edgeBuildups ?? null,
+        stripWidthOverrides: p.stripWidthOverrides ?? null,
       })),
     [effectivePieces]
   );
@@ -769,6 +776,13 @@ export default function QuoteDetailClient({
     enabled: mode === 'edit' && !editLoading && editDataLoaded.current,
     getKerfWidth: getEffectiveKerfWidth,
   });
+
+  const handleRelationshipsChanged = useCallback(async () => {
+    await fetchRelationships();
+    triggerOptimise();
+    triggerRecalculate();
+    markAsChanged();
+  }, [fetchRelationships, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   // Trigger pricing recalculation when slab optimisation completes.
   // The optimiser runs asynchronously after piece changes, so by the time
@@ -1905,7 +1919,7 @@ export default function QuoteDetailClient({
       `/api/quotes/${quoteIdStr}/relationships/${relationshipId}`,
       { method: 'DELETE' }
     );
-    await fetchRelationships();
+    await handleRelationshipsChanged();
   };
 
   const handleDuplicatePiece = async (pieceId: number) => {
@@ -2674,12 +2688,13 @@ export default function QuoteDetailClient({
         toast.success('Piece moved');
       }
       await fetchQuote();
+      triggerOptimise();
       triggerRecalculate();
       markAsChanged();
     } catch {
       toast.error('Failed to move piece');
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   const handleContextMenuQuickEdgeAll = useCallback(async (pieceId: string, profileId: string | null) => {
     try {
@@ -2696,12 +2711,13 @@ export default function QuoteDetailClient({
       if (!res.ok) throw new Error();
       toast.success('All edges updated');
       await fetchQuote();
+      triggerOptimise();
       triggerRecalculate();
       markAsChanged();
     } catch {
       toast.error('Failed to update edges');
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   // Quick View: PATCH piece edges/cutouts when changed via MiniPieceEditor
   const handleQuickViewPieceUpdate = useCallback(async (
@@ -2716,12 +2732,13 @@ export default function QuoteDetailClient({
       });
       if (!res.ok) throw new Error();
       await fetchQuote();
+      triggerOptimise();
       triggerRecalculate();
       markAsChanged();
     } catch {
       toast.error('Failed to update piece');
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   const handleContextMenuChangeMaterial = useCallback(async (pieceId: string, materialId: number | null) => {
     try {
@@ -2733,12 +2750,13 @@ export default function QuoteDetailClient({
       if (!res.ok) throw new Error();
       toast.success('Material updated');
       await fetchQuote();
+      triggerOptimise();
       triggerRecalculate();
       markAsChanged();
     } catch {
       toast.error('Failed to change material');
     }
-  }, [quoteIdStr, fetchQuote, triggerRecalculate, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   // ── Derived state ─────────────────────────────────────────────────────────
 
@@ -3719,7 +3737,7 @@ export default function QuoteDetailClient({
             relationships={relationships}
             allPiecesForRelationships={allPiecesForRelationships}
             quoteIdStr={quoteIdStr}
-            onRelationshipChange={fetchRelationships}
+            onRelationshipChange={handleRelationshipsChanged}
             onStripWidthChange={() => { triggerRecalculate(); triggerOptimise(); }}
             attachedCount={nestingProps?.attachedCount}
             relationshipLabel={nestingProps?.relationshipLabel}
@@ -4119,7 +4137,7 @@ export default function QuoteDetailClient({
                             }}
                             roomTotal={editRoomTotal}
                             quoteId={quoteIdStr}
-                            onRelationshipChange={fetchRelationships}
+                            onRelationshipChange={handleRelationshipsChanged}
                             roomId={room.id}
                             allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
                             onRoomRename={handleRoomRename}
@@ -4993,7 +5011,7 @@ export default function QuoteDetailClient({
 
           // 6. Refresh quote
           await fetchQuote();
-          await fetchRelationships();
+          await handleRelationshipsChanged();
         }}
         onClose={() => setWaterfallModal(prev => ({ ...prev, isOpen: false }))}
       />

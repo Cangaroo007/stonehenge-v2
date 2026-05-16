@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import prisma from '@/lib/db';
 import {
   updateRelationship,
   deleteRelationship,
@@ -35,6 +36,9 @@ export async function PATCH(
 
   try {
     const updated = await updateRelationship(relationshipId, body);
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
@@ -70,6 +74,9 @@ export async function DELETE(
 
   try {
     await deleteRelationship(relationshipId);
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

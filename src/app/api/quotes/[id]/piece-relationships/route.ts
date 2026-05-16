@@ -186,6 +186,10 @@ export async function POST(
       });
     });
 
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     return NextResponse.json(relationship, { status: 201 });
   } catch (error: unknown) {
     // Handle unique constraint violation
@@ -266,6 +270,10 @@ export async function DELETE(
 
     await prisma.piece_relationships.delete({
       where: { id: relationshipId },
+    });
+
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
     });
 
     return NextResponse.json({ success: true });

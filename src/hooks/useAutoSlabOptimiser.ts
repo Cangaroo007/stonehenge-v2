@@ -14,6 +14,13 @@ interface PieceFingerprint {
   edgeBottom: string | null;
   edgeLeft: string | null;
   edgeRight: string | null;
+  shapeType?: string | null;
+  shapeConfig?: Record<string, unknown> | null;
+  pieceType?: string | null;
+  requiresGrainMatch?: boolean;
+  noStripEdges?: string[];
+  edgeBuildups?: Record<string, unknown> | null;
+  stripWidthOverrides?: Record<string, number> | null;
 }
 
 interface UseAutoSlabOptimiserProps {
@@ -44,7 +51,11 @@ function buildFingerprint(pieces: PieceFingerprint[], kerfWidth: number): string
   const sorted = [...pieces].sort((a, b) => a.id - b.id);
   const pieceParts = sorted.map(
     (p) =>
-      `${p.id}:${p.lengthMm}x${p.widthMm}x${p.thicknessMm}:m${p.materialId}:e${p.edgeTop}-${p.edgeBottom}-${p.edgeLeft}-${p.edgeRight}`
+      `${p.id}:${p.lengthMm}x${p.widthMm}x${p.thicknessMm}:m${p.materialId}:` +
+      `e${p.edgeTop}-${p.edgeBottom}-${p.edgeLeft}-${p.edgeRight}:` +
+      `type${p.pieceType ?? ''}:shape${p.shapeType ?? ''}:${JSON.stringify(p.shapeConfig ?? null)}:` +
+      `grain${p.requiresGrainMatch ? 1 : 0}:nostrip${[...(p.noStripEdges ?? [])].sort().join(',')}:` +
+      `buildups${JSON.stringify(p.edgeBuildups ?? null)}:strip${JSON.stringify(p.stripWidthOverrides ?? null)}`
   );
   return `k${kerfWidth}|${pieceParts.join('|')}`;
 }
