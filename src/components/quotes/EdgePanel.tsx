@@ -118,12 +118,18 @@ export default function EdgePanel({
     return `Currently: ${d}mm${notes.length ? ` (${notes.join(', ')})` : ''}`;
   }, [selectedEdgeIds, edgeBuildups, selectionCount]);
 
-  const selectedEdgesAllTrueWalls = useMemo(
+  const editableSelectedEdgeIds = useMemo(
     () =>
-      hasSelection &&
-      selectedEdgeIds.every((id) => edgeListIncludes(noStripEdges, id) && !attachedPieceTypes?.[id]),
-    [attachedPieceTypes, hasSelection, noStripEdges, selectedEdgeIds]
+      selectedEdgeIds.filter((id) =>
+        !edgeListIncludes(noStripEdges, id) &&
+        !attachedPieceTypes?.[id]
+      ),
+    [attachedPieceTypes, noStripEdges, selectedEdgeIds]
   );
+  const selectedEdgesAllSuppressed = hasSelection && editableSelectedEdgeIds.length === 0;
+  const selectedAttachedType = selectionCount === 1
+    ? attachedPieceTypes?.[selectedEdgeIds[0]]
+    : undefined;
 
   // ── Derived pending values ─────────────────────────────────────────────
 
@@ -162,14 +168,16 @@ export default function EdgePanel({
 
   const handleApplyProfile = () => {
     if (!hasSelection || pendingProfileId === undefined || disabled) return;
-    onApplyProfile(selectedEdgeIds, pendingProfileId);
+    if (editableSelectedEdgeIds.length === 0) return;
+    onApplyProfile(editableSelectedEdgeIds, pendingProfileId);
     setPendingProfileId(undefined);
   };
 
   const handleApplyBuildup = () => {
     if (!hasSelection || pendingDepthMm === undefined || disabled) return;
+    if (editableSelectedEdgeIds.length === 0) return;
     onApplyBuildup(
-      selectedEdgeIds,
+      editableSelectedEdgeIds,
       pendingDepthMm,
       pendingDepthMm === null
         ? undefined
@@ -276,10 +284,10 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyProfile}
-            disabled={!hasSelection || pendingProfileId === undefined || selectedEdgesAllTrueWalls}
+            disabled={!hasSelection || pendingProfileId === undefined || selectedEdgesAllSuppressed}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Apply to selected edges
+            Apply to editable selected edges
           </button>
         </div>
 
@@ -343,10 +351,10 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyBuildup}
-            disabled={!hasSelection || pendingDepthMm === undefined || selectedEdgesAllTrueWalls}
+            disabled={!hasSelection || pendingDepthMm === undefined || selectedEdgesAllSuppressed}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Apply to selected edges
+            Apply to editable selected edges
           </button>
         </div>
       </div>
@@ -361,22 +369,28 @@ export default function EdgePanel({
           <p className="text-xs text-gray-400 italic">Select a single edge to attach a piece</p>
         )}
         {selectionCount === 1 && (
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => onAttachWaterfall(selectedEdgeIds[0])}
-              className="flex-1 text-sm px-3 py-1.5 font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
-            >
-              + Waterfall
-            </button>
-            <button
-              type="button"
-              onClick={() => onAttachSplashback(selectedEdgeIds[0])}
-              className="flex-1 text-sm px-3 py-1.5 font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
-            >
-              + Splashback
-            </button>
-          </div>
+          selectedAttachedType ? (
+            <p className="text-xs text-blue-600">
+              This edge already has a {selectedAttachedType === 'WATERFALL' ? 'waterfall' : 'splashback'} join.
+            </p>
+          ) : (
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => onAttachWaterfall(selectedEdgeIds[0])}
+                className="flex-1 text-sm px-3 py-1.5 font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                + Waterfall
+              </button>
+              <button
+                type="button"
+                onClick={() => onAttachSplashback(selectedEdgeIds[0])}
+                className="flex-1 text-sm px-3 py-1.5 font-medium text-orange-600 bg-white border border-orange-300 rounded-lg hover:bg-orange-50 transition-colors"
+              >
+                + Splashback
+              </button>
+            </div>
+          )
         )}
       </div>
 
