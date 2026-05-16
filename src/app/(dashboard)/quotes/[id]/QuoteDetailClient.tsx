@@ -4061,6 +4061,10 @@ export default function QuoteDetailClient({
                   [...rootUnassignedPieces, ...attachedUnassignedPieces].map(p => [p.id, p])
                 ).values()
               );
+              const attachedUnassignedCount = Math.max(
+                0,
+                visibleUnassignedPieces.length - rootUnassignedPieces.length
+              );
               return (
                 <>
                   {rooms.map(room => {
@@ -4075,6 +4079,10 @@ export default function QuoteDetailClient({
                       new Map(
                         [...rootRoomPieces, ...attachedPiecesForRoom].map(p => [p.id, p])
                       ).values()
+                    );
+                    const attachedRoomPieceCount = Math.max(
+                      0,
+                      visibleRoomPieces.length - rootRoomPieces.length
                     );
                     const isCollapsed = !expandedRooms.has(room.id);
                     const isSpatialOpen = spatialExpandedRooms.has(room.id);
@@ -4124,7 +4132,11 @@ export default function QuoteDetailClient({
                               {room.name}
                             </h3>
                             <span className="text-xs text-gray-500 shrink-0">
-                              ({visibleRoomPieces.length} piece{visibleRoomPieces.length !== 1 ? 's' : ''})
+                              ({rootRoomPieces.length} main piece{rootRoomPieces.length !== 1 ? 's' : ''}
+                              {attachedRoomPieceCount > 0
+                                ? ` + ${attachedRoomPieceCount} attached`
+                                : ''}
+                              )
                             </span>
                             {editRoomTotal > 0 && (
                               <span className="text-sm font-semibold text-amber-600 tabular-nums ml-auto shrink-0">
@@ -4265,7 +4277,11 @@ export default function QuoteDetailClient({
                             Unassigned
                           </h3>
                           <span className="text-xs text-amber-600">
-                            ({visibleUnassignedPieces.length} piece{visibleUnassignedPieces.length !== 1 ? 's' : ''})
+                            ({rootUnassignedPieces.length} main piece{rootUnassignedPieces.length !== 1 ? 's' : ''}
+                            {attachedUnassignedCount > 0
+                              ? ` + ${attachedUnassignedCount} attached`
+                              : ''}
+                            )
                           </span>
                         </div>
                         <button
