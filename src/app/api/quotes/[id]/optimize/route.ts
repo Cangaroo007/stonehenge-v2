@@ -499,7 +499,7 @@ export async function POST(
         pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
       ) || null;
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { id: string; materialId: string | null }) => !!(p.materialId) || wfsbParentMap.has(p.id)).map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; groupId?: string; grainMatched?: boolean }) => {
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; stripWidthOverrides?: Record<string, number> | null; laminationMethod?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; groupId?: string; grainMatched?: boolean }) => {
           const parentId = wfsbParentMap.get(p.id);
           const parentMaterialId = parentId ? materialIdByPieceId.get(parentId) ?? null : null;
           return {
@@ -512,6 +512,7 @@ export async function POST(
             edgeTypeNames: p.edgeTypeNames,
             shapeConfigEdges: p.shapeConfigEdges,
             noStripEdges: p.noStripEdges,
+            stripWidthOverrides: p.stripWidthOverrides,
             laminationMethod: p.laminationMethod,
             edgeBuildups: p.edgeBuildups,
             materialId: p.materialId ?? parentMaterialId ?? primaryMatIdForMulti,
@@ -535,6 +536,7 @@ export async function POST(
         allowRotation,
         edgeAllowanceMm,
         mitreKerfWidth: mitreKerf,
+        companyId: auth.user.companyId,
       });
 
       // Build a combined single-material-compatible result for backward-compat DB storage

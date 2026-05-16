@@ -275,8 +275,8 @@ function generateLaminationStrips(
 function generateShapeStrips(
   piece: OptimizationPiece,
   _edgeLengths: { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number },
-  _kerfWidth?: number,
-  _mitreKerfWidth?: number,
+  kerfWidth?: number,
+  mitreKerfWidth?: number,
   stripConfigs?: { standard: number; mitre: number; wide: number }
 ): OptimizationPiece[] {
   const sType = piece.shapeType as ShapeType | undefined;
@@ -285,6 +285,9 @@ function generateShapeStrips(
 
   const noStripEdges = piece.noStripEdges ?? [];
   const stripWidthOverrides = piece.stripWidthOverrides as Record<string, number> | null | undefined;
+  const edgeBuildups = piece.edgeBuildups ?? {};
+  const hasExplicitBuildups = Object.keys(edgeBuildups).length > 0;
+  const slabThickness = piece.thickness ?? 20;
 
   // Get ALL finishable edge lengths for this shape (6 for L, 8 for U)
   const allEdgeLengths = getFinishableEdgeLengthsMm(
@@ -300,21 +303,79 @@ function generateShapeStrips(
   for (const [edgeKey, lengthMm] of Object.entries(allEdgeLengths)) {
     if (noStripEdges.includes(edgeKey)) continue;
     if (lengthMm <= 0) continue;
-    const stripWidthMm = getStripWidthForEdge(undefined, undefined, undefined, stripConfigs, stripWidthOverrides, edgeKey);
 
     // Determine strip orientation: horizontal edges have width=length, height=stripWidth
     // Vertical edges have width=stripWidth, height=length
     const isHorizontal = ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(edgeKey);
+    const edgeName = piece.shapeConfigEdges?.[edgeKey] ??
+      (piece.edgeTypeNames as Record<string, string | undefined> | undefined)?.[edgeKey];
+    const isMitreEdge = edgeName?.toLowerCase().includes('mitre') ?? false;
+    const buildup = edgeBuildups[edgeKey];
+
+    if (buildup) {
+      const depth = buildup.depth;
+      const returnWidth = stripWidthOverrides?.[edgeKey] ?? stripConfigs?.standard ?? LAMINATION_STRIP_WIDTH_DEFAULT;
+      const supportWidth = depth - (2 * slabThickness);
+
+      strips.push({
+        id: `${piece.id}-front-${edgeKey}`,
+        width: isHorizontal ? lengthMm : depth,
+        height: isHorizontal ? depth : lengthMm,
+        thickness: slabThickness,
+        label: `${piece.label} (${edgeKey.replace(/_/g, ' ')} front strip)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: edgeKey,
+        stripSubType: 'FACE',
+        pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+      });
+
+      strips.push({
+        id: `${piece.id}-return-${edgeKey}`,
+        width: isHorizontal ? lengthMm : returnWidth,
+        height: isHorizontal ? returnWidth : lengthMm,
+        thickness: slabThickness,
+        label: `${piece.label} (${edgeKey.replace(/_/g, ' ')} return strip)`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: edgeKey,
+        stripSubType: 'RETURN',
+        pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+      });
+
+      if (supportWidth > 0) {
+        strips.push({
+          id: `${piece.id}-support-${edgeKey}`,
+          width: isHorizontal ? lengthMm : supportWidth,
+          height: isHorizontal ? supportWidth : lengthMm,
+          thickness: slabThickness,
+          label: `${piece.label} (${edgeKey.replace(/_/g, ' ')} support block)`,
+          isLaminationStrip: true,
+          parentPieceId: piece.id,
+          stripPosition: edgeKey,
+          stripSubType: 'SUPPORT',
+          pieceKerfWidth: kerfWidth,
+        });
+      }
+      continue;
+    }
+
+    // A 20mm shaped piece with one explicit build-up should not silently create
+    // strips for every other shape edge.
+    if (hasExplicitBuildups && slabThickness < LAMINATION_THRESHOLD) continue;
+
+    const stripWidthMm = getStripWidthForEdge(edgeName ?? undefined, undefined, undefined, stripConfigs, stripWidthOverrides, edgeKey);
 
     strips.push({
       id: `${piece.id}-lam-${edgeKey}`,
       width: isHorizontal ? lengthMm : stripWidthMm,
       height: isHorizontal ? stripWidthMm : lengthMm,
-      thickness: 20,
+      thickness: slabThickness,
       label: `${piece.label} (Strip-${edgeKey.replace(/_/g, ' ')})`,
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
+      pieceKerfWidth: isMitreEdge ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
 
@@ -811,6 +872,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
         // Clear finished edges — lamination strips already generated above for L/U shapes
         finishedEdges: undefined,
         edgeTypeNames: undefined,
+        edgeBuildups: null,
       });
     }
 

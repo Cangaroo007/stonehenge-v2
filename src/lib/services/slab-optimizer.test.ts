@@ -68,4 +68,37 @@ describe('optimizeSlabs', () => {
 
     expect(strips.map(strip => strip.position)).toEqual(['top']);
   });
+
+  it('uses explicit build-up semantics for shaped pieces without adding every shape edge', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 3200,
+      slabHeight: 1600,
+      kerfWidth: 5,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'l-bench',
+          label: 'L Bench',
+          width: 1800,
+          height: 1200,
+          thickness: 20,
+          shapeType: 'L_SHAPE',
+          shapeConfig: {
+            shape: 'L_SHAPE',
+            leg1: { length_mm: 1800, width_mm: 600 },
+            leg2: { length_mm: 1200, width_mm: 600 },
+          },
+          edgeBuildups: {
+            top: { depth: 80, exposed: true, chargeCut: true, chargePolish: true },
+          },
+        },
+      ],
+    });
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+
+    expect(strips.map(strip => strip.position)).toEqual(['top', 'top', 'top']);
+    expect(strips.map(strip => strip.stripSubType)).toEqual(['FACE', 'RETURN', 'SUPPORT']);
+    expect(strips.map(strip => strip.widthMm)).toEqual([80, 60, 40]);
+  });
 });

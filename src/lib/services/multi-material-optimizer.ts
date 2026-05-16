@@ -43,6 +43,8 @@ export interface MultiMaterialPiece {
   shapeConfigEdges?: Record<string, string | null>;
   /** Edges marked as wall edges — no lamination strip generated for these */
   noStripEdges?: string[];
+  /** Per-edge strip width overrides (mm) */
+  stripWidthOverrides?: Record<string, number> | null;
   /** Lamination method — 'MITRED' generates face + return strips */
   laminationMethod?: string | null;
   /** Per-edge build-up config */
@@ -70,6 +72,8 @@ export interface MultiMaterialOptimizationInput {
   edgeAllowanceMm?: number;
   /** Kerf width (mm) for the MITRING machine — passed through to per-group optimisation */
   mitreKerfWidth?: number;
+  /** Company ID for tenant-specific strip configuration lookup. */
+  companyId?: number;
 }
 
 // ── Core orchestrator ────────────────────────────────────────────────────────
@@ -89,6 +93,7 @@ export async function optimizeMultiMaterial(
     allowRotation,
     edgeAllowanceMm = 0,
     mitreKerfWidth,
+    companyId,
   } = input;
 
   const warnings: string[] = [];
@@ -104,8 +109,6 @@ export async function optimizeMultiMaterial(
   const unassigned: MultiMaterialPiece[] = [];
 
   for (const piece of pieces) {
-    // Skip pieces with no material assigned — they have no slab to pack onto
-    if (!piece.materialId) continue;
     const matId = piece.materialId;
 
     if (!matId) {
@@ -162,6 +165,7 @@ export async function optimizeMultiMaterial(
         grainMatched: p.grainMatched,
         shapeConfigEdges: p.shapeConfigEdges,
         noStripEdges: p.noStripEdges,
+        stripWidthOverrides: p.stripWidthOverrides,
         laminationMethod: p.laminationMethod,
         edgeBuildups: p.edgeBuildups,
       })),
@@ -171,6 +175,7 @@ export async function optimizeMultiMaterial(
       allowRotation,
       edgeAllowanceMm,
       mitreKerfWidth,
+      companyId,
     };
 
     // Run the existing FFD algorithm
