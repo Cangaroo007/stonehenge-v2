@@ -39,11 +39,13 @@ export async function POST(
     slotIndex,
     materialId,
     useCollectionAvg = false,
+    useCollectionMax: requestedUseCollectionMax,
     collectionId,
     collectionOnly = false,
     collectionName = null,
     displayName = null,
   } = body;
+  const useCollectionMax = Boolean(requestedUseCollectionMax ?? useCollectionAvg ?? collectionOnly);
 
   if (typeof slotIndex !== 'number' || slotIndex < 0 || slotIndex >= MAX_SLOTS) {
     return NextResponse.json(
@@ -156,7 +158,8 @@ export async function POST(
     collectionId: collectionId ?? collectionName ?? null,
     collectionName: typeof collectionName === 'string' ? collectionName : null,
     collectionOnly: Boolean(collectionOnly),
-    useCollectionAvg,
+    useCollectionMax,
+    useCollectionAvg: false,
     ...estimateResult,
     calculatedAt: new Date().toISOString(),
   };
