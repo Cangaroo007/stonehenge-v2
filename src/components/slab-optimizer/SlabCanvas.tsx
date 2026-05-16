@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo } from 'react';
+import React, { useId, useMemo } from 'react';
 import { Placement } from '@/types/slab-optimization';
 import type { SlabCutoutInfo } from '@/types/slab-optimization';
 
@@ -196,6 +196,11 @@ export function SlabCanvas({
   edgeAllowanceMm = 0,
   pieceCutouts,
 }: SlabCanvasProps) {
+  const svgId = useId().replace(/:/g, '');
+  const gridPatternId = `${svgId}-grid`;
+  const laminationPatternId = `${svgId}-lamination`;
+  const legendPatternId = `${svgId}-legend`;
+
   const groupColorMap = useMemo(
     () => buildGroupColorMap(allPlacements),
     [allPlacements]
@@ -233,7 +238,7 @@ export function SlabCanvas({
         <defs>
           {/* Grid pattern */}
           <pattern
-            id="grid"
+            id={gridPatternId}
             width={100 * scale}
             height={100 * scale}
             patternUnits="userSpaceOnUse"
@@ -248,7 +253,7 @@ export function SlabCanvas({
 
           {/* Diagonal stripe pattern for lamination strips */}
           <pattern
-            id="laminationPattern"
+            id={laminationPatternId}
             width="8"
             height="8"
             patternUnits="userSpaceOnUse"
@@ -265,7 +270,7 @@ export function SlabCanvas({
             />
           </pattern>
         </defs>
-        <rect width={canvasWidth} height={canvasHeight} fill="url(#grid)" />
+        <rect width={canvasWidth} height={canvasHeight} fill={`url(#${gridPatternId})`} />
 
         {/* Edge allowance zone — shaded border around the slab perimeter */}
         {edgeAllowanceMm > 0 && (
@@ -327,7 +332,7 @@ export function SlabCanvas({
                 y={y}
                 width={width}
                 height={height}
-                fill={isLaminationStrip ? 'url(#laminationPattern)' : getColorForPlacement(placement, groupColorMap)}
+                fill={isLaminationStrip ? `url(#${laminationPatternId})` : getColorForPlacement(placement, groupColorMap)}
                 stroke={isHighlighted ? '#000' : isLaminationStrip ? '#9CA3AF' : isSegment ? '#FFF' : '#333'}
                 strokeWidth={isHighlighted ? 3 : isSegment ? 2 : 1}
                 strokeDasharray={isSegment ? '6 3' : undefined}
@@ -431,7 +436,7 @@ export function SlabCanvas({
           <svg width="16" height="16" className="border border-gray-400 rounded-sm">
             <defs>
               <pattern
-                id="legendPattern"
+                id={legendPatternId}
                 width="4"
                 height="4"
                 patternUnits="userSpaceOnUse"
@@ -441,7 +446,7 @@ export function SlabCanvas({
                 <line x1="0" y1="0" x2="0" y2="4" stroke="#9CA3AF" strokeWidth="0.5" />
               </pattern>
             </defs>
-            <rect width="16" height="16" fill="url(#legendPattern)" />
+            <rect width="16" height="16" fill={`url(#${legendPatternId})`} />
           </svg>
           <span>Lamination Strips (40mm+)</span>
         </div>
