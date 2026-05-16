@@ -27,6 +27,7 @@ import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/buil
 import type { EdgeScope } from './EdgeProfilePopover';
 import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
@@ -762,13 +763,16 @@ export default function QuickViewPieceRow({
     relationships.forEach(rel => {
       if (String(rel.parentPieceId) === String(piece.id) && rel.joinPosition) {
         if (rel.relationshipType === 'WATERFALL' || rel.relationshipType === 'SPLASHBACK') {
-          map[rel.joinPosition.toLowerCase()] = rel.relationshipType;
+          const parentEdge = normaliseRectEdgeSide(rel.joinPosition);
+          if (parentEdge) map[parentEdge] = rel.relationshipType;
         }
       }
       if (String(rel.childPieceId) === String(piece.id) && rel.joinPosition) {
         if (rel.relationshipType === 'WATERFALL' || rel.relationshipType === 'SPLASHBACK') {
-          const parentEdge = rel.joinPosition.toLowerCase();
-          map[oppositeEdge[parentEdge] ?? parentEdge] = rel.relationshipType;
+          const parentEdge = normaliseRectEdgeSide(rel.joinPosition);
+          if (parentEdge) {
+            map[oppositeEdge[parentEdge] ?? parentEdge] = rel.relationshipType;
+          }
         }
       }
     });

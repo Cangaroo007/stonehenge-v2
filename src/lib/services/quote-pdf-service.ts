@@ -235,8 +235,8 @@ function buildEdgeSummary(
 ): string {
   const edgeMap: Record<string, string[]> = {};
   const sides: Array<{ side: string; profile: string | null }> = [
-    { side: 'front', profile: edges.top },
-    { side: 'back', profile: edges.bottom },
+    { side: 'front', profile: edges.bottom },
+    { side: 'back', profile: edges.top },
     { side: 'left', profile: edges.left },
     { side: 'right', profile: edges.right },
   ];

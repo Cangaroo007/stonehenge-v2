@@ -47,8 +47,8 @@ export function generatePieceDescription(piece: {
   // e.g., "PR on front and back, BN on left"
   const edgeMap: Record<string, string[]> = {};
   const sides = [
-    { side: 'front', profile: piece.edge_top },
-    { side: 'back', profile: piece.edge_bottom },
+    { side: 'front', profile: piece.edge_bottom },
+    { side: 'back', profile: piece.edge_top },
     { side: 'left', profile: piece.edge_left },
     { side: 'right', profile: piece.edge_right },
   ];

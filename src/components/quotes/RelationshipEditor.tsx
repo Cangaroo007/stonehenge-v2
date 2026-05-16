@@ -29,6 +29,12 @@ const POSITION_TYPES: RelationshipType[] = ['WATERFALL', 'SPLASHBACK', 'RETURN']
 
 const ALL_RELATIONSHIP_TYPES = Object.keys(RELATIONSHIP_DISPLAY) as RelationshipType[];
 
+function joinPositionLabel(position: string): string {
+  if (position === 'BACK') return 'Back / wall';
+  if (position === 'FRONT') return 'Front / exposed';
+  return position.charAt(0) + position.slice(1).toLowerCase();
+}
+
 // ─── Component ──────────────────────────────────────────────────────────────
 
 export default function RelationshipEditor({
@@ -287,7 +293,7 @@ export default function RelationshipEditor({
                     <div className="flex items-center gap-2 mt-0.5 ml-7">
                       {rel.joinPosition && (
                         <span className="text-xs text-gray-500">
-                          Position: {rel.joinPosition}
+                          Edge: {joinPositionLabel(rel.joinPosition.toUpperCase())}
                         </span>
                       )}
                       {isCrossRoom && (
@@ -331,6 +337,21 @@ export default function RelationshipEditor({
                         </select>
                       </div>
                     </div>
+                    {POSITION_TYPES.includes(editType) && (
+                      <div>
+                        <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Edge / side</label>
+                        <select
+                          value={editPosition}
+                          onChange={e => setEditPosition(e.target.value)}
+                          className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
+                        >
+                          <option value="">Select side</option>
+                          {JOIN_POSITIONS.map(position => (
+                            <option key={position} value={position}>{joinPositionLabel(position)}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
                     <div>
                       <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Notes</label>
                       <input
@@ -428,6 +449,21 @@ export default function RelationshipEditor({
                 ))}
               </select>
             </div>
+            {POSITION_TYPES.includes(newType) && (
+              <div>
+                <label className="block text-[10px] font-medium text-gray-500 mb-0.5">Edge / side</label>
+                <select
+                  value={newPosition}
+                  onChange={e => setNewPosition(e.target.value)}
+                  className="w-full px-2 py-1 text-xs border border-gray-300 rounded focus:ring-1 focus:ring-blue-500 focus:border-blue-500 bg-white"
+                >
+                  <option value="">Select side</option>
+                  {JOIN_POSITIONS.map(position => (
+                    <option key={position} value={position}>{joinPositionLabel(position)}</option>
+                  ))}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Notes */}

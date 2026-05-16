@@ -102,8 +102,8 @@ export default function WaterfallSplashbackModal({
     edge === 'top' || edge === 'bottom' ? parentLengthMm : parentWidthMm;
 
   const edgeLabels: Record<Edge, string> = {
-    top: 'Front (top)',
-    bottom: 'Back (bottom)',
+    top: 'Back / wall',
+    bottom: 'Front / exposed',
     left: 'Left',
     right: 'Right',
   };

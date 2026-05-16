@@ -6,6 +6,7 @@
  *
  * This is a pure function — no side effects, no API calls, no database queries.
  */
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -364,14 +365,8 @@ function resolveOffset(
   return clamp(position, 0, maxOffset);
 }
 
-function normaliseEdgeSide(side: string | null | undefined, fallback: 'top' | 'bottom' | 'left' | 'right'): 'top' | 'bottom' | 'left' | 'right' {
-  const value = side?.trim().toLowerCase();
-  if (value === 'front') return 'top';
-  if (value === 'back') return 'bottom';
-  if (value === 'top' || value === 'bottom' || value === 'left' || value === 'right') {
-    return value;
-  }
-  return fallback;
+function normaliseEdgeSide(side: string | null | undefined, fallback: RectEdgeSide): RectEdgeSide {
+  return normaliseRectEdgeSide(side, fallback) ?? fallback;
 }
 
 function positionChild(

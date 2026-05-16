@@ -5,8 +5,9 @@ import type {
   CreatePieceRelationshipInput,
   UpdatePieceRelationshipInput,
 } from '@/lib/types/piece-relationship';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
 
-type EdgeName = 'top' | 'bottom' | 'left' | 'right';
+type EdgeName = RectEdgeSide;
 
 const EDGE_FIELD: Record<EdgeName, 'edge_top' | 'edge_bottom' | 'edge_left' | 'edge_right'> = {
   top: 'edge_top',
@@ -34,16 +35,7 @@ const SAME_ROOM_RELATIONSHIP_TYPES = new Set<RelationshipType>([
 ]);
 
 function normaliseJoinEdge(side: string | null | undefined): EdgeName | null {
-  const value = side?.trim().toLowerCase();
-  if (!value) return null;
-
-  if (value === 'front') return 'top';
-  if (value === 'back') return 'bottom';
-  if (value === 'top' || value === 'bottom' || value === 'left' || value === 'right') {
-    return value;
-  }
-
-  return null;
+  return normaliseRectEdgeSide(side);
 }
 
 function appendUniqueEdge(value: unknown, edge: EdgeName): EdgeName[] {

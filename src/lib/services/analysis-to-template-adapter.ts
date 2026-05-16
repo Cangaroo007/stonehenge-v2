@@ -30,6 +30,7 @@ import type {
   TemplateCutout,
   MaterialRole,
 } from '@/lib/types/unit-templates';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
 // ──── Public Interfaces ────
 
@@ -254,9 +255,8 @@ export function convertSimplifiedToTemplate(
 
       if (piece.edges && Array.isArray(piece.edges)) {
         for (const edge of piece.edges) {
-          const side = (edge.side || '').toLowerCase();
-          const mappedSide = side === 'front' ? 'top' : side === 'back' ? 'bottom' : side;
-          if (mappedSide in edgeMap) {
+          const mappedSide = normaliseRectEdgeSide(edge.side);
+          if (mappedSide && mappedSide in edgeMap) {
             edgeMap[mappedSide] = mapEdgeFinishString(edge.finish, edge.profileType);
           }
         }
@@ -551,26 +551,12 @@ function mapProfileFromFinishString(finish: string): string | undefined {
 }
 
 /**
- * Normalize edge side values (FRONT→top, BACK→bottom, etc.)
+ * Normalize edge side values.
  */
 function normalizeSide(
   side: string
 ): 'top' | 'bottom' | 'left' | 'right' | null {
-  const lower = side.toLowerCase();
-  switch (lower) {
-    case 'top':
-    case 'front':
-      return 'top';
-    case 'bottom':
-    case 'back':
-      return 'bottom';
-    case 'left':
-      return 'left';
-    case 'right':
-      return 'right';
-    default:
-      return null;
-  }
+  return normaliseRectEdgeSide(side);
 }
 
 // ──── Cutout Conversion ────

@@ -179,8 +179,8 @@ function parseEdges(edgeStr: string | null | undefined): {
   }
 
   return {
-    top: frontEdge,   // "front" edge → top
-    bottom: ARRIS_EDGE,
+    top: ARRIS_EDGE,
+    bottom: frontEdge,
     left: ARRIS_EDGE,
     right: ARRIS_EDGE,
   };
