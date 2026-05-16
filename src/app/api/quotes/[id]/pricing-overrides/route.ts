@@ -107,6 +107,9 @@ export async function POST(
     if (!VALID_TYPES.has(overrideType)) {
       return NextResponse.json({ error: 'Invalid override type' }, { status: 400 });
     }
+    if (overrideType === 'LM' && category === 'ALL') {
+      return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
+    }
     if (!Number.isFinite(value)) {
       return NextResponse.json({ error: 'Override value must be a number' }, { status: 400 });
     }

@@ -66,7 +66,13 @@ export async function PATCH(
       if (!VALID_TYPES.has(overrideType)) {
         return NextResponse.json({ error: 'Invalid override type' }, { status: 400 });
       }
+      if (overrideType === 'LM' && normalizeToken(data.category ?? existing.category) === 'ALL') {
+        return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
+      }
       data.override_type = overrideType;
+    }
+    if (body.category !== undefined && normalizeToken(body.category) === 'ALL' && String(data.override_type ?? existing.override_type) === 'LM') {
+      return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
     }
     if (body.value !== undefined) {
       const value = Number(body.value);

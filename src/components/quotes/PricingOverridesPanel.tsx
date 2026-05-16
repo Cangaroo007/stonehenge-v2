@@ -45,7 +45,7 @@ const CATEGORY_OPTIONS = [
   ['CUTOUT', 'Cutouts'],
   ['INSTALLATION', 'Installation'],
   ['FABRICATION', 'Fabrication'],
-  ['ALL', 'Whole quote'],
+  ['ALL', 'All labour categories'],
 ] as const;
 
 const TYPE_OPTIONS = [
@@ -67,7 +67,7 @@ function formatOverrideValue(override: PricingOverride | { overrideType: string;
 
 function helperTextFor(overrideType: string): string {
   if (overrideType === 'LM') {
-    return 'Replaces the chargeable length for that category, e.g. 12.5 means charge 12.5 linear metres.';
+    return 'Replaces the chargeable length for the selected category. With no piece selected, the LM is the total for the quote.';
   }
   if (overrideType === 'MULTIPLIER') {
     return 'Multiplies the selected category, e.g. 1.2 adds 20 percent and 0.9 discounts 10 percent.';
@@ -93,6 +93,12 @@ export default function PricingOverridesPanel({
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = mode === 'edit';
+
+  useEffect(() => {
+    if (overrideType === 'LM' && category === 'ALL') {
+      setCategory('MITRE_POLISH');
+    }
+  }, [category, overrideType]);
 
   const loadOverrides = useCallback(async () => {
     setLoading(true);
@@ -200,7 +206,7 @@ export default function PricingOverridesPanel({
               className="input text-sm md:col-span-1"
               aria-label="Override category"
             >
-              {CATEGORY_OPTIONS.map(([key, label]) => (
+              {CATEGORY_OPTIONS.filter(([key]) => overrideType !== 'LM' || key !== 'ALL').map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>

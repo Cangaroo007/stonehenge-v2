@@ -287,6 +287,22 @@ function isEdgeOverrideCategory(override: PricingOverrideRecord): boolean {
     token === 'MITRE_POLISH';
 }
 
+function isChargeableLmCutCategory(override: PricingOverrideRecord): boolean {
+  const token = normalizeOverrideToken(override.category);
+  return token === 'CUTTING' ||
+    token === 'NORMAL_CUT' ||
+    token === 'MITRE_CUT';
+}
+
+function isChargeableLmEdgeCategory(override: PricingOverrideRecord): boolean {
+  const token = normalizeOverrideToken(override.category);
+  return token === 'EDGE' ||
+    token === 'POLISH' ||
+    token === 'EDGE_PROFILE' ||
+    token === 'NORMAL_POLISH' ||
+    token === 'MITRE_POLISH';
+}
+
 export interface EnhancedCalculationResult extends CalculationResult {
   missingRates?: MissingRate[];
   fabricationCategory?: string;
@@ -1269,6 +1285,7 @@ export async function calculateQuotePrice(
       : undefined;
     const cutCategory: OverrideCategory = isMitredPiece(piece) ? 'MITRE_CUT' : 'NORMAL_CUT';
     const cutLmOverride = pricingOverrides.find(o =>
+      o.piece_id != null &&
       overrideAppliesToPiece(o, piece.id) &&
       normalizeOverrideToken(o.override_type) === 'LM' &&
       categoryMatches(o, cutCategory, piece)
@@ -1380,6 +1397,73 @@ export async function calculateQuotePrice(
     };
   }
 
+  const quoteLevelLmOverrides = pricingOverrides.filter(o =>
+    o.piece_id == null &&
+    normalizeOverrideToken(o.override_type) === 'LM'
+  );
+
+  for (const override of quoteLevelLmOverrides.filter(isChargeableLmCutCategory)) {
+    const selected = engineResult.pieces
+      .map((ep, index) => ({ ep, piece: allPieces[index] }))
+      .filter(({ piece }) => piece && categoryMatches(
+        override,
+        isMitredPiece(piece) ? 'MITRE_CUT' : 'NORMAL_CUT',
+        piece
+      ));
+    const currentLm = selected.reduce((sum, { ep }) => sum + ep.cutting.lm, 0);
+    if (currentLm <= 0) continue;
+
+    const before = selected.reduce((sum, { ep }) => sum + ep.cutting.cost, 0);
+    const targetLm = overrideValue(override);
+    for (const { ep } of selected) {
+      const targetPieceLm = targetLm * (ep.cutting.lm / currentLm);
+      ep.cutting.cost = scaleCost(ep.cutting.cost, ep.cutting.lm, targetPieceLm);
+      ep.cutting.lm = targetPieceLm;
+    }
+    const after = selected.reduce((sum, { ep }) => sum + ep.cutting.cost, 0);
+    appliedPricingOverrides.push({
+      id: override.id,
+      pieceId: null,
+      category: override.category,
+      overrideType: override.override_type,
+      value: targetLm,
+      reason: override.reason,
+      amountDelta: roundToTwo(after - before),
+    });
+  }
+
+  for (const override of quoteLevelLmOverrides.filter(isChargeableLmEdgeCategory)) {
+    const before = engineResult.pieces.reduce((sum, ep) => sum + ep.edgeProfiles.cost, 0);
+    const selectedItems = engineResult.pieces.flatMap(ep =>
+      ep.edgeProfiles.items
+        .filter(item => edgeOverrideMatchesLine(override, item, edgeTypeReverseMap))
+        .map(item => ({ ep, item }))
+    );
+    const currentLm = selectedItems.reduce((sum, { item }) => sum + item.lm, 0);
+    if (currentLm <= 0) continue;
+
+    const targetLm = overrideValue(override);
+    for (const { item } of selectedItems) {
+      const targetItemLm = targetLm * (item.lm / currentLm);
+      item.cost = scaleCost(item.cost, item.lm, targetItemLm);
+      item.lm = targetItemLm;
+    }
+    for (const ep of engineResult.pieces) {
+      ep.edgeProfiles.cost = ep.edgeProfiles.items.reduce((sum, item) => sum + item.cost, 0);
+      ep.edgeProfiles.lm = sumEdgeItemsLm(ep.edgeProfiles.items);
+    }
+    const after = engineResult.pieces.reduce((sum, ep) => sum + ep.edgeProfiles.cost, 0);
+    appliedPricingOverrides.push({
+      id: override.id,
+      pieceId: null,
+      category: override.category,
+      overrideType: override.override_type,
+      value: targetLm,
+      reason: override.reason,
+      amountDelta: roundToTwo(after - before),
+    });
+  }
+
   // Apply auditable category overrides after the engine has produced normal
   // line items. With no override records this is a no-op, preserving existing quotes.
   for (let i = 0; i < engineResult.pieces.length; i++) {
@@ -1388,6 +1472,7 @@ export async function calculateQuotePrice(
     if (!piece) continue;
 
     const edgeLmOverrides = pricingOverrides.filter(o =>
+      o.piece_id != null &&
       overrideAppliesToPiece(o, piece.id) &&
       normalizeOverrideToken(o.override_type) === 'LM' &&
       isEdgeOverrideCategory(o) &&

@@ -3142,6 +3142,14 @@ export default function QuoteDetailClient({
         onPreviewPdf={handleOpenReadinessCheck}
         saving={saving}
       />
+      <button
+        type="button"
+        onClick={() => document.getElementById('quote-pricing-overrides')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+        className="btn-secondary flex items-center gap-2"
+        title="Jump to quote pricing overrides"
+      >
+        Overrides
+      </button>
       <select
         value={selectedPdfView}
         onChange={(e) => setSelectedPdfView(e.target.value as PdfViewMode)}
@@ -4516,16 +4524,18 @@ export default function QuoteDetailClient({
               }}
               embedded
             />
-            <PricingOverridesPanel
-              quoteId={parseInt(quoteIdStr)}
-              pieces={editPricingOverridePieces}
-              mode="edit"
-              appliedOverrides={(calculation as any)?.appliedPricingOverrides ?? []}
-              onChanged={() => {
-                triggerRecalculate();
-                fetchQuote();
-              }}
-            />
+            <div id="quote-pricing-overrides">
+              <PricingOverridesPanel
+                quoteId={parseInt(quoteIdStr)}
+                pieces={editPricingOverridePieces}
+                mode="edit"
+                appliedOverrides={(calculation as any)?.appliedPricingOverrides ?? []}
+                onChanged={() => {
+                  triggerRecalculate();
+                  fetchQuote();
+                }}
+              />
+            </div>
           </div>
         )}
 
@@ -4627,19 +4637,6 @@ export default function QuoteDetailClient({
           discountDisplayMode={discountDisplayMode}
           onDiscountDisplayModeChange={setDiscountDisplayMode}
         />
-
-        <div className="card p-4">
-          <PricingOverridesPanel
-            quoteId={parseInt(quoteIdStr)}
-            pieces={editPricingOverridePieces}
-            mode="edit"
-            appliedOverrides={(calculation as any)?.appliedPricingOverrides ?? []}
-            onChanged={() => {
-              triggerRecalculate();
-              fetchQuote();
-            }}
-          />
-        </div>
 
         {/* Piece Stats */}
         <div className="card p-4">
