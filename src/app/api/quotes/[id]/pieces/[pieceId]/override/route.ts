@@ -4,6 +4,8 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
+const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
+
 async function recalculateQuote(quoteId: number) {
   try {
     const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
@@ -147,9 +149,9 @@ export async function POST(
         materialCost: Number(piece.material_cost),
         featuresCost: Number(piece.features_cost),
         totalCost: Number(piece.total_cost),
-        overrideMaterialCost: piece.override_material_cost ? Number(piece.override_material_cost) : null,
-        overrideSlabPrice: piece.override_slab_price ? Number(piece.override_slab_price) : null,
-        overrideFabricationCost: piece.override_fabrication_cost ? Number(piece.override_fabrication_cost) : null,
+        overrideMaterialCost: decimalOrNull(piece.override_material_cost),
+        overrideSlabPrice: decimalOrNull(piece.override_slab_price),
+        overrideFabricationCost: decimalOrNull(piece.override_fabrication_cost),
       }
     });
   } catch (error: any) {

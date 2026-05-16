@@ -4,6 +4,8 @@ import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
+const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
+
 // GET - Get a single piece with full detail for expanded view
 export async function GET(
   request: NextRequest,
@@ -171,15 +173,9 @@ export async function GET(
       laminationMethod: p.lamination_method,
       sortOrder: p.sort_order,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
-      overrideMaterialCost: piece.override_material_cost
-        ? Number(piece.override_material_cost)
-        : null,
-      overrideSlabPrice: piece.override_slab_price
-        ? Number(piece.override_slab_price)
-        : null,
-      overrideFabricationCost: piece.override_fabrication_cost
-        ? Number(piece.override_fabrication_cost)
-        : null,
+      overrideMaterialCost: decimalOrNull(piece.override_material_cost),
+      overrideSlabPrice: decimalOrNull(piece.override_slab_price),
+      overrideFabricationCost: decimalOrNull(piece.override_fabrication_cost),
       materialCollectionOnly: piece.material_collection_only ?? false,
       materialCollectionName: piece.material_collection_name ?? null,
       // CURVE-2a: Corner edge camelCase aliases
@@ -532,15 +528,9 @@ export async function PATCH(
       cornerEdgeBl: pu.corner_edge_bl ?? null,
       cornerEdgeBr: pu.corner_edge_br ?? null,
       edgeArcConfig: pu.edge_arc_config ?? null,
-      overrideMaterialCost: updatedPiece.override_material_cost
-        ? Number(updatedPiece.override_material_cost)
-        : null,
-      overrideSlabPrice: updatedPiece.override_slab_price
-        ? Number(updatedPiece.override_slab_price)
-        : null,
-      overrideFabricationCost: updatedPiece.override_fabrication_cost
-        ? Number(updatedPiece.override_fabrication_cost)
-        : null,
+      overrideMaterialCost: decimalOrNull(updatedPiece.override_material_cost),
+      overrideSlabPrice: decimalOrNull(updatedPiece.override_slab_price),
+      overrideFabricationCost: decimalOrNull(updatedPiece.override_fabrication_cost),
       materialCollectionOnly: updatedPiece.material_collection_only ?? false,
       materialCollectionName: updatedPiece.material_collection_name ?? null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
