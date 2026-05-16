@@ -56,6 +56,7 @@ export interface EngineEdge {
   isFinished: boolean               // false = RAW wall edge — no polishing
   edgeTypeId: number | null         // null = no profile surcharge
   length_mm: number
+  effectiveThicknessMm?: number      // build-up edges can price at 40mm while the parent slab remains 20mm
 }
 
 export interface EngineCutout {
@@ -205,8 +206,9 @@ export function ruleEdgeProfiles(
     const catRate = edgeCategoryRates.find(
       r => r.edgeTypeId === edge.edgeTypeId && r.fabricationCategory === category
     )
+    const rateThickness = edge.effectiveThicknessMm ?? piece.thickness_mm
     const rate = catRate
-      ? (piece.thickness_mm >= 40 ? catRate.rate40mm : catRate.rate20mm)
+      ? (rateThickness >= 40 ? catRate.rate40mm : catRate.rate20mm)
       : 0  // $0 = intentionally free profile (e.g. Arris, Pencil Round)
     items.push({ edgeTypeId: edge.edgeTypeId!, position: edge.position, lm, rate, cost: lm * rate })
   }

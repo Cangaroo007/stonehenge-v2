@@ -1185,20 +1185,28 @@ export async function calculateQuotePrice(
       const shapeEdges = ((piece.shape_config as unknown as Record<string, unknown>).edges ?? {}) as Record<string, string | null>;
       edges = Object.entries(finishableLengths).map(([key, length_mm]) => {
         const edgeTypeStringId = shapeEdges[key] ?? null;
+        const buildup = (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null)?.[key];
         return {
           position: key.toUpperCase() as EngineEdge['position'],
           isFinished: !!edgeTypeStringId,
           edgeTypeId: edgeTypeStringId ? (edgeTypeIdMap.get(edgeTypeStringId) ?? null) : null,
+          effectiveThicknessMm: buildup?.depth != null ? Math.max(piece.thickness_mm, buildup.depth) : undefined,
           length_mm,
         };
       });
     } else {
+      const edgeBuildupsForRates =
+        (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null) ?? {};
+      const effectiveEdgeThickness = (side: string) => {
+        const buildup = edgeBuildupsForRates[side];
+        return buildup?.depth != null ? Math.max(piece.thickness_mm, buildup.depth) : undefined;
+      };
       // RECTANGLE and other shapes: use 4 DB columns (original behaviour)
       edges = [
-        { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm },
-        { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: edgeLengths.bottom_mm },
-        { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: edgeLengths.left_mm },
-        { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm },
+        { position: 'TOP' as const, isFinished: !!piece.edge_top, edgeTypeId: piece.edge_top ? (edgeTypeIdMap.get(piece.edge_top) ?? null) : null, length_mm: edgeLengths.top_mm, effectiveThicknessMm: effectiveEdgeThickness('top') },
+        { position: 'BOTTOM' as const, isFinished: !!piece.edge_bottom, edgeTypeId: piece.edge_bottom ? (edgeTypeIdMap.get(piece.edge_bottom) ?? null) : null, length_mm: edgeLengths.bottom_mm, effectiveThicknessMm: effectiveEdgeThickness('bottom') },
+        { position: 'LEFT' as const, isFinished: !!piece.edge_left, edgeTypeId: piece.edge_left ? (edgeTypeIdMap.get(piece.edge_left) ?? null) : null, length_mm: edgeLengths.left_mm, effectiveThicknessMm: effectiveEdgeThickness('left') },
+        { position: 'RIGHT' as const, isFinished: !!piece.edge_right, edgeTypeId: piece.edge_right ? (edgeTypeIdMap.get(piece.edge_right) ?? null) : null, length_mm: edgeLengths.right_mm, effectiveThicknessMm: effectiveEdgeThickness('right') },
       ];
     }
 

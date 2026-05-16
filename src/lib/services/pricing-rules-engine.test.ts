@@ -110,3 +110,27 @@ test('uses each piece fabrication category for labour rates', () => {
   expect(result.pieces[0].installation.ratePerSqm).toBe(140.00)
   expect(result.pieces[1].installation.ratePerSqm).toBe(300.00)
 })
+
+test('uses edge effective thickness for built-up edge profile rates', () => {
+  const result = calculateQuote({
+    settings: BASE_SETTINGS,
+    serviceRates: BASE_RATES,
+    edgeCategoryRates: [
+      { edgeTypeId: 1, fabricationCategory: 'ENGINEERED', rate20mm: 40.00, rate40mm: 115.00 },
+    ],
+    cutoutRates: [],
+    material: { fabricationCategory: 'ENGINEERED', pricePerSlab: 0 },
+    slabCount: 0,
+    pieces: [
+      makePiece({
+        edges: [
+          { position: 'TOP' as const, isFinished: true, edgeTypeId: 1, length_mm: 2000, effectiveThicknessMm: 40 },
+          { position: 'BOTTOM' as const, isFinished: true, edgeTypeId: 1, length_mm: 2000 },
+        ],
+      }),
+    ],
+  })
+
+  expect(result.pieces[0].edgeProfiles.items[0].rate).toBe(115.00)
+  expect(result.pieces[0].edgeProfiles.items[1].rate).toBe(40.00)
+})
