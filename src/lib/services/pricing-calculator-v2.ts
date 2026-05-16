@@ -1337,6 +1337,7 @@ export async function calculateQuotePrice(
       length_mm: piece.length_mm,
       width_mm: piece.width_mm,
       thickness_mm: piece.thickness_mm,
+      fabricationCategory: pieceFabCategory,
       isOversize,
       joinLength_Lm: joinLengthLm,
       requiresGrainMatch: isOversize,

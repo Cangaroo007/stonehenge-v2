@@ -86,3 +86,27 @@ test('TEST 6 — totalIncGst is greater than subtotalExGst', () => {
   expect(result.totalIncGst).toBeGreaterThan(result.subtotalExGst)
   expect(result.totalIncGst).toBeCloseTo(result.subtotalExGst * 1.10)
 })
+
+test('uses each piece fabrication category for labour rates', () => {
+  const result = calculateQuote({
+    settings: BASE_SETTINGS,
+    serviceRates: [
+      ...BASE_RATES,
+      { serviceType: 'CUTTING', fabricationCategory: 'SINTERED', rate20mm: 100.00, rate40mm: 200.00 },
+      { serviceType: 'INSTALLATION', fabricationCategory: 'SINTERED', rate20mm: 300.00, rate40mm: 400.00 },
+    ],
+    edgeCategoryRates: [],
+    cutoutRates: [],
+    material: { fabricationCategory: 'ENGINEERED', pricePerSlab: 0 },
+    slabCount: 0,
+    pieces: [
+      makePiece({ id: 'engineered', fabricationCategory: 'ENGINEERED' }),
+      makePiece({ id: 'sintered', fabricationCategory: 'SINTERED' }),
+    ],
+  })
+
+  expect(result.pieces[0].cutting.ratePerLm).toBe(17.50)
+  expect(result.pieces[1].cutting.ratePerLm).toBe(100.00)
+  expect(result.pieces[0].installation.ratePerSqm).toBe(140.00)
+  expect(result.pieces[1].installation.ratePerSqm).toBe(300.00)
+})

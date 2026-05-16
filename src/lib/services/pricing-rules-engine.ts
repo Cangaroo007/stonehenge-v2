@@ -69,6 +69,7 @@ export interface EnginePiece {
   length_mm: number
   width_mm: number
   thickness_mm: number
+  fabricationCategory?: string
   isOversize: boolean
   joinLength_Lm?: number
   requiresGrainMatch?: boolean
@@ -346,10 +347,10 @@ export function ruleInstallation(
 // ─── Master Function ──────────────────────────────────────────────────────────
 
 export function calculateQuote(input: PricingEngineInput): QuotePricingResult {
-  const category = input.material.fabricationCategory
   const pieceResults: PiecePricingResult[] = []
 
   for (const piece of input.pieces) {
+    const category = piece.fabricationCategory ?? input.material.fabricationCategory
     const cutting        = ruleCutting(piece, input.serviceRates, category)
     const curvedCutting  = ruleCurvedCutting(piece, input.serviceRates, category, input.settings.curvedCuttingMode, cutting)
     const edgeProfiles   = ruleEdgeProfiles(piece, input.edgeCategoryRates, category)
