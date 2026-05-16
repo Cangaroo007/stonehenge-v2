@@ -26,6 +26,7 @@ interface EdgeProfilePopoverProps {
   position: { x: number; y: number };
   currentProfileId: string | null;
   profiles: EdgeTypeOption[];
+  /** @deprecated Build-up construction no longer restricts visible profile selection. */
   isMitred?: boolean;
   onSelect: (profileId: string | null) => void;
   onClose: () => void;
@@ -119,12 +120,6 @@ export default function EdgeProfilePopover({
             Visible Edge Profile
           </div>
 
-          {isMitred && (
-            <div className="px-3 py-1.5 text-xs text-amber-600 bg-amber-50 border-b border-gray-100">
-              Build-up mitre construction uses Pencil Round as the visible profile.
-            </div>
-          )}
-
           {/* Raw / No finish option */}
           <button
             onClick={() => handleProfileClick(null, 'Raw')}
@@ -137,21 +132,16 @@ export default function EdgeProfilePopover({
           </button>
 
           {profiles.map((profile) => {
-            const disabled = isMitred && !profile.name.toLowerCase().includes('pencil');
             return (
               <button
                 key={profile.id}
                 onClick={() => {
-                  if (disabled) return;
                   handleProfileClick(profile.id, profile.name);
                 }}
-                disabled={disabled}
                 className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
-                  disabled
-                    ? 'text-gray-300 cursor-not-allowed'
-                    : currentProfileId === profile.id
-                      ? 'bg-blue-50 text-blue-700 font-medium hover:bg-blue-100'
-                      : 'text-gray-700 hover:bg-gray-50'
+                  currentProfileId === profile.id
+                    ? 'bg-blue-50 text-blue-700 font-medium hover:bg-blue-100'
+                    : 'text-gray-700 hover:bg-gray-50'
                 }`}
               >
                 <span

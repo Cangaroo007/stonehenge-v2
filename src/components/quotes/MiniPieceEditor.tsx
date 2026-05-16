@@ -137,10 +137,6 @@ export default function MiniPieceEditor({
     };
   }, [layout]);
 
-  // ── Mitred check ──────────────────────────────────────────────────────
-
-  const isMitred = piece?.lamination_method === 'MITRED';
-
   // ── Cutout helpers ────────────────────────────────────────────────────
 
   const suggestedCutouts = useMemo(() => {
@@ -251,28 +247,21 @@ export default function MiniPieceEditor({
             Raw
           </button>
           {edgeTypes.map((et) => {
-            const disabled = isMitred && !et.name.toLowerCase().includes('pencil');
             return (
               <button
                 key={et.id}
-                onClick={() => !disabled && setSelectedProfileId(et.id)}
-                disabled={disabled}
+                onClick={() => setSelectedProfileId(et.id)}
                 className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
-                  disabled
-                    ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
-                    : selectedProfileId === et.id
-                      ? 'bg-blue-600 text-white border-blue-600'
-                      : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+                  selectedProfileId === et.id
+                    ? 'bg-blue-600 text-white border-blue-600'
+                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                 }`}
-                title={disabled ? 'Mitred edges use Pencil Round only' : et.name}
+                title={et.name}
               >
                 {et.name}
               </button>
             );
           })}
-          {isMitred && (
-            <span className="text-[9px] text-amber-600 ml-1">Mitred — Pencil Round only</span>
-          )}
         </div>
       )}
 

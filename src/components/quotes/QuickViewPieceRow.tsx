@@ -1107,17 +1107,12 @@ export default function QuickViewPieceRow({
     const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
       'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
 
-    let profileToApply = quickEdgeProfileId;
-    // Mitred enforcement: only Pencil Round allowed
-    if (isMitred && profileToApply) {
-      const pencilId = editData?.edgeTypes.find(et => et.name.toLowerCase().includes('pencil'))?.id;
-      if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
-    }
+    const profileToApply = quickEdgeProfileId;
 
     savePieceImmediate({ [edgeKey]: profileToApply });
     setFlashEdge(side);
     setTimeout(() => setFlashEdge(null), 200);
-  }, [isEditMode, quickEdgeProfileId, isMitred, editData?.edgeTypes, savePieceImmediate]);
+  }, [isEditMode, quickEdgeProfileId, savePieceImmediate]);
 
   // ── Cutout handlers ─────────────────────────────────────────────────────
   const handleCutoutAdd = useCallback((cutoutTypeId: string) => {
@@ -1916,12 +1911,7 @@ export default function QuickViewPieceRow({
 
                   const handleArcClick = (e: React.MouseEvent) => {
                     e.stopPropagation();
-                    let profileToApply = quickEdgeProfileId;
-                    if (isMitred && profileToApply) {
-                      const pencilId = editData?.edgeTypes.find(et =>
-                        et.name.toLowerCase().includes('pencil'))?.id;
-                      if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
-                    }
+                    const profileToApply = quickEdgeProfileId;
                     handleShapeEdgeChange('arc_end', profileToApply);
                     setFlashEdge('arc_end');
                     setTimeout(() => setFlashEdge(null), 200);
@@ -1937,12 +1927,7 @@ export default function QuickViewPieceRow({
 
                   const handleLeftArcClick = (e: React.MouseEvent) => {
                     e.stopPropagation();
-                    let profileToApply = quickEdgeProfileId;
-                    if (isMitred && profileToApply) {
-                      const pencilId = editData?.edgeTypes.find(et =>
-                        et.name.toLowerCase().includes('pencil'))?.id;
-                      if (profileToApply !== pencilId) profileToApply = pencilId ?? null;
-                    }
+                    const profileToApply = quickEdgeProfileId;
                     handleShapeEdgeChange('arc_left', profileToApply);
                     setFlashEdge('arc_left');
                     setTimeout(() => setFlashEdge(null), 200);
