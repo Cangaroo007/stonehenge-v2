@@ -31,7 +31,7 @@ const FILL_COLOURS: Record<string, string> = {
   ISLAND: '#f0f4f8',
   WATERFALL: '#e8f5e9',
   SPLASHBACK: '#fff3e0',
-  RETURN_END: '#f3e5f5',
+  RETURN: '#f3e5f5',
   WINDOW_SILL: '#fff3e0',
   MITRE_JOIN: '#f0f4f8',
   BUTT_JOIN: '#f0f4f8',
@@ -119,7 +119,7 @@ function calculateLayout(group: PieceGroup): LayoutRect[] {
         ry = -(rh + 4);
         break;
 
-      case 'RETURN_END':
+      case 'RETURN':
         rw = rpW;
         rh = rpH;
         if (rp.position.side === 'right') {

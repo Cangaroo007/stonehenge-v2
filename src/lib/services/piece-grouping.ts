@@ -50,7 +50,7 @@ export function groupPiecesForJobView(
     for (const rel of piece.sourceRelationships ?? []) {
       explicitTargets.set(rel.targetPieceId, {
         sourcePieceId: rel.sourcePieceId,
-        relationType: rel.relationType,
+        relationType: normalizeRelationType(rel.relationType),
         side: rel.side,
       });
     }
@@ -175,14 +175,29 @@ function inferRelationType(piece: QuotePieceInput): PieceRelationType {
   if (piece.waterfall_height_mm && piece.waterfall_height_mm > 0) return 'WATERFALL';
   if (name.includes('waterfall')) return 'WATERFALL';
   if (name.includes('splashback') || name.includes('splash back')) return 'SPLASHBACK';
-  if (name.includes('return end') || name.includes('return_end')) return 'RETURN_END';
+  if (name.includes('return end') || name.includes('return_end') || name.includes('return')) return 'RETURN';
   if (name.includes('window sill') || name.includes('windowsill')) return 'WINDOW_SILL';
   if (name.includes('island')) return 'ISLAND';
   if (name.includes('lamination') || name.includes('lam strip')) return 'LAMINATION';
 
-  // If lamination_method is MITRED, it's likely a mitre join piece
-  if (piece.lamination_method === 'MITRED') return 'MITRE_JOIN';
+  return 'STANDALONE';
+}
 
+function normalizeRelationType(type: string | null | undefined): PieceRelationType {
+  const normalized = (type ?? '').toUpperCase();
+  if (normalized === 'RETURN_END') return 'RETURN';
+  if (
+    normalized === 'WATERFALL' ||
+    normalized === 'SPLASHBACK' ||
+    normalized === 'RETURN' ||
+    normalized === 'WINDOW_SILL' ||
+    normalized === 'MITRE_JOIN' ||
+    normalized === 'BUTT_JOIN' ||
+    normalized === 'LAMINATION' ||
+    normalized === 'ISLAND'
+  ) {
+    return normalized;
+  }
   return 'STANDALONE';
 }
 
@@ -252,7 +267,7 @@ function getSpatialPosition(
     case 'SPLASHBACK':
       return { x: 0, y: -1, rotation: 0, side: 'top' };
 
-    case 'RETURN_END':
+    case 'RETURN':
       if (side === 'right') return { x: 1, y: 0, rotation: 0, side: 'right' };
       return { x: -1, y: 0, rotation: 0, side: 'left' };
 

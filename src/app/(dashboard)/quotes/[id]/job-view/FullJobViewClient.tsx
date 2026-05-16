@@ -84,7 +84,7 @@ function groupLabel(group: PieceGroup): string {
   const labels: Record<string, string> = {
     WATERFALL: 'Waterfall',
     SPLASHBACK: 'Splashback',
-    RETURN_END: 'Return End',
+    RETURN: 'Return',
     WINDOW_SILL: 'Window Sill',
     MITRE_JOIN: 'Mitre Join',
     BUTT_JOIN: 'Butt Join',

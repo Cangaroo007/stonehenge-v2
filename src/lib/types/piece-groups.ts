@@ -13,7 +13,7 @@
 export type PieceRelationType =
   | 'WATERFALL'      // Vertical piece hanging off the side of a benchtop
   | 'SPLASHBACK'     // Piece behind/above a benchtop
-  | 'RETURN_END'     // Short piece wrapping around a corner
+  | 'RETURN'         // Short piece wrapping around a corner
   | 'WINDOW_SILL'    // Piece below a window, often connects to benchtop run
   | 'ISLAND'         // Standalone benchtop, may have waterfalls on ends
   | 'MITRE_JOIN'     // Two pieces joined at 45-degree angle
