@@ -523,6 +523,18 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
  * PER_SLAB: uses slab count from optimiser × price per slab
  * PER_SQUARE_METRE: uses total area × price per m²
  */
+function displayMaterialNameForPiece(piece: {
+  material_name?: string | null;
+  material_collection_only?: boolean | null;
+  materials?: { name?: string } | null;
+} | undefined): string | undefined {
+  if (!piece) return undefined;
+  if (piece.material_collection_only && piece.material_name) {
+    return piece.material_name;
+  }
+  return piece.materials?.name ?? piece.material_name ?? undefined;
+}
+
 export function calculateMaterialCost(
   pieces: Array<{
     length_mm: number;
@@ -543,6 +555,9 @@ export function calculateMaterialCost(
         default_margin_percent: { toNumber: () => number } | null;
       } | null;
     } | null;
+    material_name?: string | null;
+    material_collection_only?: boolean | null;
+    material_collection_name?: string | null;
     overrideMaterialCost?: { toNumber: () => number } | null;
     overrideSlabPrice?: { toNumber: () => number } | null;
     overrideFabricationCost?: { toNumber: () => number } | null;
@@ -693,10 +708,7 @@ export function calculateMaterialCost(
 
   // Extract material metadata from the first piece with a material
   const firstMaterial = pieces.find(p => p.materials)?.materials;
-  const materialName = (firstMaterial as unknown as { name?: string } | null)?.name
-    // Fallback to denormalized material_name field on the piece
-    || (pieces.find(p => (p as unknown as { material_name?: string | null }).material_name) as unknown as { material_name?: string })?.material_name
-    || undefined;
+  const materialName = displayMaterialNameForPiece(pieces.find(p => p.materials) ?? pieces[0]);
   const slabLengthMm = (firstMaterial as unknown as { slab_length_mm?: number | null } | null)?.slab_length_mm ?? undefined;
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
@@ -829,7 +841,7 @@ function buildMaterialGroupings(
       continue;
     }
     const matId = (mat as unknown as { id?: number }).id ?? 0;
-    const matName = (mat as unknown as { name?: string }).name ?? 'Unknown';
+    const matName = displayMaterialNameForPiece(piece) ?? 'Unknown';
     const slabLenMm = (mat as unknown as { slab_length_mm?: number | null }).slab_length_mm ?? undefined;
     const slabWMm = (mat as unknown as { slab_width_mm?: number | null }).slab_width_mm ?? undefined;
     const catalogueSlabPrice = mat.price_per_slab?.toNumber() ?? 0;
