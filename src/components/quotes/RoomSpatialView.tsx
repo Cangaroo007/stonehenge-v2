@@ -139,6 +139,13 @@ function getPieceDisplayTotal(piece: QuotePiece): number | null {
   return piece.pieceTotal ?? piece.slabCost ?? null;
 }
 
+function humaniseRelationshipType(type: string): string {
+  return type
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+}
+
 function inferPieceType(piece: QuotePiece): string | null {
   if (piece.piece_type) return piece.piece_type;
 
@@ -920,6 +927,15 @@ export default function RoomSpatialView({
             const pieceRelationships = relationships.filter(
               r => r.parentPieceId === pieceIdStr || r.childPieceId === pieceIdStr
             );
+            const parentRelationship = relationships.find(r => r.childPieceId === pieceIdStr);
+            const parentPiece = parentRelationship
+              ? pieceMap.get(parentRelationship.parentPieceId)
+              : null;
+            const parentRelationshipLabel = parentRelationship
+              ? `${humaniseRelationshipType(parentRelationship.relationshipType)}${
+                  parentRelationship.joinPosition ? ` ${parentRelationship.joinPosition.toLowerCase()}` : ''
+                } of ${parentPiece?.name ?? parentPiece?.description ?? 'parent piece'}`
+              : null;
 
             const isMultiSelected = isPieceMultiSelected(pieceIdStr);
 
@@ -941,13 +957,21 @@ export default function RoomSpatialView({
                       : 'bg-gray-50 hover:bg-gray-100 border-gray-100'
                   }`}
                 >
-                  <span className="flex items-center gap-1.5">
+                  <span className="flex items-center gap-1.5 min-w-0">
                     {isMultiSelected && (
                       <svg className="h-3 w-3 text-blue-600 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
                         <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                       </svg>
                     )}
                     <span className="font-medium text-gray-700 truncate">{pieceName}</span>
+                    {parentRelationshipLabel && (
+                      <span
+                        className="text-[10px] font-medium text-blue-700 bg-blue-50 border border-blue-100 rounded px-1.5 py-0.5 flex-shrink-0"
+                        title={parentRelationshipLabel}
+                      >
+                        Attached
+                      </span>
+                    )}
                   </span>
                   <span className="text-gray-400 flex-shrink-0 ml-2">
                     {getPieceDisplayTotal(piece) != null ? formatCurrency(getPieceDisplayTotal(piece)!) : '\u2014'}
@@ -967,11 +991,19 @@ export default function RoomSpatialView({
                   onClick={() => onPieceSelect?.(pieceIdStr)}
                   className="w-full text-left px-3 py-2 flex items-center justify-between bg-blue-50 hover:bg-blue-100 transition-colors"
                 >
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 min-w-0">
                     <svg className="h-3 w-3 text-blue-500 rotate-90" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                     </svg>
-                    <span className="text-xs font-semibold text-gray-800">{pieceName}</span>
+                    <span className="text-xs font-semibold text-gray-800 truncate">{pieceName}</span>
+                    {parentRelationshipLabel && (
+                      <span
+                        className="text-[10px] font-medium text-blue-700 bg-white/70 border border-blue-200 rounded px-1.5 py-0.5 flex-shrink-0"
+                        title={parentRelationshipLabel}
+                      >
+                        {parentRelationshipLabel}
+                      </span>
+                    )}
                   </div>
                   <span className="text-xs font-medium text-blue-700">
                     {getPieceDisplayTotal(piece) != null ? formatCurrency(getPieceDisplayTotal(piece)!) : '\u2014'}
