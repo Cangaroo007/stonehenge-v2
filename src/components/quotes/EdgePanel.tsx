@@ -94,6 +94,13 @@ export default function EdgePanel({
     return d ? `Currently: ${d}mm` : 'Currently: Off';
   }, [selectedEdgeIds, edgeBuildups, selectionCount]);
 
+  const selectedEdgesAllTrueWalls = useMemo(
+    () =>
+      hasSelection &&
+      selectedEdgeIds.every((id) => (noStripEdges?.includes(id) ?? false) && !attachedPieceTypes?.[id]),
+    [attachedPieceTypes, hasSelection, noStripEdges, selectedEdgeIds]
+  );
+
   // ── Derived pending values ─────────────────────────────────────────────
 
   const pendingDepthMm: number | null | undefined = useMemo(() => {
@@ -234,7 +241,7 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyProfile}
-            disabled={!hasSelection || pendingProfileId === undefined || selectedEdgeIds.every(id => noStripEdges?.includes(id))}
+            disabled={!hasSelection || pendingProfileId === undefined || selectedEdgesAllTrueWalls}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Apply to selected edges
@@ -282,7 +289,7 @@ export default function EdgePanel({
           <button
             type="button"
             onClick={handleApplyBuildup}
-            disabled={!hasSelection || pendingDepthMm === undefined || selectedEdgeIds.every(id => noStripEdges?.includes(id))}
+            disabled={!hasSelection || pendingDepthMm === undefined || selectedEdgesAllTrueWalls}
             className="w-full text-sm px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Apply to selected edges

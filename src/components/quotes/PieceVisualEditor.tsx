@@ -1490,6 +1490,20 @@ export default function PieceVisualEditor({
     return 'Wall edge - no profile or lamination strip';
   }, [attachedPieceTypes]);
 
+  const getEdgeSuppression = useCallback((edgeId: string) => {
+    const attachedType = attachedPieceTypes?.[edgeId];
+    if (attachedType === 'WATERFALL') {
+      return { type: 'ATTACHED' as const, code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
+    }
+    if (attachedType === 'SPLASHBACK') {
+      return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join' };
+    }
+    if (noStripEdges.includes(edgeId)) {
+      return { type: 'WALL' as const, code: 'Wall', colour: '#78716c', label: 'Against wall' };
+    }
+    return null;
+  }, [attachedPieceTypes, noStripEdges]);
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -1738,7 +1752,8 @@ export default function PieceVisualEditor({
             {/* Shape edges — all finishable, all stored in shape_config.edges */}
             {shapeLayout.edges.map((edge) => {
               // For shaped pieces: ALL edges read from shapeConfigEdges
-              const isWallEdge = noStripEdges.includes(edge.side);
+              const suppression = getEdgeSuppression(edge.side);
+              const isWallEdge = suppression?.type === 'WALL';
               const profileId = (() => {
                 // RADIUS_END: arc edges come from shapeConfigEdges (edge_arc_config).
                 // Straight edges (top, bottom, left) come from rectangle edge columns.
@@ -1749,9 +1764,9 @@ export default function PieceVisualEditor({
                 return shapeConfigEdges?.[edge.side] ?? null;
               })();
               const name = isWallEdge ? undefined : (profileId ? resolveEdgeName(profileId) : undefined);
-              const isFinished = !isWallEdge && !!profileId;
-              const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'Wall' : edgeCode(name);
+              const isFinished = !suppression && !!profileId;
+              const colour = suppression?.colour ?? edgeColour(name);
+              const code = suppression?.code ?? edgeCode(name);
               const isHorizontal = Math.abs(edge.y2 - edge.y1) < Math.abs(edge.x2 - edge.x1);
               const isHovered = hoveredEdge === edge.side;
               const isExternalSelected = externalSelectedEdgeIds?.includes(edge.side) ?? false;
@@ -1798,20 +1813,20 @@ export default function PieceVisualEditor({
                       d={edge.arcPath}
                       fill="none"
                       stroke={isExternalSelected ? '#3b82f6' : colour}
-                      strokeWidth={isExternalSelected ? 2.5 : (isFinished ? 3 : 1)}
-                      strokeDasharray={isFinished ? undefined : '4 3'}
+                      strokeWidth={isExternalSelected ? 2.5 : (suppression ? 3 : isFinished ? 3 : 1)}
+                      strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
                     >
-                      <title>{name || 'Raw / Unfinished'}</title>
+                      <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                     </path>
                   ) : (
                     <line
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                       stroke={isExternalSelected ? '#3b82f6' : colour}
-                      strokeWidth={isExternalSelected ? 2.5 : (isFinished ? 3 : 1)}
-                      strokeDasharray={isFinished ? undefined : '4 3'}
+                      strokeWidth={isExternalSelected ? 2.5 : (suppression ? 3 : isFinished ? 3 : 1)}
+                      strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
                       opacity={1}
                     >
-                      <title>{name || 'Raw / Unfinished'}</title>
+                      <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                     </line>
                   )}
 
@@ -1851,7 +1866,7 @@ export default function PieceVisualEditor({
                         onMouseEnter={() => setHoveredEdge(edge.side)}
                         onMouseLeave={() => setHoveredEdge(null)}
                       >
-                        <title>{name || 'Raw / Unfinished'}</title>
+                        <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                       </path>
                     ) : (
                       <line
@@ -1885,7 +1900,7 @@ export default function PieceVisualEditor({
                         onMouseEnter={() => setHoveredEdge(edge.side)}
                         onMouseLeave={() => setHoveredEdge(null)}
                       >
-                        <title>{name || 'Raw / Unfinished'}</title>
+                        <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                       </line>
                     )
                   )}
@@ -1900,13 +1915,10 @@ export default function PieceVisualEditor({
                       className={`select-none ${isFinished ? 'text-[9px] font-semibold' : 'text-[8px]'}`}
                       fill={colour}
                     >
-                      <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                      <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                       {(() => {
-                        if (isWallEdge) {
-                          const attachedType = attachedPieceTypes?.[edge.side];
-                          if (attachedType === 'WATERFALL') return `WF ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
-                          if (attachedType === 'SPLASHBACK') return `SB ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
-                          return `Wall ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
+                        if (suppression) {
+                          return `${code} ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                         }
                         if (!isFinished) return `RAW ${edge.lengthMm ? Math.round(edge.lengthMm) + 'mm' : edge.label}`;
                         const depth = edgeBuildups?.[edge.side]?.depth;
@@ -2053,11 +2065,12 @@ export default function PieceVisualEditor({
             {/* Edges */}
             {(Object.keys(edgeDefs) as EdgeSide[]).map((side) => {
               const def = edgeDefs[side];
-              const isWallEdge = noStripEdges.includes(side);
+              const suppression = getEdgeSuppression(side);
+              const isWallEdge = suppression?.type === 'WALL';
               const name = isWallEdge ? undefined : edgeNames[side];
-              const isFinished = !isWallEdge && !!edgeIds[side];
-              const colour = isWallEdge ? '#78716c' : edgeColour(name);
-              const code = isWallEdge ? 'Wall' : edgeCode(name);
+              const isFinished = !suppression && !!edgeIds[side];
+              const colour = suppression?.colour ?? edgeColour(name);
+              const code = suppression?.code ?? edgeCode(name);
               const isHorizontal = side === 'top' || side === 'bottom';
               const isHovered = hoveredEdge === side;
               const isSelected = externalSelectedEdgeIds
@@ -2101,12 +2114,12 @@ export default function PieceVisualEditor({
                     x2={def.x2}
                     y2={def.y2}
                     stroke={isFlashing ? '#22c55e' : colour}
-                    strokeWidth={isFlashing ? 5 : (isWallEdge ? 2 : (isFinished ? 3 : 1))}
-                    strokeDasharray={isWallEdge ? '6 3' : (isFinished ? undefined : '4 3')}
+                    strokeWidth={isFlashing ? 5 : (suppression ? 3 : isFinished ? 3 : 1)}
+                    strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
                     opacity={1}
                     className={isFlashing ? 'edge-flash' : undefined}
                   >
-                    <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                    <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                   </line>
 
                   {/* Hit area for clicking (edit mode only) */}
@@ -2126,7 +2139,7 @@ export default function PieceVisualEditor({
                       onMouseEnter={() => setHoveredEdge(side)}
                       onMouseLeave={() => setHoveredEdge(null)}
                     >
-                      <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                      <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                     </line>
                   )}
 
@@ -2141,13 +2154,10 @@ export default function PieceVisualEditor({
                     }`}
                     fill={colour}
                   >
-                    <title>{isWallEdge ? 'Against wall' : (name || 'Raw / Unfinished')}</title>
+                    <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                     {(() => {
-                      if (isWallEdge) {
-                        const attachedType = attachedPieceTypes?.[side];
-                        if (attachedType === 'WATERFALL') return 'WF';
-                        if (attachedType === 'SPLASHBACK') return 'SB';
-                        return 'Wall';
+                      if (suppression) {
+                        return code;
                       }
                       if (!isFinished) return 'RAW';
                       const depth = edgeBuildups?.[side]?.depth;
@@ -2251,7 +2261,7 @@ export default function PieceVisualEditor({
               )}
             </div>
           )}
-          {!noStripEdges.includes(popover.side) && (
+          {!(noStripEdges.includes(popover.side) && !attachedPieceTypes?.[popover.side]) && (
             <EdgeProfilePopover
               isOpen={true}
               position={{ x: popover.x, y: popover.y }}
@@ -2266,7 +2276,7 @@ export default function PieceVisualEditor({
               onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
             />
           )}
-          {noStripEdges.includes(popover.side) && (
+          {noStripEdges.includes(popover.side) && !attachedPieceTypes?.[popover.side] && (
             <div
               className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
               style={{ left: popover.x, top: popover.y }}
@@ -2374,7 +2384,7 @@ export default function PieceVisualEditor({
               )}
             </div>
           )}
-          {!noStripEdges.includes(shapeEdgePopover.edgeId) && (
+          {!(noStripEdges.includes(shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId]) && (
             <EdgeProfilePopover
               isOpen={true}
               position={{ x: shapeEdgePopover.x, y: shapeEdgePopover.y }}
@@ -2395,7 +2405,7 @@ export default function PieceVisualEditor({
               onClose={() => setShapeEdgePopover(null)}
             />
           )}
-          {noStripEdges.includes(shapeEdgePopover.edgeId) && (
+          {noStripEdges.includes(shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId] && (
             <div
               className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
               style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y }}
