@@ -221,6 +221,9 @@ export default function RoomSpatialView({
       childPieceId: r.childPieceId,
       relationshipType: r.relationshipType,
       joinPosition: r.joinPosition,
+      positionMm: r.positionMm,
+      positionReference: r.positionReference,
+      coverageMm: r.coverageMm,
     }));
 
     return calculateRoomLayout(layoutPieces, layoutRelationships);

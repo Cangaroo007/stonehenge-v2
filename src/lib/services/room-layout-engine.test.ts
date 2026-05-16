@@ -37,4 +37,44 @@ describe('calculateRoomLayout', () => {
     expect(vanity!.y).toBe(waterfall!.y);
     expect(vanity!.x).toBeGreaterThan(waterfall!.x);
   });
+
+  it('uses saved splashback offset and coverage when positioning partial attachments', () => {
+    const layout = calculateRoomLayout(
+      [
+        {
+          id: 'bench',
+          description: 'Kitchen Bench',
+          length_mm: 2400,
+          width_mm: 600,
+          piece_type: 'BENCHTOP',
+        },
+        {
+          id: 'splashback',
+          description: 'Short splashback',
+          length_mm: 1200,
+          width_mm: 600,
+          piece_type: 'SPLASHBACK',
+        },
+      ],
+      [
+        {
+          parentPieceId: 'bench',
+          childPieceId: 'splashback',
+          relationshipType: 'SPLASHBACK',
+          joinPosition: 'top',
+          positionMm: 300,
+          positionReference: 'LEFT',
+          coverageMm: 600,
+        },
+      ]
+    );
+
+    const bench = layout.pieces.find(p => p.pieceId === 'bench');
+    const splashback = layout.pieces.find(p => p.pieceId === 'splashback');
+
+    expect(bench).toBeDefined();
+    expect(splashback).toBeDefined();
+    expect(splashback!.x - bench!.x).toBeCloseTo(300 * layout.scale, 4);
+    expect(splashback!.width).toBeCloseTo(600 * layout.scale, 4);
+  });
 });

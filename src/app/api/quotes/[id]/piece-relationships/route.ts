@@ -103,6 +103,9 @@ export async function POST(
     const { relationType, side, grainMatch = false, notes } = body;
     const sourcePieceId = Number(body.sourcePieceId);
     const targetPieceId = Number(body.targetPieceId);
+    const positionMm = body.positionMm ?? body.position_mm;
+    const positionReference = body.positionReference ?? body.position_reference;
+    const coverageMm = body.coverageMm ?? body.coverage_mm;
     // Accept relationshipType as alias (edge-attach UI sends this name)
     const rawRelationshipType = relationType || body.relationshipType;
     const relationshipType = rawRelationshipType === 'RETURN_END' ? 'RETURN' : rawRelationshipType;
@@ -182,6 +185,9 @@ export async function POST(
           side: side || null,
           grain_match: grainMatch,               // edge-attach grain direction flag
           notes: notes ?? null,
+          position_mm: positionMm == null ? null : Number(positionMm),
+          position_reference: positionReference ?? null,
+          coverage_mm: coverageMm == null ? null : Number(coverageMm),
         },
       });
     });

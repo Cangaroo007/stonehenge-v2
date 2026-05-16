@@ -4918,7 +4918,15 @@ export default function QuoteDetailClient({
         parentWidthMm={waterfallModal.parentWidthMm}
         parentThicknessMm={waterfallModal.parentThicknessMm}
         initialEdge={waterfallModal.initialEdge}
-        onConfirm={async (selectedEdge, lengthMm, widthMm, thicknessMm) => {
+        onConfirm={async (
+          selectedEdge,
+          lengthMm,
+          widthMm,
+          thicknessMm,
+          positionMm,
+          positionReference,
+          coverageMm
+        ) => {
           const parentPieceId = waterfallModal.parentPieceId;
           const type = waterfallModal.type;
           if (!parentPieceId) return;
@@ -5042,6 +5050,9 @@ export default function QuoteDetailClient({
               relationType: type,
               side: selectedEdge,
               grainMatch: false,
+              positionMm: positionMm ?? null,
+              positionReference: positionReference ?? null,
+              coverageMm: coverageMm ?? null,
             }),
           });
 

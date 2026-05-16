@@ -147,6 +147,9 @@ export async function createRelationship(
         relationship_type: relationshipType,    // New enum column
         side: input.joinPosition ?? null,
         notes: input.notes ?? null,
+        position_mm: input.positionMm ?? null,
+        position_reference: input.positionReference ?? null,
+        coverage_mm: input.coverageMm ?? null,
       },
     });
   });
@@ -174,6 +177,15 @@ export async function updateRelationship(
   }
   if (input.notes !== undefined) {
     updateData.notes = input.notes;
+  }
+  if (input.positionMm !== undefined) {
+    updateData.position_mm = input.positionMm;
+  }
+  if (input.positionReference !== undefined) {
+    updateData.position_reference = input.positionReference;
+  }
+  if (input.coverageMm !== undefined) {
+    updateData.coverage_mm = input.coverageMm;
   }
 
   const relationship = await prisma.piece_relationships.update({

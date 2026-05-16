@@ -38,6 +38,9 @@ interface RelationshipInput {
   childPieceId: string;
   relationshipType: string;
   joinPosition: string | null;
+  positionMm?: number | null;
+  positionReference?: string | null;
+  coverageMm?: number | null;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -172,7 +175,7 @@ export function calculateRoomLayout(
     const child = pieceMap.get(rel.childPieceId);
     if (!child || placedIds.has(child.id)) continue;
 
-    const pos = positionChild(primary, child, rel.relationshipType, rel.joinPosition);
+    const pos = positionChild(primary, child, rel);
     positioned.push(pos);
     placedIds.add(child.id);
   }
@@ -189,7 +192,7 @@ export function calculateRoomLayout(
     const parentPos = positioned.find(p => p.pieceId === parent.id);
     if (!parentPos) continue;
 
-    const childPos = positionChild(parent, child, rel.relationshipType, rel.joinPosition);
+    const childPos = positionChild(parent, child, rel);
     // Offset by parent position
     childPos.x += parentPos.x;
     childPos.y += parentPos.y;
@@ -205,7 +208,7 @@ export function calculateRoomLayout(
     const parentPos = positioned.find(p => p.pieceId === rel.parentPieceId);
     if (!parentPiece || !child || !parentPos) continue;
 
-    const childPos = positionChild(parentPiece, child, rel.relationshipType, rel.joinPosition);
+    const childPos = positionChild(parentPiece, child, rel);
     childPos.x += parentPos.x;
     childPos.y += parentPos.y;
     positioned.push(childPos);
@@ -231,8 +234,7 @@ export function calculateRoomLayout(
         const childPos = positionChild(
           pieceMap.get(parentRel.parentPieceId)!,
           piece,
-          parentRel.relationshipType,
-          parentRel.joinPosition
+          parentRel
         );
         childPos.x += parentPos.x;
         childPos.y += parentPos.y;
@@ -333,28 +335,78 @@ export function calculateRoomLayout(
 
 // ─── Child Positioning ───────────────────────────────────────────────────────
 
+function positiveNumber(value: number | null | undefined): number | null {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? value
+    : null;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+function resolveOffset(
+  parentSpanMm: number,
+  childSpanMm: number,
+  positionMm: number | null | undefined,
+  positionReference: string | null | undefined
+): number {
+  const maxOffset = Math.max(parentSpanMm - childSpanMm, 0);
+  const position = positiveNumber(positionMm) ?? 0;
+  const reference = (positionReference ?? 'LEFT').toUpperCase();
+
+  if (reference === 'RIGHT') {
+    return clamp(parentSpanMm - position - childSpanMm, 0, maxOffset);
+  }
+  if (reference === 'CENTRE' || reference === 'CENTER') {
+    return clamp((parentSpanMm - childSpanMm) / 2 + position, 0, maxOffset);
+  }
+  return clamp(position, 0, maxOffset);
+}
+
 function positionChild(
   parent: PieceInput,
   child: PieceInput,
-  relationshipType: string,
-  joinPosition: string | null
+  relationship: RelationshipInput
 ): { pieceId: string; x: number; y: number; width: number; height: number; rotation: number; label: string } {
-  const type = relationshipType.toUpperCase();
+  const type = relationship.relationshipType.toUpperCase();
+  const joinPosition = relationship.joinPosition;
+  const coverageMm = positiveNumber(relationship.coverageMm) ?? null;
 
   switch (type) {
     case 'SPLASHBACK': {
       // side = 'top' → splashback sits behind (above in plan view) parent
       // side = 'bottom' → splashback sits in front (below in plan view) parent
       const side = (joinPosition ?? 'top').toLowerCase();
+      const alongLength = side === 'top' || side === 'bottom';
+      const childSpan = coverageMm ?? child.length_mm;
+      const parentSpan = alongLength ? parent.length_mm : parent.width_mm;
+      const offset = resolveOffset(parentSpan, childSpan, relationship.positionMm, relationship.positionReference);
       const isBottom = side === 'bottom';
+      const isRight = side === 'right';
+
+      if (alongLength) {
+        return {
+          pieceId: child.id,
+          x: offset,
+          y: isBottom
+            ? parent.width_mm + SPLASHBACK_GAP
+            : -(child.width_mm + SPLASHBACK_GAP),
+          width: childSpan,
+          height: child.width_mm,
+          rotation: 0,
+          label: child.description,
+        };
+      }
+
       return {
         pieceId: child.id,
-        x: 0,
-        y: isBottom
-          ? parent.width_mm + SPLASHBACK_GAP
+        x: isRight
+          ? parent.length_mm + SPLASHBACK_GAP
           : -(child.width_mm + SPLASHBACK_GAP),
-        width: child.length_mm,
-        height: child.width_mm,
+        y: offset,
+        width: child.width_mm,
+        height: childSpan,
         rotation: 0,
         label: child.description,
       };
@@ -366,46 +418,58 @@ function positionChild(
       // top → extends above (negative y), bottom → extends below.
       const wfSide = (joinPosition ?? 'right').toLowerCase();
       switch (wfSide) {
-        case 'right':
+        case 'right': {
+          const childSpan = coverageMm ?? child.length_mm;
+          const offset = resolveOffset(parent.width_mm, childSpan, relationship.positionMm, relationship.positionReference);
           return {
             pieceId: child.id,
             x: parent.length_mm,
-            y: 0,
+            y: offset,
             width: child.width_mm,
-            height: child.length_mm,
+            height: childSpan,
             rotation: 0,
             label: child.description,
           };
-        case 'left':
+        }
+        case 'left': {
+          const childSpan = coverageMm ?? child.length_mm;
+          const offset = resolveOffset(parent.width_mm, childSpan, relationship.positionMm, relationship.positionReference);
           return {
             pieceId: child.id,
             x: -(child.width_mm),
-            y: 0,
+            y: offset,
             width: child.width_mm,
-            height: child.length_mm,
+            height: childSpan,
             rotation: 0,
             label: child.description,
           };
-        case 'top':
+        }
+        case 'top': {
+          const childSpan = coverageMm ?? child.length_mm;
+          const offset = resolveOffset(parent.length_mm, childSpan, relationship.positionMm, relationship.positionReference);
           return {
             pieceId: child.id,
-            x: 0,
+            x: offset,
             y: -(child.length_mm),
-            width: child.width_mm,
+            width: childSpan,
             height: child.length_mm,
             rotation: 0,
             label: child.description,
           };
-        case 'bottom':
+        }
+        case 'bottom': {
+          const childSpan = coverageMm ?? child.length_mm;
+          const offset = resolveOffset(parent.length_mm, childSpan, relationship.positionMm, relationship.positionReference);
           return {
             pieceId: child.id,
-            x: 0,
+            x: offset,
             y: parent.width_mm,
-            width: child.width_mm,
+            width: childSpan,
             height: child.length_mm,
             rotation: 0,
             label: child.description,
           };
+        }
         default:
           return {
             pieceId: child.id,
