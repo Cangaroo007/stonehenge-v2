@@ -712,13 +712,14 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // Exclude zero-dimension pieces before packing.
   // These should be filtered upstream, but this is defence-in-depth.
   const validPieces = pieces.filter(p => p.width > 0 && p.height > 0);
+  const invalidPieces = pieces.filter(p => p.width <= 0 || p.height <= 0);
 
   // Usable dimensions after subtracting edge allowance from both sides
   const usableWidth = slabWidth - (edgeAllowanceMm * 2);
   const usableHeight = slabHeight - (edgeAllowanceMm * 2);
 
   // Handle empty input
-  if (pieces.length === 0) {
+  if (validPieces.length === 0) {
     return {
       placements: [],
       slabs: [],
@@ -727,10 +728,16 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
       totalWasteArea: 0,
       wastePercent: 0,
       unplacedPieces: [],
+      warnings: invalidPieces.length > 0
+        ? [`${invalidPieces.length} piece(s) skipped due to invalid dimensions: ${invalidPieces.map(p => `${p.label} (${p.width}×${p.height}mm)`).join('; ')}`]
+        : undefined,
     };
   }
 
-  const inputPieceCount = pieces.length;
+  const inputPieceCount = validPieces.length;
+  const invalidDimensionWarnings = invalidPieces.length > 0
+    ? [`${invalidPieces.length} piece(s) skipped due to invalid dimensions: ${invalidPieces.map(p => `${p.label} (${p.width}×${p.height}mm)`).join('; ')}`]
+    : [];
 
   // ── Step 1: Decompose L/U shapes into component rects ───────────────────
   // L/U shapes are decomposed FIRST, BEFORE oversize detection.
@@ -740,7 +747,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // Rectangle pieces pass through unchanged.
   const decomposedPieces: OptimizationPiece[] = [];
   const shapeStrips: OptimizationPiece[] = []; // strips generated for L/U shapes pre-decomposition
-  for (const piece of (pieces as OptimizationPiece[])) {
+  for (const piece of (validPieces as OptimizationPiece[])) {
     // Only decompose non-strip pieces that have shape data
     if (piece.isLaminationStrip || !piece.shapeType ||
         piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
@@ -810,7 +817,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // Now runs on decomposed legs (not bounding boxes). Each leg is checked
   // individually against slab dimensions. Split into segments only if needed.
   // Use usable dimensions (after edge allowance) for fitting checks.
-  const { processed: normalizedPieces, warnings, segmentWidthMap } = preprocessOversizePieces(
+  const { processed: normalizedPieces, warnings: oversizeWarnings, segmentWidthMap } = preprocessOversizePieces(
     decomposedPieces,
     usableWidth,
     usableHeight,
@@ -819,6 +826,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
     mitreKerfWidth,
     stripConfigs,
   );
+  const warnings = [...invalidDimensionWarnings, ...oversizeWarnings];
 
   if (warnings.length > 0) {
     logger.info(`[Optimizer] Oversize preprocessing: ${warnings.join('; ')}`);
@@ -826,7 +834,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
 
   // Store original pieces for reference (before adding strips).
   // Uses raw input pieces so shape strip parents (L/U pieces) can be found by ID.
-  const originalPieces: OptimizationPiece[] = Array.from(pieces as OptimizationPiece[]);
+  const originalPieces: OptimizationPiece[] = Array.from(validPieces as OptimizationPiece[]);
 
   // Group slab assignment map: groupId → slabIndex
   const groupSlabMap = new Map<string, number>();
