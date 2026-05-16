@@ -49,6 +49,11 @@ function humaniseEdgeId(edgeId: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function EdgePanel({
@@ -115,7 +120,7 @@ export default function EdgePanel({
   const selectedEdgesAllTrueWalls = useMemo(
     () =>
       hasSelection &&
-      selectedEdgeIds.every((id) => (noStripEdges?.includes(id) ?? false) && !attachedPieceTypes?.[id]),
+      selectedEdgeIds.every((id) => edgeListIncludes(noStripEdges, id) && !attachedPieceTypes?.[id]),
     [attachedPieceTypes, hasSelection, noStripEdges, selectedEdgeIds]
   );
 
@@ -387,7 +392,7 @@ export default function EdgePanel({
               // Wall edge = in noStripEdges AND not a WF/SB-attached edge.
               // Per FABRICATION-RULES.md 10.1: noStripEdges is dual-purpose.
               // WF/SB attachment suppresses strips independently of wall designation.
-              const isWall = (noStripEdges?.includes(edgeId) ?? false) && !attachedType;
+              const isWall = edgeListIncludes(noStripEdges, edgeId) && !attachedType;
               return (
                 <button
                   key={edgeId}

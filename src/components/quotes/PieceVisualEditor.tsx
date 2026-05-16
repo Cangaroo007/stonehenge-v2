@@ -216,6 +216,11 @@ const MAX_HEIGHT = 300;
 const EDGE_HIT_WIDTH = 24;
 const ALL_SIDES: EdgeSide[] = ['top', 'bottom', 'left', 'right'];
 
+function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
+}
+
 /** Map of edge profile short codes to full display names (fallback when DB name unavailable) */
 export const EDGE_PROFILE_NAMES: Record<string, string> = {
   'RAW': 'Raw / Unfinished',
@@ -650,8 +655,10 @@ export default function PieceVisualEditor({
   const handleWallEdgeToggle = useCallback((edgeKey: string) => {
     if (!onNoStripEdgesChange) return;
     const current = noStripEdges ?? [];
-    const updated = current.includes(edgeKey)
-      ? current.filter(k => k !== edgeKey)
+    const target = edgeKey.toLowerCase();
+    const isAlreadyWall = current.some(k => String(k).toLowerCase() === target);
+    const updated = isAlreadyWall
+      ? current.filter(k => String(k).toLowerCase() !== target)
       : [...current, edgeKey];
     onNoStripEdgesChange(updated);
   }, [noStripEdges, onNoStripEdgesChange]);
@@ -1499,7 +1506,7 @@ export default function PieceVisualEditor({
     if (attachedType === 'SPLASHBACK') {
       return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join' };
     }
-    if (noStripEdges.includes(edgeId)) {
+    if (edgeListIncludes(noStripEdges, edgeId)) {
       return { type: 'WALL' as const, code: 'Wall', colour: '#78716c', label: 'Against wall' };
     }
     return null;
@@ -2248,21 +2255,21 @@ export default function PieceVisualEditor({
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
                   attachedPieceTypes?.[popover.side]
                     ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed'
-                    : noStripEdges.includes(popover.side)
+                    : edgeListIncludes(noStripEdges, popover.side)
                     ? 'bg-slate-700 text-white border-slate-600'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 {getSuppressedEdgeLabel(popover.side)}
               </button>
-              {noStripEdges.includes(popover.side) && (
+              {edgeListIncludes(noStripEdges, popover.side) && (
                 <span className="ml-2 text-xs text-slate-400">
                   {attachedPieceTypes?.[popover.side] ? 'Join edge' : 'No lamination'}
                 </span>
               )}
             </div>
           )}
-          {!(noStripEdges.includes(popover.side) && !attachedPieceTypes?.[popover.side]) && (
+          {!(edgeListIncludes(noStripEdges, popover.side) && !attachedPieceTypes?.[popover.side]) && (
             <EdgeProfilePopover
               isOpen={true}
               position={{ x: popover.x, y: popover.y }}
@@ -2277,7 +2284,7 @@ export default function PieceVisualEditor({
               onApplyWithScope={onApplyWithScope ? handlePopoverApplyWithScope : undefined}
             />
           )}
-          {noStripEdges.includes(popover.side) && !attachedPieceTypes?.[popover.side] && (
+          {edgeListIncludes(noStripEdges, popover.side) && !attachedPieceTypes?.[popover.side] && (
             <div
               className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
               style={{ left: popover.x, top: popover.y }}
@@ -2371,21 +2378,21 @@ export default function PieceVisualEditor({
                 className={`text-xs px-2 py-1 rounded border transition-colors ${
                   attachedPieceTypes?.[shapeEdgePopover.edgeId]
                     ? 'bg-blue-50 text-blue-700 border-blue-200 cursor-not-allowed'
-                    : noStripEdges.includes(shapeEdgePopover.edgeId)
+                    : edgeListIncludes(noStripEdges, shapeEdgePopover.edgeId)
                     ? 'bg-slate-700 text-white border-slate-600'
                     : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
                 }`}
               >
                 {getSuppressedEdgeLabel(shapeEdgePopover.edgeId)}
               </button>
-              {noStripEdges.includes(shapeEdgePopover.edgeId) && (
+              {edgeListIncludes(noStripEdges, shapeEdgePopover.edgeId) && (
                 <span className="ml-2 text-xs text-slate-400">
                   {attachedPieceTypes?.[shapeEdgePopover.edgeId] ? 'Join edge' : 'No lamination'}
                 </span>
               )}
             </div>
           )}
-          {!(noStripEdges.includes(shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId]) && (
+          {!(edgeListIncludes(noStripEdges, shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId]) && (
             <EdgeProfilePopover
               isOpen={true}
               position={{ x: shapeEdgePopover.x, y: shapeEdgePopover.y }}
@@ -2406,7 +2413,7 @@ export default function PieceVisualEditor({
               onClose={() => setShapeEdgePopover(null)}
             />
           )}
-          {noStripEdges.includes(shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId] && (
+          {edgeListIncludes(noStripEdges, shapeEdgePopover.edgeId) && !attachedPieceTypes?.[shapeEdgePopover.edgeId] && (
             <div
               className="absolute z-40 bg-white border border-slate-200 rounded-md shadow-lg p-2"
               style={{ left: shapeEdgePopover.x, top: shapeEdgePopover.y }}

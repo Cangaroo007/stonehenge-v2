@@ -117,6 +117,11 @@ interface PieceData {
   materialCollectionName?: string | null;
 }
 
+function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
+}
+
 export interface QuickViewPieceRowProps {
   pieceNumber?: number;
   piece: PieceData;
@@ -778,7 +783,7 @@ export default function QuickViewPieceRow({
     if (attachedType === 'SPLASHBACK') {
       return { code: 'SB', colour: '#059669', label: 'Splashback join' };
     }
-    if ((piece.noStripEdges ?? []).includes(side)) {
+    if (edgeListIncludes(piece.noStripEdges, side)) {
       return { code: 'WALL', colour: '#78716c', label: 'Against wall' };
     }
     return null;
@@ -1696,7 +1701,7 @@ export default function QuickViewPieceRow({
                     const next: Record<string, EdgeBuildupConfig> = {};
                     const profileOverrides: Record<string, string | null> = {};
                     (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
-                      if (!wallEdges.includes(edge)) {
+                      if (!edgeListIncludes(wallEdges, edge)) {
                         next[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
                         profileOverrides[edgeFieldMap[edge]] = MITERED_EDGE_ID;
                       }
@@ -1714,7 +1719,7 @@ export default function QuickViewPieceRow({
               </div>
               <div className="flex gap-1 flex-wrap">
                 {(['top','bottom','left','right'] as const).map(edge => {
-                  const isWall = (piece.noStripEdges ?? []).includes(edge);
+                  const isWall = edgeListIncludes(piece.noStripEdges, edge);
                   const buildup = localEdgeBuildups[edge];
                   return (
                     <div key={edge} className={`flex items-center gap-1 ${isWall ? 'opacity-40' : ''}`}>
@@ -2494,8 +2499,10 @@ export default function QuickViewPieceRow({
                 attachedPieceTypes={attachedPieceTypes}
                 onToggleWallEdge={(edgeId) => {
                   const current = (piece.noStripEdges as string[]) ?? [];
-                  const updated = current.includes(edgeId)
-                    ? current.filter(id => id !== edgeId)
+                  const target = edgeId.toLowerCase();
+                  const isAlreadyWall = current.some(id => String(id).toLowerCase() === target);
+                  const updated = isAlreadyWall
+                    ? current.filter(id => String(id).toLowerCase() !== target)
                     : [...current, edgeId];
                   handleNoStripEdgesChange(updated);
                 }}

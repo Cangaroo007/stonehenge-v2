@@ -76,6 +76,11 @@ export interface InlinePieceData {
   noStripEdges?: string[] | null;
 }
 
+function edgeListIncludes(edges: string[] | null | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
+}
+
 export interface InlinePieceEditorProps {
   piece: InlinePieceData;
   materials: Material[];
@@ -1164,7 +1169,7 @@ export default function InlinePieceEditor({
                   const wallEdges = piece.noStripEdges ?? [];
                   const updated: Record<string, EdgeBuildupConfig> = {};
                   ['top', 'bottom', 'left', 'right'].forEach(edge => {
-                    if (!wallEdges.includes(edge)) {
+                    if (!edgeListIncludes(wallEdges, edge)) {
                       updated[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
                     }
                   });
@@ -1177,7 +1182,7 @@ export default function InlinePieceEditor({
             </div>
             <div className="grid grid-cols-2 gap-2">
               {(['top', 'bottom', 'left', 'right'] as const).map(edge => {
-                const isWall = (piece.noStripEdges ?? []).includes(edge);
+                const isWall = edgeListIncludes(piece.noStripEdges, edge);
                 const buildup = edgeBuildups[edge];
                 return (
                   <div key={edge} className={`flex items-center gap-1 ${isWall ? 'opacity-40' : ''}`}>
