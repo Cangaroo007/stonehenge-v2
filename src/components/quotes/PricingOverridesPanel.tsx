@@ -52,6 +52,7 @@ const TYPE_OPTIONS = [
   ['LM', 'Chargeable LM'],
   ['MULTIPLIER', 'Multiplier'],
   ['FIXED_DELTA', 'Fixed adjustment'],
+  ['FIXED_ADJUSTMENT', 'Fixed adjustment (alias)'],
 ] as const;
 
 function labelFor(options: readonly (readonly [string, string])[], value: string): string {
@@ -62,6 +63,16 @@ function formatOverrideValue(override: PricingOverride | { overrideType: string;
   if (override.overrideType === 'MULTIPLIER') return `${override.value}x`;
   if (override.overrideType === 'LM') return `${override.value} LM`;
   return formatCurrency(override.value);
+}
+
+function helperTextFor(overrideType: string): string {
+  if (overrideType === 'LM') {
+    return 'Replaces the chargeable length for that category, e.g. 12.5 means charge 12.5 linear metres.';
+  }
+  if (overrideType === 'MULTIPLIER') {
+    return 'Multiplies the selected category, e.g. 1.2 adds 20 percent and 0.9 discounts 10 percent.';
+  }
+  return 'Adds or subtracts dollars from the quote subtotal, e.g. 250 or -250.';
 }
 
 export default function PricingOverridesPanel({
@@ -166,9 +177,9 @@ export default function PricingOverridesPanel({
     <div className="mt-4 border-t border-gray-200 pt-4">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Pricing Overrides</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Quote Pricing Overrides</h3>
           <p className="text-xs text-gray-500">
-            Use for NCS-style judgement calls without changing the base calculator.
+            Use for NCS-style judgement calls without changing the base calculator. These are audit lines, not hidden maths.
           </p>
         </div>
         {loading && <span className="text-xs text-gray-400">Loading...</span>}
@@ -181,62 +192,67 @@ export default function PricingOverridesPanel({
       )}
 
       {canEdit && (
-        <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-3">
-          <select
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            className="input text-sm md:col-span-1"
-            aria-label="Override category"
-          >
-            {CATEGORY_OPTIONS.map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-          <select
-            value={overrideType}
-            onChange={(e) => setOverrideType(e.target.value)}
-            className="input text-sm md:col-span-1"
-            aria-label="Override type"
-          >
-            {TYPE_OPTIONS.map(([key, label]) => (
-              <option key={key} value={key}>{label}</option>
-            ))}
-          </select>
-          <select
-            value={pieceId}
-            onChange={(e) => setPieceId(e.target.value)}
-            className="input text-sm md:col-span-1"
-            aria-label="Override piece"
-          >
-            <option value="">Whole quote</option>
-            {pieces.map(piece => (
-              <option key={piece.id} value={piece.id}>
-                {piece.roomName ? `${piece.roomName} - ${piece.name}` : piece.name}
-              </option>
-            ))}
-          </select>
-          <input
-            value={value}
-            onChange={(e) => setValue(e.target.value)}
-            placeholder={overrideType === 'MULTIPLIER' ? '1.2' : overrideType === 'LM' ? '12.5' : '-250'}
-            className="input text-sm"
-            inputMode="decimal"
-          />
-          <input
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason"
-            className="input text-sm md:col-span-1"
-          />
-          <button
-            type="button"
-            onClick={saveOverride}
-            disabled={saving}
-            className="btn-secondary text-sm"
-          >
-            {saving ? 'Saving...' : 'Add Override'}
-          </button>
-        </div>
+        <>
+          <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-1">
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value)}
+              className="input text-sm md:col-span-1"
+              aria-label="Override category"
+            >
+              {CATEGORY_OPTIONS.map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <select
+              value={overrideType}
+              onChange={(e) => setOverrideType(e.target.value)}
+              className="input text-sm md:col-span-1"
+              aria-label="Override type"
+            >
+              {TYPE_OPTIONS.map(([key, label]) => (
+                <option key={key} value={key}>{label}</option>
+              ))}
+            </select>
+            <select
+              value={pieceId}
+              onChange={(e) => setPieceId(e.target.value)}
+              className="input text-sm md:col-span-1"
+              aria-label="Override piece"
+            >
+              <option value="">Whole quote</option>
+              {pieces.map(piece => (
+                <option key={piece.id} value={piece.id}>
+                  {piece.roomName ? `${piece.roomName} - ${piece.name}` : piece.name}
+                </option>
+              ))}
+            </select>
+            <input
+              value={value}
+              onChange={(e) => setValue(e.target.value)}
+              placeholder={overrideType === 'MULTIPLIER' ? '1.2' : overrideType === 'LM' ? '12.5' : '-250'}
+              className="input text-sm"
+              inputMode="decimal"
+            />
+            <input
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              placeholder="Reason"
+              className="input text-sm md:col-span-1"
+            />
+            <button
+              type="button"
+              onClick={saveOverride}
+              disabled={saving}
+              className="btn-secondary text-sm"
+            >
+              {saving ? 'Saving...' : 'Add Override'}
+            </button>
+          </div>
+          <p className="text-[11px] text-gray-500 mb-3">
+            {helperTextFor(overrideType)}
+          </p>
+        </>
       )}
 
       {activeOverrides.length === 0 ? (
@@ -275,8 +291,25 @@ export default function PricingOverridesPanel({
       )}
 
       {appliedOverrides.length > 0 && (
-        <div className="mt-3 text-xs text-gray-500">
-          Applied this calculation: {appliedOverrides.length} override adjustment{appliedOverrides.length !== 1 ? 's' : ''}.
+        <div className="mt-3 rounded-md border border-gray-200 bg-white px-3 py-2">
+          <div className="text-xs font-medium text-gray-700 mb-1">
+            Applied in current calculation
+          </div>
+          <div className="space-y-1">
+            {appliedOverrides.map((override, index) => (
+              <div key={`${override.id}-${index}`} className="flex items-center justify-between gap-3 text-xs text-gray-600">
+                <span className="min-w-0 truncate">
+                  {labelFor(CATEGORY_OPTIONS, override.category)} - {formatOverrideValue(override)}
+                  {override.reason ? ` - ${override.reason}` : ''}
+                </span>
+                {override.amountDelta != null && (
+                  <span className={override.amountDelta >= 0 ? 'text-amber-700 font-medium' : 'text-green-700 font-medium'}>
+                    {override.amountDelta >= 0 ? '+' : ''}{formatCurrency(override.amountDelta)}
+                  </span>
+                )}
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>
