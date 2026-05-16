@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { RelationshipType } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
-import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
+import { deleteRelationship, syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
 
 const VALID_RELATION_TYPES = [
   'WATERFALL',
@@ -285,9 +285,7 @@ export async function DELETE(
       );
     }
 
-    await prisma.piece_relationships.delete({
-      where: { id: relationshipId },
-    });
+    await deleteRelationship(relationshipId);
 
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },

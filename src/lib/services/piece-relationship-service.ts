@@ -46,6 +46,14 @@ function appendUniqueEdge(value: unknown, edge: EdgeName): EdgeName[] {
   return current.includes(edge) ? current : [...current, edge];
 }
 
+function removeEdge(value: unknown, edge: EdgeName): EdgeName[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is EdgeName =>
+        ['top', 'bottom', 'left', 'right'].includes(String(item)) && item !== edge
+      )
+    : [];
+}
+
 function removeEdgeBuildup(value: unknown, edge: EdgeName): Record<string, unknown> {
   const current = value && typeof value === 'object' && !Array.isArray(value)
     ? { ...(value as Record<string, unknown>) }
@@ -68,6 +76,15 @@ async function getDefaultMitredEdgeId(tx: Prisma.TransactionClient): Promise<str
   });
 
   return edgeType?.id ?? null;
+}
+
+async function getMitredEdgeIds(tx: Prisma.TransactionClient): Promise<Set<string>> {
+  const edgeTypes = await tx.edge_types.findMany({
+    where: { isMitred: true },
+    select: { id: true },
+  });
+
+  return new Set(edgeTypes.map(edgeType => edgeType.id));
 }
 
 async function syncRoomSemanticsForRelationship(
@@ -152,6 +169,121 @@ export async function syncEdgeSemanticsForRelationship(
       },
     }),
   ]);
+}
+
+async function clearEdgeSemanticsForRelationship(
+  tx: Prisma.TransactionClient,
+  input: {
+    relationshipType: RelationshipType;
+    sourceId: number;
+    targetId: number;
+    joinPosition: string | null | undefined;
+  }
+) {
+  if (!EDGE_RELATIONSHIP_TYPES.has(input.relationshipType)) return;
+
+  const joinEdge = normaliseJoinEdge(input.joinPosition);
+  if (!joinEdge) return;
+
+  const childJoinEdge = OPPOSITE_EDGE[joinEdge];
+  const parentEdgeField = EDGE_FIELD[joinEdge];
+  const childEdgeField = EDGE_FIELD[childJoinEdge];
+
+  const [parentPiece, childPiece, mitredEdgeIds] = await Promise.all([
+    tx.quote_pieces.findUnique({
+      where: { id: input.sourceId },
+      select: {
+        no_strip_edges: true,
+        edge_top: true,
+        edge_bottom: true,
+        edge_left: true,
+        edge_right: true,
+      },
+    }),
+    tx.quote_pieces.findUnique({
+      where: { id: input.targetId },
+      select: {
+        edge_top: true,
+        edge_bottom: true,
+        edge_left: true,
+        edge_right: true,
+      },
+    }),
+    getMitredEdgeIds(tx),
+  ]);
+
+  if (parentPiece) {
+    const parentUpdate: Record<string, unknown> = {
+      no_strip_edges: removeEdge(parentPiece.no_strip_edges, joinEdge) as unknown as Prisma.InputJsonValue,
+    };
+    const parentEdgeId = parentPiece[parentEdgeField];
+    if (parentEdgeId && mitredEdgeIds.has(parentEdgeId)) {
+      parentUpdate[parentEdgeField] = null;
+    }
+
+    await tx.quote_pieces.update({
+      where: { id: input.sourceId },
+      data: parentUpdate as Prisma.quote_piecesUpdateInput,
+    });
+  }
+
+  if (childPiece) {
+    const childEdgeId = childPiece[childEdgeField];
+    if (childEdgeId && mitredEdgeIds.has(childEdgeId)) {
+      await tx.quote_pieces.update({
+        where: { id: input.targetId },
+        data: { [childEdgeField]: null } as Prisma.quote_piecesUpdateInput,
+      });
+    }
+  }
+}
+
+async function normaliseLaminationMethod(tx: Prisma.TransactionClient, pieceId: number) {
+  const piece = await tx.quote_pieces.findUnique({
+    where: { id: pieceId },
+    select: {
+      lamination_method: true,
+      edge_buildups: true,
+      edge_top: true,
+      edge_bottom: true,
+      edge_left: true,
+      edge_right: true,
+    },
+  });
+
+  if (!piece || piece.lamination_method !== 'MITRED') return;
+
+  const edgeBuildups = piece.edge_buildups && typeof piece.edge_buildups === 'object' && !Array.isArray(piece.edge_buildups)
+    ? piece.edge_buildups as Record<string, unknown>
+    : {};
+  if (Object.keys(edgeBuildups).length > 0) return;
+
+  const edgeIds = [piece.edge_top, piece.edge_bottom, piece.edge_left, piece.edge_right].filter(Boolean) as string[];
+  if (edgeIds.length > 0) {
+    const mitredCount = await tx.edge_types.count({
+      where: {
+        id: { in: edgeIds },
+        isMitred: true,
+      },
+    });
+    if (mitredCount > 0) return;
+  }
+
+  const activeEdgeRelationshipCount = await tx.piece_relationships.count({
+    where: {
+      relationship_type: { in: Array.from(EDGE_RELATIONSHIP_TYPES) },
+      OR: [
+        { source_piece_id: pieceId },
+        { target_piece_id: pieceId },
+      ],
+    },
+  });
+  if (activeEdgeRelationshipCount > 0) return;
+
+  await tx.quote_pieces.update({
+    where: { id: pieceId },
+    data: { lamination_method: 'NONE' },
+  });
 }
 
 /**
@@ -353,27 +485,47 @@ export async function updateRelationship(
       throw new Error('Relationship not found');
     }
 
+    const previousRelationshipType = existing.relationship_type
+      ?? (existing.relation_type as RelationshipType);
+    const nextRelationshipType = input.relationshipType ?? previousRelationshipType;
+    const nextJoinPosition = input.joinPosition !== undefined ? input.joinPosition : existing.side;
+    const previousJoinEdge = normaliseJoinEdge(existing.side);
+    const nextJoinEdge = normaliseJoinEdge(nextJoinPosition);
+    const shouldClearPreviousEdge =
+      EDGE_RELATIONSHIP_TYPES.has(previousRelationshipType) &&
+      (!EDGE_RELATIONSHIP_TYPES.has(nextRelationshipType) || previousJoinEdge !== nextJoinEdge);
+
+    if (shouldClearPreviousEdge) {
+      await clearEdgeSemanticsForRelationship(tx, {
+        relationshipType: previousRelationshipType,
+        sourceId: existing.source_piece_id,
+        targetId: existing.target_piece_id,
+        joinPosition: existing.side,
+      });
+    }
+
     const updated = await tx.piece_relationships.update({
       where: { id: numericId },
       data: updateData,
     });
 
-    const effectiveRelationshipType = input.relationshipType
-      ?? existing.relationship_type
-      ?? (existing.relation_type as RelationshipType);
-
     await syncRoomSemanticsForRelationship(tx, {
-      relationshipType: effectiveRelationshipType,
+      relationshipType: nextRelationshipType,
       sourceId: existing.source_piece_id,
       targetId: existing.target_piece_id,
     });
 
     await syncEdgeSemanticsForRelationship(tx, {
-      relationshipType: effectiveRelationshipType,
+      relationshipType: nextRelationshipType,
       sourceId: existing.source_piece_id,
       targetId: existing.target_piece_id,
-      joinPosition: input.joinPosition !== undefined ? input.joinPosition : existing.side,
+      joinPosition: nextJoinPosition,
     });
+
+    if (shouldClearPreviousEdge && !EDGE_RELATIONSHIP_TYPES.has(nextRelationshipType)) {
+      await normaliseLaminationMethod(tx, existing.source_piece_id);
+      await normaliseLaminationMethod(tx, existing.target_piece_id);
+    }
 
     return updated;
   });
@@ -386,7 +538,35 @@ export async function updateRelationship(
  */
 export async function deleteRelationship(id: string | number): Promise<void> {
   const numericId = typeof id === 'string' ? parseInt(id, 10) : id;
-  await prisma.piece_relationships.delete({ where: { id: numericId } });
+  await prisma.$transaction(async (tx) => {
+    const existing = await tx.piece_relationships.findUnique({
+      where: { id: numericId },
+      select: {
+        source_piece_id: true,
+        target_piece_id: true,
+        relationship_type: true,
+        relation_type: true,
+        side: true,
+      },
+    });
+
+    if (!existing) {
+      throw new Error('Relationship not found');
+    }
+
+    const relationshipType = existing.relationship_type ?? (existing.relation_type as RelationshipType);
+    await clearEdgeSemanticsForRelationship(tx, {
+      relationshipType,
+      sourceId: existing.source_piece_id,
+      targetId: existing.target_piece_id,
+      joinPosition: existing.side,
+    });
+
+    await tx.piece_relationships.delete({ where: { id: numericId } });
+
+    await normaliseLaminationMethod(tx, existing.source_piece_id);
+    await normaliseLaminationMethod(tx, existing.target_piece_id);
+  });
 }
 
 /**
