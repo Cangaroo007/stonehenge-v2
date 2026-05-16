@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 const VALID_TYPES = new Set(['MULTIPLIER', 'LM', 'FIXED_DELTA', 'FIXED_ADJUSTMENT']);
 const VALID_LM_CATEGORIES = new Set(['NORMAL_CUT', 'MITRE_CUT', 'NORMAL_POLISH', 'MITRE_POLISH']);
@@ -153,14 +154,7 @@ export async function POST(
       const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
       await prisma.quotes.update({
         where: { id: quoteId },
-        data: {
-          subtotal: calcResult.subtotal,
-          total: calcResult.total,
-          tax_amount: calcResult.gstAmount,
-          calculated_total: calcResult.total,
-          calculated_at: new Date(),
-          calculation_breakdown: calcResult as unknown as object,
-        },
+        data: buildQuotePricingUpdate(calcResult),
       });
     } catch (recalcError) {
       console.error('Pricing override saved but recalculation failed:', recalcError);

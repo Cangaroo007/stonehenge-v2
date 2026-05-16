@@ -3,6 +3,7 @@ import { prisma } from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { logActivity } from '@/lib/audit';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
 
@@ -11,14 +12,7 @@ async function recalculateQuote(quoteId: number) {
     const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
     await prisma.quotes.update({
       where: { id: quoteId },
-      data: {
-        subtotal: calcResult.subtotal,
-        total: calcResult.total,
-        tax_amount: calcResult.gstAmount,
-        calculated_total: calcResult.total,
-        calculated_at: new Date(),
-        calculation_breakdown: calcResult as unknown as object,
-      },
+      data: buildQuotePricingUpdate(calcResult),
     });
   } catch (error) {
     console.error('Piece override changed but recalculation failed:', error);

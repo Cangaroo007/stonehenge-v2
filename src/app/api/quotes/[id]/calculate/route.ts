@@ -3,6 +3,7 @@ import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
 import type { PricingOptions } from '@/lib/types/pricing';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 /**
  * POST /api/quotes/[id]/calculate
@@ -102,13 +103,7 @@ export async function POST(
     try {
       await prisma.quotes.update({
         where: { id: quoteIdNum },
-        data: {
-          subtotal: result.subtotal,
-          tax_amount: result.gstAmount,
-          total: result.totalIncGst,
-          calculated_at: new Date(),
-          calculation_breakdown: result as unknown as any,
-        },
+        data: buildQuotePricingUpdate(result),
       });
     } catch (persistError) {
       console.error('[calculate] Failed to persist pricing to DB:', persistError);

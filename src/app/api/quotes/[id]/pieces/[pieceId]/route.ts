@@ -3,6 +3,7 @@ import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
 
@@ -485,13 +486,7 @@ export async function PATCH(
       // Persist recalculation results to DB
       await prisma.quotes.update({
         where: { id: quoteId },
-        data: {
-          subtotal: calcResult.subtotal,
-          tax_amount: calcResult.gstAmount,
-          total: calcResult.totalIncGst,
-          calculated_at: new Date(),
-          calculation_breakdown: calcResult as unknown as Prisma.InputJsonValue,
-        },
+        data: buildQuotePricingUpdate(calcResult),
       });
     } catch (recalcError) {
       // Non-fatal — log but do not fail the PATCH response

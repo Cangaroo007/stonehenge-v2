@@ -136,7 +136,7 @@ export interface QuotePdfData {
 
   /** Totals */
   subtotalExGst: number;
-  /** GST amount — hardcoded at 10% for now. TODO: read from pricing_settings after MT2 */
+  /** GST amount from the active pricing calculator/settings */
   gstAmount: number;
   totalIncGst: number;
   gstRate: number;
