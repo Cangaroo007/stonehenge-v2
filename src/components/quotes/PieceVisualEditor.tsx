@@ -1477,9 +1477,20 @@ export default function PieceVisualEditor({
       }
     }
 
+    const attachedTypes = new Set(Object.values(attachedPieceTypes ?? {}));
+    if (attachedTypes.has('WATERFALL')) {
+      items.push({ code: 'WF', name: 'Waterfall join', colour: '#2563eb' });
+    }
+    if (attachedTypes.has('SPLASHBACK')) {
+      items.push({ code: 'SB', name: 'Splashback join', colour: '#059669' });
+    }
+    if (ALL_SIDES.some(side => edgeListIncludes(noStripEdges, side) && !attachedPieceTypes?.[side])) {
+      items.push({ code: 'WALL', name: 'Against wall', colour: '#78716c' });
+    }
+
     items.push({ code: 'R', name: 'Raw', colour: '#d1d5db' });
     return items;
-  }, [edgeTop, edgeBottom, edgeLeft, edgeRight, shapeConfigEdges, resolveEdgeName]);
+  }, [attachedPieceTypes, edgeTop, edgeBottom, edgeLeft, edgeRight, noStripEdges, shapeConfigEdges, resolveEdgeName]);
 
   // Check if piece has at least one non-raw edge (for save template button)
   const hasNonRawEdge = !!(edgeTop || edgeBottom || edgeLeft || edgeRight);

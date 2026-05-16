@@ -62,7 +62,17 @@ export async function POST(
     where: { id: quoteId, company_id: companyId },
     include: {
       quote_rooms: {
-        include: { quote_pieces: { select: { id: true, material_id: true, material_name: true } } },
+        include: {
+          quote_pieces: {
+            select: {
+              id: true,
+              material_id: true,
+              material_name: true,
+              material_collection_only: true,
+              material_collection_name: true,
+            },
+          },
+        },
       },
     },
   });
@@ -81,8 +91,16 @@ export async function POST(
   // Flatten pieces from rooms and save originals for restoration
   const allPieces = quote.quote_rooms.flatMap(r => r.quote_pieces);
   const originalMap = new Map(
-    allPieces.map(p => [p.id, { material_id: p.material_id, material_name: p.material_name }])
+    allPieces.map(p => [p.id, {
+      material_id: p.material_id,
+      material_name: p.material_name,
+      material_collection_only: p.material_collection_only,
+      material_collection_name: p.material_collection_name,
+    }])
   );
+  const displayMaterialName = collectionOnly && typeof displayName === 'string' && displayName.trim()
+    ? displayName.trim()
+    : material.name;
 
   let estimateResult;
   let calcError: string | null = null;
@@ -93,7 +111,11 @@ export async function POST(
       where: { id: { in: pieceIds } },
       data: {
         material_id: Number(materialId),
-        material_name: material.name,
+        material_name: displayMaterialName,
+        material_collection_only: Boolean(collectionOnly),
+        material_collection_name: collectionOnly && typeof collectionName === 'string'
+          ? collectionName
+          : null,
       },
     });
 
@@ -136,6 +158,8 @@ export async function POST(
         data: {
           material_id: original.material_id,
           material_name: original.material_name,
+          material_collection_only: original.material_collection_only,
+          material_collection_name: original.material_collection_name,
         },
       });
     }
@@ -152,9 +176,7 @@ export async function POST(
   const slotResult = {
     slotIndex,
     materialId: Number(materialId),
-    materialName: collectionOnly && typeof displayName === 'string' && displayName.trim()
-      ? displayName.trim()
-      : material.name,
+    materialName: displayMaterialName,
     collectionId: collectionId ?? collectionName ?? null,
     collectionName: typeof collectionName === 'string' ? collectionName : null,
     collectionOnly: Boolean(collectionOnly),

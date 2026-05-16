@@ -384,7 +384,7 @@ export default function EdgePanel({
         <div className="border-t border-gray-200 px-4 py-3">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Wall Edges</h4>
-            <span className="text-xs text-gray-400">Wall edges only. WF/SB joins suppress strips separately.</span>
+            <span className="text-xs text-gray-400">Wall edges only. Waterfall and splashback joins suppress strips separately.</span>
           </div>
           <div className="flex flex-wrap gap-1.5">
             {allEdgeIds.map((edgeId) => {
@@ -411,7 +411,6 @@ export default function EdgePanel({
                       : 'bg-white text-gray-600 border-gray-300 hover:border-stone-400 hover:bg-stone-50'
                   }`}
                 >
-                  {isWall && <span>🧱</span>}
                   {humaniseEdgeId(edgeId)}
                   {attachedType && <span className="font-semibold">({attachedType === 'WATERFALL' ? 'WF join' : 'SB join'})</span>}
                 </button>
