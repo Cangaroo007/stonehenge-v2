@@ -545,6 +545,7 @@ export async function PATCH(
       materialCollectionName: updatedPiece.material_collection_name ?? null,
       noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
       stripWidthOverrides: (updatedPiece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+      edgeBuildups: pu.edge_buildups ?? null,
       mitredCornerTreatment: pu.mitred_corner_treatment ?? 'RAW',
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
@@ -826,6 +827,10 @@ export async function PUT(
       cornerEdgeBl: pu.corner_edge_bl ?? null,
       cornerEdgeBr: pu.corner_edge_br ?? null,
       edgeArcConfig: pu.edge_arc_config ?? null,
+      noStripEdges: (pu.no_strip_edges as unknown as string[]) ?? [],
+      stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+      edgeBuildups: pu.edge_buildups ?? null,
+      mitredCornerTreatment: pu.mitred_corner_treatment ?? 'RAW',
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pu.total_cost || 0),

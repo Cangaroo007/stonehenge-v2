@@ -108,6 +108,7 @@ export async function GET(
           overrideFabricationCost: piece.override_fabrication_cost
             ? Number(piece.override_fabrication_cost)
             : null,
+          noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
           stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
           edgeBuildups: piece.edge_buildups ?? null,
           // Pricing from calculation_breakdown (not runtime-calculated)
@@ -184,6 +185,7 @@ export async function POST(
       pieceType = 'BENCHTOP',
       joinMethod = null,
       edgeBuildups = null,
+      noStripEdges = [],
     } = data;
 
     // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
@@ -360,6 +362,7 @@ export async function POST(
         corner_edge_tr: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tr as string ?? null,
         corner_edge_bl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_bl as string ?? null,
         corner_edge_br: (shapeConfig as Record<string, unknown> | null)?.corner_edge_br as string ?? null,
+        no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue,
         ...(edgeBuildups != null && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
         requiresGrainMatch: requiresGrainMatch ?? false,
         promoted_from_piece_id: promotedFromPieceId ? parseInt(String(promotedFromPieceId), 10) : null,
@@ -423,6 +426,9 @@ export async function POST(
       cornerEdgeTr: pieceAny.corner_edge_tr ?? null,
       cornerEdgeBl: pieceAny.corner_edge_bl ?? null,
       cornerEdgeBr: pieceAny.corner_edge_br ?? null,
+      noStripEdges: (pieceAny.no_strip_edges as unknown as string[]) ?? [],
+      stripWidthOverrides: (pieceAny.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+      edgeBuildups: pieceAny.edge_buildups ?? null,
       // DEPRECATED: total_cost/material_cost are unreliable — use quotes.calculation_breakdown
       // Kept for API response shape compatibility. Do not read these values for display.
       totalCost: Number(pieceAny.total_cost || 0),
