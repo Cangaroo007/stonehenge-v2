@@ -175,6 +175,7 @@ export async function POST(
       thicknessMm = 20,
       materialId,
       materialName,
+      roomId: requestedRoomId,
       roomName = 'Kitchen',
       edgeTop = tenantDefaultEdge,
       edgeBottom = tenantDefaultEdge,
@@ -211,6 +212,17 @@ export async function POST(
     if (!name || !lengthMm || !widthMm) {
       return NextResponse.json(
         { error: 'Name, length, and width are required' },
+        { status: 400 }
+      );
+    }
+
+    const targetRoomId = requestedRoomId == null ? null : Number(requestedRoomId);
+    if (
+      targetRoomId != null &&
+      (!Number.isInteger(targetRoomId) || targetRoomId <= 0)
+    ) {
+      return NextResponse.json(
+        { error: 'roomId must be a positive integer' },
         { status: 400 }
       );
     }
@@ -271,12 +283,23 @@ export async function POST(
     }
 
     // Find or create the room
-    let room = await prisma.quote_rooms.findFirst({
-      where: {
-        quote_id: quoteId,
-        name: roomName,
-      },
-    });
+    let room = targetRoomId
+      ? await prisma.quote_rooms.findFirst({
+          where: {
+            id: targetRoomId,
+            quote_id: quoteId,
+          },
+        })
+      : await prisma.quote_rooms.findFirst({
+          where: {
+            quote_id: quoteId,
+            name: roomName,
+          },
+        });
+
+    if (!room && targetRoomId) {
+      return NextResponse.json({ error: 'Room not found' }, { status: 404 });
+    }
 
     if (!room) {
       // Get the highest sort order
