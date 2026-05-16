@@ -72,7 +72,7 @@ async function getDefaultMitredEdgeId(tx: Prisma.TransactionClient): Promise<str
   return edgeType?.id ?? null;
 }
 
-async function syncEdgeSemanticsForRelationship(
+export async function syncEdgeSemanticsForRelationship(
   tx: Prisma.TransactionClient,
   input: {
     relationshipType: RelationshipType;

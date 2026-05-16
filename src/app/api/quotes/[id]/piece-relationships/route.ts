@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { RelationshipType } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
 
 const VALID_RELATION_TYPES = [
   'WATERFALL',
@@ -176,7 +178,7 @@ export async function POST(
         }
       }
 
-      return tx.piece_relationships.create({
+      const created = await tx.piece_relationships.create({
         data: {
           source_piece_id: sourcePieceId,
           target_piece_id: targetPieceId,
@@ -190,6 +192,15 @@ export async function POST(
           coverage_mm: coverageMm == null ? null : Number(coverageMm),
         },
       });
+
+      await syncEdgeSemanticsForRelationship(tx, {
+        relationshipType: relationshipType as RelationshipType,
+        sourceId: sourcePieceId,
+        targetId: targetPieceId,
+        joinPosition: side,
+      });
+
+      return created;
     });
 
     await prisma.slab_optimizations.deleteMany({
