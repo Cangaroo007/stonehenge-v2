@@ -27,6 +27,12 @@ const EDGE_RELATIONSHIP_TYPES = new Set<RelationshipType>([
   RelationshipType.SPLASHBACK,
 ]);
 
+const SAME_ROOM_RELATIONSHIP_TYPES = new Set<RelationshipType>([
+  RelationshipType.WATERFALL,
+  RelationshipType.SPLASHBACK,
+  RelationshipType.RETURN,
+]);
+
 function normaliseJoinEdge(side: string | null | undefined): EdgeName | null {
   const value = side?.trim().toLowerCase();
   if (!value) return null;
@@ -70,6 +76,35 @@ async function getDefaultMitredEdgeId(tx: Prisma.TransactionClient): Promise<str
   });
 
   return edgeType?.id ?? null;
+}
+
+async function syncRoomSemanticsForRelationship(
+  tx: Prisma.TransactionClient,
+  input: {
+    relationshipType: RelationshipType;
+    sourceId: number;
+    targetId: number;
+  }
+) {
+  if (!SAME_ROOM_RELATIONSHIP_TYPES.has(input.relationshipType)) return;
+
+  const [parent, child] = await Promise.all([
+    tx.quote_pieces.findUnique({
+      where: { id: input.sourceId },
+      select: { room_id: true },
+    }),
+    tx.quote_pieces.findUnique({
+      where: { id: input.targetId },
+      select: { room_id: true },
+    }),
+  ]);
+
+  if (!parent || !child || parent.room_id === child.room_id) return;
+
+  await tx.quote_pieces.update({
+    where: { id: input.targetId },
+    data: { room_id: parent.room_id },
+  });
 }
 
 export async function syncEdgeSemanticsForRelationship(
@@ -245,20 +280,12 @@ export async function createRelationship(
     throw new Error('A piece cannot have a relationship with itself');
   }
 
-  const sameRoomRelationshipTypes = new Set<RelationshipType>([
-    RelationshipType.WATERFALL,
-    RelationshipType.SPLASHBACK,
-    RelationshipType.RETURN,
-  ]);
-  const shouldShareRoom = sameRoomRelationshipTypes.has(relationshipType);
-
   const relationship = await prisma.$transaction(async (tx) => {
-    if (shouldShareRoom && child.room_id !== parent.room_id) {
-      await tx.quote_pieces.update({
-        where: { id: targetId },
-        data: { room_id: parent.room_id },
-      });
-    }
+    await syncRoomSemanticsForRelationship(tx, {
+      relationshipType,
+      sourceId,
+      targetId,
+    });
 
     const created = await tx.piece_relationships.create({
       data: {
@@ -339,10 +366,18 @@ export async function updateRelationship(
       data: updateData,
     });
 
+    const effectiveRelationshipType = input.relationshipType
+      ?? existing.relationship_type
+      ?? (existing.relation_type as RelationshipType);
+
+    await syncRoomSemanticsForRelationship(tx, {
+      relationshipType: effectiveRelationshipType,
+      sourceId: existing.source_piece_id,
+      targetId: existing.target_piece_id,
+    });
+
     await syncEdgeSemanticsForRelationship(tx, {
-      relationshipType: input.relationshipType
-        ?? existing.relationship_type
-        ?? (existing.relation_type as RelationshipType),
+      relationshipType: effectiveRelationshipType,
       sourceId: existing.source_piece_id,
       targetId: existing.target_piece_id,
       joinPosition: input.joinPosition !== undefined ? input.joinPosition : existing.side,
