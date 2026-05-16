@@ -1520,10 +1520,10 @@ export default function PieceVisualEditor({
       className="relative w-full"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* ── Mitred edge read-only label ──────────────────────────────── */}
+      {/* ── Build-up construction read-only label ─────────────────────── */}
       {isMitred && isEditMode && (
         <p className="text-xs text-gray-500 italic px-3 py-2">
-          Mitred edge — corner treatment set in piece editor.
+          Mitred build-up construction — visible profile and corner treatment are managed separately.
         </p>
       )}
 

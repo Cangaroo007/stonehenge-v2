@@ -1158,10 +1158,10 @@ export default function InlinePieceEditor({
             <span className="text-sm text-gray-800">{thicknessMm}mm</span>
           </div>
 
-          {/* Edge Build-Up — per edge 40mm/custom depth effect */}
+          {/* Edge Build-Up / Mitre Construction — per edge 40mm/custom depth effect */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-600">Edge Build-Up</label>
+              <label className="text-xs font-medium text-gray-600">Edge Build-Up / Mitre Construction</label>
               <button
                 type="button"
                 onClick={(e) => {
@@ -1349,7 +1349,7 @@ export default function InlinePieceEditor({
             {piece.lamination_method === 'MITRED' && (
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Mitre Corner Treatment
+                  Build-Up Mitre Corner Treatment
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
                   How the top corner of the 45° mitre is finished.

@@ -63,7 +63,7 @@ function withinTolerance(a: number, b: number, tolerance: number): boolean {
  * HIGH:   1. SPLASHBACK → BENCHTOP (same room)
  *         2. WATERFALL → BENCHTOP/ISLAND (same room, width match)
  * MEDIUM: 3. RETURN — two benchtops, same room, one dimension matches (±50mm)
- *         4. MITRE_JOIN — description contains 'mitre'/'miter'/'mitred'
+ *         4. MITRE_JOIN — description explicitly indicates a mitre join/seam
  * LOW:    5. BUTT_JOIN — same room, no relationships, similar widths (±100mm)
  */
 export function suggestRelationships(
@@ -158,11 +158,12 @@ export function suggestRelationships(
         }
       }
 
-      // ── MEDIUM: MITRE_JOIN (description keyword) ───────────────────
+      // ── MEDIUM: MITRE_JOIN (explicit join/seam keyword) ────────────
       const aDesc = a.description.toLowerCase();
       const bDesc = b.description.toLowerCase();
-      const aMitre = /mitr[ei]d?/.test(aDesc);
-      const bMitre = /mitr[ei]d?/.test(bDesc);
+      const mitreJoinPattern = /mit(?:re|er)(?:d)?\s+(?:join|joint|seam)|(?:join|joint|seam)\s+mit(?:re|er)(?:d)?/;
+      const aMitre = mitreJoinPattern.test(aDesc);
+      const bMitre = mitreJoinPattern.test(bDesc);
 
       if (aMitre || bMitre) {
         // Suggest join with the other piece (or the larger piece if both mention mitre)
@@ -181,7 +182,7 @@ export function suggestRelationships(
             suggestedType: 'MITRE_JOIN' as RelationshipType,
             suggestedPosition: null,
             confidence: 'MEDIUM',
-            reason: 'Description mentions mitre join',
+            reason: 'Description mentions mitre join/seam',
           });
         }
       }

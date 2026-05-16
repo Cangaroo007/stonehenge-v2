@@ -116,12 +116,12 @@ export default function EdgeProfilePopover({
       {!selectedProfile && (
         <>
           <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 border-b border-gray-100">
-            Edge Profile
+            Visible Edge Profile
           </div>
 
           {isMitred && (
             <div className="px-3 py-1.5 text-xs text-amber-600 bg-amber-50 border-b border-gray-100">
-              Mitred edges use Pencil Round profile only.
+              Build-up mitre construction uses Pencil Round as the visible profile.
             </div>
           )}
 

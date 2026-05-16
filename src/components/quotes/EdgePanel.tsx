@@ -237,11 +237,11 @@ export default function EdgePanel({
         </div>
       </div>
 
-      {/* ── Edge Finish + Build-Up (side by side on wider screens) ────── */}
+      {/* ── Visible Profile + Build-Up (side by side on wider screens) ── */}
       <div className="grid grid-cols-1 sm:grid-cols-2 divide-y sm:divide-y-0 sm:divide-x divide-gray-200">
-        {/* ── Edge Finish ──────────────────────────────────────────────── */}
+        {/* ── Visible Edge Profile ─────────────────────────────────────── */}
         <div className="p-4 space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Edge Finish</h4>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Visible Edge Profile</h4>
           {currentProfileSummary && (
             <p className="text-xs text-gray-500">{currentProfileSummary}</p>
           )}
@@ -282,9 +282,9 @@ export default function EdgePanel({
           </button>
         </div>
 
-        {/* ── Build-Up ─────────────────────────────────────────────────── */}
+        {/* ── Build-Up / Mitre Construction ────────────────────────────── */}
         <div className="p-4 space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up</h4>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up / Mitre Construction</h4>
           {currentBuildupSummary && (
             <p className="text-xs text-gray-500">{currentBuildupSummary}</p>
           )}
