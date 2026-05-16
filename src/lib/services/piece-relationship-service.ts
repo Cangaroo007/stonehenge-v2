@@ -1,10 +1,131 @@
 import prisma from '@/lib/db';
-import { RelationshipType } from '@prisma/client';
+import { Prisma, RelationshipType } from '@prisma/client';
 import type {
   PieceRelationshipData,
   CreatePieceRelationshipInput,
   UpdatePieceRelationshipInput,
 } from '@/lib/types/piece-relationship';
+
+type EdgeName = 'top' | 'bottom' | 'left' | 'right';
+
+const EDGE_FIELD: Record<EdgeName, 'edge_top' | 'edge_bottom' | 'edge_left' | 'edge_right'> = {
+  top: 'edge_top',
+  bottom: 'edge_bottom',
+  left: 'edge_left',
+  right: 'edge_right',
+};
+
+const OPPOSITE_EDGE: Record<EdgeName, EdgeName> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+const EDGE_RELATIONSHIP_TYPES = new Set<RelationshipType>([
+  RelationshipType.WATERFALL,
+  RelationshipType.SPLASHBACK,
+]);
+
+function normaliseJoinEdge(side: string | null | undefined): EdgeName | null {
+  const value = side?.trim().toLowerCase();
+  if (!value) return null;
+
+  if (value === 'front') return 'top';
+  if (value === 'back') return 'bottom';
+  if (value === 'top' || value === 'bottom' || value === 'left' || value === 'right') {
+    return value;
+  }
+
+  return null;
+}
+
+function appendUniqueEdge(value: unknown, edge: EdgeName): EdgeName[] {
+  const current = Array.isArray(value)
+    ? value.filter((item): item is EdgeName => ['top', 'bottom', 'left', 'right'].includes(String(item)))
+    : [];
+
+  return current.includes(edge) ? current : [...current, edge];
+}
+
+function removeEdgeBuildup(value: unknown, edge: EdgeName): Record<string, unknown> {
+  const current = value && typeof value === 'object' && !Array.isArray(value)
+    ? { ...(value as Record<string, unknown>) }
+    : {};
+  delete current[edge];
+  return current;
+}
+
+async function getDefaultMitredEdgeId(tx: Prisma.TransactionClient): Promise<string | null> {
+  const edgeType = await tx.edge_types.findFirst({
+    where: {
+      isActive: true,
+      isMitred: true,
+    },
+    orderBy: [
+      { sortOrder: 'asc' },
+      { name: 'asc' },
+    ],
+    select: { id: true },
+  });
+
+  return edgeType?.id ?? null;
+}
+
+async function syncEdgeSemanticsForRelationship(
+  tx: Prisma.TransactionClient,
+  input: {
+    relationshipType: RelationshipType;
+    sourceId: number;
+    targetId: number;
+    joinPosition: string | null | undefined;
+  }
+) {
+  if (!EDGE_RELATIONSHIP_TYPES.has(input.relationshipType)) return;
+
+  const joinEdge = normaliseJoinEdge(input.joinPosition);
+  if (!joinEdge) return;
+
+  const mitredEdgeId = await getDefaultMitredEdgeId(tx);
+  if (!mitredEdgeId) return;
+
+  const [parentPiece, childPiece] = await Promise.all([
+    tx.quote_pieces.findUnique({
+      where: { id: input.sourceId },
+      select: {
+        no_strip_edges: true,
+        edge_buildups: true,
+      },
+    }),
+    tx.quote_pieces.findUnique({
+      where: { id: input.targetId },
+      select: { id: true },
+    }),
+  ]);
+
+  if (!parentPiece || !childPiece) return;
+
+  const childJoinEdge = OPPOSITE_EDGE[joinEdge];
+
+  await Promise.all([
+    tx.quote_pieces.update({
+      where: { id: input.sourceId },
+      data: {
+        [EDGE_FIELD[joinEdge]]: mitredEdgeId,
+        no_strip_edges: appendUniqueEdge(parentPiece.no_strip_edges, joinEdge) as unknown as Prisma.InputJsonValue,
+        edge_buildups: removeEdgeBuildup(parentPiece.edge_buildups, joinEdge) as unknown as Prisma.InputJsonValue,
+        lamination_method: 'MITRED',
+      },
+    }),
+    tx.quote_pieces.update({
+      where: { id: input.targetId },
+      data: {
+        [EDGE_FIELD[childJoinEdge]]: mitredEdgeId,
+        lamination_method: 'MITRED',
+      },
+    }),
+  ]);
+}
 
 /**
  * Maps a DB record to the TypeScript interface.
@@ -139,7 +260,7 @@ export async function createRelationship(
       });
     }
 
-    return tx.piece_relationships.create({
+    const created = await tx.piece_relationships.create({
       data: {
         source_piece_id: sourceId,
         target_piece_id: targetId,
@@ -152,6 +273,15 @@ export async function createRelationship(
         coverage_mm: input.coverageMm ?? null,
       },
     });
+
+    await syncEdgeSemanticsForRelationship(tx, {
+      relationshipType,
+      sourceId,
+      targetId,
+      joinPosition: input.joinPosition,
+    });
+
+    return created;
   });
 
   return toRelationshipData(relationship);
@@ -188,9 +318,37 @@ export async function updateRelationship(
     updateData.coverage_mm = input.coverageMm;
   }
 
-  const relationship = await prisma.piece_relationships.update({
-    where: { id: numericId },
-    data: updateData,
+  const relationship = await prisma.$transaction(async (tx) => {
+    const existing = await tx.piece_relationships.findUnique({
+      where: { id: numericId },
+      select: {
+        source_piece_id: true,
+        target_piece_id: true,
+        relationship_type: true,
+        relation_type: true,
+        side: true,
+      },
+    });
+
+    if (!existing) {
+      throw new Error('Relationship not found');
+    }
+
+    const updated = await tx.piece_relationships.update({
+      where: { id: numericId },
+      data: updateData,
+    });
+
+    await syncEdgeSemanticsForRelationship(tx, {
+      relationshipType: input.relationshipType
+        ?? existing.relationship_type
+        ?? (existing.relation_type as RelationshipType),
+      sourceId: existing.source_piece_id,
+      targetId: existing.target_piece_id,
+      joinPosition: input.joinPosition !== undefined ? input.joinPosition : existing.side,
+    });
+
+    return updated;
   });
 
   return toRelationshipData(relationship);
