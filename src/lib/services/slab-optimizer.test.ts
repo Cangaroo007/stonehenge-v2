@@ -34,4 +34,38 @@ describe('optimizeSlabs', () => {
     expect(topStrip?.widthMm).toBe(75);
     expect(bottomStrip?.widthMm).toBe(60);
   });
+
+  it('only generates legacy lamination strips for finished edges when edge flags are present', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 3200,
+      slabHeight: 1600,
+      kerfWidth: 5,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'bench',
+          label: 'Bench',
+          width: 1200,
+          height: 600,
+          thickness: 40,
+          finishedEdges: {
+            top: true,
+            bottom: false,
+            left: false,
+            right: false,
+          },
+          edgeTypeNames: {
+            top: 'Arris',
+            bottom: 'Arris',
+            left: 'Arris',
+            right: 'Arris',
+          },
+        },
+      ],
+    });
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+
+    expect(strips.map(strip => strip.position)).toEqual(['top']);
+  });
 });

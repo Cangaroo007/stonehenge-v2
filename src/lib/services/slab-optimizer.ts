@@ -165,6 +165,9 @@ function generateLaminationStrips(
 
     const buildup = edgeBuildups[edgeKey];
     if (!buildup) {
+      const finishedEdges = piece.finishedEdges;
+      if (finishedEdges && !finishedEdges[edgeKey as keyof typeof finishedEdges]) continue;
+
       // No edge build-up — fall back to legacy lamination logic for backwards compat
       const edgeNames = piece.edgeTypeNames;
       const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
