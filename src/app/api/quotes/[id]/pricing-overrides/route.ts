@@ -4,6 +4,7 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
 const VALID_TYPES = new Set(['MULTIPLIER', 'LM', 'FIXED_DELTA', 'FIXED_ADJUSTMENT']);
+const VALID_LM_CATEGORIES = new Set(['NORMAL_CUT', 'MITRE_CUT', 'NORMAL_POLISH', 'MITRE_POLISH']);
 
 function normalizeToken(value: unknown): string {
   return String(value ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_');
@@ -107,8 +108,8 @@ export async function POST(
     if (!VALID_TYPES.has(overrideType)) {
       return NextResponse.json({ error: 'Invalid override type' }, { status: 400 });
     }
-    if (overrideType === 'LM' && category === 'ALL') {
-      return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
+    if (overrideType === 'LM' && !VALID_LM_CATEGORIES.has(category)) {
+      return NextResponse.json({ error: 'Chargeable LM overrides are only available for cut and edge LM categories' }, { status: 400 });
     }
     if (!Number.isFinite(value)) {
       return NextResponse.json({ error: 'Override value must be a number' }, { status: 400 });

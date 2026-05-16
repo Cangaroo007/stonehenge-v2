@@ -4,6 +4,7 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 
 const VALID_TYPES = new Set(['MULTIPLIER', 'LM', 'FIXED_DELTA', 'FIXED_ADJUSTMENT']);
+const VALID_LM_CATEGORIES = new Set(['NORMAL_CUT', 'MITRE_CUT', 'NORMAL_POLISH', 'MITRE_POLISH']);
 
 function normalizeToken(value: unknown): string {
   return String(value ?? '').trim().toUpperCase().replace(/[\s-]+/g, '_');
@@ -66,13 +67,17 @@ export async function PATCH(
       if (!VALID_TYPES.has(overrideType)) {
         return NextResponse.json({ error: 'Invalid override type' }, { status: 400 });
       }
-      if (overrideType === 'LM' && normalizeToken(data.category ?? existing.category) === 'ALL') {
-        return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
+      if (overrideType === 'LM' && !VALID_LM_CATEGORIES.has(normalizeToken(data.category ?? existing.category))) {
+        return NextResponse.json({ error: 'Chargeable LM overrides are only available for cut and edge LM categories' }, { status: 400 });
       }
       data.override_type = overrideType;
     }
-    if (body.category !== undefined && normalizeToken(body.category) === 'ALL' && String(data.override_type ?? existing.override_type) === 'LM') {
-      return NextResponse.json({ error: 'Chargeable LM overrides need a specific category' }, { status: 400 });
+    if (
+      body.category !== undefined &&
+      normalizeToken(data.override_type ?? existing.override_type) === 'LM' &&
+      !VALID_LM_CATEGORIES.has(normalizeToken(body.category))
+    ) {
+      return NextResponse.json({ error: 'Chargeable LM overrides are only available for cut and edge LM categories' }, { status: 400 });
     }
     if (body.value !== undefined) {
       const value = Number(body.value);

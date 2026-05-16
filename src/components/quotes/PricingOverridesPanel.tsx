@@ -44,9 +44,11 @@ const CATEGORY_OPTIONS = [
   ['MITRE_POLISH', 'Build-up edge finish LM'],
   ['CUTOUT', 'Cutouts'],
   ['INSTALLATION', 'Installation'],
-  ['FABRICATION', 'Fabrication'],
+  ['FABRICATION', 'All fabrication labour'],
   ['ALL', 'All labour categories'],
 ] as const;
+
+const LM_CATEGORY_KEYS = new Set(['NORMAL_CUT', 'MITRE_CUT', 'NORMAL_POLISH', 'MITRE_POLISH']);
 
 const TYPE_OPTIONS = [
   ['LM', 'Chargeable LM override'],
@@ -92,9 +94,12 @@ export default function PricingOverridesPanel({
   const [error, setError] = useState<string | null>(null);
 
   const canEdit = mode === 'edit';
+  const visibleCategoryOptions = CATEGORY_OPTIONS.filter(([key]) =>
+    overrideType === 'LM' ? LM_CATEGORY_KEYS.has(key) : true
+  );
 
   useEffect(() => {
-    if (overrideType === 'LM' && category === 'ALL') {
+    if (overrideType === 'LM' && !LM_CATEGORY_KEYS.has(category)) {
       setCategory('MITRE_POLISH');
     }
   }, [category, overrideType]);
@@ -205,7 +210,7 @@ export default function PricingOverridesPanel({
               className="input text-sm md:col-span-1"
               aria-label="Override category"
             >
-              {CATEGORY_OPTIONS.filter(([key]) => overrideType !== 'LM' || key !== 'ALL').map(([key, label]) => (
+              {visibleCategoryOptions.map(([key, label]) => (
                 <option key={key} value={key}>{label}</option>
               ))}
             </select>

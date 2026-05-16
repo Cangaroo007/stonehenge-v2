@@ -217,6 +217,21 @@ function categoryMatches(
 ): boolean {
   const token = normalizeOverrideToken(override.category);
   if (token === 'ALL') return true;
+  if (
+    token === 'FABRICATION' &&
+    (
+      category === 'CUTTING' ||
+      category === 'NORMAL_CUT' ||
+      category === 'MITRE_CUT' ||
+      category === 'EDGE' ||
+      category === 'NORMAL_POLISH' ||
+      category === 'MITRE_POLISH' ||
+      category === 'CUTOUT' ||
+      category === 'INSTALLATION'
+    )
+  ) {
+    return true;
+  }
   if (token === category) return true;
 
   if (category === 'CUTTING') {
@@ -274,7 +289,7 @@ function cuttingItemMatchesOverride(
   item: NonNullable<PiecePricingResult['cutting']['items']>[number]
 ): boolean {
   const token = normalizeOverrideToken(override.category);
-  if (token === 'ALL' || token === 'CUTTING') return true;
+  if (token === 'ALL' || token === 'FABRICATION' || token === 'CUTTING') return true;
   if (token === 'MITRE_CUT') return item.kind === 'BUILD_UP';
   if (token === 'NORMAL_CUT') return item.kind === 'NORMAL';
   return false;
@@ -356,7 +371,7 @@ function edgeOverrideMatchesLine(
   edgeTypeReverseMap: Map<number, { isMitred?: boolean | null }>
 ): boolean {
   const token = normalizeOverrideToken(override.category);
-  if (token === 'ALL' || token === 'EDGE' || token === 'POLISH' || token === 'EDGE_PROFILE') {
+  if (token === 'ALL' || token === 'FABRICATION' || token === 'EDGE' || token === 'POLISH' || token === 'EDGE_PROFILE') {
     return true;
   }
 
@@ -370,11 +385,21 @@ function edgeOverrideMatchesLine(
 function isEdgeOverrideCategory(override: PricingOverrideRecord): boolean {
   const token = normalizeOverrideToken(override.category);
   return token === 'ALL' ||
+    token === 'FABRICATION' ||
     token === 'EDGE' ||
     token === 'POLISH' ||
     token === 'EDGE_PROFILE' ||
     token === 'NORMAL_POLISH' ||
     token === 'MITRE_POLISH';
+}
+
+function isCuttingMultiplierCategory(override: PricingOverrideRecord): boolean {
+  const token = normalizeOverrideToken(override.category);
+  return token === 'ALL' ||
+    token === 'FABRICATION' ||
+    token === 'CUTTING' ||
+    token === 'NORMAL_CUT' ||
+    token === 'MITRE_CUT';
 }
 
 function isChargeableLmCutCategory(override: PricingOverrideRecord): boolean {
@@ -1664,7 +1689,7 @@ export async function calculateQuotePrice(
     const cuttingMultiplierOverrides = pricingOverrides.filter(o =>
       overrideAppliesToPiece(o, piece.id) &&
       normalizeOverrideToken(o.override_type) === 'MULTIPLIER' &&
-      isChargeableLmCutCategory(o) &&
+      isCuttingMultiplierCategory(o) &&
       cuttingLmForOverride(ep.cutting, o, piece) > 0
     );
     for (const override of cuttingMultiplierOverrides) {
