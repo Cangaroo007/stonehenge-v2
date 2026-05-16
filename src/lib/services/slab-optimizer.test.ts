@@ -101,4 +101,50 @@ describe('optimizeSlabs', () => {
     expect(strips.map(strip => strip.stripSubType)).toEqual(['FACE', 'RETURN', 'SUPPORT']);
     expect(strips.map(strip => strip.widthMm)).toEqual([80, 60, 40]);
   });
+
+  it('splits grain-matched pieces in fixed orientation instead of rotating them', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'veined-waterfall',
+          label: 'Veined Waterfall',
+          width: 650,
+          height: 900,
+          grainMatched: true,
+        },
+      ],
+    });
+
+    const mainPlacements = result.placements.filter(p => !p.isLaminationStrip);
+
+    expect(mainPlacements).toHaveLength(2);
+    expect(mainPlacements.every(p => p.rotated === false)).toBe(true);
+    expect(mainPlacements.every(p => p.pieceId.startsWith('veined-waterfall-seg-'))).toBe(true);
+  });
+
+  it('keeps non-grain pieces rotatable when global rotation is enabled', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'plain-panel',
+          label: 'Plain Panel',
+          width: 650,
+          height: 900,
+        },
+      ],
+    });
+
+    expect(result.unplacedPieces).not.toContain('plain-panel');
+    expect(result.placements[0]).toEqual(
+      expect.objectContaining({ pieceId: 'plain-panel', rotated: true })
+    );
+  });
 });

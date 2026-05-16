@@ -100,6 +100,14 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 };
 
+function canRotatePiece(piece: OptimizationPiece, allowRotation: boolean): boolean {
+  if (!allowRotation) return false;
+  if (piece.canRotate === false) return false;
+  if (piece.grainMatched === true) return false;
+  if (piece.groupId?.startsWith('grain-')) return false;
+  return true;
+}
+
 /**
  * Determine the strip width for an edge based on the edge type name.
  * Mitre strips: ~40mm (kerf added by optimizer during placement).
@@ -565,8 +573,7 @@ function preprocessOversizePieces(
     const ph = piece.height + kerfWidth;
 
     const fitsNormal = pw <= slabWidth && ph <= slabHeight;
-    const fitsRotated = allowRotation &&
-                        (piece.canRotate !== false) &&
+    const fitsRotated = canRotatePiece(piece, allowRotation) &&
                         ph <= slabWidth && pw <= slabHeight;
 
     if (fitsNormal || fitsRotated) {
@@ -581,7 +588,9 @@ function preprocessOversizePieces(
     }
 
     // Piece is oversize — split into segments at slab boundaries.
-    // Orient the piece so its longer dimension maps to the slab's longer axis to minimise segments.
+    // Rotatable pieces can map their long side to the slab's long side to minimise joins.
+    // Grain-matched / explicitly non-rotatable pieces must be split in their fixed orientation.
+    const mayRotate = canRotatePiece(piece, allowRotation);
     const maxDim = Math.max(slabWidth, slabHeight) - kerfWidth;
     const minDim = Math.min(slabWidth, slabHeight) - kerfWidth;
 
@@ -589,18 +598,31 @@ function preprocessOversizePieces(
     const pieceShort = Math.min(piece.width, piece.height);
     const isWidthLonger = piece.width >= piece.height;
 
-    const longSegments = pieceLong > maxDim ? Math.ceil(pieceLong / maxDim) : 1;
-    const shortSegments = pieceShort > minDim ? Math.ceil(pieceShort / minDim) : 1;
+    let wSegments: number;
+    let hSegments: number;
+    let wBoundary: number;
+    let hBoundary: number;
 
-    // Map back to width/height segment counts
-    const wSegments = isWidthLonger ? longSegments : shortSegments;
-    const hSegments = isWidthLonger ? shortSegments : longSegments;
+    if (mayRotate) {
+      const longSegments = pieceLong > maxDim ? Math.ceil(pieceLong / maxDim) : 1;
+      const shortSegments = pieceShort > minDim ? Math.ceil(pieceShort / minDim) : 1;
+
+      // Map back to width/height segment counts
+      wSegments = isWidthLonger ? longSegments : shortSegments;
+      hSegments = isWidthLonger ? shortSegments : longSegments;
+      wBoundary = isWidthLonger ? maxDim : minDim;
+      hBoundary = isWidthLonger ? minDim : maxDim;
+    } else {
+      wBoundary = slabWidth - kerfWidth;
+      hBoundary = slabHeight - kerfWidth;
+      wSegments = piece.width > wBoundary ? Math.ceil(piece.width / wBoundary) : 1;
+      hSegments = piece.height > hBoundary ? Math.ceil(piece.height / hBoundary) : 1;
+    }
+
     const totalSegments = wSegments * hSegments;
 
     // Split at slab boundary, not midpoint.
     // Use custom join position for the first width segment if set and valid.
-    const wBoundary = isWidthLonger ? maxDim : minDim;
-    const hBoundary = isWidthLonger ? minDim : maxDim;
     const firstWidthSplit = (piece.customJoinMm && piece.customJoinMm < wBoundary)
       ? piece.customJoinMm
       : wBoundary;
@@ -674,6 +696,8 @@ function preprocessOversizePieces(
           // Clear finishedEdges on segments — lamination for split pieces needs manual review
           finishedEdges: undefined,
           edgeTypeNames: undefined,
+          grainMatched: piece.grainMatched,
+          groupId: piece.groupId,
           // Segment tracking
           isSegment: true,
           parentPieceId: piece.id,
@@ -1005,8 +1029,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
 
     // Check if piece can fit on the usable area of a slab
     const fitsNormal = pieceWidth <= usableWidth && pieceHeight <= usableHeight;
-    const fitsRotated = allowRotation &&
-                        (piece.canRotate !== false) &&
+    const fitsRotated = canRotatePiece(piece, allowRotation) &&
                         pieceHeight <= usableWidth &&
                         pieceWidth <= usableHeight;
 

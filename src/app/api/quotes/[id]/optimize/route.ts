@@ -257,7 +257,8 @@ export async function POST(
       : (quote as unknown as { slabEdgeAllowanceMm: number | null }).slabEdgeAllowanceMm;
     if (edgeAllowanceMm === null || edgeAllowanceMm === undefined) {
       try {
-        const pricingSettings = await prisma.pricing_settings.findFirst({
+        const pricingSettings = await prisma.pricing_settings.findUnique({
+          where: { organisation_id: `company-${auth.user.companyId}` },
           select: { slab_edge_allowance_mm: true },
         });
         edgeAllowanceMm = pricingSettings?.slab_edge_allowance_mm ?? 0;
@@ -372,29 +373,31 @@ export async function POST(
             };
 
         return {
-        id: piece.id.toString(),
-        width: piece.length_mm,
-        height: piece.width_mm,
-        label: `${room.name}: ${pieceIndex + 1}. ${piece.name || 'Piece'}`,
-        thickness: piece.thickness_mm || 20,
-        finishedEdges,
-        edgeTypeNames: {
-          top: piece.edge_top ? edgeTypeMap.get(piece.edge_top) : undefined,
-          bottom: piece.edge_bottom ? edgeTypeMap.get(piece.edge_bottom) : undefined,
-          left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
-          right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
-        },
-        shapeConfigEdges,
-        noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
-        stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
-        laminationMethod: piece.lamination_method ?? null,
-        edgeBuildups: (piece.edge_buildups as Record<string, EdgeBuildupConfig> | null) ?? null,
-        materialId: piece.material_id?.toString() ?? null,
-        // Shape data for L/U decomposition in the optimizer
-        shapeType: piece.shape_type ?? undefined,
-        shapeConfig: piece.shape_config ?? undefined,
-        grainMatched: piece.requiresGrainMatch === true,
-      };})
+          id: piece.id.toString(),
+          width: piece.length_mm,
+          height: piece.width_mm,
+          label: `${room.name}: ${pieceIndex + 1}. ${piece.name || 'Piece'}`,
+          thickness: piece.thickness_mm || 20,
+          finishedEdges,
+          edgeTypeNames: {
+            top: piece.edge_top ? edgeTypeMap.get(piece.edge_top) : undefined,
+            bottom: piece.edge_bottom ? edgeTypeMap.get(piece.edge_bottom) : undefined,
+            left: piece.edge_left ? edgeTypeMap.get(piece.edge_left) : undefined,
+            right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
+          },
+          shapeConfigEdges,
+          noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
+          stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
+          laminationMethod: piece.lamination_method ?? null,
+          edgeBuildups: (piece.edge_buildups as Record<string, EdgeBuildupConfig> | null) ?? null,
+          materialId: piece.material_id?.toString() ?? null,
+          // Shape data for L/U decomposition in the optimizer
+          shapeType: piece.shape_type ?? undefined,
+          shapeConfig: piece.shape_config ?? undefined,
+          grainMatched: piece.requiresGrainMatch === true,
+          canRotate: piece.requiresGrainMatch === true ? false : undefined,
+        };
+      })
     );
 
     if (pieces.length === 0) {
@@ -433,12 +436,16 @@ export async function POST(
     // 'grain-' prefix distinguishes from L/U decomposition groups.
     const wfsbParentIds = new Set(wfsbParentMap.values());
     for (const p of pieces) {
-      const typedP = p as { id: string; groupId?: string };
+      const typedP = p as { id: string; groupId?: string; grainMatched?: boolean; canRotate?: boolean };
       const parentId = wfsbParentMap.get(typedP.id);
       if (parentId && !typedP.groupId) {
         typedP.groupId = `grain-${parentId}`;
       } else if (wfsbParentIds.has(typedP.id) && !typedP.groupId) {
         typedP.groupId = `grain-${typedP.id}`;
+      }
+      if (typedP.groupId?.startsWith('grain-')) {
+        typedP.grainMatched = true;
+        typedP.canRotate = false;
       }
     }
 
@@ -503,7 +510,7 @@ export async function POST(
         pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
       ) || null;
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { id: string; materialId: string | null }) => !!(p.materialId) || wfsbParentMap.has(p.id)).map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; stripWidthOverrides?: Record<string, number> | null; laminationMethod?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; groupId?: string; grainMatched?: boolean }) => {
+        (p: { id: string; width: number; height: number; label: string; canRotate?: boolean; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; stripWidthOverrides?: Record<string, number> | null; laminationMethod?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; groupId?: string; grainMatched?: boolean }) => {
           const parentId = wfsbParentMap.get(p.id);
           const parentMaterialId = parentId ? materialIdByPieceId.get(parentId) ?? null : null;
           return {
@@ -511,6 +518,7 @@ export async function POST(
             width: p.width,
             height: p.height,
             label: p.label,
+            canRotate: p.canRotate,
             thickness: p.thickness,
             finishedEdges: p.finishedEdges,
             edgeTypeNames: p.edgeTypeNames,
