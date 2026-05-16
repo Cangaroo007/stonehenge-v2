@@ -21,7 +21,16 @@ interface DialogMaterial {
   name: string;
   collection: string | null;
   pricePerSqm: number;
+  pricePerSlab?: number | null;
   supplier?: { id: string; name: string } | null;
+}
+
+export interface BulkMaterialChange {
+  pieceId: number;
+  toMaterialId: number;
+  materialName?: string;
+  materialCollectionOnly?: boolean;
+  materialCollectionName?: string | null;
 }
 
 interface BulkMaterialDialogProps {
@@ -29,7 +38,7 @@ interface BulkMaterialDialogProps {
   onClose: () => void;
   pieces: DialogPiece[];
   materials: DialogMaterial[];
-  onApply: (changes: { pieceId: number; toMaterialId: number }[]) => Promise<void>;
+  onApply: (changes: BulkMaterialChange[]) => Promise<void>;
   quoteTotal: number | null;
 }
 
@@ -46,6 +55,10 @@ export default function BulkMaterialDialog({
   // ── Internal state (all owned by the dialog, NOT the parent) ──
   const [selectedPieceIds, setSelectedPieceIds] = useState<Set<number>>(new Set());
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
+  const [selectedCollectionInfo, setSelectedCollectionInfo] = useState<{
+    collectionName: string;
+    displayName: string;
+  } | null>(null);
   const [activeFilter, setActiveFilter] = useState<ActiveFilter>('ALL');
   const [isApplying, setIsApplying] = useState(false);
   const [showOverwriteWarning, setShowOverwriteWarning] = useState(false);
@@ -55,6 +68,7 @@ export default function BulkMaterialDialog({
     if (isOpen) {
       setSelectedPieceIds(new Set());
       setSelectedMaterialId(null);
+      setSelectedCollectionInfo(null);
       setActiveFilter('ALL');
       setShowOverwriteWarning(false);
       setIsApplying(false);
@@ -195,6 +209,9 @@ export default function BulkMaterialDialog({
       const changes = Array.from(selectedPieceIds).map(pieceId => ({
         pieceId,
         toMaterialId: selectedMaterialId as number,
+        materialName: selectedCollectionInfo?.displayName,
+        materialCollectionOnly: Boolean(selectedCollectionInfo),
+        materialCollectionName: selectedCollectionInfo?.collectionName ?? null,
       }));
       await onApply(changes);
       onClose();
@@ -204,10 +221,10 @@ export default function BulkMaterialDialog({
       setIsApplying(false);
       setShowOverwriteWarning(false);
     }
-  }, [selectedMaterialId, selectedPieceIds, piecesWithOverwrite, showOverwriteWarning, onApply, onClose]);
+  }, [selectedMaterialId, selectedPieceIds, selectedCollectionInfo, piecesWithOverwrite, showOverwriteWarning, onApply, onClose]);
 
   const selectedMaterialName = selectedMaterialId
-    ? materials.find(m => m.id === selectedMaterialId)?.name ?? ''
+    ? selectedCollectionInfo?.displayName ?? materials.find(m => m.id === selectedMaterialId)?.name ?? ''
     : '';
 
   const formatCost = (n: number) => `$${n.toFixed(2)}`;
@@ -234,11 +251,20 @@ export default function BulkMaterialDialog({
         <MaterialPickerV2
           materials={materials as MaterialPickerMaterial[]}
           value={selectedMaterialId}
-          onChange={(materialId, _mat, _collectionInfo) => {
+          onChange={(materialId, _mat, collectionInfo) => {
             setSelectedMaterialId(materialId);
+            setSelectedCollectionInfo(collectionInfo?.collectionOnly
+              ? {
+                  collectionName: collectionInfo.collectionName,
+                  displayName: collectionInfo.displayName,
+                }
+              : null
+            );
             setShowOverwriteWarning(false);
           }}
           placeholder="Select material..."
+          collectionOnly={Boolean(selectedCollectionInfo)}
+          collectionName={selectedCollectionInfo?.collectionName ?? null}
         />
       </div>
 

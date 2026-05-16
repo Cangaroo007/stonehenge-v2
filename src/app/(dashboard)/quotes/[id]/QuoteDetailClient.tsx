@@ -52,7 +52,7 @@ import CreateOptionDialog from '@/components/quotes/CreateOptionDialog';
 import OptionComparisonSummary from '@/components/quotes/OptionComparisonSummary';
 import PieceOverrideIndicator from '@/components/quotes/PieceOverrideIndicator';
 import PieceOverrideEditor from '@/components/quotes/PieceOverrideEditor';
-import BulkMaterialDialog from '@/components/quotes/BulkMaterialDialog';
+import BulkMaterialDialog, { type BulkMaterialChange } from '@/components/quotes/BulkMaterialDialog';
 import MaterialComparisonPanel, { type ComparisonSlot } from '@/components/quotes/MaterialComparisonPanel';
 import MaterialComparisonErrorBoundary from '@/components/quotes/MaterialComparisonErrorBoundary';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
@@ -1198,10 +1198,14 @@ export default function QuoteDetailClient({
     await handlePieceUpdate(pieceId, { materialId, materialName } as Partial<QuotePiece>);
   }, [materials, handlePieceUpdate]);
 
-  const handleBulkMaterialApply = useCallback(async (changes: { pieceId: number; toMaterialId: number }[]) => {
+  const handleBulkMaterialApply = useCallback(async (changes: BulkMaterialChange[]) => {
     if (changes.length === 0) return;
-    const toMaterial = materials.find(m => m.id === changes[0]?.toMaterialId);
+    const firstChange = changes[0];
+    const toMaterial = materials.find(m => m.id === firstChange?.toMaterialId);
     if (!toMaterial) throw new Error('Material not found');
+    const materialName = firstChange.materialName ?? toMaterial.name;
+    const materialCollectionOnly = Boolean(firstChange.materialCollectionOnly);
+    const materialCollectionName = firstChange.materialCollectionName ?? null;
 
     // Option Independence: redirect to overrides for non-base options
     const qoRef = quoteOptionsRef.current;
@@ -1222,7 +1226,13 @@ export default function QuoteDetailClient({
     setPieces(prev => prev.map(p => {
       const change = changes.find(c => c.pieceId === p.id);
       if (!change) return p;
-      return { ...p, materialId: change.toMaterialId, materialName: toMaterial.name };
+      return {
+        ...p,
+        materialId: change.toMaterialId,
+        materialName: change.materialName ?? materialName,
+        materialCollectionOnly,
+        materialCollectionName,
+      };
     }));
 
     // Single bulk API call instead of N individual calls
@@ -1230,7 +1240,13 @@ export default function QuoteDetailClient({
     const response = await fetch(`/api/quotes/${quoteIdStr}/pieces/bulk-update`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pieceIds, materialId: changes[0].toMaterialId }),
+      body: JSON.stringify({
+        pieceIds,
+        materialId: firstChange.toMaterialId,
+        materialName,
+        materialCollectionOnly,
+        materialCollectionName,
+      }),
     });
 
     if (!response.ok) {

@@ -26,9 +26,19 @@ export async function PATCH(
     }
 
     const data = await request.json();
-    const { pieceIds, materialId, thicknessMm } = data as {
+    const {
+      pieceIds,
+      materialId,
+      materialName,
+      materialCollectionOnly,
+      materialCollectionName,
+      thicknessMm,
+    } = data as {
       pieceIds: number[];
       materialId?: number | null;
+      materialName?: string | null;
+      materialCollectionOnly?: boolean;
+      materialCollectionName?: string | null;
       thicknessMm?: number | null;
     };
 
@@ -66,8 +76,16 @@ export async function PATCH(
           return NextResponse.json({ error: 'Material not found' }, { status: 404 });
         }
 
+        const resolvedMaterialName = typeof materialName === 'string' && materialName.trim()
+          ? materialName.trim()
+          : material.name;
+
         updateData.material_id = material.id;
-        updateData.material_name = material.name;
+        updateData.material_name = resolvedMaterialName;
+        updateData.material_collection_only = Boolean(materialCollectionOnly);
+        updateData.material_collection_name = materialCollectionOnly
+          ? materialCollectionName ?? null
+          : null;
 
         // Update each piece individually to recalculate costs
         let updated = 0;
@@ -80,7 +98,11 @@ export async function PATCH(
             where: { id: piece.id },
             data: {
               material_id: material.id,
-              material_name: material.name,
+              material_name: resolvedMaterialName,
+              material_collection_only: Boolean(materialCollectionOnly),
+              material_collection_name: materialCollectionOnly
+                ? materialCollectionName ?? null
+                : null,
               // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
               // Kept to avoid null constraint violations. Do not read this value for display.
               material_cost: materialCost,
@@ -103,6 +125,8 @@ export async function PATCH(
         // Clear material
         updateData.material_id = null;
         updateData.material_name = null;
+        updateData.material_collection_only = false;
+        updateData.material_collection_name = null;
         // DEPRECATED: material_cost is unreliable — use quotes.calculation_breakdown
         // Kept to avoid null constraint violations. Do not read this value for display.
         updateData.material_cost = 0;
