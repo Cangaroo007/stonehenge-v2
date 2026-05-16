@@ -50,10 +50,52 @@ interface LearningRule {
   created_at: string;
 }
 
+interface QuoteLearningExample {
+  id: number;
+  quoteId: number | null;
+  drawingId: string | null;
+  analysisId: number | null;
+  sourceQuoteNumber: string | null;
+  sourceSystem: string | null;
+  expectedData: unknown;
+  extractedData: unknown;
+  comparisonData: unknown;
+  status: string;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+const REVIEW_STATUSES = [
+  'NEEDS_REVIEW',
+  'APPROVED',
+  'READY_FOR_TRAINING',
+  'REJECTED',
+];
+
+function formatJsonPreview(value: unknown) {
+  if (value == null) return '—';
+
+  const text =
+    typeof value === 'string' ? value : JSON.stringify(value, null, 0);
+  if (!text) return '—';
+  return text.length > 180 ? `${text.slice(0, 180)}...` : text;
+}
+
+function statusBadgeClass(status: string) {
+  if (status === 'READY_FOR_TRAINING') return 'bg-green-100 text-green-800';
+  if (status === 'APPROVED') return 'bg-blue-100 text-blue-800';
+  if (status === 'REJECTED') return 'bg-red-100 text-red-800';
+  return 'bg-yellow-100 text-yellow-800';
+}
+
 export default function LearningsPage() {
   const [stats, setStats] = useState<Stats | null>(null);
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [rules, setRules] = useState<LearningRule[]>([]);
+  const [quoteLearningExamples, setQuoteLearningExamples] = useState<
+    QuoteLearningExample[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [dismissedPatterns, setDismissedPatterns] = useState<Set<string>>(
     new Set()
@@ -61,10 +103,11 @@ export default function LearningsPage() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [statsRes, patternsRes, rulesRes] = await Promise.all([
+      const [statsRes, patternsRes, rulesRes, examplesRes] = await Promise.all([
         fetch('/api/drawing-corrections/stats'),
         fetch('/api/drawing-corrections/patterns'),
         fetch('/api/drawing-learning-rules'),
+        fetch('/api/ai-quote-learning-examples'),
       ]);
 
       if (statsRes.ok) {
@@ -77,6 +120,9 @@ export default function LearningsPage() {
       if (rulesRes.ok) {
         const data = await rulesRes.json();
         setRules(data.rules ?? []);
+      }
+      if (examplesRes.ok) {
+        setQuoteLearningExamples(await examplesRes.json());
       }
     } catch (error) {
       console.error('Failed to load learnings data:', error);
@@ -136,6 +182,24 @@ export default function LearningsPage() {
     }
   };
 
+  const handleUpdateLearningExample = async (id: number, status: string) => {
+    try {
+      const res = await fetch('/api/ai-quote-learning-examples', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status }),
+      });
+
+      if (!res.ok) throw new Error('Failed to update learning example');
+
+      toast.success('Learning example updated');
+      fetchAll();
+    } catch (error) {
+      console.error(error);
+      toast.error('Failed to update learning example');
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
@@ -185,6 +249,98 @@ export default function LearningsPage() {
             {stats?.activeRules ?? 0}
           </div>
         </div>
+      </div>
+
+      {/* Quote Learning Examples */}
+      <div className="card overflow-hidden mb-6">
+        <div className="px-6 py-4 border-b flex items-start justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold text-gray-900">
+              Quote Learning Examples
+            </h2>
+            <p className="text-sm text-gray-500 mt-1">
+              Reviewed expected-vs-extracted examples are fed back into the AI
+              drawing reader.
+            </p>
+          </div>
+          <div className="text-sm text-gray-500 shrink-0">
+            {quoteLearningExamples.length} examples
+          </div>
+        </div>
+        {quoteLearningExamples.length === 0 ? (
+          <div className="p-6 text-center text-gray-500">
+            No quote learning examples yet.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full divide-y divide-gray-200">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="table-header">Source</th>
+                  <th className="table-header">Status</th>
+                  <th className="table-header">Expected</th>
+                  <th className="table-header">Extracted</th>
+                  <th className="table-header">Notes</th>
+                  <th className="table-header text-right">Review</th>
+                </tr>
+              </thead>
+              <tbody className="bg-white divide-y divide-gray-200">
+                {quoteLearningExamples.map((example) => (
+                  <tr key={example.id} className="hover:bg-gray-50">
+                    <td className="table-cell">
+                      <div className="font-medium text-gray-900">
+                        {example.sourceQuoteNumber ?? `Example ${example.id}`}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        {example.sourceSystem ?? 'Unknown source'}
+                        {example.quoteId ? ` · Quote ${example.quoteId}` : ''}
+                      </div>
+                    </td>
+                    <td className="table-cell">
+                      <span
+                        className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusBadgeClass(
+                          example.status
+                        )}`}
+                      >
+                        {example.status.replaceAll('_', ' ')}
+                      </span>
+                    </td>
+                    <td className="table-cell max-w-xs">
+                      <div className="text-xs text-gray-700 line-clamp-3">
+                        {formatJsonPreview(example.expectedData)}
+                      </div>
+                    </td>
+                    <td className="table-cell max-w-xs">
+                      <div className="text-xs text-gray-700 line-clamp-3">
+                        {formatJsonPreview(example.extractedData)}
+                      </div>
+                    </td>
+                    <td className="table-cell max-w-xs text-sm text-gray-600">
+                      {example.notes ?? '—'}
+                    </td>
+                    <td className="table-cell text-right">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        {REVIEW_STATUSES.filter(
+                          (status) => status !== example.status
+                        ).map((status) => (
+                          <button
+                            key={status}
+                            onClick={() =>
+                              handleUpdateLearningExample(example.id, status)
+                            }
+                            className="text-xs font-medium text-primary-600 hover:text-primary-700"
+                          >
+                            {status.replaceAll('_', ' ')}
+                          </button>
+                        ))}
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
 
       {/* Corrections by Type */}
