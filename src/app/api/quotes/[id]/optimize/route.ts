@@ -498,7 +498,7 @@ export async function POST(
         pieces.find((p: { materialId: string | null }) => !!p.materialId)?.materialId ?? ''
       ) || null;
       const multiMaterialPieces: MultiMaterialPiece[] = pieces.filter((p: { id: string; materialId: string | null }) => !!(p.materialId) || wfsbParentMap.has(p.id)).map(
-        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; grainMatched?: boolean }) => {
+        (p: { id: string; width: number; height: number; label: string; thickness: number; finishedEdges: { top: boolean; bottom: boolean; left: boolean; right: boolean }; edgeTypeNames: { top?: string; bottom?: string; left?: string; right?: string }; shapeConfigEdges: Record<string, string | null>; noStripEdges?: string[]; laminationMethod?: string | null; edgeBuildups?: Record<string, { depth: number }> | null; materialId: string | null; shapeType?: string; shapeConfig?: unknown; groupId?: string; grainMatched?: boolean }) => {
           const parentId = wfsbParentMap.get(p.id);
           const parentMaterialId = parentId ? materialIdByPieceId.get(parentId) ?? null : null;
           return {
@@ -516,6 +516,7 @@ export async function POST(
             materialId: p.materialId ?? parentMaterialId ?? primaryMatIdForMulti,
             shapeType: p.shapeType,
             shapeConfig: p.shapeConfig,
+            groupId: p.groupId,
             grainMatched: p.grainMatched,
           };
         }

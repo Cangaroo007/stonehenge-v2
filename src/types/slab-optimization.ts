@@ -108,6 +108,8 @@ export interface OptimizationInput {
     // Shape decomposition data (optional — L/U shapes decomposed into component rects)
     shapeType?: string;
     shapeConfig?: unknown;
+    // Pieces/shape parts with the same groupId should be kept on the same slab where possible.
+    groupId?: string;
     grainMatched?: boolean;
     // Extra edges from shape_config.edges (INNER, R-BTM, etc.) — used for L/U lamination strips
     shapeConfigEdges?: Record<string, string | null>;
