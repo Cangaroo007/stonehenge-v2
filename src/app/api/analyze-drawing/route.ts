@@ -64,7 +64,26 @@ interface LearningRule {
   correction_count: number;
 }
 
-function buildSystemPrompt(catalogue: DrawingCatalogue, learningRules: LearningRule[] = []): string {
+interface LearningExample {
+  source_quote_number: string | null;
+  source_system: string | null;
+  expected_data: unknown;
+  extracted_data: unknown;
+  comparison_data: unknown;
+  notes: string | null;
+}
+
+function compactJson(value: unknown, maxLength = 1200): string {
+  if (value == null) return 'null';
+  const json = JSON.stringify(value);
+  return json.length > maxLength ? `${json.slice(0, maxLength)}...` : json;
+}
+
+function buildSystemPrompt(
+  catalogue: DrawingCatalogue,
+  learningRules: LearningRule[] = [],
+  learningExamples: LearningExample[] = []
+): string {
   const materialList = catalogue.materials
     .map(m => `- ${m.name}${m.collection ? ` (${m.collection})` : ''}`)
     .join('\n');
@@ -213,7 +232,18 @@ ${learningRules.map(r =>
   (r.drawing_type ? ` (for ${r.drawing_type} drawings)` : '') +
   (r.condition ? ` when ${r.condition}` : '') +
   ` [based on ${r.correction_count} corrections]`
-).join('\n')}` : '');
+).join('\n')}` : '') + (learningExamples.length > 0 ? `
+
+## REVIEWED TAKEOFF EXAMPLES (use these as calibration, not as copied project data)
+
+${learningExamples.map((example, index) => {
+  const label = example.source_quote_number ?? `example-${index + 1}`;
+  return `### ${label}${example.source_system ? ` (${example.source_system})` : ''}
+Expected quote-ready takeoff:
+${compactJson(example.expected_data)}
+AI extraction/comparison notes:
+${compactJson(example.comparison_data ?? example.extracted_data ?? example.notes)}`;
+}).join('\n\n')}` : '');
 }
 
 export async function POST(request: NextRequest) {
@@ -335,19 +365,38 @@ export async function POST(request: NextRequest) {
       cutoutTypes: rawCutoutTypes,
     };
 
-    // Load active learning rules for this company
-    const learningRules = await prisma.drawing_learning_rules.findMany({
-      where: { company_id: companyId, is_active: true },
-      orderBy: { correction_count: 'desc' },
-      take: 20,
-      select: {
-        field_name: true,
-        correct_value: true,
-        drawing_type: true,
-        condition: true,
-        correction_count: true,
-      },
-    });
+    // Load active learning rules and reviewed examples for this company.
+    // Rules are compact defaults; examples calibrate quote-ready piece modelling.
+    const [learningRules, learningExamples] = await Promise.all([
+      prisma.drawing_learning_rules.findMany({
+        where: { company_id: companyId, is_active: true },
+        orderBy: { correction_count: 'desc' },
+        take: 20,
+        select: {
+          field_name: true,
+          correct_value: true,
+          drawing_type: true,
+          condition: true,
+          correction_count: true,
+        },
+      }),
+      prisma.ai_quote_learning_examples.findMany({
+        where: {
+          company_id: companyId,
+          status: { in: ['APPROVED', 'READY_FOR_TRAINING'] },
+        },
+        orderBy: { updated_at: 'desc' },
+        take: 3,
+        select: {
+          source_quote_number: true,
+          source_system: true,
+          expected_data: true,
+          extracted_data: true,
+          comparison_data: true,
+          notes: true,
+        },
+      }),
+    ]);
 
     // Call Claude API
     const anthropic = getAnthropicClient();
@@ -355,7 +404,7 @@ export async function POST(request: NextRequest) {
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 4096,
-      system: buildSystemPrompt(catalogue, learningRules),
+      system: buildSystemPrompt(catalogue, learningRules, learningExamples),
       messages: [
         {
           role: 'user',
