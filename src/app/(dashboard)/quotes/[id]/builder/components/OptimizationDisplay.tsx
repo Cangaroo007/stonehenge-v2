@@ -585,6 +585,7 @@ export function OptimizationDisplay({
               : multiMaterialResult}
             isOptimising={isOptimising}
             pieceCutouts={pieceCutouts}
+            edgeAllowanceMm={resolvedAllowance}
           />
         ) : (
           <SlabResults

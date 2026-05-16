@@ -1,10 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { optimizeSlabs } from '@/lib/services/slab-optimizer';
-import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
 import type { MaterialInfo } from '@/lib/services/multi-material-optimizer';
-import { OptimizationResult, OptimizationInput, MultiMaterialOptimisationResult } from '@/types/slab-optimization';
+import type { OptimizationResult, MultiMaterialOptimisationResult } from '@/types/slab-optimization';
 import { SlabResults } from '@/components/slab-optimizer';
 import { MultiMaterialOptimisationDisplay } from '@/components/quotes/MaterialGroupOptimisation';
 import { generateCutListCSV, downloadCSV } from '@/lib/services/cut-list-generator';
@@ -52,9 +50,10 @@ interface QuotePiece {
 
 export default function OptimizePage() {
   // Slab settings
-  const [slabWidth, setSlabWidth] = useState('3000');
-  const [slabHeight, setSlabHeight] = useState('1400');
+  const [slabWidth, setSlabWidth] = useState('3200');
+  const [slabHeight, setSlabHeight] = useState('1600');
   const [kerfWidth, setKerfWidth] = useState('3');
+  const [edgeAllowanceMm, setEdgeAllowanceMm] = useState('20');
   const [allowRotation, setAllowRotation] = useState(true);
 
   // Pieces
@@ -72,7 +71,7 @@ export default function OptimizePage() {
   // Results
   const [result, setResult] = useState<OptimizationResult | null>(null);
   const [multiMaterialResult, setMultiMaterialResult] = useState<MultiMaterialOptimisationResult | null>(null);
-  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [isOptimising, setIsOptimising] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Quote selection
@@ -226,10 +225,10 @@ export default function OptimizePage() {
     ));
   };
 
-  // Run optimization
+  // Run optimisation
   const runOptimization = async () => {
     setError(null);
-    setIsOptimizing(true);
+    setIsOptimising(true);
     setMultiMaterialResult(null);
 
     try {
@@ -237,10 +236,12 @@ export default function OptimizePage() {
       const slabW = parseInt(slabWidth);
       const slabH = parseInt(slabHeight);
       const kerf = parseInt(kerfWidth);
+      const edgeAllowance = parseInt(edgeAllowanceMm);
 
       if (isNaN(slabW) || slabW <= 0) throw new Error('Invalid slab width');
       if (isNaN(slabH) || slabH <= 0) throw new Error('Invalid slab height');
       if (isNaN(kerf) || kerf < 0) throw new Error('Invalid kerf width');
+      if (isNaN(edgeAllowance) || edgeAllowance < 0) throw new Error('Invalid edge allowance');
 
       const validPieces = pieces
         .filter(p => p.width && p.height)
@@ -259,53 +260,31 @@ export default function OptimizePage() {
         throw new Error('Add at least one valid piece');
       }
 
-      // Check if pieces have multiple different materials
-      const uniqueMaterialIds = Array.from(new Set(
-        validPieces.map(p => p.materialId).filter(Boolean)
-      ));
-      const hasMultipleMaterials = uniqueMaterialIds.length > 1;
-
-      if (hasMultipleMaterials && quoteMaterials.length > 0) {
-        // Multi-material optimisation
-        const multiResult = await optimizeMultiMaterial({
-          pieces: validPieces,
-          materials: quoteMaterials,
-          kerfWidth: kerf,
-          allowRotation,
-        });
-        setMultiMaterialResult(multiResult);
-
-        // Also set single result for CSV export (combined placements)
-        const allPlacements = multiResult.materialGroups.flatMap(g => g.optimizationResult.placements);
-        const allSlabs = multiResult.materialGroups.flatMap(g => g.slabLayouts);
-        const totalUsedArea = allPlacements.reduce((sum, p) => sum + (p.width * p.height), 0);
-        setResult({
-          placements: allPlacements,
-          slabs: allSlabs,
-          totalSlabs: multiResult.totalSlabCount,
-          totalUsedArea,
-          totalWasteArea: 0,
-          wastePercent: multiResult.overallWastePercentage,
-          unplacedPieces: [],
-          warnings: multiResult.warnings,
-        });
-      } else {
-        // Single-material optimisation (original path)
-        const input: OptimizationInput = {
+      const response = await fetch('/api/optimize', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           pieces: validPieces,
           slabWidth: slabW,
           slabHeight: slabH,
           kerfWidth: kerf,
+          edgeAllowanceMm: edgeAllowance,
           allowRotation,
-        };
+          materials: quoteMaterials,
+        }),
+      });
 
-        const optimizationResult = await optimizeSlabs(input);
-        setResult(optimizationResult);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Optimisation failed');
       }
+
+      setResult(data.result);
+      setMultiMaterialResult(data.multiMaterialResult ?? null);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Optimization failed');
+      setError(err instanceof Error ? err.message : 'Optimisation failed');
     } finally {
-      setIsOptimizing(false);
+      setIsOptimising(false);
     }
   };
 
@@ -316,7 +295,7 @@ export default function OptimizePage() {
     setError(null);
   };
 
-  // Save optimization to quote
+  // Save optimisation to quote
   const saveToQuote = async () => {
     if (!selectedQuoteId || !result) return;
 
@@ -326,19 +305,20 @@ export default function OptimizePage() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          slabWidth: parseInt(slabWidth) || 3000,
-          slabHeight: parseInt(slabHeight) || 1400,
+          slabWidth: parseInt(slabWidth) || 3200,
+          slabHeight: parseInt(slabHeight) || 1600,
           kerfWidth: parseInt(kerfWidth) || 3,
+          edgeAllowanceMm: parseInt(edgeAllowanceMm) || 0,
           allowRotation,
         }),
       });
 
       if (!response.ok) {
         const data = await response.json();
-        throw new Error(data.error || 'Failed to save optimization');
+        throw new Error(data.error || 'Failed to save optimisation');
       }
 
-      alert('Optimization saved to quote successfully!');
+      alert('Optimisation saved to quote successfully!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save to quote');
     }
@@ -348,7 +328,7 @@ export default function OptimizePage() {
   const handleExportCSV = () => {
     if (!result) return;
 
-    const csv = generateCutListCSV(result, parseInt(slabWidth) || 3000, parseInt(slabHeight) || 1400);
+    const csv = generateCutListCSV(result, parseInt(slabWidth) || 3200, parseInt(slabHeight) || 1600);
     const selectedQuote = quotes.find(q => String(q.id) === selectedQuoteId);
     const quoteLabel = selectedQuote ? selectedQuote.quote_number : 'standalone';
     const filename = `cut-list-${quoteLabel}-${new Date().toISOString().split('T')[0]}.csv`;
@@ -411,7 +391,7 @@ export default function OptimizePage() {
           <div className="bg-white rounded-lg shadow p-4">
             <h2 className="font-semibold text-gray-900 mb-4">Slab Settings</h2>
 
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-4 gap-4">
               <div>
                 <label className="block text-sm text-gray-600 mb-1">
                   Width (mm)
@@ -442,6 +422,17 @@ export default function OptimizePage() {
                   type="number"
                   value={kerfWidth}
                   onChange={(e) => setKerfWidth(e.target.value)}
+                  className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                />
+              </div>
+              <div>
+                <label className="block text-sm text-gray-600 mb-1">
+                  Edge allowance
+                </label>
+                <input
+                  type="number"
+                  value={edgeAllowanceMm}
+                  onChange={(e) => setEdgeAllowanceMm(e.target.value)}
                   className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 />
               </div>
@@ -599,12 +590,12 @@ export default function OptimizePage() {
             <div className="mt-4 flex gap-3">
               <button
                 onClick={runOptimization}
-                disabled={isOptimizing || pieces.length === 0}
+                disabled={isOptimising || pieces.length === 0}
                 className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg
                          hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed
                          font-medium transition-colors"
               >
-                {isOptimizing ? 'Optimizing...' : 'Run Optimization'}
+                {isOptimising ? 'Optimising...' : 'Run Optimisation'}
               </button>
               {result && (
                 <button
@@ -634,12 +625,14 @@ export default function OptimizePage() {
               {multiMaterialResult && multiMaterialResult.materialGroups.length > 1 ? (
                 <MultiMaterialOptimisationDisplay
                   multiMaterialResult={multiMaterialResult}
+                  edgeAllowanceMm={parseInt(edgeAllowanceMm) || 0}
                 />
               ) : (
                 <SlabResults
                   result={result}
-                  slabWidth={parseInt(slabWidth) || 3000}
-                  slabHeight={parseInt(slabHeight) || 1400}
+                  slabWidth={parseInt(slabWidth) || 3200}
+                  slabHeight={parseInt(slabHeight) || 1600}
+                  edgeAllowanceMm={parseInt(edgeAllowanceMm) || 0}
                 />
               )}
 
@@ -697,7 +690,7 @@ export default function OptimizePage() {
                   d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z"
                 />
               </svg>
-              <p>Add pieces and run optimization to see results</p>
+              <p>Add pieces and run optimisation to see results</p>
             </div>
           )}
         </div>

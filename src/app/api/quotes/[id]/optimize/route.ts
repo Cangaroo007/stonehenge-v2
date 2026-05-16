@@ -249,8 +249,12 @@ export async function POST(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Resolve slab edge allowance: quote override → tenant default → 0
-    let edgeAllowanceMm = (quote as unknown as { slabEdgeAllowanceMm: number | null }).slabEdgeAllowanceMm;
+    const requestedEdgeAllowanceMm = Number(body.edgeAllowanceMm);
+
+    // Resolve slab edge allowance: explicit request → quote override → tenant default → 0
+    let edgeAllowanceMm = Number.isFinite(requestedEdgeAllowanceMm) && requestedEdgeAllowanceMm >= 0
+      ? requestedEdgeAllowanceMm
+      : (quote as unknown as { slabEdgeAllowanceMm: number | null }).slabEdgeAllowanceMm;
     if (edgeAllowanceMm === null || edgeAllowanceMm === undefined) {
       try {
         const pricingSettings = await prisma.pricing_settings.findFirst({

@@ -19,9 +19,15 @@ interface MaterialGroupSectionProps {
   group: MaterialGroupResult;
   defaultExpanded?: boolean;
   pieceCutouts?: Record<string, SlabCutoutInfo[]>;
+  edgeAllowanceMm?: number;
 }
 
-function MaterialGroupSection({ group, defaultExpanded = false, pieceCutouts }: MaterialGroupSectionProps) {
+function MaterialGroupSection({
+  group,
+  defaultExpanded = false,
+  pieceCutouts,
+  edgeAllowanceMm = 0,
+}: MaterialGroupSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   return (
@@ -120,6 +126,7 @@ function MaterialGroupSection({ group, defaultExpanded = false, pieceCutouts }: 
                 allPlacements={group.slabLayouts.flatMap(s => s.placements)}
                 showLabels={true}
                 showDimensions={true}
+                edgeAllowanceMm={edgeAllowanceMm}
                 pieceCutouts={pieceCutouts}
               />
 
@@ -211,12 +218,14 @@ interface MultiMaterialOptimisationDisplayProps {
   multiMaterialResult: MultiMaterialOptimisationResult;
   isOptimising?: boolean;
   pieceCutouts?: Record<string, SlabCutoutInfo[]>;
+  edgeAllowanceMm?: number;
 }
 
 export function MultiMaterialOptimisationDisplay({
   multiMaterialResult,
   isOptimising = false,
   pieceCutouts,
+  edgeAllowanceMm = 0,
 }: MultiMaterialOptimisationDisplayProps) {
   return (
     <div className={`space-y-4 ${isOptimising ? 'opacity-60' : ''}`}>
@@ -232,6 +241,7 @@ export function MultiMaterialOptimisationDisplay({
           group={group}
           defaultExpanded={index === 0}
           pieceCutouts={pieceCutouts}
+          edgeAllowanceMm={edgeAllowanceMm}
         />
       ))}
 
