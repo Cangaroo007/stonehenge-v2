@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { edgeDisplayName } from '@/lib/utils/edge-utils';
 
 interface Material {
   id: number;
@@ -108,7 +109,7 @@ export default function PieceOverrideEditor({
 
   const edgeOptions = [
     { value: '', label: 'Use base value' },
-    ...edgeTypes.map(e => ({ value: e.id, label: e.name })),
+    ...edgeTypes.map(e => ({ value: e.id, label: edgeDisplayName(e.name) })),
   ];
 
   return (

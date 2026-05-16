@@ -2,6 +2,7 @@
 
 import { useState, useMemo } from 'react';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { edgeDisplayName } from '@/lib/utils/edge-utils';
 
 // ── Props ────────────────────────────────────────────────────────────────────
 
@@ -268,7 +269,7 @@ export default function EdgePanel({
                     : 'bg-white text-gray-600 border-gray-300 hover:border-primary-400'
                 }`}
               >
-                {et.name}
+                {edgeDisplayName(et.name)}
               </button>
             ))}
           </div>

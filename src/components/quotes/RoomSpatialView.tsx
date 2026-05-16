@@ -6,7 +6,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import { JOIN_POSITIONS, RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
-import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
+import { edgeColour, edgeCode, edgeDisplayName } from '@/lib/utils/edge-utils';
 import RoomPieceSVG from './RoomPieceSVG';
 import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
@@ -761,7 +761,7 @@ export default function RoomSpatialView({
                   : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
               }`}
             >
-              {ep.name}
+              {edgeDisplayName(ep.name)}
             </button>
           ))}
           <span className="text-[10px] text-blue-500 italic ml-auto">Click any edge to apply</span>

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { createPortal } from 'react-dom';
+import { edgeDisplayName } from '@/lib/utils/edge-utils';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -199,7 +200,7 @@ export default function PieceContextMenu({
           {edgeProfiles.map(profile => (
             <MenuItem
               key={profile.id}
-              label={profile.name}
+              label={edgeDisplayName(profile.name)}
               onClick={() => { onQuickEdgeAll?.(pieceId, profile.id); onClose(); }}
             />
           ))}

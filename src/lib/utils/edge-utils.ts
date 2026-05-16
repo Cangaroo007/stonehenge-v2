@@ -62,6 +62,19 @@ export function edgeCode(name: string | null | undefined): string {
   return name.substring(0, 3).toUpperCase();
 }
 
+// ── edgeDisplayName ─────────────────────────────────────────────────────────
+
+/**
+ * User-facing edge label for quote editing surfaces.
+ * Mitred entries are construction/join choices, not decorative edge finishes.
+ */
+export function edgeDisplayName(name: string | null | undefined): string {
+  if (!name) return 'Raw / Unfinished';
+  const lower = name.toLowerCase();
+  if (lower.includes('mitr')) return 'Mitred join';
+  return name;
+}
+
 // ── cutoutLabel ──────────────────────────────────────────────────────────────
 
 /** Returns short display name for a cutout type. Pure, stateless. */

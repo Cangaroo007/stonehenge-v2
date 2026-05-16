@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react';
-import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
+import { edgeColour, edgeCode, edgeDisplayName, cutoutLabel } from '@/lib/utils/edge-utils';
 import EdgeProfilePopover from './EdgeProfilePopover';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type {
@@ -230,8 +230,8 @@ export const EDGE_PROFILE_NAMES: Record<string, string> = {
   'FE': 'Full Eased',
   'OG': 'Ogee',
   'BV': 'Bevel',
-  'M': 'Mitre',
-  'MIT': 'Mitre',
+  'M': 'Mitred join',
+  'MIT': 'Mitred join',
   'CML': 'Chamfer',
   'P': 'Polished',
   'WAT': 'Waterfall',
@@ -1579,7 +1579,7 @@ export default function PieceVisualEditor({
               <option value="">Raw (no finish)</option>
               {edgeTypes.map((et, idx) => (
                 <option key={et.id} value={et.id}>
-                  {idx + 1}. {et.name}
+                  {idx + 1}. {edgeDisplayName(et.name)}
                 </option>
               ))}
             </select>
@@ -1712,10 +1712,11 @@ export default function PieceVisualEditor({
             const et = edgeTypes.find((e) => e.id === profileId);
             if (!et) return null;
             const isActive = quickEdgeProfile === profileId;
+            const displayName = edgeDisplayName(et.name);
             // Abbreviate long names: "Pencil Round" → "P.Round"
-            const abbrev = et.name.length > 10
-              ? et.name.split(/\s+/).map((w) => w.length > 3 ? w[0] + '.' : w).join('')
-              : et.name;
+            const abbrev = displayName.length > 10
+              ? displayName.split(/\s+/).map((w) => w.length > 3 ? w[0] + '.' : w).join('')
+              : displayName;
             return (
               <button
                 key={profileId}
@@ -1725,7 +1726,7 @@ export default function PieceVisualEditor({
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50 hover:border-gray-300'
                 }`}
-                title={et.name}
+                title={displayName}
               >
                 {abbrev}
               </button>
@@ -2466,7 +2467,7 @@ export default function PieceVisualEditor({
             <option value="">Choose profile...</option>
             <option value="__raw__">Raw (no finish)</option>
             {edgeTypes.map((et) => (
-              <option key={et.id} value={et.id}>{et.name}</option>
+              <option key={et.id} value={et.id}>{edgeDisplayName(et.name)}</option>
             ))}
           </select>
         </div>

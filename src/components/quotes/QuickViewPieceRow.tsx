@@ -16,7 +16,7 @@
 
 import { useState, useCallback, useMemo, useRef } from 'react';
 import { formatCurrency } from '@/lib/utils';
-import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
+import { edgeColour, edgeCode, edgeDisplayName, cutoutLabel } from '@/lib/utils/edge-utils';
 import PieceVisualEditor from './PieceVisualEditor';
 import type { EdgeSide, EdgePreset } from './PieceVisualEditor';
 import { EDGE_PRESETS, PresetThumbnail } from './PieceVisualEditor';
@@ -2162,7 +2162,7 @@ export default function QuickViewPieceRow({
                           : 'border-gray-200 text-gray-500 hover:border-gray-400'
                       }`}
                     >
-                      {et.name}
+                      {edgeDisplayName(et.name)}
                     </button>
                   ))
                 }
@@ -2577,7 +2577,7 @@ export default function QuickViewPieceRow({
 
                 return Object.values(grouped).map((group, idx) => (
                   <div key={`edge-profile-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
-                    <span>Edge Profile: {group.name}</span>
+                    <span>Edge Profile: {edgeDisplayName(group.name)}</span>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-gray-400">
                         {group.lm.toFixed(2)} Lm &times; {formatCurrency(group.rate)} per Lm

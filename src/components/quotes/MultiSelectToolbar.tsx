@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { edgeDisplayName } from '@/lib/utils/edge-utils';
 
 interface RoomOption {
   id: number;
@@ -165,7 +166,7 @@ export default function MultiSelectToolbar({
                     onClick={() => handleEdgeSelect(ep.id)}
                     className="w-full text-left px-2 py-1 text-xs text-gray-700 hover:bg-blue-50 rounded"
                   >
-                    {ep.name}
+                    {edgeDisplayName(ep.name)}
                   </button>
                 ))}
               </div>

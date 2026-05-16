@@ -8,7 +8,7 @@
  */
 
 import { useState, useCallback, useRef, useMemo } from 'react';
-import { edgeColour, edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
+import { edgeColour, edgeCode, edgeDisplayName, cutoutLabel } from '@/lib/utils/edge-utils';
 import type { EdgeScope } from './EdgeProfilePopover';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -247,6 +247,7 @@ export default function MiniPieceEditor({
             Raw
           </button>
           {edgeTypes.map((et) => {
+            const displayName = edgeDisplayName(et.name);
             return (
               <button
                 key={et.id}
@@ -256,9 +257,9 @@ export default function MiniPieceEditor({
                     ? 'bg-blue-600 text-white border-blue-600'
                     : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
                 }`}
-                title={et.name}
+                title={displayName}
               >
-                {et.name}
+                {displayName}
               </button>
             );
           })}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import { edgeDisplayName } from '@/lib/utils/edge-utils';
 
 // ── Edge Scope Type ─────────────────────────────────────────────────────────
 
@@ -132,11 +133,12 @@ export default function EdgeProfilePopover({
           </button>
 
           {profiles.map((profile) => {
+            const displayName = edgeDisplayName(profile.name);
             return (
               <button
                 key={profile.id}
                 onClick={() => {
-                  handleProfileClick(profile.id, profile.name);
+                  handleProfileClick(profile.id, displayName);
                 }}
                 className={`w-full text-left px-3 py-1.5 text-xs transition-colors flex items-center gap-2 ${
                   currentProfileId === profile.id
@@ -149,7 +151,7 @@ export default function EdgeProfilePopover({
                     getProfileColour(profile.name)
                   }`}
                 />
-                {profile.name}
+                {displayName}
               </button>
             );
           })}
