@@ -306,18 +306,17 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
   try {
     const pricingResult = await calculateQuotePrice(String(result.quoteId));
     totalExGst = pricingResult.subtotal;
-    // GST rate is typically 10%
-    totalIncGst = Math.round(totalExGst * 1.1 * 100) / 100;
+    totalIncGst = pricingResult.total;
 
     // Update quote with calculated totals
     await prisma.quotes.update({
       where: { id: result.quoteId },
       data: {
         subtotal: totalExGst,
-        tax_amount: Math.round(totalExGst * 0.1 * 100) / 100,
+        tax_amount: pricingResult.gstAmount,
         total: totalIncGst,
         calculated_at: new Date(),
-        calculation_breakdown: pricingResult.breakdown as unknown as Prisma.InputJsonValue,
+        calculation_breakdown: pricingResult as unknown as Prisma.InputJsonValue,
         updated_at: new Date(),
       },
     });
