@@ -769,6 +769,20 @@ export default function QuickViewPieceRow({
     return Object.keys(map).length > 0 ? map : undefined;
   }, [relationships, piece.id]);
 
+  const getSuppressedEdgeDisplay = useCallback((side: string) => {
+    const attachedType = attachedPieceTypes?.[side];
+    if (attachedType === 'WATERFALL') {
+      return { code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
+    }
+    if (attachedType === 'SPLASHBACK') {
+      return { code: 'SB', colour: '#059669', label: 'Splashback join' };
+    }
+    if ((piece.noStripEdges ?? []).includes(side)) {
+      return { code: 'WALL', colour: '#78716c', label: 'Against wall' };
+    }
+    return null;
+  }, [attachedPieceTypes, piece.noStripEdges]);
+
   const resolvedEdgeTypes = useMemo(() => {
     if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
       return editData.edgeTypes.filter(et => et.isActive !== false);
@@ -2073,14 +2087,18 @@ export default function QuickViewPieceRow({
                   const def = miniEdgeDefs[side];
                   const edgeId = resolvedEdges[edgeKeyMap[side]];
                   const name = resolveEdgeName(edgeId);
-                  const isFinished = !!edgeId;
-                  const colour = edgeColour(name);
-                  const code = edgeCode(name);
+                  const suppressed = getSuppressedEdgeDisplay(side);
+                  const isFinished = !suppressed && !!edgeId;
+                  const colour = suppressed?.colour ?? edgeColour(name);
+                  const code = suppressed?.code ?? edgeCode(name);
                   const isHovered = hoveredEdge === side && isEditMode;
                   const isFlashing = flashEdge === side;
 
                   return (
                     <g key={side}>
+                      {suppressed && (
+                        <title>{suppressed.label}</title>
+                      )}
                       {isHovered && (
                         <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
                           stroke="#3b82f6" strokeWidth={8} strokeOpacity={0.15} strokeLinecap="round" />
@@ -2088,7 +2106,7 @@ export default function QuickViewPieceRow({
                       <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
                         stroke={isFlashing ? '#22c55e' : colour}
                         strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
-                        strokeDasharray={isFinished ? undefined : '2 1.5'}
+                        strokeDasharray={suppressed ? '4 2' : (isFinished ? undefined : '2 1.5')}
                         className={isFlashing ? 'qv-edge-flash' : undefined}
                       />
                       {isEditMode && (
@@ -2101,10 +2119,10 @@ export default function QuickViewPieceRow({
                         />
                       )}
                       <text x={def.lx} y={def.ly} textAnchor={def.anchor} dominantBaseline="middle"
-                        className={`select-none ${isFinished ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
+                        className={`select-none ${isFinished || suppressed ? 'text-[7px] font-semibold' : 'text-[6px]'}`}
                         fill={colour}
                       >
-                        {code}{piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
+                        {code}{!suppressed && piece.edgeBuildups && (piece.edgeBuildups as Record<string, { depth: number }>)[side]
                           ? ` ${(piece.edgeBuildups as Record<string, { depth: number }>)[side].depth}mm`
                           : ''}
                       </text>

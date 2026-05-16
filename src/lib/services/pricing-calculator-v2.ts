@@ -1749,8 +1749,11 @@ export async function calculateQuotePrice(
 
     const edgeBreakdowns: PiecePricingBreakdown['fabrication']['edges'] = ep.edgeProfiles.items.map(item => {
       const dbEdgeType = edgeTypeReverseMap.get(item.edgeTypeId);
+      const side = item.position && ['TOP', 'BOTTOM', 'LEFT', 'RIGHT'].includes(item.position)
+        ? item.position.toLowerCase() as 'top' | 'bottom' | 'left' | 'right'
+        : 'top';
       return {
-        side: 'top' as const,
+        side,
         edgeTypeId: dbEdgeType?.id ?? String(item.edgeTypeId),
         edgeTypeName: dbEdgeType?.name ?? `Edge ${item.edgeTypeId}`,
         lengthMm: roundToTwo(item.lm * 1000),
