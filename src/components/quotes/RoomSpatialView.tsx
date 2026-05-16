@@ -166,10 +166,30 @@ function inferPieceType(piece: QuotePiece): string | null {
   return null;
 }
 
+function getCutoutItems(piece: QuotePiece): Array<{ name: string; quantity: number }> {
+  if (piece.piece_features && piece.piece_features.length > 0) {
+    return piece.piece_features.map(f => ({
+      name: f.name,
+      quantity: f.quantity,
+    }));
+  }
+
+  if (!Array.isArray(piece.cutouts)) return [];
+
+  return (piece.cutouts as Record<string, unknown>[])
+    .map(cutout => {
+      const name = String(cutout.name ?? cutout.type ?? cutout.typeName ?? cutout.cutoutTypeName ?? '').trim();
+      const quantity = Number(cutout.quantity ?? cutout.count ?? 1);
+      return {
+        name: name || 'Cutout',
+        quantity: Number.isFinite(quantity) && quantity > 0 ? quantity : 1,
+      };
+    })
+    .filter(cutout => cutout.name);
+}
+
 function countCutouts(piece: QuotePiece): number {
-  if (!piece.piece_features) return 0;
-  // Count features that look like cutouts
-  return piece.piece_features.reduce((sum, f) => sum + f.quantity, 0);
+  return getCutoutItems(piece).reduce((sum, cutout) => sum + cutout.quantity, 0);
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -819,9 +839,9 @@ export default function RoomSpatialView({
                   { position: 'left', profile: piece.edge_left ?? '' },
                   { position: 'right', profile: piece.edge_right ?? '' },
                 ],
-                cutouts: piece.piece_features?.map(f => ({
-                  type: f.name,
-                  quantity: f.quantity,
+                cutouts: getCutoutItems(piece).map(cutout => ({
+                  type: cutout.name,
+                  quantity: cutout.quantity,
                 })),
                 laminationMethod: piece.lamination_method,
                 mitredCornerTreatment: piece.mitred_corner_treatment,
@@ -1112,35 +1132,35 @@ export default function RoomSpatialView({
                       ? cutoutTypes.filter(ct => !ct.configuredCategories || ct.configuredCategories.length === 0 || ct.configuredCategories.includes(pieceFab))
                       : cutoutTypes;
                     return (cutoutCount > 0 || (onPieceCutoutAdd && filteredCutoutTypes.length > 0)) ? (
-                    <div className="flex items-center gap-2">
-                      <span className="text-gray-400 w-4 text-center">&#x1F52A;</span>
-                      <span className="text-gray-600">
-                        {cutoutCount > 0
-                          ? `${cutoutCount} cutout${cutoutCount !== 1 ? 's' : ''}: ${
-                              piece.piece_features?.map(f => `${f.quantity}× ${f.name}`).join(', ') ?? ''
-                            }`
-                          : 'No cutouts'}
-                      </span>
-                      {onPieceCutoutAdd && filteredCutoutTypes.length > 0 && (
-                        <select
-                          value=""
-                          onChange={e => {
-                            if (e.target.value) onPieceCutoutAdd(pieceIdStr, e.target.value);
-                          }}
-                          onClick={e => e.stopPropagation()}
-                          className="px-1 py-0.5 text-[10px] border border-gray-200 rounded bg-white text-blue-600 hover:border-gray-300 cursor-pointer"
-                        >
-                          <option value="">+ Add</option>
-                          {filteredCutoutTypes.map(ct => (
-                            <option key={ct.id} value={ct.id}>{ct.name}</option>
-                          ))}
-                        </select>
-                      )}
-                      {!pieceFab && (
-                        <span className="text-[9px] text-amber-500" title="No fabrication category set — showing all cutout types">⚠️</span>
-                      )}
-                    </div>
-                  ) : null;
+                      <div className="flex items-center gap-2">
+                        <span className="text-gray-400 w-4 text-center">&#x1F52A;</span>
+                        <span className="text-gray-600">
+                          {cutoutCount > 0
+                            ? `${cutoutCount} cutout${cutoutCount !== 1 ? 's' : ''}: ${
+                                getCutoutItems(piece).map(cutout => `${cutout.quantity}× ${cutout.name}`).join(', ')
+                              }`
+                            : 'No cutouts'}
+                        </span>
+                        {onPieceCutoutAdd && filteredCutoutTypes.length > 0 && (
+                          <select
+                            value=""
+                            onChange={e => {
+                              if (e.target.value) onPieceCutoutAdd(pieceIdStr, e.target.value);
+                            }}
+                            onClick={e => e.stopPropagation()}
+                            className="px-1 py-0.5 text-[10px] border border-gray-200 rounded bg-white text-blue-600 hover:border-gray-300 cursor-pointer"
+                          >
+                            <option value="">+ Add</option>
+                            {filteredCutoutTypes.map(ct => (
+                              <option key={ct.id} value={ct.id}>{ct.name}</option>
+                            ))}
+                          </select>
+                        )}
+                        {!pieceFab && (
+                          <span className="text-[9px] text-amber-500" title="No fabrication category set — showing all cutout types">⚠️</span>
+                        )}
+                      </div>
+                    ) : null;
                   })()}
 
                   {/* Relationships */}

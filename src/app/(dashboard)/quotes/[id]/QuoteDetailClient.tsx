@@ -779,11 +779,12 @@ export default function QuoteDetailClient({
   });
 
   const handleRelationshipsChanged = useCallback(async () => {
+    await fetchQuote();
     await fetchRelationships();
     triggerOptimise();
     triggerRecalculate();
     markAsChanged();
-  }, [fetchRelationships, triggerOptimise, triggerRecalculate, markAsChanged]);
+  }, [fetchQuote, fetchRelationships, triggerOptimise, triggerRecalculate, markAsChanged]);
 
   // Trigger pricing recalculation when slab optimisation completes.
   // The optimiser runs asynchronously after piece changes, so by the time
