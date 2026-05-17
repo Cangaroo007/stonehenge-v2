@@ -1297,6 +1297,12 @@ export async function calculateQuotePrice(
     const pieceShapeTypeForEdges = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
     const isLOrUShapeForEdges = pieceShapeTypeForEdges === 'L_SHAPE' || pieceShapeTypeForEdges === 'U_SHAPE';
 
+    // Edges marked as against-wall or structural joins should not receive
+    // return strips or visible edge finish charges.
+    const storedNoStrip = (piece.no_strip_edges as unknown as string[]) ?? [];
+    const promotedEdges = promotedEdgesByParent.get(piece.id) ?? [];
+    const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges]));
+
     let edges: EnginePiece['edges'];
 
     if (isLOrUShapeForEdges && piece.shape_config) {
@@ -1336,17 +1342,14 @@ export async function calculateQuotePrice(
       ];
     }
 
-    // Get no_strip_edges for this piece (wall edges + promoted edges that don't need lamination strips)
-    const storedNoStrip = (piece.no_strip_edges as unknown as string[]) ?? [];
-    const promotedEdges = promotedEdgesByParent.get(piece.id) ?? [];
-    // Merge and deduplicate: wall edges + promoted edges
-    const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges]));
-
     // Optional richer build-up semantics. Existing edge_buildups data remains
     // compatible; these flags only apply when explicitly present.
     const chargeableEdgeConfig =
       (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null) ?? {};
     edges = edges.map(edge => {
+      if (noStripEdges.includes(edge.position.toLowerCase())) {
+        return { ...edge, isFinished: false, edgeTypeId: null };
+      }
       const cfg = chargeableEdgeConfig[edge.position.toLowerCase()];
       if (cfg && (cfg.chargePolish === false || cfg.exposed === false)) {
         return { ...edge, isFinished: false, edgeTypeId: null };
