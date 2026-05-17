@@ -73,7 +73,7 @@ interface LearningExample {
   notes: string | null;
 }
 
-function compactJson(value: unknown, maxLength = 1200): string {
+function compactJson(value: unknown, maxLength = 900): string {
   if (value == null) return 'null';
   const json = JSON.stringify(value);
   return json.length > maxLength ? `${json.slice(0, maxLength)}...` : json;
@@ -386,7 +386,7 @@ export async function POST(request: NextRequest) {
           status: { in: ['APPROVED', 'READY_FOR_TRAINING'] },
         },
         orderBy: { updated_at: 'desc' },
-        take: 3,
+        take: 8,
         select: {
           source_quote_number: true,
           source_system: true,

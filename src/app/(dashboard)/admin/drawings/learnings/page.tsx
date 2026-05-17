@@ -82,6 +82,70 @@ function formatJsonPreview(value: unknown) {
   return text.length > 180 ? `${text.slice(0, 180)}...` : text;
 }
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : null;
+}
+
+function arrayField(record: Record<string, unknown> | null, key: string): unknown[] {
+  const value = record?.[key];
+  return Array.isArray(value) ? value : [];
+}
+
+function pieceRows(value: unknown): unknown[] {
+  const record = asRecord(value);
+  const directPieces = arrayField(record, 'pieces');
+  if (directPieces.length > 0) return directPieces;
+
+  const rooms = arrayField(record, 'rooms');
+  return rooms.flatMap((room) => arrayField(asRecord(room), 'pieces'));
+}
+
+function totalCutouts(pieces: unknown[]): number {
+  return pieces.reduce<number>((sum, piece) => {
+    const record = asRecord(piece);
+    const cutouts = arrayField(record, 'cutouts');
+    if (cutouts.length === 0) return sum;
+    return sum + cutouts.reduce<number>((cutoutSum, cutout) => {
+      const quantity = Number(asRecord(cutout)?.quantity ?? 1);
+      return cutoutSum + (Number.isFinite(quantity) && quantity > 0 ? quantity : 1);
+    }, 0);
+  }, 0);
+}
+
+function numericField(record: Record<string, unknown> | null, keys: string[]): number | null {
+  for (const key of keys) {
+    const value = Number(record?.[key]);
+    if (Number.isFinite(value) && value > 0) return value;
+  }
+  return null;
+}
+
+function totalAreaSqm(pieces: unknown[]): number {
+  return pieces.reduce<number>((sum, piece) => {
+    const record = asRecord(piece);
+    const length = numericField(record, ['length', 'lengthMm', 'length_mm']);
+    const width = numericField(record, ['width', 'widthMm', 'width_mm']);
+    return length && width ? sum + (length * width) / 1_000_000 : sum;
+  }, 0);
+}
+
+function takeoffSummary(value: unknown) {
+  const pieces = pieceRows(value);
+  return {
+    pieces: pieces.length,
+    cutouts: totalCutouts(pieces),
+    areaSqm: totalAreaSqm(pieces),
+  };
+}
+
+function formatDelta(expected: number, extracted: number, suffix = '') {
+  const delta = extracted - expected;
+  const sign = delta > 0 ? '+' : '';
+  return `${extracted}${suffix} (${sign}${delta}${suffix})`;
+}
+
 function statusBadgeClass(status: string) {
   if (status === 'READY_FOR_TRAINING') return 'bg-green-100 text-green-800';
   if (status === 'APPROVED') return 'bg-blue-100 text-blue-800';
@@ -278,14 +342,22 @@ export default function LearningsPage() {
                 <tr>
                   <th className="table-header">Source</th>
                   <th className="table-header">Status</th>
+                  <th className="table-header">Pieces</th>
+                  <th className="table-header">Cutouts</th>
+                  <th className="table-header">Area</th>
                   <th className="table-header">Expected</th>
-                  <th className="table-header">Extracted</th>
+                  <th className="table-header">Extracted / Notes</th>
                   <th className="table-header">Notes</th>
                   <th className="table-header text-right">Review</th>
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {quoteLearningExamples.map((example) => (
+                {quoteLearningExamples.map((example) => {
+                  const expected = takeoffSummary(example.expectedData);
+                  const extracted = takeoffSummary(example.extractedData);
+                  const areaDelta = extracted.areaSqm - expected.areaSqm;
+
+                  return (
                   <tr key={example.id} className="hover:bg-gray-50">
                     <td className="table-cell">
                       <div className="font-medium text-gray-900">
@@ -305,6 +377,30 @@ export default function LearningsPage() {
                         {example.status.replaceAll('_', ' ')}
                       </span>
                     </td>
+                    <td className="table-cell text-sm">
+                      <div className="font-medium text-gray-900">
+                        {formatDelta(expected.pieces, extracted.pieces)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        expected {expected.pieces}
+                      </div>
+                    </td>
+                    <td className="table-cell text-sm">
+                      <div className="font-medium text-gray-900">
+                        {formatDelta(expected.cutouts, extracted.cutouts)}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        expected {expected.cutouts}
+                      </div>
+                    </td>
+                    <td className="table-cell text-sm">
+                      <div className="font-medium text-gray-900">
+                        {extracted.areaSqm.toFixed(2)} m² ({areaDelta >= 0 ? '+' : ''}{areaDelta.toFixed(2)} m²)
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        expected {expected.areaSqm.toFixed(2)} m²
+                      </div>
+                    </td>
                     <td className="table-cell max-w-xs">
                       <div className="text-xs text-gray-700 line-clamp-3">
                         {formatJsonPreview(example.expectedData)}
@@ -312,7 +408,7 @@ export default function LearningsPage() {
                     </td>
                     <td className="table-cell max-w-xs">
                       <div className="text-xs text-gray-700 line-clamp-3">
-                        {formatJsonPreview(example.extractedData)}
+                        {formatJsonPreview(example.comparisonData ?? example.extractedData)}
                       </div>
                     </td>
                     <td className="table-cell max-w-xs text-sm text-gray-600">
@@ -336,7 +432,8 @@ export default function LearningsPage() {
                       </div>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>
