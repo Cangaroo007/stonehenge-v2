@@ -1496,7 +1496,7 @@ export default function QuoteDetailClient({
           const { parentPieceId, type, selectedEdge: pendingEdge } = pendingWaterfallParentRef.current;
           pendingWaterfallParentRef.current = null;
           try {
-            await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
+            const relationshipResponse = await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({
@@ -1507,6 +1507,12 @@ export default function QuoteDetailClient({
                 grainMatch: false,
               }),
             });
+            if (relationshipResponse.ok) {
+              await fetchRelationships();
+              await fetchQuote();
+              triggerRecalculate();
+              triggerOptimise();
+            }
           } catch {
             // Non-fatal — piece is created, relationship is best-effort
           }
@@ -1571,7 +1577,7 @@ export default function QuoteDetailClient({
         }
       }
     }
-  }, [quoteIdStr, pieces, cutoutTypes, materials, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
+  }, [quoteIdStr, pieces, cutoutTypes, materials, fetchQuote, fetchRelationships, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
 
   // Bulk edge apply — applies edge profile template to all pieces in room or quote
   const handleBulkEdgeApply = useCallback(async (

@@ -143,7 +143,10 @@ export async function syncEdgeSemanticsForRelationship(
     }),
     tx.quote_pieces.findUnique({
       where: { id: input.targetId },
-      select: { id: true },
+      select: {
+        id: true,
+        no_strip_edges: true,
+      },
     }),
   ]);
 
@@ -165,6 +168,7 @@ export async function syncEdgeSemanticsForRelationship(
       where: { id: input.targetId },
       data: {
         [EDGE_FIELD[childJoinEdge]]: mitredEdgeId,
+        no_strip_edges: appendUniqueEdge(childPiece.no_strip_edges, childJoinEdge) as unknown as Prisma.InputJsonValue,
         lamination_method: 'MITRED',
       },
     }),
@@ -203,6 +207,7 @@ async function clearEdgeSemanticsForRelationship(
     tx.quote_pieces.findUnique({
       where: { id: input.targetId },
       select: {
+        no_strip_edges: true,
         edge_top: true,
         edge_bottom: true,
         edge_left: true,
@@ -228,13 +233,18 @@ async function clearEdgeSemanticsForRelationship(
   }
 
   if (childPiece) {
+    const childUpdate: Record<string, unknown> = {
+      no_strip_edges: removeEdge(childPiece.no_strip_edges, childJoinEdge) as unknown as Prisma.InputJsonValue,
+    };
     const childEdgeId = childPiece[childEdgeField];
     if (childEdgeId && mitredEdgeIds.has(childEdgeId)) {
-      await tx.quote_pieces.update({
-        where: { id: input.targetId },
-        data: { [childEdgeField]: null } as Prisma.quote_piecesUpdateInput,
-      });
+      childUpdate[childEdgeField] = null;
     }
+
+    await tx.quote_pieces.update({
+      where: { id: input.targetId },
+      data: childUpdate as Prisma.quote_piecesUpdateInput,
+    });
   }
 }
 
