@@ -109,7 +109,7 @@ export default function MiniPieceEditor({
     const y = (SVG_H - innerH) / 2;
 
     return { innerW, innerH, x, y };
-  }, [piece?.length_mm, piece?.width_mm]);
+  }, [piece]);
 
   const edgeDefs = useMemo(() => {
     const { x, y, innerW, innerH } = layout;

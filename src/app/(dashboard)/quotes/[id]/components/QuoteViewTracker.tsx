@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 interface QuoteView {
   id: number;
   viewedAt: string;
@@ -26,19 +26,7 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
   const [customerViews, setCustomerViews] = useState<QuoteView[]>([]);
   const [latestCustomerView, setLatestCustomerView] = useState<QuoteView | null>(null);
 
-  useEffect(() => {
-    // Track this view (can be disabled when tracking is handled at page level)
-    if (trackOnMount) {
-      trackView();
-    }
-
-    // Load view history if requested
-    if (showHistory) {
-      loadViews();
-    }
-  }, [quoteId, showHistory, trackOnMount]);
-
-  const trackView = async () => {
+  const trackView = useCallback(async () => {
     try {
       await fetch(`/api/quotes/${quoteId}/track-view`, {
         method: 'POST',
@@ -47,9 +35,9 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
       // Silently fail - tracking is not critical
       console.error('Failed to track view:', error);
     }
-  };
+  }, [quoteId]);
 
-  const loadViews = async () => {
+  const loadViews = useCallback(async () => {
     try {
       const res = await fetch(`/api/quotes/${quoteId}/views`);
       if (res.ok) {
@@ -70,7 +58,19 @@ export default function QuoteViewTracker({ quoteId, showHistory = true, trackOnM
     } finally {
       setLoading(false);
     }
-  };
+  }, [quoteId]);
+
+  useEffect(() => {
+    // Track this view (can be disabled when tracking is handled at page level)
+    if (trackOnMount) {
+      trackView();
+    }
+
+    // Load view history if requested
+    if (showHistory) {
+      loadViews();
+    }
+  }, [loadViews, showHistory, trackOnMount, trackView]);
 
   if (!showHistory) {
     return null; // Just tracking, no UI

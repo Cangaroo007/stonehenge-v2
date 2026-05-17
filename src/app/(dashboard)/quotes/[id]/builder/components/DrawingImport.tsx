@@ -427,7 +427,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       setStep('upload');
       setFile(null);
     }
-  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId]);
+  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId, edgeTypes]);
 
   // Handle drag events
   const handleDrag = useCallback((e: React.DragEvent) => {

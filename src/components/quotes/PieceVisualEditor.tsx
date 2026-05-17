@@ -1373,7 +1373,7 @@ export default function PieceVisualEditor({
     }
 
     return null;
-  }, [effectiveShapeType, shapeConfig, layout]);
+  }, [effectiveShapeType, lengthMm, shapeConfig, widthMm, layout]);
 
   // ── Cutout positions ──────────────────────────────────────────────────
 

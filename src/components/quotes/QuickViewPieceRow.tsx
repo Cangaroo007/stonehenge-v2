@@ -14,7 +14,7 @@
  * Rule 44: No banned edge components.
  */
 
-import { useState, useCallback, useMemo, useRef } from 'react';
+import { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import { edgeColour, edgeCode, edgeDisplayName, cutoutLabel } from '@/lib/utils/edge-utils';
 import PieceVisualEditor from './PieceVisualEditor';
@@ -664,7 +664,7 @@ export default function QuickViewPieceRow({
   const cutoutRef = useRef<HTMLDivElement>(null);
 
   // Sync local state when piece changes externally
-  useMemo(() => {
+  useEffect(() => {
     setLocalLength(piece.lengthMm);
     setLocalWidth(piece.widthMm);
     if (!editingName) setLocalName(piece.name);
@@ -684,7 +684,7 @@ export default function QuickViewPieceRow({
       edgeLeft: piece.edgeLeft ?? null,
       edgeRight: piece.edgeRight ?? null,
     });
-  }, [piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
+  }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -1014,9 +1014,9 @@ export default function QuickViewPieceRow({
   }, [quoteId, piece.id, piece.lengthMm, piece.widthMm, piece.thicknessMm, piece.materialName, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.roomName, localOverrideFabCost, onSavePiece]);
 
   const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
-  const edgeFieldMap: Record<string, string> = {
+  const edgeFieldMap = useMemo<Record<string, string>>(() => ({
     top: 'edgeTop', bottom: 'edgeBottom', left: 'edgeLeft', right: 'edgeRight',
-  };
+  }), []);
 
   const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
     const next = { ...localEdgeBuildups };
@@ -1040,7 +1040,7 @@ export default function QuickViewPieceRow({
     });
     setBuildupSaveState('saved');
     setTimeout(() => setBuildupSaveState('idle'), 2000);
-  }, [localEdgeBuildups, savePieceImmediate]);
+  }, [edgeFieldMap, localEdgeBuildups, savePieceImmediate]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
