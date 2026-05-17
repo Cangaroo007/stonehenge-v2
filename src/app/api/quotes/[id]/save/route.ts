@@ -18,8 +18,17 @@ export async function POST(
     const { id } = await params;
     const quoteId = parseInt(id, 10);
 
-    // Check quote exists and has no number yet
-    const quote = await prisma.quotes.findUnique({ where: { id: quoteId } });
+    if (isNaN(quoteId)) {
+      return NextResponse.json({ error: 'Invalid quote ID' }, { status: 400 });
+    }
+
+    // Check quote exists, belongs to this company, and has no number yet.
+    const quote = await prisma.quotes.findFirst({
+      where: {
+        id: quoteId,
+        company_id: auth.user.companyId,
+      },
+    });
     if (!quote) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
