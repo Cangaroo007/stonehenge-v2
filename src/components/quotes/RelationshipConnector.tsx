@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import { RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relationship';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
+import { normaliseRectEdgeSide, rectEdgeDisplayLabel } from '@/lib/utils/edge-side';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -163,22 +164,22 @@ function hasArrow(type: string): boolean {
 
 function getLabel(relationship: PieceRelationshipData): string {
   const type = relationship.relationshipType;
+  const side = normaliseRectEdgeSide(relationship.joinPosition);
+  const sideLabel = side ? rectEdgeDisplayLabel(side) : null;
+
   switch (type) {
-    case 'WATERFALL': {
-      const joinInfo = relationship.joinPosition?.toLowerCase();
-      if (joinInfo?.includes('butt')) return 'WATERFALL (butt)';
-      return 'WATERFALL (mitre)';
-    }
+    case 'WATERFALL':
+      return sideLabel ? `Waterfall - ${sideLabel}` : 'Waterfall';
     case 'SPLASHBACK':
-      return 'SPLASHBACK';
+      return sideLabel ? `Splashback - ${sideLabel}` : 'Splashback';
     case 'RETURN':
-      return 'RETURN';
+      return sideLabel ? `Return - ${sideLabel}` : 'Return';
     case 'WINDOW_SILL':
-      return 'WINDOW SILL';
+      return 'Window sill';
     case 'MITRE_JOIN':
-      return '\u25FF mitre';
+      return 'Mitre join';
     case 'BUTT_JOIN':
-      return '| butt';
+      return 'Butt join';
     default:
       return type;
   }

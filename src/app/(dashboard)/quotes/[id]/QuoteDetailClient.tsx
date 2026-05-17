@@ -58,6 +58,7 @@ import MaterialComparisonPanel, { type ComparisonSlot } from '@/components/quote
 import MaterialComparisonErrorBoundary from '@/components/quotes/MaterialComparisonErrorBoundary';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useQuoteKeyboardShortcuts } from '@/hooks/useQuoteKeyboardShortcuts';
@@ -369,6 +370,18 @@ interface QuoteDetailClientProps {
   quoteId: number;
   initialMode: QuoteMode;
   serverData: ServerQuoteData;
+}
+
+const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+function edgeListIncludes(edges: string[] | undefined | null, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -1637,6 +1650,30 @@ export default function QuoteDetailClient({
     const piece = effectivePieces.find(p => String(p.id) === pieceId);
     if (!piece) return;
 
+    const normalisedSide = normaliseRectEdgeSide(side);
+    if (!normalisedSide) return;
+
+    const isAttachedJoinEdge = relationships.some(rel => {
+      if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+        return false;
+      }
+      const parentJoinEdge = normaliseRectEdgeSide(rel.joinPosition);
+      if (!parentJoinEdge) return false;
+
+      if (rel.parentPieceId === pieceId) {
+        return parentJoinEdge === normalisedSide;
+      }
+      if (rel.childPieceId === pieceId) {
+        return OPPOSITE_EDGE[parentJoinEdge] === normalisedSide;
+      }
+      return false;
+    });
+
+    if (isAttachedJoinEdge || edgeListIncludes(piece.noStripEdges, normalisedSide)) {
+      toast.error('Use the relationship or wall-edge controls for this edge');
+      return;
+    }
+
     const edgeKey = `edge${side.charAt(0).toUpperCase()}${side.slice(1)}` as
       'edgeTop' | 'edgeBottom' | 'edgeLeft' | 'edgeRight';
 
@@ -1656,7 +1693,7 @@ export default function QuoteDetailClient({
       },
       piece.quote_rooms?.name || 'Kitchen'
     );
-  }, [pieces, handleInlineSavePiece]);
+  }, [effectivePieces, relationships, handleInlineSavePiece]);
 
   // Cutout add from RoomSpatialView (Rule 21: cutout management reachable in 2 clicks)
   const handlePieceCutoutAdd = useCallback(async (pieceId: string, cutoutTypeId: string) => {
@@ -2783,6 +2820,10 @@ export default function QuoteDetailClient({
     : null;
 
   const roomNames: string[] = Array.from(new Set(rooms.map(r => r.name)));
+  const cutoutTypeNameById = useMemo(
+    () => new Map(cutoutTypes.map(type => [type.id, type.name])),
+    [cutoutTypes]
+  );
 
   // Inline edit data bundle for PieceRow inline editor
   const inlineEditData = {
@@ -3380,7 +3421,7 @@ export default function QuoteDetailClient({
                             }}
                             roomTotal={room.quote_pieces.reduce((sum, p) => {
                               const pb = viewBreakdownMap.get(p.id);
-                              return sum + (pb?.materials?.total ?? 0);
+                              return sum + (pb?.pieceTotal ?? 0);
                             }, 0)}
                             roomNotes={room.notes}
                             optimizerPlacements={viewOptimizerPlacements ?? undefined}
@@ -4107,7 +4148,7 @@ export default function QuoteDetailClient({
                         edge_right: p.edgeRight,
                         piece_features: p.cutouts?.map(c => ({
                           id: 0,
-                          name: c.cutoutTypeId,
+                          name: cutoutTypeNameById.get(c.cutoutTypeId) ?? c.cutoutTypeId,
                           quantity: c.quantity,
                         })),
                         fabricationCategory: p.fabricationCategory,

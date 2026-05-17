@@ -7,6 +7,7 @@ import { JOIN_POSITIONS, RELATIONSHIP_DISPLAY } from '@/lib/types/piece-relation
 import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
 import { edgeColour, edgeCode, edgeDisplayName } from '@/lib/utils/edge-utils';
+import { normaliseRectEdgeSide, rectEdgeDisplayLabel } from '@/lib/utils/edge-side';
 import RoomPieceSVG from './RoomPieceSVG';
 import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
@@ -120,9 +121,8 @@ const POSITION_TYPES: RelationshipType[] = ['WATERFALL', 'SPLASHBACK', 'RETURN']
 const ALL_RELATIONSHIP_TYPES = Object.keys(RELATIONSHIP_DISPLAY) as RelationshipType[];
 
 function joinPositionLabel(position: string): string {
-  if (position === 'BACK') return 'Back / wall';
-  if (position === 'FRONT') return 'Front / exposed';
-  return position.charAt(0) + position.slice(1).toLowerCase();
+  return formatJoinPosition(position)
+    ?? position.charAt(0) + position.slice(1).toLowerCase();
 }
 
 interface ConnectorPopover {
@@ -150,6 +150,19 @@ function humaniseRelationshipType(type: string): string {
     .replace(/_/g, ' ')
     .toLowerCase()
     .replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function canonicalJoinPositionValue(position: string | null | undefined): '' | 'LEFT' | 'RIGHT' | 'BACK' | 'FRONT' {
+  const side = normaliseRectEdgeSide(position);
+  if (!side) return '';
+  if (side === 'top') return 'BACK';
+  if (side === 'bottom') return 'FRONT';
+  return side.toUpperCase() as 'LEFT' | 'RIGHT';
+}
+
+function formatJoinPosition(position: string | null | undefined): string | null {
+  const side = normaliseRectEdgeSide(position);
+  return side ? rectEdgeDisplayLabel(side) : null;
 }
 
 function inferPieceType(piece: QuotePiece): string | null {
@@ -413,7 +426,7 @@ export default function RoomSpatialView({
     if (!rel) return;
     setConnectorPopover({ relationshipId, x: midpoint.x, y: midpoint.y });
     setPopoverType(rel.relationshipType);
-    setPopoverPosition(rel.joinPosition ?? '');
+    setPopoverPosition(canonicalJoinPositionValue(rel.joinPosition));
     setPopoverNotes(rel.notes ?? '');
   }, [relationships]);
 
@@ -974,9 +987,10 @@ export default function RoomSpatialView({
             const parentPiece = parentRelationship
               ? pieceMap.get(parentRelationship.parentPieceId)
               : null;
+            const parentJoinLabel = formatJoinPosition(parentRelationship?.joinPosition);
             const parentRelationshipLabel = parentRelationship
               ? `${humaniseRelationshipType(parentRelationship.relationshipType)}${
-                  parentRelationship.joinPosition ? ` ${parentRelationship.joinPosition.toLowerCase()}` : ''
+                  parentJoinLabel ? ` - ${parentJoinLabel}` : ''
                 } of ${parentPiece?.name ?? parentPiece?.description ?? 'parent piece'}`
               : null;
 
@@ -1178,7 +1192,8 @@ export default function RoomSpatialView({
                           const otherName = otherPiece
                             ? (otherPiece.name ?? otherPiece.description ?? 'Piece')
                             : 'Unknown';
-                          return `${display?.label ?? r.relationshipType} → ${otherName}`;
+                          const joinLabel = formatJoinPosition(r.joinPosition);
+                          return `${display?.label ?? r.relationshipType}${joinLabel ? ` - ${joinLabel}` : ''} -> ${otherName}`;
                         }).join(', ')}
                       </span>
                     </div>
