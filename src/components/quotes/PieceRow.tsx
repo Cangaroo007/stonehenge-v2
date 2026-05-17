@@ -14,6 +14,7 @@ import PieceEditorErrorBoundary from './PieceEditorErrorBoundary';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
 // ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
 function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
@@ -517,6 +518,7 @@ function PieceVisualEditorSection({
   onSavePiece,
   onBulkEdgeApply,
   onBatchEdgeUpdate,
+  relationships,
 }: {
   piece: PieceRowProps['piece'];
   fullPiece?: InlinePieceData;
@@ -536,6 +538,7 @@ function PieceVisualEditorSection({
     sourceSide: string,
     sourceRoomId: number
   ) => void;
+  relationships?: PieceRelationshipData[];
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
 
@@ -568,6 +571,36 @@ function PieceVisualEditorSection({
       .filter(e => { if (seen.has(e.edgeTypeId)) return false; seen.add(e.edgeTypeId); return true; })
       .map(e => ({ id: e.edgeTypeId, name: e.edgeTypeName }));
   }, [editData?.edgeTypes, breakdown]);
+
+  const attachedPieceTypes = useMemo(() => {
+    if (!relationships) return undefined;
+    const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};
+    const oppositeEdge: Record<string, string> = {
+      top: 'bottom',
+      bottom: 'top',
+      left: 'right',
+      right: 'left',
+    };
+
+    relationships.forEach(rel => {
+      if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+        return;
+      }
+
+      const parentEdge = normaliseRectEdgeSide(rel.joinPosition);
+      if (!parentEdge) return;
+
+      if (String(rel.parentPieceId) === String(piece.id)) {
+        map[parentEdge] = rel.relationshipType;
+      }
+
+      if (String(rel.childPieceId) === String(piece.id)) {
+        map[oppositeEdge[parentEdge] ?? parentEdge] = rel.relationshipType;
+      }
+    });
+
+    return Object.keys(map).length > 0 ? map : undefined;
+  }, [relationships, piece.id]);
 
   // Map cutouts to display format — handles all JSON shapes:
   // Builder: { id, cutoutTypeId, quantity }, Wizard: { name, quantity }, Template: { type, quantity }
@@ -821,6 +854,7 @@ function PieceVisualEditorSection({
         shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
         noStripEdges={(piece.noStripEdges as string[]) ?? []}
         onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
+        attachedPieceTypes={attachedPieceTypes}
       />
     </div>
   );
@@ -1095,6 +1129,7 @@ export default function PieceRow({
             onSavePiece={onSavePiece}
             onBulkEdgeApply={onBulkEdgeApply}
             onBatchEdgeUpdate={onBatchEdgeUpdate}
+            relationships={relationships}
           />
         </PieceEditorErrorBoundary>
       )}
