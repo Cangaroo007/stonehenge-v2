@@ -78,25 +78,34 @@ export async function GET(
       ])
     );
 
+    const edgeTypes = await prisma.edge_types.findMany({
+      select: { id: true, isMitred: true },
+    });
+    const edgeTypeById = new Map(edgeTypes.map(edgeType => [edgeType.id, edgeType]));
+
     // Build per-piece operation assignments
     const pieces = quote.quote_rooms.flatMap((room: any) =>
       room.quote_pieces.map((piece: any) => {
-        const hasPolishedEdges = [
-          piece.edge_top,
-          piece.edge_bottom,
-          piece.edge_left,
-          piece.edge_right,
-        ].some(isFinishedEdge);
+        const noStripEdges = normaliseEdgeList(piece.no_strip_edges);
+        const assignedEdges = [
+          { side: 'top', edgeTypeId: piece.edge_top },
+          { side: 'bottom', edgeTypeId: piece.edge_bottom },
+          { side: 'left', edgeTypeId: piece.edge_left },
+          { side: 'right', edgeTypeId: piece.edge_right },
+        ];
 
-        const hasMitredEdges = [
-          piece.edge_top,
-          piece.edge_bottom,
-          piece.edge_left,
-          piece.edge_right,
-        ].some(isMitredEdge);
+        const hasPolishedEdges = assignedEdges.some(({ side, edgeTypeId }) =>
+          !noStripEdges.has(side) && isFinishedEdge(edgeTypeId)
+        );
+        const hasExplicitBuildUps = hasObjectEntries(piece.edge_buildups);
+        const hasMitredEdges =
+          assignedEdges.some(({ edgeTypeId }) => isMitredEdge(edgeTypeId, edgeTypeById)) ||
+          hasExplicitBuildUps ||
+          piece.lamination_method === 'MITRED';
 
         const hasLamination =
-          piece.lamination_method !== 'NONE' && piece.lamination_method !== null;
+          hasExplicitBuildUps ||
+          (piece.lamination_method !== 'NONE' && piece.lamination_method !== null);
 
         const cutouts = parseCutouts(piece.cutouts);
         const cutoutCount = cutouts.reduce((sum, c) => sum + c.quantity, 0);
@@ -240,9 +249,32 @@ function isFinishedEdge(edgeValue: string | null | undefined): boolean {
   return lower !== 'raw' && lower !== 'none';
 }
 
-function isMitredEdge(edgeValue: string | null | undefined): boolean {
+function isMitredEdge(
+  edgeValue: string | null | undefined,
+  edgeTypeById: Map<string, { isMitred: boolean | null }>
+): boolean {
   if (!edgeValue) return false;
+  const edgeType = edgeTypeById.get(edgeValue);
+  if (edgeType) return edgeType.isMitred === true;
   return edgeValue.toLowerCase().includes('mitre');
+}
+
+function normaliseEdgeList(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set();
+  return new Set(
+    value
+      .map(item => String(item).toLowerCase())
+      .filter(item => ['top', 'bottom', 'left', 'right'].includes(item))
+  );
+}
+
+function hasObjectEntries(value: unknown): boolean {
+  return Boolean(
+    value &&
+    typeof value === 'object' &&
+    !Array.isArray(value) &&
+    Object.keys(value as Record<string, unknown>).length > 0
+  );
 }
 
 interface CutoutEntry {
