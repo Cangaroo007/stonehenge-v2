@@ -910,6 +910,16 @@ export async function DELETE(
       });
     }
 
+    try {
+      const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: buildQuotePricingUpdate(calcResult),
+      });
+    } catch (recalcError) {
+      console.error('Post-DELETE recalculation failed:', recalcError);
+    }
+
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('Error deleting piece:', error);

@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { Prisma } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 // DELETE — Bulk delete multiple pieces (relationships cascade automatically)
 export async function DELETE(
@@ -38,7 +41,12 @@ export async function DELETE(
         id: { in: pieceIds },
         quote_rooms: { quote_id: quoteId },
       },
-      select: { id: true, room_id: true },
+      select: {
+        id: true,
+        room_id: true,
+        promoted_from_piece_id: true,
+        promoted_edge_position: true,
+      },
     });
 
     if (pieces.length === 0) {
@@ -46,25 +54,54 @@ export async function DELETE(
     }
 
     const pieceIdsToDelete = pieces.map(p => p.id);
+    const affectedRoomIds = Array.from(new Set(pieces.map(p => p.room_id)));
 
-    // Delete pieces (piece_features and piece_relationships cascade via onDelete: Cascade)
-    const result = await prisma.quote_pieces.deleteMany({
-      where: { id: { in: pieceIdsToDelete } },
+    const result = await prisma.$transaction(async (tx) => {
+      for (const piece of pieces) {
+        if (!piece.promoted_from_piece_id || !piece.promoted_edge_position) continue;
+
+        const parentPiece = await tx.quote_pieces.findUnique({
+          where: { id: piece.promoted_from_piece_id },
+          select: { no_strip_edges: true },
+        });
+        if (!parentPiece) continue;
+
+        const currentNoStrip = (parentPiece.no_strip_edges as unknown as string[]) ?? [];
+        const restored = currentNoStrip.filter(edge => edge !== piece.promoted_edge_position);
+        await tx.quote_pieces.update({
+          where: { id: piece.promoted_from_piece_id },
+          data: { no_strip_edges: restored as unknown as Prisma.InputJsonValue },
+        });
+      }
+
+      const deleteResult = await tx.quote_pieces.deleteMany({
+        where: { id: { in: pieceIdsToDelete } },
+      });
+
+      for (const roomId of affectedRoomIds) {
+        const remaining = await tx.quote_pieces.count({
+          where: { room_id: roomId },
+        });
+        if (remaining === 0) {
+          await tx.quote_rooms.delete({ where: { id: roomId } });
+        }
+      }
+
+      return deleteResult;
     });
 
-    // Clean up empty rooms (except "Unassigned")
-    const affectedRoomIds = Array.from(new Set(pieces.map(p => p.room_id)));
-    for (const roomId of affectedRoomIds) {
-      const remaining = await prisma.quote_pieces.count({
-        where: { room_id: roomId },
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
+    try {
+      const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: buildQuotePricingUpdate(calcResult),
       });
-      if (remaining === 0) {
-        const room = await prisma.quote_rooms.findUnique({
-          where: { id: roomId },
-          select: { name: true },
-        });
-        // Don't auto-delete rooms — leave them for user to manage
-      }
+    } catch (recalcError) {
+      console.error('Post-bulk-delete recalculation failed:', recalcError);
     }
 
     return NextResponse.json({ deleted: result.count });
