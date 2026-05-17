@@ -53,6 +53,10 @@ export async function PATCH(
       },
     });
 
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     return NextResponse.json(quote);
   } catch (error) {
     const err = error as { message?: string };
