@@ -1159,10 +1159,10 @@ export default function InlinePieceEditor({
             <span className="text-sm text-gray-800">{thicknessMm}mm</span>
           </div>
 
-          {/* Edge Build-Up / Drop Edge — per edge 40mm/custom depth effect */}
+          {/* Build-Up / Drop Edge Construction — per edge 40mm/custom depth effect */}
           <div>
             <div className="flex items-center justify-between mb-2">
-              <label className="text-xs font-medium text-gray-600">Edge Build-Up / Drop Edge</label>
+              <label className="text-xs font-medium text-gray-600">Build-Up / Drop Edge Construction</label>
               <button
                 type="button"
                 onClick={(e) => {

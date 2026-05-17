@@ -1671,7 +1671,7 @@ export default function QuickViewPieceRow({
             <div className="w-full mt-2">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-medium text-gray-600">Edge Build-Up</span>
+                  <span className="text-xs font-medium text-gray-600">Build-Up / Drop Edge Construction</span>
                   {buildupSaveState === 'saving' && (
                     <span className="text-xs text-gray-400 flex items-center gap-1">
                       <svg className="animate-spin h-3 w-3" viewBox="0 0 24 24" fill="none">

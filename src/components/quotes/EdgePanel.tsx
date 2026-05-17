@@ -295,9 +295,9 @@ export default function EdgePanel({
           </button>
         </div>
 
-        {/* ── Build-Up / Drop Edge ─────────────────────────────────────── */}
+        {/* ── Build-Up / Drop Edge Construction ────────────────────────── */}
         <div className="p-4 space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up / Drop Edge</h4>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up / Drop Edge Construction</h4>
           {currentBuildupSummary && (
             <p className="text-xs text-gray-500">{currentBuildupSummary}</p>
           )}
@@ -338,7 +338,7 @@ export default function EdgePanel({
               {[
                 { label: 'Exposed edge', checked: pendingExposed, onChange: setPendingExposed },
                 { label: 'Charge cutting', checked: pendingChargeCut, onChange: setPendingChargeCut },
-                { label: 'Charge polish/profile', checked: pendingChargePolish, onChange: setPendingChargePolish },
+                { label: 'Charge visible profile/polish', checked: pendingChargePolish, onChange: setPendingChargePolish },
               ].map((item) => (
                 <label key={item.label} className="flex items-center gap-2 text-xs text-gray-600">
                   <input
@@ -375,7 +375,7 @@ export default function EdgePanel({
         {selectionCount === 1 && (
           selectedAttachedType ? (
             <p className="text-xs text-blue-600">
-              This edge already has a {selectedAttachedType === 'WATERFALL' ? 'waterfall' : 'splashback'} join.
+              This edge has a {selectedAttachedType === 'WATERFALL' ? 'waterfall' : 'splashback'} join, not a wall edge.
             </p>
           ) : (
             <div className="flex gap-2">
