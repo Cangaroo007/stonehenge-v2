@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth } from '@/lib/auth';
 import { duplicateQuote } from '@/lib/services/quote-lifecycle-service';
+import prisma from '@/lib/db';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 export async function POST(
   request: NextRequest,
@@ -39,6 +42,15 @@ export async function POST(
     const newQuote = await duplicateQuote(quoteId, userId, {
       asRevision: body.asRevision,
       newTitle: body.newTitle,
+    });
+
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId: newQuote.id },
+    });
+    const calcResult = await calculateQuotePrice(String(newQuote.id), { forceRecalculate: true });
+    await prisma.quotes.update({
+      where: { id: newQuote.id },
+      data: buildQuotePricingUpdate(calcResult),
     });
 
     return NextResponse.json({

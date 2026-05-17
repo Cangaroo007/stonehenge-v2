@@ -1,5 +1,7 @@
 import { prisma } from '@/lib/db';
 import { Prisma } from '@prisma/client';
+import { calculateQuotePrice } from './pricing-calculator-v2';
+import { buildQuotePricingUpdate } from './quote-pricing-persistence';
 
 // QuoteChangeType is not yet in Prisma schema - define locally
 export type QuoteChangeType = 'CREATED' | 'UPDATED' | 'ROLLED_BACK' | 'SENT_TO_CLIENT' | 'CLIENT_APPROVED' | 'CLIENT_REJECTED' | 'CLIENT_VIEWED' | 'PRICING_RECALCULATED' | 'STATUS_CHANGED';
@@ -707,6 +709,7 @@ export async function rollbackToVersion(
   await prisma.$transaction(async (tx) => {
     // Delete existing rooms (cascade deletes pieces and features)
     await tx.quote_rooms.deleteMany({ where: { quote_id: quoteId } });
+    await tx.slab_optimizations.deleteMany({ where: { quoteId } });
 
     // Update quote header fields
     await tx.quotes.update({
@@ -764,6 +767,12 @@ export async function rollbackToVersion(
         },
       },
     });
+  });
+
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
   });
 
   // Create the rollback version
