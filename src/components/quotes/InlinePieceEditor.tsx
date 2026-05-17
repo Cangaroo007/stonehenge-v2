@@ -29,6 +29,7 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
 }
 
@@ -1952,7 +1953,7 @@ export default function InlinePieceEditor({
             edgeBottom={edgeSelections.edgeBottom}
             edgeLeft={edgeSelections.edgeLeft}
             edgeRight={edgeSelections.edgeRight}
-            edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
+            edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name, isMitred: e.isMitred }))}
             cutouts={[]}
             isEditMode={true}
             isMitred={piece.lamination_method === 'MITRED'}
@@ -1975,7 +1976,7 @@ export default function InlinePieceEditor({
                 onSelectionChange={setSelectedEdgeIds}
                 edgeProfiles={shapeConfigEdges}
                 edgeBuildups={edgeBuildups}
-                edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name }))}
+                edgeTypes={edgeTypes.filter(e => e.isActive !== false).map(e => ({ id: e.id, name: e.name, isMitred: e.isMitred }))}
                 onApplyProfile={(edgeIds, profileId) => {
                   setShapeEdgeOverrides(prev => {
                     const next = { ...prev };

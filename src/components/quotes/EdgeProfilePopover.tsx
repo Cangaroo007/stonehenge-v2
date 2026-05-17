@@ -20,6 +20,7 @@ interface EdgeTypeOption {
   id: string;
   name: string;
   code?: string;
+  isMitred?: boolean;
 }
 
 interface EdgeProfilePopoverProps {
@@ -106,6 +107,7 @@ export default function EdgeProfilePopover({
 
   const sideLabel = side ? side.charAt(0).toUpperCase() + side.slice(1).toLowerCase() : '';
   const roomLabel = roomName || 'Room';
+  const visibleProfiles = profiles.filter((profile) => !profile.isMitred);
 
   return (
     <div
@@ -132,7 +134,7 @@ export default function EdgeProfilePopover({
             Raw (no finish)
           </button>
 
-          {profiles.map((profile) => {
+          {visibleProfiles.map((profile) => {
             const displayName = edgeDisplayName(profile.name);
             return (
               <button

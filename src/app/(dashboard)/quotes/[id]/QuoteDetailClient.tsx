@@ -210,6 +210,7 @@ interface EdgeType {
   category: string;
   baseRate: number;
   isActive: boolean;
+  isMitred?: boolean;
   sortOrder: number;
   /** Fabrication categories with configured (non-zero) rates */
   configuredCategories?: string[];

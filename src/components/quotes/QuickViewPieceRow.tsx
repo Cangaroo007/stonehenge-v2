@@ -2385,7 +2385,7 @@ export default function QuickViewPieceRow({
                 onSelectionChange={setSelectedEdgeIds}
                 edgeProfiles={edgePanelProfiles}
                 edgeBuildups={(piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}}
-                edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name }))}
+                edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name, isMitred: et.isMitred }))}
                 onApplyProfile={(edgeIds, profileId) => {
                   // Atomic multi-edge profile save — one savePieceImmediate call.
                   const shapeType = piece.shapeType;

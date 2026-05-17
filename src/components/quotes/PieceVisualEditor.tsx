@@ -16,6 +16,7 @@ interface EdgeTypeOption {
   id: string;
   name: string;
   code?: string;
+  isMitred?: boolean;
 }
 
 interface CutoutDisplay {
@@ -1593,7 +1594,7 @@ export default function PieceVisualEditor({
             >
               <option value="">Pick profile...</option>
               <option value="">Raw (no finish)</option>
-              {edgeTypes.map((et, idx) => (
+              {edgeTypes.filter(et => !et.isMitred).map((et, idx) => (
                 <option key={et.id} value={et.id}>
                   {idx + 1}. {edgeDisplayName(et.name)}
                 </option>
@@ -2482,7 +2483,7 @@ export default function PieceVisualEditor({
           >
             <option value="">Choose profile...</option>
             <option value="__raw__">Raw (no finish)</option>
-            {edgeTypes.map((et) => (
+            {edgeTypes.filter(et => !et.isMitred).map((et) => (
               <option key={et.id} value={et.id}>{edgeDisplayName(et.name)}</option>
             ))}
           </select>

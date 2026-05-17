@@ -17,7 +17,7 @@ export interface EdgePanelProps {
   edgeBuildups: Record<string, EdgeBuildupConfig>;
 
   // Available options
-  edgeTypes: Array<{ id: string; name: string }>;
+  edgeTypes: Array<{ id: string; name: string; isMitred?: boolean }>;
 
   // Apply callbacks
   onApplyProfile: (edgeIds: string[], profileId: string | null) => void;
@@ -130,6 +130,10 @@ export default function EdgePanel({
   const selectedAttachedType = selectionCount === 1
     ? attachedPieceTypes?.[selectedEdgeIds[0]]
     : undefined;
+  const visibleEdgeTypes = useMemo(
+    () => edgeTypes.filter((edgeType) => !edgeType.isMitred),
+    [edgeTypes]
+  );
 
   // ── Derived pending values ─────────────────────────────────────────────
 
@@ -266,7 +270,7 @@ export default function EdgePanel({
             >
               Raw
             </button>
-            {edgeTypes.map((et) => (
+            {visibleEdgeTypes.map((et) => (
               <button
                 key={et.id}
                 type="button"
