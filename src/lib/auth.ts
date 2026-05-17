@@ -4,13 +4,25 @@ import bcrypt from 'bcryptjs';
 import prisma from './db';
 import { UserRole } from '@prisma/client';
 
-if (!process.env.JWT_SECRET) {
-  console.warn('WARNING: JWT_SECRET environment variable is not set. Authentication will not work in production.');
-}
+let warnedMissingJwtSecret = false;
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-production'
-);
+function getJwtSecret(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+  if (secret) {
+    return new TextEncoder().encode(secret);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('JWT_SECRET environment variable is required in production.');
+  }
+
+  if (!warnedMissingJwtSecret && process.env.NEXT_PHASE !== 'phase-production-build') {
+    warnedMissingJwtSecret = true;
+    console.warn('WARNING: JWT_SECRET is not set. Using local development auth secret.');
+  }
+
+  return new TextEncoder().encode('fallback-dev-secret-do-not-use-in-production');
+}
 
 const COOKIE_NAME = 'stonehenge-token';
 
@@ -36,12 +48,12 @@ export async function createToken(user: UserPayload): Promise<string> {
     .setProtectedHeader({ alg: 'HS256' })
     .setIssuedAt()
     .setExpirationTime('7d')
-    .sign(JWT_SECRET);
+    .sign(getJwtSecret());
 }
 
 export async function verifyToken(token: string): Promise<UserPayload | null> {
   try {
-    const { payload } = await jwtVerify(token, JWT_SECRET);
+    const { payload } = await jwtVerify(token, getJwtSecret());
     return payload.user as UserPayload;
   } catch {
     return null;

@@ -9,11 +9,20 @@ const PUBLIC_API_ROUTES = [
   '/api/company/logo/view',
 ];
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'fallback-dev-secret-do-not-use-in-production'
-);
-
 const COOKIE_NAME = 'stonehenge-token';
+
+function getJwtSecret(): Uint8Array | null {
+  const secret = process.env.JWT_SECRET;
+  if (secret) {
+    return new TextEncoder().encode(secret);
+  }
+
+  if (process.env.NODE_ENV === 'production') {
+    return null;
+  }
+
+  return new TextEncoder().encode('fallback-dev-secret-do-not-use-in-production');
+}
 
 function addCacheHeaders(response: NextResponse) {
   response.headers.set('Cache-Control', 'no-cache, no-store, must-revalidate');
@@ -50,7 +59,15 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    await jwtVerify(token, JWT_SECRET);
+    const jwtSecret = getJwtSecret();
+    if (!jwtSecret) {
+      return NextResponse.json(
+        { error: 'Server auth configuration is missing' },
+        { status: 500 }
+      );
+    }
+
+    await jwtVerify(token, jwtSecret);
     const response = NextResponse.next();
     return addCacheHeaders(response);
   } catch {
