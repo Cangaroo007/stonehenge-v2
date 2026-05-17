@@ -3242,9 +3242,9 @@ export default function QuoteDetailClient({
         type="button"
         onClick={() => document.getElementById('quote-pricing-overrides')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
         className="btn-secondary flex items-center gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
-        title="Jump to labour and price overrides"
+        title="Jump to labour, LM, multiplier, and manual price overrides"
       >
-        Labour overrides
+        Labour / price overrides
         {appliedPricingOverrideCount > 0 && (
           <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[11px] font-semibold text-white">
             {appliedPricingOverrideCount}
