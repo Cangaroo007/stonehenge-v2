@@ -8,7 +8,7 @@ import type { RelationshipType } from '@prisma/client';
 import toast from 'react-hot-toast';
 import { edgeColour, edgeCode, edgeDisplayName } from '@/lib/utils/edge-utils';
 import { normaliseRectEdgeSide, rectEdgeDisplayLabel } from '@/lib/utils/edge-side';
-import RoomPieceSVG from './RoomPieceSVG';
+import RoomPieceSVG, { type SuppressedEdgeDisplay } from './RoomPieceSVG';
 import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
 import type { EdgeScope } from './EdgeProfilePopover';
@@ -34,6 +34,7 @@ interface QuotePiece {
   edge_bottom: string | null;
   edge_left: string | null;
   edge_right: string | null;
+  noStripEdges?: string[] | null;
   piece_features?: Array<{ id: number; name: string; quantity: number }>;
   cutouts?: unknown;
   materialName?: string | null;
@@ -203,6 +204,19 @@ function getCutoutItems(piece: QuotePiece): Array<{ name: string; quantity: numb
 
 function countCutouts(piece: QuotePiece): number {
   return getCutoutItems(piece).reduce((sum, cutout) => sum + cutout.quantity, 0);
+}
+
+const OPPOSITE_EDGE: Record<'top' | 'bottom' | 'left' | 'right', 'top' | 'bottom' | 'left' | 'right'> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+function edgeListIncludes(edges: string[] | null | undefined, side: string): boolean {
+  const normalisedSide = normaliseRectEdgeSide(side);
+  if (!normalisedSide) return false;
+  return (edges ?? []).some(edge => normaliseRectEdgeSide(edge) === normalisedSide);
 }
 
 // ─── Component ───────────────────────────────────────────────────────────────
@@ -408,11 +422,56 @@ export default function RoomSpatialView({
   // ── Quick Edge mode state — always-on in edit mode ──
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
 
+  const getSuppressedEdgeDisplay = useCallback((piece: QuotePiece, side: string): SuppressedEdgeDisplay | null => {
+    const normalisedSide = normaliseRectEdgeSide(side);
+    if (!normalisedSide) return null;
+
+    for (const rel of relationships) {
+      if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+        continue;
+      }
+
+      const parentEdge = normaliseRectEdgeSide(rel.joinPosition);
+      if (!parentEdge) continue;
+
+      const pieceId = String(piece.id);
+      const isParentJoin = rel.parentPieceId === pieceId && parentEdge === normalisedSide;
+      const isChildJoin = rel.childPieceId === pieceId && OPPOSITE_EDGE[parentEdge] === normalisedSide;
+      if (isParentJoin || isChildJoin) {
+        if (rel.relationshipType === 'WATERFALL') {
+          return { code: 'WF', colour: '#2563eb', label: 'Waterfall join - edit the relationship instead' };
+        }
+        return { code: 'SB', colour: '#059669', label: 'Splashback join - edit the relationship instead' };
+      }
+    }
+
+    if (edgeListIncludes(piece.noStripEdges, normalisedSide)) {
+      return { code: 'Wall', colour: '#78716c', label: 'Against wall - no return strip or edge polish' };
+    }
+
+    return null;
+  }, [relationships]);
+
+  const getSuppressedEdges = useCallback((piece: QuotePiece) => {
+    const suppressed: Partial<Record<'top' | 'bottom' | 'left' | 'right', SuppressedEdgeDisplay>> = {};
+    (['top', 'bottom', 'left', 'right'] as const).forEach(side => {
+      const suppression = getSuppressedEdgeDisplay(piece, side);
+      if (suppression) suppressed[side] = suppression;
+    });
+    return suppressed;
+  }, [getSuppressedEdgeDisplay]);
+
   const handleEdgeClick = useCallback((pieceId: string, side: string) => {
     if (!onPieceEdgeChange) return;
+    const piece = pieceMap.get(pieceId);
+    const suppression = piece ? getSuppressedEdgeDisplay(piece, side) : null;
+    if (suppression) {
+      toast.error('Use the relationship or wall-edge controls for this edge');
+      return;
+    }
     onPieceEdgeChange(pieceId, side, quickEdgeProfileId);
     toast.success('Edge updated');
-  }, [quickEdgeProfileId, onPieceEdgeChange]);
+  }, [getSuppressedEdgeDisplay, pieceMap, quickEdgeProfileId, onPieceEdgeChange]);
 
   // Connector popover state (edit mode)
   const [connectorPopover, setConnectorPopover] = useState<ConnectorPopover | null>(null);
@@ -878,6 +937,7 @@ export default function RoomSpatialView({
               onMouseEnter={setHoveredPieceId}
               onMouseLeave={() => setHoveredPieceId(null)}
               joinPositionsMm={joinPositionsMap.get(piece.id)}
+              suppressedEdges={getSuppressedEdges(piece)}
             />
           );
         })}
@@ -1084,9 +1144,10 @@ export default function RoomSpatialView({
                     <span className="text-gray-500">Edges:</span>
                     {(['top', 'bottom', 'left', 'right'] as const).map(side => {
                       const edgeValue = piece[`edge_${side}` as keyof QuotePiece] as string | null;
-                      const code = edgeCode(edgeValue);
-                      const colour = edgeColour(edgeValue);
-                      const isRaw = !edgeValue || edgeValue.toLowerCase().includes('raw');
+                      const suppression = getSuppressedEdgeDisplay(piece, side);
+                      const code = suppression?.code ?? edgeCode(edgeValue);
+                      const colour = suppression?.colour ?? edgeColour(edgeValue);
+                      const isRaw = !suppression && (!edgeValue || edgeValue.toLowerCase().includes('raw'));
                       return (
                         <span
                           key={side}
@@ -1096,9 +1157,13 @@ export default function RoomSpatialView({
                               : 'text-white border-transparent'
                           }`}
                           style={!isRaw ? { backgroundColor: colour } : undefined}
-                          title={`${side}: ${edgeValue ?? 'Raw'} — click to change`}
+                          title={suppression?.label ?? `${side}: ${edgeValue ?? 'Raw'} — click to change`}
                           onClick={(e) => {
                             e.stopPropagation();
+                            if (suppression) {
+                              toast.error('Use the relationship or wall-edge controls for this edge');
+                              return;
+                            }
                             if (onPieceEdgeChange && edgeProfiles.length > 0) {
                               handleEdgeClick(pieceIdStr, side);
                             }

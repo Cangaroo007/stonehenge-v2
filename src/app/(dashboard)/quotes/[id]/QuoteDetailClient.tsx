@@ -3449,6 +3449,7 @@ export default function QuoteDetailClient({
                                 edge_bottom: p.edge_bottom,
                                 edge_left: p.edge_left,
                                 edge_right: p.edge_right,
+                                noStripEdges: ((p as Record<string, unknown>).noStripEdges as string[] ?? (p as Record<string, unknown>).no_strip_edges as string[]) ?? [],
                                 piece_features: p.piece_features,
                               };
                             })}
@@ -4188,6 +4189,7 @@ export default function QuoteDetailClient({
                         edge_bottom: p.edgeBottom,
                         edge_left: p.edgeLeft,
                         edge_right: p.edgeRight,
+                        noStripEdges: (p.noStripEdges as string[]) ?? [],
                         piece_features: p.cutouts?.map(c => ({
                           id: 0,
                           name: cutoutTypeNameById.get(c.cutoutTypeId) ?? c.cutoutTypeId,

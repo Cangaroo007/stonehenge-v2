@@ -151,4 +151,58 @@ describe('calculateRoomLayout', () => {
     expect(splashback).toBeDefined();
     expect(splashback!.y).toBeLessThan(bench!.y);
   });
+
+  it('keeps attached children in the parent cluster instead of the unrelated-piece stack', () => {
+    const layout = calculateRoomLayout(
+      [
+        {
+          id: 'vanity',
+          description: 'Bathroom Vanity',
+          length_mm: 900,
+          width_mm: 500,
+          piece_type: 'VANITY',
+        },
+        {
+          id: 'waterfall',
+          description: 'Waterfall - LEFT edge',
+          length_mm: 900,
+          width_mm: 500,
+          piece_type: 'WATERFALL',
+        },
+        {
+          id: 'splashback',
+          description: 'Splashback - BACK edge',
+          length_mm: 900,
+          width_mm: 250,
+          piece_type: 'SPLASHBACK',
+        },
+      ],
+      [
+        {
+          parentPieceId: 'vanity',
+          childPieceId: 'waterfall',
+          relationshipType: 'WATERFALL',
+          joinPosition: 'left',
+        },
+        {
+          parentPieceId: 'vanity',
+          childPieceId: 'splashback',
+          relationshipType: 'SPLASHBACK',
+          joinPosition: 'BACK',
+        },
+      ]
+    );
+
+    const vanity = layout.pieces.find(p => p.pieceId === 'vanity');
+    const waterfall = layout.pieces.find(p => p.pieceId === 'waterfall');
+    const splashback = layout.pieces.find(p => p.pieceId === 'splashback');
+
+    expect(vanity).toBeDefined();
+    expect(waterfall).toBeDefined();
+    expect(splashback).toBeDefined();
+    expect(waterfall!.x).toBeLessThan(vanity!.x);
+    expect(waterfall!.y).toBeCloseTo(vanity!.y, 4);
+    expect(splashback!.y).toBeLessThan(vanity!.y);
+    expect(splashback!.x).toBeCloseTo(vanity!.x, 4);
+  });
 });

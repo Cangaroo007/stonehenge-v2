@@ -19,6 +19,12 @@ interface PieceData {
   mitredCornerTreatment?: string | null;
 }
 
+export interface SuppressedEdgeDisplay {
+  code: string;
+  colour: string;
+  label: string;
+}
+
 interface RoomPieceSVGProps {
   piece: PieceData;
   position: PiecePosition;
@@ -36,6 +42,8 @@ interface RoomPieceSVGProps {
   onMouseLeave?: () => void;
   /** Join cut positions in mm from left edge — for oversize pieces */
   joinPositionsMm?: number[];
+  /** Edges suppressed by wall/join rules; shown but not editable in quick edge mode */
+  suppressedEdges?: Partial<Record<'top' | 'bottom' | 'left' | 'right', SuppressedEdgeDisplay>>;
 }
 
 function isRawEdge(name: string | null | undefined): boolean {
@@ -112,6 +120,7 @@ export default function RoomPieceSVG({
   onMouseEnter,
   onMouseLeave,
   joinPositionsMm,
+  suppressedEdges,
 }: RoomPieceSVGProps) {
   const { x, y, width, height } = position;
 
@@ -127,6 +136,10 @@ export default function RoomPieceSVG({
   const bottomEdge = getEdgeProfile(piece.edges, 'bottom');
   const leftEdge = getEdgeProfile(piece.edges, 'left');
   const rightEdge = getEdgeProfile(piece.edges, 'right');
+  const topSuppression = suppressedEdges?.top;
+  const bottomSuppression = suppressedEdges?.bottom;
+  const leftSuppression = suppressedEdges?.left;
+  const rightSuppression = suppressedEdges?.right;
 
   // Cutout count
   const cutoutCount = piece.cutouts
@@ -151,8 +164,9 @@ export default function RoomPieceSVG({
   const handleEdgeClick = useCallback((side: string, e: React.MouseEvent) => {
     if (!onEdgeClick) return;
     e.stopPropagation();
+    if (suppressedEdges?.[side as keyof typeof suppressedEdges]) return;
     onEdgeClick(piece.id, side);
-  }, [onEdgeClick, piece.id]);
+  }, [onEdgeClick, piece.id, suppressedEdges]);
 
   // Stroke styling based on selection state
   const strokeColour = isSelected ? '#2563eb' : '#94a3b8';
@@ -270,11 +284,11 @@ export default function RoomPieceSVG({
             y1={y + 1}
             x2={x + w - 3}
             y2={y + 1}
-            stroke={hoveredEdge === 'top' && isEditMode ? '#3b82f6' : edgeColour(topEdge)}
+            stroke={topSuppression?.colour ?? (hoveredEdge === 'top' && isEditMode ? '#3b82f6' : edgeColour(topEdge))}
             strokeWidth={hoveredEdge === 'top' && isEditMode ? 4 : 2}
-            strokeDasharray={isRawEdge(topEdge) ? '3 2' : undefined}
+            strokeDasharray={topSuppression ? '4 2' : (isRawEdge(topEdge) ? '3 2' : undefined)}
           >
-            <title>{edgeProfileDisplayName(topEdge)}</title>
+            <title>{topSuppression?.label ?? edgeProfileDisplayName(topEdge)}</title>
           </line>
           {/* Bottom edge */}
           <line
@@ -282,11 +296,11 @@ export default function RoomPieceSVG({
             y1={y + h - 1}
             x2={x + w - 3}
             y2={y + h - 1}
-            stroke={hoveredEdge === 'bottom' && isEditMode ? '#3b82f6' : edgeColour(bottomEdge)}
+            stroke={bottomSuppression?.colour ?? (hoveredEdge === 'bottom' && isEditMode ? '#3b82f6' : edgeColour(bottomEdge))}
             strokeWidth={hoveredEdge === 'bottom' && isEditMode ? 4 : 2}
-            strokeDasharray={isRawEdge(bottomEdge) ? '3 2' : undefined}
+            strokeDasharray={bottomSuppression ? '4 2' : (isRawEdge(bottomEdge) ? '3 2' : undefined)}
           >
-            <title>{edgeProfileDisplayName(bottomEdge)}</title>
+            <title>{bottomSuppression?.label ?? edgeProfileDisplayName(bottomEdge)}</title>
           </line>
           {/* Left edge */}
           <line
@@ -294,11 +308,11 @@ export default function RoomPieceSVG({
             y1={y + 3}
             x2={x + 1}
             y2={y + h - 3}
-            stroke={hoveredEdge === 'left' && isEditMode ? '#3b82f6' : edgeColour(leftEdge)}
+            stroke={leftSuppression?.colour ?? (hoveredEdge === 'left' && isEditMode ? '#3b82f6' : edgeColour(leftEdge))}
             strokeWidth={hoveredEdge === 'left' && isEditMode ? 4 : 2}
-            strokeDasharray={isRawEdge(leftEdge) ? '3 2' : undefined}
+            strokeDasharray={leftSuppression ? '4 2' : (isRawEdge(leftEdge) ? '3 2' : undefined)}
           >
-            <title>{edgeProfileDisplayName(leftEdge)}</title>
+            <title>{leftSuppression?.label ?? edgeProfileDisplayName(leftEdge)}</title>
           </line>
           {/* Right edge */}
           <line
@@ -306,11 +320,11 @@ export default function RoomPieceSVG({
             y1={y + 3}
             x2={x + w - 1}
             y2={y + h - 3}
-            stroke={hoveredEdge === 'right' && isEditMode ? '#3b82f6' : edgeColour(rightEdge)}
+            stroke={rightSuppression?.colour ?? (hoveredEdge === 'right' && isEditMode ? '#3b82f6' : edgeColour(rightEdge))}
             strokeWidth={hoveredEdge === 'right' && isEditMode ? 4 : 2}
-            strokeDasharray={isRawEdge(rightEdge) ? '3 2' : undefined}
+            strokeDasharray={rightSuppression ? '4 2' : (isRawEdge(rightEdge) ? '3 2' : undefined)}
           >
-            <title>{edgeProfileDisplayName(rightEdge)}</title>
+            <title>{rightSuppression?.label ?? edgeProfileDisplayName(rightEdge)}</title>
           </line>
 
           {/* Edge hit areas for clicking individual edges (edit mode) */}
@@ -319,42 +333,42 @@ export default function RoomPieceSVG({
               <line
                 x1={x + 3} y1={y + 1} x2={x + w - 3} y2={y + 1}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: topSuppression ? 'not-allowed' : 'pointer' }}
                 onClick={e => handleEdgeClick('top', e)}
                 onMouseEnter={() => setHoveredEdge('top')}
                 onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{edgeProfileDisplayName(topEdge)}</title>
+                <title>{topSuppression?.label ?? edgeProfileDisplayName(topEdge)}</title>
               </line>
               <line
                 x1={x + 3} y1={y + h - 1} x2={x + w - 3} y2={y + h - 1}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: bottomSuppression ? 'not-allowed' : 'pointer' }}
                 onClick={e => handleEdgeClick('bottom', e)}
                 onMouseEnter={() => setHoveredEdge('bottom')}
                 onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{edgeProfileDisplayName(bottomEdge)}</title>
+                <title>{bottomSuppression?.label ?? edgeProfileDisplayName(bottomEdge)}</title>
               </line>
               <line
                 x1={x + 1} y1={y + 3} x2={x + 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: leftSuppression ? 'not-allowed' : 'pointer' }}
                 onClick={e => handleEdgeClick('left', e)}
                 onMouseEnter={() => setHoveredEdge('left')}
                 onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{edgeProfileDisplayName(leftEdge)}</title>
+                <title>{leftSuppression?.label ?? edgeProfileDisplayName(leftEdge)}</title>
               </line>
               <line
                 x1={x + w - 1} y1={y + 3} x2={x + w - 1} y2={y + h - 3}
                 stroke="transparent" strokeWidth={edgeHitWidth}
-                style={{ cursor: 'pointer' }}
+                style={{ cursor: rightSuppression ? 'not-allowed' : 'pointer' }}
                 onClick={e => handleEdgeClick('right', e)}
                 onMouseEnter={() => setHoveredEdge('right')}
                 onMouseLeave={() => setHoveredEdge(null)}
               >
-                <title>{edgeProfileDisplayName(rightEdge)}</title>
+                <title>{rightSuppression?.label ?? edgeProfileDisplayName(rightEdge)}</title>
               </line>
             </>
           )}
@@ -363,65 +377,65 @@ export default function RoomPieceSVG({
           {w >= 40 && h >= 40 && (
             <>
               {/* Top edge label */}
-              {!isRawEdge(topEdge) && (
+              {(topSuppression || !isRawEdge(topEdge)) && (
                 <text
                   x={x + w / 2}
                   y={y - 6}
                   textAnchor="middle"
                   fontSize={9}
                   fontWeight={600}
-                  fill={edgeColour(topEdge)}
+                  fill={topSuppression?.colour ?? edgeColour(topEdge)}
                   style={{ pointerEvents: 'none' }}
                 >
-                  <title>{edgeProfileDisplayName(topEdge)}</title>
-                  {edgeCode(topEdge)}
+                  <title>{topSuppression?.label ?? edgeProfileDisplayName(topEdge)}</title>
+                  {topSuppression?.code ?? edgeCode(topEdge)}
                 </text>
               )}
               {/* Bottom edge label */}
-              {!isRawEdge(bottomEdge) && (
+              {(bottomSuppression || !isRawEdge(bottomEdge)) && (
                 <text
                   x={x + w / 2}
                   y={y + h + 14}
                   textAnchor="middle"
                   fontSize={9}
                   fontWeight={600}
-                  fill={edgeColour(bottomEdge)}
+                  fill={bottomSuppression?.colour ?? edgeColour(bottomEdge)}
                   style={{ pointerEvents: 'none' }}
                 >
-                  <title>{edgeProfileDisplayName(bottomEdge)}</title>
-                  {edgeCode(bottomEdge)}
+                  <title>{bottomSuppression?.label ?? edgeProfileDisplayName(bottomEdge)}</title>
+                  {bottomSuppression?.code ?? edgeCode(bottomEdge)}
                 </text>
               )}
               {/* Left edge label */}
-              {!isRawEdge(leftEdge) && (
+              {(leftSuppression || !isRawEdge(leftEdge)) && (
                 <text
                   x={x - 6}
                   y={y + h / 2}
                   textAnchor="middle"
                   fontSize={9}
                   fontWeight={600}
-                  fill={edgeColour(leftEdge)}
+                  fill={leftSuppression?.colour ?? edgeColour(leftEdge)}
                   style={{ pointerEvents: 'none' }}
                   transform={`rotate(-90, ${x - 6}, ${y + h / 2})`}
                 >
-                  <title>{edgeProfileDisplayName(leftEdge)}</title>
-                  {edgeCode(leftEdge)}
+                  <title>{leftSuppression?.label ?? edgeProfileDisplayName(leftEdge)}</title>
+                  {leftSuppression?.code ?? edgeCode(leftEdge)}
                 </text>
               )}
               {/* Right edge label */}
-              {!isRawEdge(rightEdge) && (
+              {(rightSuppression || !isRawEdge(rightEdge)) && (
                 <text
                   x={x + w + 6}
                   y={y + h / 2}
                   textAnchor="middle"
                   fontSize={9}
                   fontWeight={600}
-                  fill={edgeColour(rightEdge)}
+                  fill={rightSuppression?.colour ?? edgeColour(rightEdge)}
                   style={{ pointerEvents: 'none' }}
                   transform={`rotate(90, ${x + w + 6}, ${y + h / 2})`}
                 >
-                  <title>{edgeProfileDisplayName(rightEdge)}</title>
-                  {edgeCode(rightEdge)}
+                  <title>{rightSuppression?.label ?? edgeProfileDisplayName(rightEdge)}</title>
+                  {rightSuppression?.code ?? edgeCode(rightEdge)}
                 </text>
               )}
             </>
