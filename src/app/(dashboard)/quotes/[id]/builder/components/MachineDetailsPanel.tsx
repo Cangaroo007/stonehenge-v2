@@ -38,7 +38,7 @@ const OPERATION_LABELS: Record<string, { label: string; description: string }> =
   },
   MITRING: {
     label: 'Mitring',
-    description: 'Mitre cuts for laminated edges',
+    description: 'Mitre cuts for build-up/drop-edge construction',
   },
   LAMINATION: {
     label: 'Lamination',

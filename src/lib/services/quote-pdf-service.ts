@@ -320,7 +320,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
   });
 
   // 3. Fetch all edge types so piece.edge_top etc. (edge_type IDs) can be
-  //    resolved to human-readable names ("Arris", "Pencil Round", "Mitered",
+  //    resolved to human-readable names ("Arris", "Pencil Round",
   //    "Beveled", "Raw") before the PDF edge summary is built. Without this
   //    lookup, the raw CUID gets passed to edgeCode() and the keyword fallback
   //    returns the first three letters — every edge displays as "CML".
