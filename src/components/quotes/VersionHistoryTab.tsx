@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { format } from 'date-fns';
 import toast from 'react-hot-toast';
 import VersionDiffView from './VersionDiffView';
@@ -59,7 +59,7 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
   const [rollbackReason, setRollbackReason] = useState('');
   const [rolling, setRolling] = useState(false);
 
-  const fetchVersions = async () => {
+  const fetchVersions = useCallback(async () => {
     try {
       const response = await fetch(`/api/quotes/${quoteId}/versions`);
       if (!response.ok) throw new Error('Failed to fetch');
@@ -72,11 +72,11 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
     } finally {
       setLoading(false);
     }
-  };
+  }, [quoteId]);
 
   useEffect(() => {
     fetchVersions();
-  }, [quoteId]);
+  }, [fetchVersions]);
 
   const handleToggleExpand = (versionId: number, versionNumber: number) => {
     if (expandedId === versionId) {

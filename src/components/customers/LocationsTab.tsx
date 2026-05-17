@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
   CustomerLocationData,
@@ -42,11 +42,7 @@ export default function LocationsTab({ customerId }: LocationsTabProps) {
   const [formData, setFormData] = useState<LocationFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchLocations();
-  }, [customerId]);
-
-  const fetchLocations = async () => {
+  const fetchLocations = useCallback(async () => {
     try {
       const res = await fetch(`/api/customers/${customerId}/locations`);
       if (!res.ok) throw new Error('Failed to fetch locations');
@@ -57,7 +53,11 @@ export default function LocationsTab({ customerId }: LocationsTabProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    fetchLocations();
+  }, [fetchLocations]);
 
   const handleAddNew = () => {
     setEditingLocationId(null);

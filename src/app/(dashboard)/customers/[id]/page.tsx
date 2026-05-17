@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Link from 'next/link';
 import toast from 'react-hot-toast';
@@ -44,6 +44,18 @@ export default function CustomerDetailPage() {
   const [customer, setCustomer] = useState<Customer | null>(null);
   const [quotes, setQuotes] = useState<Quote[]>([]);
 
+  const fetchQuotes = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/quotes?customerId=${params.id}`);
+      if (!res.ok) throw new Error('Failed to fetch quotes');
+      const data = await res.json();
+      setQuotes(data);
+    } catch (error) {
+      toast.error('Failed to load quotes');
+      console.error(error);
+    }
+  }, [params.id]);
+
   // Fetch customer data
   useEffect(() => {
     async function loadCustomer() {
@@ -67,19 +79,7 @@ export default function CustomerDetailPage() {
     if (activeTab === 'quotes' && customer) {
       fetchQuotes();
     }
-  }, [activeTab, customer]);
-
-  const fetchQuotes = async () => {
-    try {
-      const res = await fetch(`/api/quotes?customerId=${params.id}`);
-      if (!res.ok) throw new Error('Failed to fetch quotes');
-      const data = await res.json();
-      setQuotes(data);
-    } catch (error) {
-      toast.error('Failed to load quotes');
-      console.error(error);
-    }
-  };
+  }, [activeTab, customer, fetchQuotes]);
 
   if (loading || !customer) {
     return (
@@ -312,4 +312,3 @@ function QuotesTab({ quotes, customerId }: { quotes: Quote[]; customerId: number
     </div>
   );
 }
-

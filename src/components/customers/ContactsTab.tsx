@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { ContactRole } from '@prisma/client';
 import {
@@ -47,11 +47,7 @@ export default function ContactsTab({ customerId, customerName }: ContactsTabPro
   const [formData, setFormData] = useState<ContactFormData>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => {
-    fetchContacts();
-  }, [customerId]);
-
-  const fetchContacts = async () => {
+  const fetchContacts = useCallback(async () => {
     try {
       const res = await fetch(`/api/customers/${customerId}/contacts`);
       if (!res.ok) throw new Error('Failed to fetch contacts');
@@ -62,7 +58,11 @@ export default function ContactsTab({ customerId, customerName }: ContactsTabPro
     } finally {
       setLoading(false);
     }
-  };
+  }, [customerId]);
+
+  useEffect(() => {
+    fetchContacts();
+  }, [fetchContacts]);
 
   const handleAddNew = () => {
     setEditingContactId(null);
