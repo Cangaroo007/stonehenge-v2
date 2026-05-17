@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 
 interface AutocompleteInputProps {
   value: string;
@@ -25,6 +25,8 @@ export default function AutocompleteInput({
   const containerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const listboxId = useId();
+  const activeOptionId = activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
 
   // Filter suggestions by input value (case-insensitive contains)
   const filtered = value.trim()
@@ -145,6 +147,9 @@ export default function AutocompleteInput({
         }
         role="combobox"
         aria-expanded={isOpen}
+        aria-controls={listboxId}
+        aria-haspopup="listbox"
+        aria-activedescendant={activeOptionId}
         aria-autocomplete="list"
         autoComplete="off"
       />
@@ -154,10 +159,12 @@ export default function AutocompleteInput({
           className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg overflow-auto"
           style={{ maxHeight: `${maxVisible * 36}px` }}
           role="listbox"
+          id={listboxId}
         >
           {displayItems.map((item, idx) => (
             <li
               key={item}
+              id={`${listboxId}-option-${idx}`}
               role="option"
               aria-selected={idx === activeIndex}
               className={`px-3 py-2 text-sm cursor-pointer transition-colors ${

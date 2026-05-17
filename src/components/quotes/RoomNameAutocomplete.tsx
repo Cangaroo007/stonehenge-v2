@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useId } from 'react';
 import type { PresetPieceConfig } from '@/lib/services/room-preset-service';
 
 // ---------------------------------------------------------------------------
@@ -46,6 +46,8 @@ export default function RoomNameAutocomplete({
   const inputRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const listboxId = useId();
+  const activeOptionId = activeIndex >= 0 ? `${listboxId}-option-${activeIndex}` : undefined;
 
   // Search presets on keystroke (debounced 300ms)
   const searchPresets = useCallback(async (query: string) => {
@@ -201,6 +203,9 @@ export default function RoomNameAutocomplete({
         }
         role="combobox"
         aria-expanded={isOpen}
+        aria-controls={listboxId}
+        aria-haspopup="listbox"
+        aria-activedescendant={activeOptionId}
         aria-autocomplete="list"
         autoComplete="off"
       />
@@ -211,11 +216,13 @@ export default function RoomNameAutocomplete({
           className="absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-md shadow-lg overflow-auto"
           style={{ maxHeight: `${maxVisible * 48}px` }}
           role="listbox"
+          id={listboxId}
         >
           {/* Preset results */}
           {presetResults.map((preset, idx) => (
             <li
               key={preset.id}
+              id={`${listboxId}-option-${idx}`}
               role="option"
               aria-selected={idx === activeIndex}
               className={`px-3 py-2 cursor-pointer transition-colors ${
@@ -255,6 +262,7 @@ export default function RoomNameAutocomplete({
             return (
               <li
                 key={`fb-${name}`}
+                id={`${listboxId}-option-${globalIdx}`}
                 role="option"
                 aria-selected={globalIdx === activeIndex}
                 className={`px-3 py-2 text-sm cursor-pointer transition-colors ${
