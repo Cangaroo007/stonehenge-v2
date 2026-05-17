@@ -2,6 +2,8 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 
+export const dynamic = 'force-dynamic';
+
 const VALID_OPERATION_TYPES = [
   'INITIAL_CUT',
   'EDGE_POLISHING',
