@@ -11,6 +11,7 @@ interface ImportPieceData {
   width: number;
   thickness?: number;
   room?: string;
+  pieceType?: string | null;
   materialId?: number | null;
   material?: string;
   notes?: string;
@@ -210,6 +211,7 @@ export async function POST(
             total_cost: 0,
             sort_order: sortOrder++,
             cutouts,
+            piece_type: pieceData.pieceType || null,
             edge_top: pieceData.edgeTop || null,
             edge_bottom: pieceData.edgeBottom || null,
             edge_left: pieceData.edgeLeft || null,

@@ -52,6 +52,7 @@ interface ExtractedPiece {
   id: string;
   pieceNumber: number;
   name: string;
+  pieceType?: string;
   shape?: string;
   length: number;
   width: number;
@@ -59,7 +60,7 @@ interface ExtractedPiece {
   room: string;
   confidence: number;
   notes: string | null;
-  cutouts: { type: string }[];
+  cutouts: { type: string; quantity?: number }[];
   isEditing: boolean;
   edgeSelections: EdgeSelections;
 }
@@ -82,7 +83,7 @@ interface AnalysisResult {
       length: number;
       width: number;
       thickness: number;
-      cutouts: { type: string }[];
+      cutouts: { type: string; quantity?: number }[];
       notes: string | null;
       confidence: number;
     }[];
@@ -376,6 +377,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             id,
             pieceNumber: piece.pieceNumber || pieceIndex,
             name: piece.name || `Piece ${pieceIndex}`,
+            pieceType: piece.pieceType || undefined,
             shape: piece.shape || undefined,
             length: piece.length || 0,
             width: piece.width || 0,
@@ -554,6 +556,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             edgeBottom: p.edgeSelections.edgeBottom,
             edgeLeft: p.edgeSelections.edgeLeft,
             edgeRight: p.edgeSelections.edgeRight,
+            pieceType: p.pieceType,
+            cutouts: p.cutouts.map(c => ({
+              type: c.type,
+              quantity: c.quantity ?? 1,
+            })),
           })),
         }),
       });

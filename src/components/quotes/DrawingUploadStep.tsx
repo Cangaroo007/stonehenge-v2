@@ -420,6 +420,7 @@ export default function DrawingUploadStep({
       // Import pieces from analysis into the draft quote
       const analysis = analysisData as { rooms?: Array<{ name: string; pieces: Array<{
         name: string;
+        pieceType?: string | null;
         length: number;
         width: number;
         thickness: number;
@@ -439,6 +440,7 @@ export default function DrawingUploadStep({
         width: number;
         thickness: number;
         room: string;
+        pieceType?: string | null;
         notes: string | null;
         materialId?: number | null;
         material?: string | null;
@@ -457,6 +459,7 @@ export default function DrawingUploadStep({
             thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
             room: room.name || 'Kitchen',
             notes: piece.notes || null,
+            pieceType: piece.pieceType || null,
             materialId: piece.materialId ?? null,
             material: piece.materialName || piece.material || null,
             edgeTop: piece.edgeTop || null,
