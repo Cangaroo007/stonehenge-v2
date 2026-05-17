@@ -5147,6 +5147,8 @@ export default function QuoteDetailClient({
               thicknessMm,
               materialId: parentPiece.materialId ?? null,
               materialName: parentPiece.materialName ?? null,
+              materialCollectionOnly: parentPiece.materialCollectionOnly ?? false,
+              materialCollectionName: parentPiece.materialCollectionName ?? null,
               laminationMethod: 'NONE',
             }),
           });
