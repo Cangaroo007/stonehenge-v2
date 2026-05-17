@@ -19,6 +19,7 @@ const VALID_RELATION_TYPES = [
 ] as const;
 
 const VALID_SIDES = ['top', 'bottom', 'left', 'right'] as const;
+const TYPED_RELATIONSHIP_TYPES = new Set<string>(Object.values(RelationshipType));
 
 async function recalculateQuote(quoteId: number) {
   const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
@@ -175,6 +176,10 @@ export async function POST(
 
     const relationship = await prisma.$transaction(async (tx) => {
       const shouldShareRoom = ['WATERFALL', 'SPLASHBACK', 'RETURN'].includes(relationshipType);
+      const typedRelationshipType = TYPED_RELATIONSHIP_TYPES.has(relationshipType)
+        ? relationshipType as RelationshipType
+        : null;
+
       if (shouldShareRoom) {
         const sourcePiece = await tx.quote_pieces.findUnique({
           where: { id: sourcePieceId },
@@ -193,7 +198,7 @@ export async function POST(
           source_piece_id: sourcePieceId,
           target_piece_id: targetPieceId,
           relation_type: relationshipType,        // existing field — keep
-          relationship_type: relationshipType,    // typed enum — write together always
+          relationship_type: typedRelationshipType,
           side: side || null,
           grain_match: grainMatch,               // edge-attach grain direction flag
           notes: notes ?? null,
@@ -203,12 +208,14 @@ export async function POST(
         },
       });
 
-      await syncEdgeSemanticsForRelationship(tx, {
-        relationshipType: relationshipType as RelationshipType,
-        sourceId: sourcePieceId,
-        targetId: targetPieceId,
-        joinPosition: side,
-      });
+      if (typedRelationshipType) {
+        await syncEdgeSemanticsForRelationship(tx, {
+          relationshipType: typedRelationshipType,
+          sourceId: sourcePieceId,
+          targetId: targetPieceId,
+          joinPosition: side,
+        });
+      }
 
       return created;
     });
