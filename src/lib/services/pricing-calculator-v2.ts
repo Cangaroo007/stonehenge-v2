@@ -367,7 +367,7 @@ function applyMultiplierToCutting(
 
 function edgeOverrideMatchesLine(
   override: PricingOverrideRecord,
-  item: { edgeTypeId: number },
+  item: { edgeTypeId: number; effectiveThicknessMm?: number },
   edgeTypeReverseMap: Map<number, { isMitred?: boolean | null }>
 ): boolean {
   const token = normalizeOverrideToken(override.category);
@@ -376,8 +376,9 @@ function edgeOverrideMatchesLine(
   }
 
   const isMitredEdge = edgeTypeReverseMap.get(item.edgeTypeId)?.isMitred === true;
-  if (token === 'MITRE_POLISH') return isMitredEdge;
-  if (token === 'NORMAL_POLISH') return !isMitredEdge;
+  const isBuiltUpEdgeLine = isMitredEdge || (item.effectiveThicknessMm ?? 0) >= 40;
+  if (token === 'MITRE_POLISH') return isBuiltUpEdgeLine;
+  if (token === 'NORMAL_POLISH') return !isBuiltUpEdgeLine;
 
   return false;
 }

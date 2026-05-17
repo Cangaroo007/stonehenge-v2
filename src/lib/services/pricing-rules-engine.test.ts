@@ -148,5 +148,7 @@ test('uses edge effective thickness for built-up edge profile rates', () => {
   })
 
   expect(result.pieces[0].edgeProfiles.items[0].rate).toBe(115.00)
+  expect(result.pieces[0].edgeProfiles.items[0].effectiveThicknessMm).toBe(40)
   expect(result.pieces[0].edgeProfiles.items[1].rate).toBe(40.00)
+  expect(result.pieces[0].edgeProfiles.items[1].effectiveThicknessMm).toBe(20)
 })

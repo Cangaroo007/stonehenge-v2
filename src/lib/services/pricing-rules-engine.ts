@@ -128,7 +128,7 @@ export interface PiecePricingResult {
   name: string
   cutting:        { lm: number; ratePerLm: number; cost: number; items?: EngineCuttingItem[] }
   curvedCutting:  { lm: number; ratePerLm: number; cost: number } | null
-  edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; position?: EngineEdge['position'] | 'ARC'; lm: number; rate: number; cost: number }> }
+  edgeProfiles:   { lm: number; cost: number; items: Array<{ edgeTypeId: number; position?: EngineEdge['position'] | 'ARC'; lm: number; rate: number; cost: number; effectiveThicknessMm?: number }> }
   cutouts:        { cost: number; items: Array<{ type: string; qty: number; rate: number; cost: number }> }
   join:           { lm: number; rate: number; cost: number } | null
   grainSurcharge: { base: number; rate: number; cost: number } | null
@@ -249,7 +249,7 @@ export function ruleEdgeProfiles(
     const rate = catRate
       ? (rateThickness >= 40 ? catRate.rate40mm : catRate.rate20mm)
       : 0  // $0 = intentionally free profile (e.g. Arris, Pencil Round)
-    items.push({ edgeTypeId: edge.edgeTypeId!, position: edge.position, lm, rate, cost: lm * rate })
+    items.push({ edgeTypeId: edge.edgeTypeId!, position: edge.position, lm, rate, cost: lm * rate, effectiveThicknessMm: rateThickness })
   }
 
   // ARC EDGE PROFILES
