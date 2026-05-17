@@ -5050,7 +5050,7 @@ export default function QuoteDetailClient({
           const newPiece = pieceJson.piece ?? pieceJson;
           if (!newPiece?.id) return;
 
-          // 3. Set joining edge to Mitered on parent
+          // 3. Set joining edge to the mitred join profile on parent
           await handlePieceEdgeChange(parentPieceId, selectedEdge, MITERED_EDGE_ID);
 
           // 3.5. Auto-remove build-up on joining edge + suppress its return strip
@@ -5085,7 +5085,7 @@ export default function QuoteDetailClient({
             });
           }
 
-          // 4. Set opposing edge to Mitered on child (direct fetch — new piece not in effectivePieces yet)
+          // 4. Set opposing edge to the mitred join profile on child (direct fetch — new piece not in effectivePieces yet)
           const oppositeEdge: Record<string, string> = {
             top: 'bottom', bottom: 'top', left: 'right', right: 'left'
           };

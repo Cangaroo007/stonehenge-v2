@@ -1880,8 +1880,8 @@ export async function calculateQuotePrice(
 
   // LAMINATION PRICING REMOVED (March 2026) — 40mm edge work is covered by rate40mm on edge rates.
   // WATERFALL END REMOVED — deliberate pricing decision (March 2026)
-  // Waterfall/splashback joining edges are mitred, so the cost is captured
-  // by the Mitered edge profile rate on each joining edge. No separate
+  // Waterfall/splashback joining edges use a mitred join profile, so the cost is captured
+  // by that edge profile rate on each joining edge. No separate
   // WATERFALL_END service charge needed.
   // Original code: waterfallPieces filter + FIXED_PER_END / PER_LINEAR_METRE — bypassed
 

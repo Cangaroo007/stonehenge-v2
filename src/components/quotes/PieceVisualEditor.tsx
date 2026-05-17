@@ -1534,7 +1534,7 @@ export default function PieceVisualEditor({
       {/* ── Build-up construction note ────────────────────────────────── */}
       {isMitred && isEditMode && (
         <p className="text-xs text-gray-500 italic px-3 py-2">
-          Mitred build-up construction — visible profile and corner treatment are managed separately.
+          Build-up construction uses mitred joins. Visible profile and corner treatment are managed separately.
         </p>
       )}
 

@@ -291,9 +291,9 @@ export default function EdgePanel({
           </button>
         </div>
 
-        {/* ── Build-Up / Mitre Construction ────────────────────────────── */}
+        {/* ── Build-Up / Drop Edge ─────────────────────────────────────── */}
         <div className="p-4 space-y-3">
-          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up / Mitre Construction</h4>
+          <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Build-Up / Drop Edge</h4>
           {currentBuildupSummary && (
             <p className="text-xs text-gray-500">{currentBuildupSummary}</p>
           )}

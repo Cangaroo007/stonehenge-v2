@@ -547,7 +547,7 @@ export default function PieceForm({
         </div>
       )}
 
-      {/* Mitre Lamination Strip Auto-Calculation */}
+      {/* Build-up strip auto-calculation */}
       {thicknessMm >= 40 && (() => {
         const kerfMm = selectedMachine?.kerfWidthMm ?? 8;
         const edgeEntries = [
@@ -571,7 +571,7 @@ export default function PieceForm({
 
         // Build lamination summary
         const totalLm = mitreStrips.reduce((sum, s) => sum + s.lengthMm / 1000, 0);
-        const summaryText = `${thicknessMm}mm Mitred \u2014 ${mitreStrips.length} strip${mitreStrips.length !== 1 ? 's' : ''} \u2014 ${totalLm.toFixed(2)} Lm`;
+        const summaryText = `${thicknessMm}mm build-up \u2014 ${mitreStrips.length} strip${mitreStrips.length !== 1 ? 's' : ''} \u2014 ${totalLm.toFixed(2)} Lm`;
 
         return (
           <div className="bg-purple-50 border border-purple-200 rounded-lg overflow-hidden">

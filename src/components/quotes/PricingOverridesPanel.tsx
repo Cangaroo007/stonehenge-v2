@@ -39,7 +39,7 @@ interface PricingOverridesPanelProps {
 
 const CATEGORY_OPTIONS = [
   ['NORMAL_CUT', 'Normal cutting LM'],
-  ['MITRE_CUT', 'Build-up / mitre cutting LM'],
+  ['MITRE_CUT', 'Build-up cutting LM'],
   ['NORMAL_POLISH', 'Visible edge finish LM'],
   ['MITRE_POLISH', 'Build-up edge finish LM'],
   ['CUTOUT', 'Cutouts'],

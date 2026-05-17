@@ -834,7 +834,7 @@ function pieceDescriptionLines(p: QuotePdfPiece): string[] {
 }
 
 function cuttingDetailLabel(item: NonNullable<QuotePdfPiece['pricing']['cuttingItems']>[number]): string {
-  const label = item.kind === 'BUILD_UP' ? 'Build-up/mitre cutting' : 'Normal cutting';
+  const label = item.kind === 'BUILD_UP' ? 'Build-up cutting' : 'Normal cutting';
   return item.side ? `${label} (${item.side})` : label;
 }
 
