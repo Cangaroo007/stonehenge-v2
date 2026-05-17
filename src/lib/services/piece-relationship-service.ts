@@ -131,7 +131,6 @@ export async function syncEdgeSemanticsForRelationship(
   if (!joinEdge) return;
 
   const mitredEdgeId = await getDefaultMitredEdgeId(tx);
-  if (!mitredEdgeId) return;
 
   const [parentPiece, childPiece] = await Promise.all([
     tx.quote_pieces.findUnique({
@@ -146,6 +145,7 @@ export async function syncEdgeSemanticsForRelationship(
       select: {
         id: true,
         no_strip_edges: true,
+        edge_buildups: true,
       },
     }),
   ]);
@@ -153,24 +153,30 @@ export async function syncEdgeSemanticsForRelationship(
   if (!parentPiece || !childPiece) return;
 
   const childJoinEdge = OPPOSITE_EDGE[joinEdge];
+  const parentUpdate: Prisma.quote_piecesUpdateInput = {
+    no_strip_edges: appendUniqueEdge(parentPiece.no_strip_edges, joinEdge) as unknown as Prisma.InputJsonValue,
+    edge_buildups: removeEdgeBuildup(parentPiece.edge_buildups, joinEdge) as unknown as Prisma.InputJsonValue,
+    lamination_method: 'MITRED',
+  };
+  const childUpdate: Prisma.quote_piecesUpdateInput = {
+    no_strip_edges: appendUniqueEdge(childPiece.no_strip_edges, childJoinEdge) as unknown as Prisma.InputJsonValue,
+    edge_buildups: removeEdgeBuildup(childPiece.edge_buildups, childJoinEdge) as unknown as Prisma.InputJsonValue,
+    lamination_method: 'MITRED',
+  };
+
+  if (mitredEdgeId) {
+    parentUpdate[EDGE_FIELD[joinEdge]] = mitredEdgeId;
+    childUpdate[EDGE_FIELD[childJoinEdge]] = mitredEdgeId;
+  }
 
   await Promise.all([
     tx.quote_pieces.update({
       where: { id: input.sourceId },
-      data: {
-        [EDGE_FIELD[joinEdge]]: mitredEdgeId,
-        no_strip_edges: appendUniqueEdge(parentPiece.no_strip_edges, joinEdge) as unknown as Prisma.InputJsonValue,
-        edge_buildups: removeEdgeBuildup(parentPiece.edge_buildups, joinEdge) as unknown as Prisma.InputJsonValue,
-        lamination_method: 'MITRED',
-      },
+      data: parentUpdate,
     }),
     tx.quote_pieces.update({
       where: { id: input.targetId },
-      data: {
-        [EDGE_FIELD[childJoinEdge]]: mitredEdgeId,
-        no_strip_edges: appendUniqueEdge(childPiece.no_strip_edges, childJoinEdge) as unknown as Prisma.InputJsonValue,
-        lamination_method: 'MITRED',
-      },
+      data: childUpdate,
     }),
   ]);
 }
