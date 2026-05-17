@@ -78,6 +78,7 @@ import ContactPicker from '@/components/quotes/ContactPicker';
 import QuoteReadinessChecker from '@/components/quotes/QuoteReadinessChecker';
 import WaterfallSplashbackModal from '@/components/quotes/WaterfallSplashbackModal';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
+import { trackClarityEvent } from '@/lib/clarity';
 
 type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
 
@@ -893,6 +894,11 @@ export default function QuoteDetailClient({
   // Load edit-mode data when switching to edit or on initial mount in edit mode
   useEffect(() => {
     if (mode === 'edit' && !editDataLoaded.current) {
+      trackClarityEvent('quote_edit_opened', {
+        quoteId: quoteIdStr,
+        quoteNumber: serverData.quote_number ?? 'draft',
+        status: serverData.status,
+      });
       editDataLoaded.current = true;
       setEditLoading(true);
       Promise.all([
@@ -907,7 +913,7 @@ export default function QuoteDetailClient({
         fetchRelationships(),
       ]).then(() => setEditLoading(false));
     }
-  }, [mode, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers, fetchRelationships]);
+  }, [mode, quoteIdStr, serverData.quote_number, serverData.status, fetchQuote, fetchMaterials, fetchEdgeTypes, fetchCutoutTypes, fetchThicknessOptions, fetchMachines, fetchMachineOperationDefaults, fetchCustomers, fetchRelationships]);
 
   // ── Auto-calculate pricing independent of sidebar visibility ──────────────
   // Rule 23: Business logic must NOT depend on sidebar visibility.
@@ -2186,7 +2192,17 @@ export default function QuoteDetailClient({
       if (!response.ok) throw new Error('Failed to save quote');
       await fetchQuote();
       markAsSaved();
+      trackClarityEvent('quote_saved', {
+        quoteId: quoteIdStr,
+        quoteNumber: editQuote?.quote_number ?? serverData.quote_number ?? 'draft',
+        status: editQuote?.status ?? serverData.status,
+      });
     } catch (err) {
+      trackClarityEvent('quote_error', {
+        quoteId: quoteIdStr,
+        area: 'save',
+        message: err instanceof Error ? err.message : 'Failed to save quote',
+      });
       setError(err instanceof Error ? err.message : 'Failed to save quote');
     } finally {
       setSaving(false);
@@ -2266,6 +2282,11 @@ export default function QuoteDetailClient({
   // calculated total.
   const handleOpenReadinessCheck = async (pdfView: PdfViewMode = selectedPdfView) => {
     setSelectedPdfView(pdfView);
+    trackClarityEvent('pdf_readiness_opened', {
+      quoteId: quoteIdStr,
+      quoteNumber: editQuote?.quote_number ?? serverData.quote_number ?? 'draft',
+      pdfView,
+    });
     if (calculationRef.current) {
       try {
         await handleSaveQuote();
@@ -2297,8 +2318,18 @@ export default function QuoteDetailClient({
       a.click();
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
+      trackClarityEvent('pdf_generated', {
+        quoteId: quoteIdStr,
+        quoteNumber: editQuote?.quote_number ?? serverData.quote_number ?? 'draft',
+        pdfView,
+      });
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Failed to download PDF';
+      trackClarityEvent('quote_error', {
+        quoteId: quoteIdStr,
+        area: 'pdf',
+        message: msg,
+      });
       alert(msg);
     } finally {
       setDownloadingPdf(false);
@@ -2307,13 +2338,17 @@ export default function QuoteDetailClient({
 
   const handleImportComplete = useCallback(async (count: number) => {
     setShowDrawingImport(false);
+    trackClarityEvent('drawing_import_completed', {
+      quoteId: quoteIdStr,
+      importedPieces: count,
+    });
     await fetchQuote();
     triggerRecalculate();
     triggerOptimise();
     markAsChanged();
     setImportSuccessMessage(`Imported ${count} piece${count !== 1 ? 's' : ''} from drawing`);
     setTimeout(() => setImportSuccessMessage(null), 5000);
-  }, [fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+  }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
   const handleTemplateApplied = useCallback(async (piecesCreated: number, templateName: string) => {
     setShowFromTemplate(false);

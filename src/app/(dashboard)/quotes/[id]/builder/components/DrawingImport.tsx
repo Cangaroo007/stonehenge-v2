@@ -9,6 +9,7 @@ import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { VerbalTakeoffInput } from '@/components/drawing-analysis/VerbalTakeoffInput';
 import { logger } from '@/lib/logger';
+import { trackClarityEvent } from '@/lib/clarity';
 
 interface EdgeType {
   id: string;
@@ -532,6 +533,10 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
     setIsImporting(true);
     setError(null);
+    trackClarityEvent('drawing_import_started', {
+      quoteId,
+      selectedPieces: selectedPieces.length,
+    });
 
     try {
       const response = await fetch(`/api/quotes/${quoteId}/import-pieces`, {
@@ -563,6 +568,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
     } catch (err) {
       logger.error('[DrawingImport] Import error:', err);
+      trackClarityEvent('quote_error', {
+        quoteId,
+        area: 'drawing_import',
+        message: err instanceof Error ? err.message : 'Failed to import pieces',
+      });
       setError(err instanceof Error ? err.message : 'Failed to import pieces');
     } finally {
       setIsImporting(false);

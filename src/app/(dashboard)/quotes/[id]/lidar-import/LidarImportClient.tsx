@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
+import { trackClarityEvent } from '@/lib/clarity';
 
 interface LidarScanSummary {
   scanId: string;
@@ -56,6 +57,11 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
 
   async function importScan(scanId: string) {
     setImportingScanId(scanId);
+    trackClarityEvent('lidar_import_started', {
+      quoteId,
+      scanId,
+      replaceExisting,
+    });
     try {
       const response = await fetch(`/api/quotes/${quoteId}/lidar-import`, {
         method: 'POST',
@@ -71,9 +77,20 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
         ? ` (${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'})`
         : '';
       toast.success(`Imported ${data.imported?.length ?? 0} piece${warningText}`);
+      trackClarityEvent('lidar_import_completed', {
+        quoteId,
+        scanId,
+        importedPieces: data.imported?.length ?? 0,
+        warningCount: Array.isArray(data.warnings) ? data.warnings.length : 0,
+      });
       router.push(`/quotes/${quoteId}?mode=edit`);
       router.refresh();
     } catch (error) {
+      trackClarityEvent('quote_error', {
+        quoteId,
+        area: 'lidar_import',
+        message: error instanceof Error ? error.message : 'Failed to import LiDAR scan',
+      });
       toast.error(error instanceof Error ? error.message : 'Failed to import LiDAR scan');
     } finally {
       setImportingScanId(null);
