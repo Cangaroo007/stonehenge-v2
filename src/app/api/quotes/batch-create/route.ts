@@ -32,6 +32,7 @@ interface BatchPieceInput {
   edgeBottom?: string | null;
   edgeLeft?: string | null;
   edgeRight?: string | null;
+  pieceType?: string | null;
   cutouts?: BatchCutoutInput[];
 }
 
@@ -52,6 +53,11 @@ interface BatchCreateBody {
 
 function calculateArea(lengthMm: number, widthMm: number): number {
   return (lengthMm * widthMm) / 1_000_000;
+}
+
+function normalisePieceType(value?: string | null): string | null {
+  if (!value) return null;
+  return value.trim().replace(/[\s-]+/g, '_').toUpperCase();
 }
 
 function validateBody(body: unknown): { valid: true; data: BatchCreateBody } | { valid: false; error: string } {
@@ -189,6 +195,7 @@ export async function POST(request: NextRequest) {
         const edgeBottom = piece.edgeBottom ?? defaults.edges.bottom;
         const edgeLeft = piece.edgeLeft ?? defaults.edges.left;
         const edgeRight = piece.edgeRight ?? defaults.edges.right;
+        const pieceType = normalisePieceType(piece.pieceType) ?? normalisePieceType(defaults.pieceType);
 
         // Cutouts as JSON — use provided or empty
         const cutouts = Array.isArray(piece.cutouts)
@@ -219,6 +226,7 @@ export async function POST(request: NextRequest) {
           edge_bottom: edgeBottom,
           edge_left: edgeLeft,
           edge_right: edgeRight,
+          piece_type: pieceType,
           cutouts: cutouts as unknown as Prisma.InputJsonValue,
         };
       });
