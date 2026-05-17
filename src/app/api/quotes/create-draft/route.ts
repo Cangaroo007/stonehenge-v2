@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
+import { getPieceDefaults } from '@/lib/services/quote-setup-defaults';
 
 /**
  * POST /api/quotes/create-draft
@@ -87,6 +88,7 @@ export async function POST(request: NextRequest) {
         edgeBottom: string | null;
         edgeLeft: string | null;
         edgeRight: string | null;
+        pieceType?: string | null;
       }>;
     }> } | null = null;
     try {
@@ -122,6 +124,7 @@ export async function POST(request: NextRequest) {
               edge_bottom: piece.edgeBottom || null,
               edge_left: piece.edgeLeft || null,
               edge_right: piece.edgeRight || null,
+              piece_type: piece.pieceType || getPieceDefaults(piece.description || 'Piece').pieceType,
             })),
           },
         }))
