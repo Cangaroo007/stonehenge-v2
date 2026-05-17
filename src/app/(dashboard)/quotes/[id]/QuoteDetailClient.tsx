@@ -3163,6 +3163,9 @@ export default function QuoteDetailClient({
   );
 
   // ── Edit-mode action buttons ──────────────────────────────────────────────
+  const appliedPricingOverrideCount = Array.isArray((calculation as { appliedPricingOverrides?: unknown[] } | null)?.appliedPricingOverrides)
+    ? ((calculation as { appliedPricingOverrides?: unknown[] }).appliedPricingOverrides ?? []).length
+    : 0;
 
   const editActionButtons = editQuote ? (
     <>
@@ -3188,10 +3191,15 @@ export default function QuoteDetailClient({
       <button
         type="button"
         onClick={() => document.getElementById('quote-pricing-overrides')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
-        className="btn-secondary flex items-center gap-2"
-        title="Jump to quote pricing overrides"
+        className="btn-secondary flex items-center gap-2 border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100"
+        title="Jump to labour and price overrides"
       >
-        Pricing overrides
+        Labour overrides
+        {appliedPricingOverrideCount > 0 && (
+          <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-600 px-1.5 text-[11px] font-semibold text-white">
+            {appliedPricingOverrideCount}
+          </span>
+        )}
       </button>
       <select
         value={selectedPdfView}

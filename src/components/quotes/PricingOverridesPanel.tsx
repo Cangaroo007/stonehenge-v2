@@ -56,6 +56,44 @@ const TYPE_OPTIONS = [
   ['FIXED_DELTA', 'Signed manual adjustment'],
 ] as const;
 
+const PRESET_OPTIONS = [
+  {
+    label: '+20% build-up edge finish',
+    category: 'MITRE_POLISH',
+    overrideType: 'MULTIPLIER',
+    value: '1.2',
+    reason: 'NCS-style build-up edge finish uplift',
+  },
+  {
+    label: 'Set build-up edge LM',
+    category: 'MITRE_POLISH',
+    overrideType: 'LM',
+    value: '',
+    reason: 'Manual chargeable build-up edge finish LM',
+  },
+  {
+    label: 'Set build-up cutting LM',
+    category: 'MITRE_CUT',
+    overrideType: 'LM',
+    value: '',
+    reason: 'Manual chargeable build-up cutting LM',
+  },
+  {
+    label: '+20% cutouts',
+    category: 'CUTOUT',
+    overrideType: 'MULTIPLIER',
+    value: '1.2',
+    reason: 'Manual cutout complexity allowance',
+  },
+  {
+    label: 'Manual +/- dollars',
+    category: 'ALL',
+    overrideType: 'FIXED_DELTA',
+    value: '',
+    reason: 'Manual commercial adjustment',
+  },
+] as const;
+
 function labelFor(options: readonly (readonly [string, string])[], value: string): string {
   return options.find(([key]) => key === value)?.[1] ?? value.replace(/_/g, ' ');
 }
@@ -184,12 +222,12 @@ export default function PricingOverridesPanel({
   const activeOverrides = overrides.filter(o => o.isActive);
 
   return (
-    <div className="mt-4 border-t border-gray-200 pt-4">
+    <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50/30 p-4">
       <div className="flex items-center justify-between gap-3 mb-3">
         <div>
-          <h3 className="text-sm font-semibold text-gray-900">Quote Pricing Overrides</h3>
+          <h3 className="text-sm font-semibold text-gray-900">Labour & Price Overrides</h3>
           <p className="text-xs text-gray-500">
-            Use for NCS-style judgement calls without changing the base calculator. These stay visible as audit lines.
+            Category multipliers, chargeable LM corrections, and signed audit adjustments.
           </p>
         </div>
         {loading && <span className="text-xs text-gray-400">Loading...</span>}
@@ -203,6 +241,23 @@ export default function PricingOverridesPanel({
 
       {canEdit && (
         <>
+          <div className="flex flex-wrap gap-1.5 mb-3">
+            {PRESET_OPTIONS.map(preset => (
+              <button
+                key={preset.label}
+                type="button"
+                onClick={() => {
+                  setCategory(preset.category);
+                  setOverrideType(preset.overrideType);
+                  setValue(preset.value);
+                  setReason(preset.reason);
+                }}
+                className="rounded-full border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-900 hover:bg-amber-100"
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-6 gap-2 mb-1">
             <select
               value={category}
