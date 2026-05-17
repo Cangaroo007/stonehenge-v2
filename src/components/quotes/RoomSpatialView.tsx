@@ -315,13 +315,18 @@ export default function RoomSpatialView({
       }
     }
     for (const [parentId, segments] of Array.from(segmentsByParent)) {
+      const supportsVerticalJoinOverlay = segments.every(
+        segment => (segment.segmentRows ?? 1) === 1 && (segment.segmentRowIndex ?? 0) === 0
+      );
+      if (!supportsVerticalJoinOverlay) continue;
+
       const sorted = [...segments].sort(
-        (a, b) => (a.segmentIndex ?? 0) - (b.segmentIndex ?? 0)
+        (a, b) => (a.segmentColumnIndex ?? a.segmentIndex ?? 0) - (b.segmentColumnIndex ?? b.segmentIndex ?? 0)
       );
       const joins: number[] = [];
       let cumulative = 0;
       for (let i = 0; i < sorted.length - 1; i++) {
-        cumulative += sorted[i].width;
+        cumulative += sorted[i].segmentWidthMm ?? sorted[i].width;
         joins.push(cumulative);
       }
       map.set(Number(parentId), joins);

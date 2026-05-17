@@ -72,6 +72,12 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   isSegment?: boolean;
   segmentIndex?: number;
   totalSegments?: number;
+  segmentWidthMm?: number;
+  segmentHeightMm?: number;
+  segmentColumnIndex?: number;
+  segmentRowIndex?: number;
+  segmentColumns?: number;
+  segmentRows?: number;
   /** Per-piece kerf override — mitre strips use the MITRING machine's kerf */
   pieceKerfWidth?: number;
   /** Shape decomposition group — rects with same groupId must share a slab */
@@ -703,6 +709,12 @@ function preprocessOversizePieces(
           parentPieceId: piece.id,
           segmentIndex,
           totalSegments,
+          segmentWidthMm: thisWidth,
+          segmentHeightMm: thisHeight,
+          segmentColumnIndex: col,
+          segmentRowIndex: row,
+          segmentColumns: wSegments,
+          segmentRows: hSegments,
         });
 
         // Generate position-aware strips for this segment (40mm+ pieces OR pieces with edge buildups)
@@ -1294,6 +1306,12 @@ function placePiece(
     isSegment: piece.isSegment,
     segmentIndex: piece.segmentIndex,
     totalSegments: piece.totalSegments,
+    segmentWidthMm: piece.segmentWidthMm,
+    segmentHeightMm: piece.segmentHeightMm,
+    segmentColumnIndex: piece.segmentColumnIndex,
+    segmentRowIndex: piece.segmentRowIndex,
+    segmentColumns: piece.segmentColumns,
+    segmentRows: piece.segmentRows,
     // Include shape decomposition group data
     groupId: piece.groupId,
     partIndex: piece.partIndex,

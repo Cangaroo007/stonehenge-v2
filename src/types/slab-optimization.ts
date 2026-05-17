@@ -32,6 +32,18 @@ export interface Placement {
   isSegment?: boolean;
   segmentIndex?: number;
   totalSegments?: number;
+  /** Original segment length direction before slab packing/rotation. */
+  segmentWidthMm?: number;
+  /** Original segment depth direction before slab packing/rotation. */
+  segmentHeightMm?: number;
+  /** Column index for split oversize pieces, before packing/rotation. */
+  segmentColumnIndex?: number;
+  /** Row index for split oversize pieces, before packing/rotation. */
+  segmentRowIndex?: number;
+  /** Total split columns for the original piece. */
+  segmentColumns?: number;
+  /** Total split rows for the original piece. */
+  segmentRows?: number;
   // Shape decomposition tracking (L/U shapes split into component rects)
   groupId?: string;       // parent pieceId — all rects with same groupId must share a slab
   partIndex?: number;     // 0-based index within the group

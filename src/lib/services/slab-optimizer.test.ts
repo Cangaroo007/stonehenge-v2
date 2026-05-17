@@ -127,6 +127,40 @@ describe('optimizeSlabs', () => {
     expect(mainPlacements.every(p => p.pieceId.startsWith('veined-waterfall-seg-'))).toBe(true);
   });
 
+  it('preserves original segment dimensions when a split segment is rotated for packing', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'tall-panel',
+          label: 'Tall Panel',
+          width: 650,
+          height: 1400,
+        },
+      ],
+    });
+
+    const segment = result.placements.find(p => p.isSegment);
+
+    expect(segment).toEqual(
+      expect.objectContaining({
+        parentPieceId: 'tall-panel',
+        rotated: true,
+        width: 997,
+        height: 650,
+        segmentWidthMm: 650,
+        segmentHeightMm: 997,
+        segmentColumnIndex: 0,
+        segmentRowIndex: 0,
+        segmentColumns: 1,
+        segmentRows: 2,
+      })
+    );
+  });
+
   it('exposes no-rotation metadata on slab placements for renderer warnings', async () => {
     const result = await optimizeSlabs({
       slabWidth: 1000,

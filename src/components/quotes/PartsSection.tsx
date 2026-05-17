@@ -308,12 +308,12 @@ function derivePartsForPiece(
         parts.push({
           type: 'OVERSIZE_HALF',
           name: `Part ${seg + 1}/${segmentPlacements.length}`,
-          lengthMm: sp.width,
-          widthMm: sp.height,
+          lengthMm: sp.segmentWidthMm ?? sp.width,
+          widthMm: sp.segmentHeightMm ?? sp.height,
           thicknessMm,
           slab: getSlabLabel(sp.slabIndex),
           note: seg === 0
-            ? `Joined at ${sp.width}mm — join cost ${formatCurrency(breakdown.oversize.joinCost)}`
+            ? `Joined at ${sp.segmentWidthMm ?? sp.width}mm — join cost ${formatCurrency(breakdown.oversize.joinCost)}`
             : undefined,
         });
       }
