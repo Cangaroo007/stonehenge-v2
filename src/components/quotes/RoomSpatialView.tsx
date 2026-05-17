@@ -12,6 +12,7 @@ import RoomPieceSVG, { type SuppressedEdgeDisplay } from './RoomPieceSVG';
 import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
 import type { EdgeScope } from './EdgeProfilePopover';
+import type { PiecePosition } from '@/lib/services/room-layout-engine';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -130,6 +131,16 @@ interface ConnectorPopover {
   relationshipId: string;
   x: number;
   y: number;
+}
+
+interface SpatialDragState {
+  pieceId: string;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  originX: number;
+  originY: number;
+  moved: boolean;
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -281,6 +292,103 @@ export default function RoomSpatialView({
 
     return calculateRoomLayout(layoutPieces, layoutRelationships);
   }, [pieces, relationships]);
+
+  const svgRef = useRef<SVGSVGElement>(null);
+  const dragStateRef = useRef<SpatialDragState | null>(null);
+  const [arrangeMode, setArrangeMode] = useState(false);
+  const [manualOffsets, setManualOffsets] = useState<Record<string, { x: number; y: number }>>({});
+  const [draggedPieceId, setDraggedPieceId] = useState<string | null>(null);
+
+  const arrangedLayoutPieces = useMemo<PiecePosition[]>(() => (
+    layout.pieces.map(piece => {
+      const offset = manualOffsets[piece.pieceId];
+      return offset
+        ? { ...piece, x: piece.x + offset.x, y: piece.y + offset.y }
+        : piece;
+    })
+  ), [layout.pieces, manualOffsets]);
+
+  const getSvgPoint = useCallback((event: React.PointerEvent<SVGElement>) => {
+    const svg = svgRef.current;
+    if (!svg) return null;
+    const point = svg.createSVGPoint();
+    point.x = event.clientX;
+    point.y = event.clientY;
+    return point.matrixTransform(svg.getScreenCTM()?.inverse());
+  }, []);
+
+  const handlePiecePointerDown = useCallback((
+    pieceId: string,
+    event: React.PointerEvent<SVGGElement>
+  ) => {
+    if (!arrangeMode || mode !== 'edit') return;
+    if (event.button !== 0) return;
+
+    const point = getSvgPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.currentTarget.setPointerCapture(event.pointerId);
+    const origin = manualOffsets[pieceId] ?? { x: 0, y: 0 };
+    dragStateRef.current = {
+      pieceId,
+      pointerId: event.pointerId,
+      startX: point.x,
+      startY: point.y,
+      originX: origin.x,
+      originY: origin.y,
+      moved: false,
+    };
+    setDraggedPieceId(pieceId);
+    onPieceSelect?.(pieceId);
+  }, [arrangeMode, getSvgPoint, manualOffsets, mode, onPieceSelect]);
+
+  const handlePiecePointerMove = useCallback((event: React.PointerEvent<SVGGElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    const point = getSvgPoint(event);
+    if (!point) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    const dx = point.x - drag.startX;
+    const dy = point.y - drag.startY;
+    drag.moved = drag.moved || Math.abs(dx) > 2 || Math.abs(dy) > 2;
+    setManualOffsets(prev => ({
+      ...prev,
+      [drag.pieceId]: {
+        x: drag.originX + dx,
+        y: drag.originY + dy,
+      },
+    }));
+  }, [getSvgPoint]);
+
+  const finishPieceDrag = useCallback((event: React.PointerEvent<SVGGElement>) => {
+    const drag = dragStateRef.current;
+    if (!drag || drag.pointerId !== event.pointerId) return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    try {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    } catch {
+      // Pointer capture may already be released if the pointer left the SVG.
+    }
+    dragStateRef.current = null;
+    setDraggedPieceId(null);
+  }, []);
+
+  useEffect(() => {
+    setManualOffsets(prev => {
+      const validIds = new Set(layout.pieces.map(piece => piece.pieceId));
+      const next = Object.fromEntries(
+        Object.entries(prev).filter(([pieceId]) => validIds.has(pieceId))
+      );
+      return Object.keys(next).length === Object.keys(prev).length ? prev : next;
+    });
+  }, [layout.pieces]);
 
   // Summary calculations
   const totalArea = useMemo(
@@ -865,17 +973,54 @@ export default function RoomSpatialView({
         </div>
       )}
 
+      {mode === 'edit' && (
+        <div className="flex items-center gap-2 mb-2 px-1 py-1.5 border border-gray-200 rounded-md bg-gray-50 flex-wrap">
+          <button
+            type="button"
+            onClick={() => setArrangeMode(value => !value)}
+            className={`px-2 py-0.5 text-[10px] font-medium rounded border transition-colors ${
+              arrangeMode
+                ? 'bg-slate-800 text-white border-slate-800'
+                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
+            }`}
+          >
+            Arrange
+          </button>
+          {Object.keys(manualOffsets).length > 0 && (
+            <button
+              type="button"
+              onClick={() => setManualOffsets({})}
+              className="px-2 py-0.5 text-[10px] font-medium rounded border bg-white text-gray-600 border-gray-200 hover:border-gray-300 transition-colors"
+            >
+              Reset layout
+            </button>
+          )}
+          <span className="text-[10px] text-gray-500 italic">
+            {arrangeMode
+              ? 'Drag pieces to visually check room layout. Pricing is unchanged.'
+              : 'Use Arrange to drag pieces for visual checking.'}
+          </span>
+        </div>
+      )}
+
       {/* SVG canvas */}
       <svg
+        ref={svgRef}
         viewBox={`0 0 ${layout.viewBox.width} ${layout.viewBox.height}`}
-        className={`w-full h-auto ${mode === 'edit' && onPieceEdgeChange ? 'cursor-crosshair' : ''}`}
+        className={`w-full h-auto ${
+          arrangeMode
+            ? 'cursor-move'
+            : mode === 'edit' && onPieceEdgeChange
+              ? 'cursor-crosshair'
+              : ''
+        }`}
         style={{ maxHeight: 500 }}
       >
         {/* Relationship connectors (rendered BELOW pieces for z-order) */}
         <g className="relationship-connectors">
           {relationships.map(rel => {
-            const parentPos = layout.pieces.find(p => p.pieceId === rel.parentPieceId);
-            const childPos = layout.pieces.find(p => p.pieceId === rel.childPieceId);
+            const parentPos = arrangedLayoutPieces.find(p => p.pieceId === rel.parentPieceId);
+            const childPos = arrangedLayoutPieces.find(p => p.pieceId === rel.childPieceId);
             if (!parentPos || !childPos) return null;
 
             const isInvolved = hoveredPieceId === rel.parentPieceId || hoveredPieceId === rel.childPieceId;
@@ -896,13 +1041,24 @@ export default function RoomSpatialView({
         </g>
 
         {/* Piece rectangles */}
-        {layout.pieces.map(pos => {
+        {arrangedLayoutPieces.map(pos => {
           const piece = pieceMap.get(pos.pieceId);
           if (!piece) return null;
 
           return (
-            <RoomPieceSVG
+            <g
               key={pos.pieceId}
+              onPointerDown={(event) => handlePiecePointerDown(pos.pieceId, event)}
+              onPointerMove={handlePiecePointerMove}
+              onPointerUp={finishPieceDrag}
+              onPointerCancel={finishPieceDrag}
+              style={{
+                cursor: arrangeMode
+                  ? draggedPieceId === pos.pieceId ? 'grabbing' : 'grab'
+                  : undefined,
+              }}
+            >
+            <RoomPieceSVG
               piece={{
                 id: String(piece.id),
                 description: piece.name ?? piece.description ?? 'Piece',
@@ -927,9 +1083,10 @@ export default function RoomSpatialView({
               scale={layout.scale}
               isSelected={selectedPieceId === String(piece.id) || isPieceMultiSelected(String(piece.id))}
               isEditMode={mode === 'edit'}
-              isQuickEdgeMode={mode === 'edit' && !!onPieceEdgeChange}
+              isQuickEdgeMode={mode === 'edit' && !!onPieceEdgeChange && !arrangeMode}
               onPieceClick={onPieceMultiSelect
                 ? (pieceId: string, e?: React.MouseEvent) => {
+                    if (arrangeMode) return;
                     if (e && (e.ctrlKey || e.metaKey || e.shiftKey)) {
                       onPieceMultiSelect(pieceId, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey, metaKey: e.metaKey });
                     } else {
@@ -937,13 +1094,14 @@ export default function RoomSpatialView({
                     }
                   }
                 : onPieceSelect}
-              onEdgeClick={mode === 'edit' && onPieceEdgeChange ? handleEdgeClick : undefined}
+              onEdgeClick={mode === 'edit' && onPieceEdgeChange && !arrangeMode ? handleEdgeClick : undefined}
               onContextMenu={handlePieceContextMenu}
               onMouseEnter={setHoveredPieceId}
               onMouseLeave={() => setHoveredPieceId(null)}
               joinPositionsMm={joinPositionsMap.get(piece.id)}
               suppressedEdges={getSuppressedEdges(piece)}
             />
+            </g>
           );
         })}
       </svg>
