@@ -9,6 +9,7 @@ import type { EdgeSide } from '@/components/quotes/PieceVisualEditor';
 import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { PieceCutout, CutoutType } from '@/app/(dashboard)/quotes/[id]/builder/components/CutoutSelector';
 import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -30,6 +31,7 @@ interface MaterialDetail {
 interface RelatedPiece {
   id: number;
   relationType: string;
+  direction?: 'SOURCE' | 'TARGET';
   side: string | null;
   piece: {
     id: number;
@@ -54,6 +56,7 @@ interface PieceApiData {
   edgeLeft: string | null;
   edgeRight: string | null;
   cutouts: PieceCutout[];
+  noStripEdges: string[];
   laminationMethod: string;
   shape_type?: string | null;
   shape_config?: ShapeConfig | null;
@@ -90,6 +93,7 @@ interface EditableFields {
   edgeLeft: string | null;
   edgeRight: string | null;
   cutouts: PieceCutout[];
+  noStripEdges: string[];
   roomName: string;
   laminationMethod: string;
   shapeType?: string | null;
@@ -220,6 +224,7 @@ export default function ExpandedPieceViewClient({
         edgeLeft: data.edgeLeft,
         edgeRight: data.edgeRight,
         cutouts: data.cutouts || [],
+        noStripEdges: data.noStripEdges || [],
         roomName: data.quote_rooms.name,
         laminationMethod: data.laminationMethod,
         shapeType: data.shape_type ?? null,
@@ -354,6 +359,33 @@ export default function ExpandedPieceViewClient({
     },
     []
   );
+
+  const attachedPieceTypes = useMemo(() => {
+    if (!pieceData?.relatedPieces) return undefined;
+    const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};
+    const oppositeEdge: Record<string, string> = {
+      top: 'bottom',
+      bottom: 'top',
+      left: 'right',
+      right: 'left',
+    };
+
+    pieceData.relatedPieces.forEach((related) => {
+      if (related.relationType !== 'WATERFALL' && related.relationType !== 'SPLASHBACK') {
+        return;
+      }
+
+      const parentEdge = normaliseRectEdgeSide(related.side);
+      if (!parentEdge) return;
+
+      const edge = related.direction === 'TARGET'
+        ? oppositeEdge[parentEdge] ?? parentEdge
+        : parentEdge;
+      map[edge] = related.relationType;
+    });
+
+    return Object.keys(map).length > 0 ? map : undefined;
+  }, [pieceData?.relatedPieces]);
 
   // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT, L/U shapes)
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
@@ -620,6 +652,8 @@ export default function ExpandedPieceViewClient({
                   : undefined
               }
               onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
+              noStripEdges={editFields.noStripEdges}
+              attachedPieceTypes={attachedPieceTypes}
               quoteId={quoteId}
               pieceId={pieceData?.id}
               pieceName={editFields.name}

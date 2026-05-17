@@ -126,6 +126,7 @@ export async function GET(
       ...(piece.sourceRelationships ?? []).map((r) => ({
         id: r.id,
         relationType: r.relation_type,
+        direction: 'SOURCE',
         side: r.side,
         piece: {
           id: r.targetPiece.id,
@@ -138,6 +139,7 @@ export async function GET(
       ...(piece.targetRelationships ?? []).map((r) => ({
         id: r.id,
         relationType: r.relation_type,
+        direction: 'TARGET',
         side: r.side,
         piece: {
           id: r.sourcePiece.id,
