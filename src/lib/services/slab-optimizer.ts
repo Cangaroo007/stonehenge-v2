@@ -476,7 +476,8 @@ function generateLaminationSummary(
       allPieces.some(seg =>
         seg.isSegment && seg.parentPieceId === p.parentPieceId
       ) &&
-      !p.id.includes('-seg-')
+      !p.id.includes('-seg-') &&
+      !p.isStripSegment
     )
   );
   
@@ -675,6 +676,14 @@ function preprocessOversizePieces(
     // Inherit edge metadata from the original piece for strip generation
     const edgeNames = piece.edgeTypeNames;
     const noStripEdges = piece.noStripEdges ?? [];
+    const finishedEdges = piece.finishedEdges;
+    const edgeBuildups = piece.edgeBuildups ?? {};
+    const hasExplicitBuildups = Object.keys(edgeBuildups).length > 0;
+    const shouldGenerateSegmentStrip = (edge: 'top' | 'bottom' | 'left' | 'right') => {
+      if (noStripEdges.includes(edge)) return false;
+      if (hasExplicitBuildups) return Boolean(edgeBuildups[edge]);
+      return finishedEdges ? finishedEdges[edge] !== false : true;
+    };
 
     // Helper: determine if an edge is a mitre edge (matches generateLaminationStrips logic)
     const isMitreEdge = (name?: string): boolean => {
@@ -718,10 +727,9 @@ function preprocessOversizePieces(
         });
 
         // Generate position-aware strips for this segment (40mm+ pieces OR pieces with edge buildups)
-        const hasBuildupsL = Object.keys(piece.edgeBuildups ?? {}).length > 0;
-        if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasBuildupsL)) {
+        if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasExplicitBuildups)) {
           // TOP strip: only for segments on the top row (row === 0)
-          if (isFirstRow && !noStripEdges.includes('top')) {
+          if (isFirstRow && shouldGenerateSegmentStrip('top')) {
             const edgeName = edgeNames?.top;
             const isMitre = isMitreEdge(edgeName);
             const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'top');
@@ -739,7 +747,7 @@ function preprocessOversizePieces(
           }
 
           // BOTTOM strip: only for segments on the bottom row (last row)
-          if (isLastRow && !noStripEdges.includes('bottom')) {
+          if (isLastRow && shouldGenerateSegmentStrip('bottom')) {
             const edgeName = edgeNames?.bottom;
             const isMitre = isMitreEdge(edgeName);
             const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'bottom');
@@ -757,7 +765,7 @@ function preprocessOversizePieces(
           }
 
           // LEFT strip: only for segments on the left column (col === 0)
-          if (isFirstCol && !noStripEdges.includes('left')) {
+          if (isFirstCol && shouldGenerateSegmentStrip('left')) {
             const edgeName = edgeNames?.left;
             const isMitre = isMitreEdge(edgeName);
             const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'left');
@@ -775,7 +783,7 @@ function preprocessOversizePieces(
           }
 
           // RIGHT strip: only for segments on the right column (last col)
-          if (isLastCol && !noStripEdges.includes('right')) {
+          if (isLastCol && shouldGenerateSegmentStrip('right')) {
             const edgeName = edgeNames?.right;
             const isMitre = isMitreEdge(edgeName);
             const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'right');

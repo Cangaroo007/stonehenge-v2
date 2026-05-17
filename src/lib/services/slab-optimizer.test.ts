@@ -161,6 +161,38 @@ describe('optimizeSlabs', () => {
     );
   });
 
+  it('keeps split lamination strip parts in the lamination summary for oversize pieces', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'oversize-build-up',
+          label: 'Oversize Build-Up',
+          width: 1400,
+          height: 650,
+          thickness: 40,
+          finishedEdges: {
+            top: true,
+            bottom: false,
+            left: false,
+            right: false,
+          },
+          edgeTypeNames: {
+            top: 'Arris',
+          },
+        },
+      ],
+    });
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+
+    expect(strips).toHaveLength(2);
+    expect(strips.map(strip => strip.lengthMm).sort((a, b) => a - b)).toEqual([403, 997]);
+  });
+
   it('exposes no-rotation metadata on slab placements for renderer warnings', async () => {
     const result = await optimizeSlabs({
       slabWidth: 1000,
