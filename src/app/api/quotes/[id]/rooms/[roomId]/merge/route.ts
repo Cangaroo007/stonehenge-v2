@@ -86,6 +86,10 @@ export async function POST(
       await tx.quote_rooms.delete({ where: { id: sourceRoomId } });
     });
 
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     return NextResponse.json({
       merged: true,
       piecesMoved: pieceCount,

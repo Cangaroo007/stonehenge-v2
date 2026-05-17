@@ -152,6 +152,10 @@ export async function DELETE(
       await tx.quote_rooms.delete({ where: { id: roomIdNum } });
     });
 
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
     return NextResponse.json({
       deleted: true,
       piecesMovedToUnassigned: pieceCount,
