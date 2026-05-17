@@ -16,6 +16,8 @@ export const metadata: Metadata = {
   description: 'Stone countertop quote generation system',
 };
 
+const clarityProjectId = process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID || 'wfrhutqq9l';
+
 export default function RootLayout({
   children,
 }: {
@@ -30,7 +32,7 @@ export default function RootLayout({
               c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
               t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
               y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-            })(window, document, "clarity", "script", "wfrhutqq9l");
+            })(window, document, "clarity", "script", "${clarityProjectId}");
           `}
         </Script>
         {/* <VersionCheck /> */}

@@ -56,20 +56,30 @@ git push -u origin main
 
 ## Step 5: Add Required Environment Variables
 
-In the **"Variables"** tab, add these variables:
+In the **"Variables"** tab, add the production variables below. Never reuse a development `.env` file or any value copied from this document.
 
-| Variable | Value |
-|----------|-------|
-| `JWT_SECRET` | `stonehenge-production-secret-change-me-2024` |
-| `NEXT_PUBLIC_APP_NAME` | `Stone Henge` |
-| `NEXT_PUBLIC_CURRENCY` | `AUD` |
-| `NEXT_PUBLIC_TAX_RATE` | `10` |
-| `NEXT_PUBLIC_TAX_NAME` | `GST` |
-| `COMPANY_NAME` | `Northcoast Stone Pty Ltd` |
-| `COMPANY_ABN` | `57 120 880 355` |
-| `COMPANY_ADDRESS` | `20 Hitech Drive, KUNDA PARK Queensland 4556, Australia` |
-| `COMPANY_PHONE` | `0754767636` |
-| `COMPANY_EMAIL` | `admin@northcoaststone.com.au` |
+Generate `JWT_SECRET` locally with:
+
+```bash
+openssl rand -base64 48
+```
+
+| Variable | Required | Notes |
+|----------|----------|-------|
+| `DATABASE_URL` | Yes | Railway PostgreSQL private/internal URL. |
+| `DATABASE_PUBLIC_URL` | Yes | Railway PostgreSQL public URL used during deploy migrations. |
+| `JWT_SECRET` | Yes | Use a newly generated secret. Production auth fails if this is missing. |
+| `ANTHROPIC_API_KEY` | Yes | Required for drawing interpretation and price-list parsing. |
+| `R2_ACCESS_KEY_ID` | Yes | Required for production drawing/file uploads. |
+| `R2_SECRET_ACCESS_KEY` | Yes | Required for production drawing/file uploads. |
+| `R2_BUCKET_NAME` | Yes | Usually `stonehenge-drawings`. |
+| `R2_ACCOUNT_ID` or `R2_ENDPOINT` | Yes | Provide one. Endpoint wins if both are set. |
+| `GOOGLE_MAPS_API_KEY` | Recommended | Server-side distance calculations. |
+| `NEXT_PUBLIC_GOOGLE_MAPS_API_KEY` | Recommended | Browser-side maps/distance UI. |
+| `NEXT_PUBLIC_CLARITY_PROJECT_ID` | Recommended | Microsoft Clarity project id for session replay and quote-entry diagnostics. |
+| `COMPANY_ADDRESS` | Recommended | Default origin for distance calculations. |
+| `NEXT_PUBLIC_BUILD_ID` | Recommended | Set per deploy if you want browser version mismatch detection. |
+| `LOG_LEVEL` | Optional | Defaults to quiet in production. |
 
 ## Step 6: Trigger Redeploy
 
@@ -121,6 +131,11 @@ Your app is now live! Share the URL with others to test.
 ### Can't login
 - Make sure you ran the seed command
 - Check that JWT_SECRET is set
+
+### JWT_SECRET warning during build
+- Local development can run without `JWT_SECRET`, but production cannot.
+- Production requests return an auth configuration error if `JWT_SECRET` is missing.
+- Set `JWT_SECRET` in Railway and redeploy.
 
 ---
 
