@@ -322,6 +322,8 @@ export default function CompanySettingsPage() {
               <div className="space-y-4">
                 {settings.logoStorageKey && (
                   <div className="flex items-center space-x-4">
+                    {/* Logo previews may be SVGs served through the app API. */}
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={`/api/company/logo/view?key=${encodeURIComponent(settings.logoStorageKey)}`}
                       alt="Company Logo"

@@ -34,6 +34,8 @@ export const PiecePalette: React.FC<PiecePaletteProps> = ({
             >
               <div className="flex items-start gap-3">
                 {piece.thumbnail ? (
+                  // Palette thumbnails can be generated data URLs or app-local previews.
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={piece.thumbnail}
                     alt={piece.name}
