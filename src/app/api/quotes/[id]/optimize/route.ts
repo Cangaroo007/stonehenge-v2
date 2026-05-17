@@ -9,6 +9,16 @@ import { decomposeShapeIntoRects } from '@/lib/types/shapes';
 import { logger } from '@/lib/logger';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+
+const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
 
 /**
  * Fetch operation-specific kerfs from machine_operation_defaults.
@@ -231,11 +241,20 @@ export async function POST(
             quote_pieces: {
               include: {
                 materials: true,
+                sourceRelationships: {
+                  select: {
+                    target_piece_id: true,
+                    relation_type: true,
+                    relationship_type: true,
+                    side: true,
+                  },
+                },
                 targetRelationships: {
                   select: {
                     source_piece_id: true,
                     relation_type: true,
                     relationship_type: true,
+                    side: true,
                   },
                 },
               },
@@ -350,6 +369,54 @@ export async function POST(
       materials: { id: number; name: string; slab_length_mm: number | null; slab_width_mm: number | null; fabrication_category: string } | null;
     };
 
+    const relationshipJoinEdgesByPiece = new Map<string, RectEdgeSide[]>();
+    const appendRelationshipJoinEdge = (pieceId: string, edge: RectEdgeSide) => {
+      const existing = relationshipJoinEdgesByPiece.get(pieceId) ?? [];
+      if (!existing.includes(edge)) {
+        relationshipJoinEdgesByPiece.set(pieceId, [...existing, edge]);
+      }
+    };
+
+    for (const room of quote.quote_rooms) {
+      for (const piece of room.quote_pieces as QuotePieceRow[]) {
+        const sourceRelationships = (piece as unknown as {
+          sourceRelationships: Array<{
+            target_piece_id: number;
+            relation_type: string;
+            relationship_type: string | null;
+            side: string | null;
+          }>;
+        }).sourceRelationships ?? [];
+
+        for (const rel of sourceRelationships) {
+          const relationshipType = rel.relationship_type ?? rel.relation_type;
+          const parentJoinEdge = normaliseRectEdgeSide(rel.side);
+          if (!EDGE_JOIN_RELATIONSHIP_TYPES.has(relationshipType) || !parentJoinEdge) continue;
+
+          appendRelationshipJoinEdge(piece.id.toString(), parentJoinEdge);
+          appendRelationshipJoinEdge(rel.target_piece_id.toString(), OPPOSITE_EDGE[parentJoinEdge]);
+        }
+
+        const targetRelationships = (piece as unknown as {
+          targetRelationships: Array<{
+            source_piece_id: number;
+            relation_type: string;
+            relationship_type: string | null;
+            side: string | null;
+          }>;
+        }).targetRelationships ?? [];
+
+        for (const rel of targetRelationships) {
+          const relationshipType = rel.relationship_type ?? rel.relation_type;
+          const parentJoinEdge = normaliseRectEdgeSide(rel.side);
+          if (!EDGE_JOIN_RELATIONSHIP_TYPES.has(relationshipType) || !parentJoinEdge) continue;
+
+          appendRelationshipJoinEdge(piece.id.toString(), OPPOSITE_EDGE[parentJoinEdge]);
+          appendRelationshipJoinEdge(rel.source_piece_id.toString(), parentJoinEdge);
+        }
+      }
+    }
+
     const pieces = quote.quote_rooms.flatMap((room: {
       name: string;
       quote_pieces: QuotePieceRow[];
@@ -386,7 +453,10 @@ export async function POST(
             right: piece.edge_right ? edgeTypeMap.get(piece.edge_right) : undefined,
           },
           shapeConfigEdges,
-          noStripEdges: (piece.no_strip_edges as unknown as string[]) ?? [],
+          noStripEdges: Array.from(new Set([
+            ...((piece.no_strip_edges as unknown as string[]) ?? []),
+            ...(relationshipJoinEdgesByPiece.get(piece.id.toString()) ?? []),
+          ])),
           stripWidthOverrides: (piece.strip_width_overrides as unknown as Record<string, number> | null) ?? null,
           laminationMethod: piece.lamination_method ?? null,
           edgeBuildups: (piece.edge_buildups as Record<string, EdgeBuildupConfig> | null) ?? null,
