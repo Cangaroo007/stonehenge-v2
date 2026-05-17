@@ -16,6 +16,9 @@
   "prisma": {
     "_seed_disabled": "npx tsx prisma/seed.ts"
   },
+  "overrides": {
+    "glob": "10.5.0"
+  },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
     "@aws-sdk/client-s3": "^3.978.0",
