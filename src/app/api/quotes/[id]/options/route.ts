@@ -127,8 +127,22 @@ export async function POST(
 
     // If copying from another option, clone its overrides
     if (copyFrom) {
+      const sourceOption = await prisma.quote_options.findFirst({
+        where: {
+          id: Number(copyFrom),
+          quoteId,
+        },
+        select: { id: true },
+      });
+      if (!sourceOption) {
+        return NextResponse.json(
+          { error: 'Source option not found' },
+          { status: 404 }
+        );
+      }
+
       const sourceOverrides = await prisma.quote_option_overrides.findMany({
-        where: { optionId: copyFrom },
+        where: { optionId: sourceOption.id },
       });
 
       if (sourceOverrides.length > 0) {

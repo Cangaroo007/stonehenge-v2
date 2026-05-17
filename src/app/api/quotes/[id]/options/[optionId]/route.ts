@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateOptionPricing } from '@/lib/services/quote-option-calculator';
 
 /**
  * PUT /api/quotes/[id]/options/[optionId]
@@ -49,7 +50,22 @@ export async function PUT(
       include: { overrides: true },
     });
 
-    return NextResponse.json(updated);
+    if (body.materialMarginAdjustPercent !== undefined) {
+      try {
+        await calculateOptionPricing(quoteId, optId);
+      } catch (err) {
+        console.error('Failed to recalculate option pricing:', err);
+      }
+    }
+
+    const refreshed = body.materialMarginAdjustPercent !== undefined
+      ? await prisma.quote_options.findUnique({
+          where: { id: optId },
+          include: { overrides: true },
+        })
+      : updated;
+
+    return NextResponse.json(refreshed);
   } catch (error) {
     console.error('Error updating quote option:', error);
     return NextResponse.json(
