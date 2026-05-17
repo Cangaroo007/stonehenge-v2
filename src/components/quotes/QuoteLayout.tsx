@@ -131,14 +131,14 @@ export default function QuoteLayout({
               ) : (
                 <div className="flex items-center gap-2">
                   <span className="text-xs text-amber-600 font-medium bg-amber-50 border border-amber-200 rounded px-2 py-0.5">
-                    Unsaved Draft — No Quote Number
+                    Draft{quoteId ? ` #${quoteId}` : ''} — No Quote Number
                   </span>
                   {onSaveQuote && (
                     <button
                       onClick={onSaveQuote}
                       className="px-3 py-1 text-xs font-medium text-white bg-primary-600 rounded-lg hover:bg-primary-700"
                     >
-                      Save Quote
+                      Assign Quote Number
                     </button>
                   )}
                 </div>

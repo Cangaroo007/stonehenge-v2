@@ -3238,6 +3238,7 @@ export default function QuoteDetailClient({
       <QuoteActions
         quoteId={quoteIdStr}
         quoteStatus={editQuote.status}
+        quoteNumber={editQuote.quote_number}
         calculation={calculation}
         onSave={handleSaveQuote}
         onStatusChange={handleStatusChange}
@@ -4927,7 +4928,7 @@ export default function QuoteDetailClient({
       {showReadinessCheck && (
         <QuoteReadinessChecker
           quoteId={quoteIdStr}
-          quoteNumber={editQuote?.quote_number ?? serverData.quote_number ?? ''}
+          quoteNumber={editQuote?.quote_number ?? serverData.quote_number ?? `Draft #${quoteIdStr}`}
           onClose={() => setShowReadinessCheck(false)}
           onGeneratePdf={async () => {
             setShowReadinessCheck(false);
