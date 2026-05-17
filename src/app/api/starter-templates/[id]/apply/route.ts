@@ -44,6 +44,25 @@ export async function POST(
       ? materialAssignments
       : {};
 
+    const assignmentMaterialIds = Array.from(
+      new Set(
+        Object.values(resolvedAssignments)
+          .map((value) => Number(value))
+          .filter((value) => Number.isInteger(value) && value > 0)
+      )
+    );
+    if (assignmentMaterialIds.length > 0) {
+      const ownedMaterialCount = await prisma.materials.count({
+        where: {
+          id: { in: assignmentMaterialIds },
+          company_id: authResult.user.companyId,
+        },
+      });
+      if (ownedMaterialCount !== assignmentMaterialIds.length) {
+        return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+      }
+    }
+
     // If quoteId provided, verify it exists
     if (quoteId) {
       const quote = await prisma.quotes.findUnique({
@@ -54,14 +73,45 @@ export async function POST(
       }
     }
 
-    // customerId is optional — can be assigned later in the quote builder
+    let resolvedCustomerId = customerId ? Number(customerId) : undefined;
+    const resolvedContactId = contactId ? Number(contactId) : undefined;
+
+    if (resolvedCustomerId) {
+      const customer = await prisma.customers.findFirst({
+        where: {
+          id: resolvedCustomerId,
+          company_id: authResult.user.companyId,
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      }
+    }
+
+    if (resolvedContactId) {
+      const contact = await prisma.customer_contacts.findFirst({
+        where: {
+          id: resolvedContactId,
+          customer: {
+            company_id: authResult.user.companyId,
+            ...(resolvedCustomerId ? { id: resolvedCustomerId } : {}),
+          },
+        },
+        select: { id: true, customer_id: true },
+      });
+      if (!contact) {
+        return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+      }
+      resolvedCustomerId = resolvedCustomerId ?? contact.customer_id;
+    }
 
     const result = await applyTemplateToQuote({
       templateId: id,
       materialAssignments: resolvedAssignments as Record<MaterialRole, number>,
       quoteId: quoteId ? Number(quoteId) : undefined,
-      customerId: customerId ? Number(customerId) : undefined,
-      contactId: contactId ? Number(contactId) : undefined,
+      customerId: resolvedCustomerId,
+      contactId: resolvedContactId,
       projectName,
     });
 

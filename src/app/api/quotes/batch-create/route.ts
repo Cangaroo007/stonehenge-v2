@@ -5,6 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import { generateQuoteNumber } from '@/lib/utils';
 import { createInitialVersion } from '@/lib/services/quote-version-service';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { getPieceDefaults } from '@/lib/services/quote-setup-defaults';
 import {
   validateBatchCreatePayload,
@@ -117,6 +118,22 @@ export async function POST(request: NextRequest) {
       );
     }
     const body = validation.data;
+
+    if (body.customerId != null) {
+      const customer = await prisma.customers.findFirst({
+        where: {
+          id: body.customerId,
+          company_id: companyId,
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        return NextResponse.json(
+          { error: 'Customer not found' },
+          { status: 404 },
+        );
+      }
+    }
 
     // GATE 2: Enhanced validation — type coercion + structured errors
     const enhancedValidation = validateBatchCreatePayload(rawBody);
@@ -268,7 +285,11 @@ export async function POST(request: NextRequest) {
     // 9. Safe to run pricing — separate try/catch (Rule 47)
     const pricingWarnings: string[] = [];
     try {
-      await calculateQuotePrice(String(quote.id), { forceRecalculate: true });
+      const calcResult = await calculateQuotePrice(String(quote.id), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quote.id },
+        data: buildQuotePricingUpdate(calcResult),
+      });
     } catch (pricingError) {
       // Pricing failed, but quote is saved — don't crash
       console.error('[batch-create] Pricing calculation failed:', pricingError);

@@ -105,6 +105,59 @@ async function recalculateQuote(quoteId: number) {
   });
 }
 
+async function resolveCustomerAndContact(
+  companyId: number,
+  customerId: number | null | undefined,
+  contactId: number | string | null | undefined
+) {
+  let resolvedCustomerId =
+    customerId !== undefined && customerId !== null ? Number(customerId) : customerId;
+  const resolvedContactId =
+    contactId !== undefined && contactId !== null && contactId !== ''
+      ? Number(contactId)
+      : contactId === undefined
+        ? undefined
+        : null;
+
+  if (typeof resolvedCustomerId === 'number') {
+    if (!Number.isInteger(resolvedCustomerId) || resolvedCustomerId <= 0) {
+      throw new Error('CUSTOMER_NOT_FOUND');
+    }
+    const customer = await prisma.customers.findFirst({
+      where: {
+        id: resolvedCustomerId,
+        company_id: companyId,
+      },
+      select: { id: true },
+    });
+    if (!customer) throw new Error('CUSTOMER_NOT_FOUND');
+  }
+
+  if (typeof resolvedContactId === 'number') {
+    if (!Number.isInteger(resolvedContactId) || resolvedContactId <= 0) {
+      throw new Error('CONTACT_NOT_FOUND');
+    }
+    const contact = await prisma.customer_contacts.findFirst({
+      where: {
+        id: resolvedContactId,
+        customer: {
+          company_id: companyId,
+          ...(typeof resolvedCustomerId === 'number' ? { id: resolvedCustomerId } : {}),
+        },
+      },
+      select: {
+        id: true,
+        customer_id: true,
+      },
+    });
+    if (!contact) throw new Error('CONTACT_NOT_FOUND');
+    resolvedCustomerId =
+      typeof resolvedCustomerId === 'number' ? resolvedCustomerId : contact.customer_id;
+  }
+
+  return { resolvedCustomerId, resolvedContactId };
+}
+
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -208,6 +261,22 @@ export async function PUT(
       previousSnapshot = await createQuoteSnapshot(quoteId);
     } catch { /* quote may not exist yet in version system */ }
 
+    let resolvedCustomerId = data.customerId;
+    let resolvedContactId = data.contactId;
+    if (data.customerId !== undefined || data.contactId !== undefined) {
+      try {
+        const resolved = await resolveCustomerAndContact(companyId, data.customerId, data.contactId);
+        resolvedCustomerId = resolved.resolvedCustomerId;
+        resolvedContactId = resolved.resolvedContactId;
+      } catch (error) {
+        const message = error instanceof Error ? error.message : '';
+        return NextResponse.json(
+          { error: message === 'CONTACT_NOT_FOUND' ? 'Contact not found' : 'Customer not found' },
+          { status: 404 },
+        );
+      }
+    }
+
     // Handle calculation save (partial update)
     if (data.saveCalculation) {
       if (!data.calculation) {
@@ -274,8 +343,10 @@ export async function PUT(
     if (!data.rooms) {
       const updateFields: Record<string, unknown> = {};
       if (data.status !== undefined) updateFields.status = data.status;
-      if (data.customerId !== undefined) updateFields.customer_id = data.customerId;
-      if (data.contactId !== undefined) updateFields.contact_id = data.contactId ? parseInt(String(data.contactId)) : null;
+      if (data.customerId !== undefined || (data.contactId !== undefined && resolvedCustomerId !== undefined)) {
+        updateFields.customer_id = resolvedCustomerId;
+      }
+      if (data.contactId !== undefined) updateFields.contact_id = resolvedContactId;
       if (data.projectName !== undefined) updateFields.project_name = data.projectName;
       if (data.projectAddress !== undefined) updateFields.project_address = data.projectAddress;
       if (data.notes !== undefined) updateFields.notes = data.notes;
@@ -393,8 +464,16 @@ export async function PUT(
         const updatedQuote = await tx.quotes.update({
           where: { id: quoteId },
           data: {
-            customer_id: data.customerId,
-            ...(data.contactId !== undefined && { contact_id: data.contactId ? parseInt(String(data.contactId)) : null }),
+            ...(resolvedCustomerId !== undefined && {
+              customers: resolvedCustomerId === null
+                ? { disconnect: true }
+                : { connect: { id: resolvedCustomerId } },
+            }),
+            ...(data.contactId !== undefined && {
+              contact: resolvedContactId === null
+                ? { disconnect: true }
+                : { connect: { id: Number(resolvedContactId) } },
+            }),
             project_name: data.projectName,
             project_address: data.projectAddress,
             status: data.status,

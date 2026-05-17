@@ -35,6 +35,44 @@ export async function POST(request: NextRequest) {
     const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
     const contactId = contactIdParam ? parseInt(contactIdParam, 10) : null;
 
+    let resolvedCustomerId =
+      customerId && !isNaN(customerId) ? customerId : null;
+    const resolvedContactId =
+      contactId && !isNaN(contactId) ? contactId : null;
+
+    if (resolvedCustomerId) {
+      const customer = await prisma.customers.findFirst({
+        where: {
+          id: resolvedCustomerId,
+          company_id: user.companyId,
+        },
+        select: { id: true },
+      });
+      if (!customer) {
+        return NextResponse.json({ error: 'Customer not found' }, { status: 404 });
+      }
+    }
+
+    if (resolvedContactId) {
+      const contact = await prisma.customer_contacts.findFirst({
+        where: {
+          id: resolvedContactId,
+          customer: {
+            company_id: user.companyId,
+            ...(resolvedCustomerId ? { id: resolvedCustomerId } : {}),
+          },
+        },
+        select: {
+          id: true,
+          customer_id: true,
+        },
+      });
+      if (!contact) {
+        return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+      }
+      resolvedCustomerId = resolvedCustomerId ?? contact.customer_id;
+    }
+
     // Try to parse JSON body — may be empty for legacy query-param mode
     let body: { projectName?: string | null; rooms?: Array<{
       name: string;
@@ -93,8 +131,8 @@ export async function POST(request: NextRequest) {
       data: {
         quote_number: null,
         company_id: user.companyId,
-        customer_id: customerId && !isNaN(customerId) ? customerId : null,
-        contact_id: contactId && !isNaN(contactId) ? contactId : null,
+        customer_id: resolvedCustomerId,
+        contact_id: resolvedContactId,
         project_name: (hasBodyRooms ? body?.projectName : projectNameParam) || 'Untitled Quote',
         status: 'draft',
         subtotal: 0,
