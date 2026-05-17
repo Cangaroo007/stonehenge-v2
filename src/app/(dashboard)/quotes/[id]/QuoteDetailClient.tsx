@@ -76,9 +76,7 @@ import FromTemplateSheet from '@/components/quotes/FromTemplateSheet';
 import FloatingActionButton from '@/components/quotes/FloatingActionButton';
 import ContactPicker from '@/components/quotes/ContactPicker';
 import QuoteReadinessChecker from '@/components/quotes/QuoteReadinessChecker';
-import WaterfallSplashbackModal, {
-  MITERED_EDGE_ID,
-} from '@/components/quotes/WaterfallSplashbackModal';
+import WaterfallSplashbackModal from '@/components/quotes/WaterfallSplashbackModal';
 import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
@@ -5092,62 +5090,10 @@ export default function QuoteDetailClient({
           const newPiece = pieceJson.piece ?? pieceJson;
           if (!newPiece?.id) return;
 
-          // 3. Set joining edge to the mitred join profile on parent
-          await handlePieceEdgeChange(parentPieceId, selectedEdge, MITERED_EDGE_ID);
-
-          // 3.5. Auto-remove build-up on joining edge + suppress its return strip
-          const currentBuildups = (parentPiece.edgeBuildups as Record<string, EdgeBuildupConfig> | null) ?? {};
-          const currentNoStrip = (parentPiece.noStripEdges as string[]) ?? [];
-          const hasBuildup = !!currentBuildups[selectedEdge];
-          const alreadyNoStrip = currentNoStrip.includes(selectedEdge);
-
-          if (hasBuildup || !alreadyNoStrip) {
-            const updatedBuildups = { ...currentBuildups };
-            delete updatedBuildups[selectedEdge];
-            const updatedNoStrip = alreadyNoStrip
-              ? currentNoStrip
-              : [...currentNoStrip, selectedEdge];
-
-            await fetch(`/api/quotes/${quoteId}/pieces/${parentPieceId}`, {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                lengthMm: parentPiece.lengthMm,
-                widthMm: parentPiece.widthMm,
-                thicknessMm: parentPiece.thicknessMm,
-                materialId: parentPiece.materialId,
-                materialName: parentPiece.materialName,
-                edgeTop: selectedEdge === 'top' ? MITERED_EDGE_ID : parentPiece.edgeTop,
-                edgeBottom: selectedEdge === 'bottom' ? MITERED_EDGE_ID : parentPiece.edgeBottom,
-                edgeLeft: selectedEdge === 'left' ? MITERED_EDGE_ID : parentPiece.edgeLeft,
-                edgeRight: selectedEdge === 'right' ? MITERED_EDGE_ID : parentPiece.edgeRight,
-                edgeBuildups: updatedBuildups,
-                noStripEdges: updatedNoStrip,
-              }),
-            });
-          }
-
-          // 4. Set opposing edge to the mitred join profile on child (direct fetch — new piece not in effectivePieces yet)
-          const oppositeEdge: Record<string, string> = {
-            top: 'bottom', bottom: 'top', left: 'right', right: 'left'
-          };
-          const childOppositeEdge = oppositeEdge[selectedEdge];
-          await fetch(`/api/quotes/${quoteId}/pieces/${newPiece.id}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              lengthMm,
-              widthMm,
-              thicknessMm,
-              edgeTop: childOppositeEdge === 'top' ? MITERED_EDGE_ID : null,
-              edgeBottom: childOppositeEdge === 'bottom' ? MITERED_EDGE_ID : null,
-              edgeLeft: childOppositeEdge === 'left' ? MITERED_EDGE_ID : null,
-              edgeRight: childOppositeEdge === 'right' ? MITERED_EDGE_ID : null,
-            }),
-          });
-
-          // 5. Create piece relationship
-          await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
+          // 3. Create relationship. The server owns edge semantics: it finds the
+          // active mitred edge type, removes hidden build-ups, and suppresses both
+          // joining faces so pricing and UI stay consistent.
+          const relationshipRes = await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -5161,8 +5107,11 @@ export default function QuoteDetailClient({
               coverageMm: coverageMm ?? null,
             }),
           });
+          if (!relationshipRes.ok) {
+            throw new Error('Failed to create relationship for attached piece');
+          }
 
-          // 6. Refresh quote
+          // 4. Refresh quote
           await fetchQuote();
           await handleRelationshipsChanged();
         }}

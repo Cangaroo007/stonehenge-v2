@@ -2,16 +2,6 @@
 
 import { useState, useEffect, useRef } from 'react';
 
-// ── Constants ────────────────────────────────────────────────────────────────
-
-const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
-const ARRIS_EDGE_ID = 'cmlar3etm0002znat72h7jnx0';
-
-/** Max strip width (mm) before auto-promoting to a piece */
-const MAX_STRIP_WIDTH_MM = 300;
-
-export { MITERED_EDGE_ID, ARRIS_EDGE_ID, MAX_STRIP_WIDTH_MM };
-
 // ── Interfaces ───────────────────────────────────────────────────────────────
 
 interface WaterfallEdgePickerProps {
