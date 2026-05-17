@@ -1769,13 +1769,47 @@ export default function QuoteDetailClient({
           break;
       }
 
-      if (updates.length === 0) return;
+      const filteredUpdates = updates
+        .map(({ pieceId, sides }) => {
+          const piece = effectivePieces.find(p => p.id === pieceId);
+          if (!piece) return { pieceId, sides: [] };
+
+          const editableSides = sides.filter((side) => {
+            const normalisedSide = normaliseRectEdgeSide(side);
+            if (!normalisedSide) return false;
+            if (edgeListIncludes(piece.noStripEdges, normalisedSide)) return false;
+
+            return !relationships.some((rel) => {
+              if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+                return false;
+              }
+              const parentJoinEdge = normaliseRectEdgeSide(rel.joinPosition);
+              if (!parentJoinEdge) return false;
+
+              if (rel.parentPieceId === String(pieceId)) {
+                return parentJoinEdge === normalisedSide;
+              }
+              if (rel.childPieceId === String(pieceId)) {
+                return OPPOSITE_EDGE[parentJoinEdge] === normalisedSide;
+              }
+              return false;
+            });
+          });
+
+          return { pieceId, sides: editableSides };
+        })
+        .filter(({ sides }) => sides.length > 0);
+
+      if (filteredUpdates.length === 0) {
+        toast.error('No editable edges selected. Wall and join edges are protected.');
+        return;
+      }
 
       // 2. Optimistic UI — update ALL affected pieces in local state IMMEDIATELY (Rule 42)
-      const totalEdges = updates.reduce((sum, u) => sum + u.sides.length, 0);
+      const totalEdges = filteredUpdates.reduce((sum, u) => sum + u.sides.length, 0);
       setPieces(prevPieces => {
         const next = [...prevPieces];
-        for (const { pieceId, sides } of updates) {
+        for (const { pieceId, sides } of filteredUpdates) {
           const idx = next.findIndex(p => p.id === pieceId);
           if (idx === -1) continue;
           const piece = { ...next[idx] };
@@ -1816,8 +1850,8 @@ export default function QuoteDetailClient({
       }
 
       // Batch update — use bulk-edges API
-      const targetPieceIds = Array.from(new Set(updates.map(u => u.pieceId)));
-      const allSides = Array.from(new Set(updates.flatMap(u => u.sides)));
+      const targetPieceIds = Array.from(new Set(filteredUpdates.map(u => u.pieceId)));
+      const allSides = Array.from(new Set(filteredUpdates.flatMap(u => u.sides)));
       const edges: Record<string, string | null> = {};
       for (const s of allSides) {
         edges[s] = profileId;
@@ -1826,7 +1860,7 @@ export default function QuoteDetailClient({
       // Option Independence: batch edge update via overrides for non-base options
       const qoRef = quoteOptionsRef.current;
       if (qoRef.activeOption && !qoRef.activeOption.isBase && qoRef.activeOptionId) {
-        const overrideDataArray = updates.map(({ pieceId: pid, sides }) => {
+        const overrideDataArray = filteredUpdates.map(({ pieceId: pid, sides }) => {
           const edgeOverrides: { edgeTop?: string | null; edgeBottom?: string | null; edgeLeft?: string | null; edgeRight?: string | null } = {};
           for (const s of sides) {
             const key = `edge${s.charAt(0).toUpperCase()}${s.slice(1)}` as keyof typeof edgeOverrides;
@@ -1875,7 +1909,7 @@ export default function QuoteDetailClient({
       // Revert optimistic update on error
       await fetchQuote();
     }
-  }, [effectivePieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, handleInlineSavePiece]);
+  }, [effectivePieces, relationships, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, handleInlineSavePiece]);
 
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;

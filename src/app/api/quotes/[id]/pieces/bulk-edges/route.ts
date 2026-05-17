@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+
+const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+function edgeListIncludes(edges: unknown, edgeId: string): boolean {
+  if (!Array.isArray(edges)) return false;
+  const target = edgeId.toLowerCase();
+  return edges.some(edge => String(edge).toLowerCase() === target);
+}
 
 // PATCH — Bulk update edges on multiple pieces
 export async function PATCH(
@@ -51,6 +65,12 @@ export async function PATCH(
       },
       include: {
         materials: { select: { fabrication_category: true, name: true } },
+        sourceRelationships: {
+          select: { relation_type: true, relationship_type: true, side: true },
+        },
+        targetRelationships: {
+          select: { relation_type: true, relationship_type: true, side: true },
+        },
       },
     });
 
@@ -122,12 +142,48 @@ export async function PATCH(
         }
       }
 
-      // Build update data
+      // Build update data, skipping wall edges and waterfall/splashback join edges.
       const updateData: Record<string, string | null> = {};
-      if (edges.top !== undefined) updateData.edge_top = edges.top;
-      if (edges.bottom !== undefined) updateData.edge_bottom = edges.bottom;
-      if (edges.left !== undefined) updateData.edge_left = edges.left;
-      if (edges.right !== undefined) updateData.edge_right = edges.right;
+      const requestedEdges = [
+        ['top', edges.top, 'edge_top'],
+        ['bottom', edges.bottom, 'edge_bottom'],
+        ['left', edges.left, 'edge_left'],
+        ['right', edges.right, 'edge_right'],
+      ] as const;
+
+      for (const [side, profileId, column] of requestedEdges) {
+        if (profileId === undefined) continue;
+
+        const isAttachedJoin = [
+          ...(piece.sourceRelationships ?? []).map(rel => ({ ...rel, direction: 'SOURCE' as const })),
+          ...(piece.targetRelationships ?? []).map(rel => ({ ...rel, direction: 'TARGET' as const })),
+        ].some((rel) => {
+          const type = rel.relationship_type ?? rel.relation_type;
+          if (type !== 'WATERFALL' && type !== 'SPLASHBACK') return false;
+
+          const parentJoinEdge = normaliseRectEdgeSide(rel.side);
+          if (!parentJoinEdge) return false;
+
+          const protectedEdge = rel.direction === 'TARGET'
+            ? OPPOSITE_EDGE[parentJoinEdge]
+            : parentJoinEdge;
+          return protectedEdge === side;
+        });
+
+        if (edgeListIncludes(piece.no_strip_edges, side) || isAttachedJoin) {
+          skippedReasons.push(
+            `Skipped ${piece.name} (#${piece.id}) ${side} edge — wall/join edges are protected`
+          );
+          continue;
+        }
+
+        updateData[column] = profileId;
+      }
+
+      if (Object.keys(updateData).length === 0) {
+        skipped++;
+        continue;
+      }
 
       await prisma.quote_pieces.update({
         where: { id: piece.id },
