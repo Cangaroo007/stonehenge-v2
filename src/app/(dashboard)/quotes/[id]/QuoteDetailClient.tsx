@@ -1685,8 +1685,13 @@ export default function QuoteDetailClient({
       return false;
     });
 
-    if (isAttachedJoinEdge || edgeListIncludes(piece.noStripEdges, normalisedSide)) {
-      toast.error('Use the relationship or wall-edge controls for this edge');
+    if (isAttachedJoinEdge) {
+      toast.error('This edge is joined to a waterfall/splashback. Edit or remove the relationship before changing its finish.');
+      return;
+    }
+
+    if (edgeListIncludes(piece.noStripEdges, normalisedSide)) {
+      toast.error('This edge is marked as against wall. Use Wall edges to re-enable finish editing.');
       return;
     }
 

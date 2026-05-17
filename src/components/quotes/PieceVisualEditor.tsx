@@ -504,10 +504,10 @@ export default function PieceVisualEditor({
   const getEdgeSuppression = useCallback((edgeId: string) => {
     const attachedType = attachedPieceTypes?.[edgeId];
     if (attachedType === 'WATERFALL') {
-      return { type: 'ATTACHED' as const, code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
+      return { type: 'ATTACHED' as const, code: 'WF', colour: '#2563eb', label: 'Waterfall join, not a wall edge' };
     }
     if (attachedType === 'SPLASHBACK') {
-      return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join' };
+      return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join, not a wall edge' };
     }
     if (edgeListIncludes(noStripEdges, edgeId)) {
       return { type: 'WALL' as const, code: 'Wall', colour: '#78716c', label: 'Against wall' };
@@ -1510,10 +1510,10 @@ export default function PieceVisualEditor({
 
     const attachedTypes = new Set(Object.values(attachedPieceTypes ?? {}));
     if (attachedTypes.has('WATERFALL')) {
-      items.push({ code: 'WF', name: 'Waterfall join', colour: '#2563eb' });
+      items.push({ code: 'WF', name: 'Waterfall join, not wall', colour: '#2563eb' });
     }
     if (attachedTypes.has('SPLASHBACK')) {
-      items.push({ code: 'SB', name: 'Splashback join', colour: '#059669' });
+      items.push({ code: 'SB', name: 'Splashback join, not wall', colour: '#059669' });
     }
     if (ALL_SIDES.some(side => edgeListIncludes(noStripEdges, side) && !attachedPieceTypes?.[side])) {
       items.push({ code: 'WALL', name: 'Against wall', colour: '#78716c' });
@@ -1528,15 +1528,15 @@ export default function PieceVisualEditor({
 
   const getSuppressedEdgeLabel = useCallback((edgeId: string) => {
     const attachedType = attachedPieceTypes?.[edgeId];
-    if (attachedType === 'WATERFALL') return 'Waterfall join';
-    if (attachedType === 'SPLASHBACK') return 'Splashback join';
+    if (attachedType === 'WATERFALL') return 'Waterfall join, not wall';
+    if (attachedType === 'SPLASHBACK') return 'Splashback join, not wall';
     return 'Against wall';
   }, [attachedPieceTypes]);
 
   const getSuppressedEdgeHelp = useCallback((edgeId: string) => {
     const attachedType = attachedPieceTypes?.[edgeId];
-    if (attachedType === 'WATERFALL') return 'Waterfall join - return strip suppressed';
-    if (attachedType === 'SPLASHBACK') return 'Splashback join - return strip suppressed';
+    if (attachedType === 'WATERFALL') return 'Waterfall join - return strip suppressed by relationship';
+    if (attachedType === 'SPLASHBACK') return 'Splashback join - return strip suppressed by relationship';
     return 'Wall edge - no profile or lamination strip';
   }, [attachedPieceTypes]);
 

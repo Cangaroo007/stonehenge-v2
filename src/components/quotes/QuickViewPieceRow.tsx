@@ -782,10 +782,10 @@ export default function QuickViewPieceRow({
   const getSuppressedEdgeDisplay = useCallback((side: string) => {
     const attachedType = attachedPieceTypes?.[side];
     if (attachedType === 'WATERFALL') {
-      return { code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
+      return { code: 'WF', colour: '#2563eb', label: 'Waterfall join, not a wall edge' };
     }
     if (attachedType === 'SPLASHBACK') {
-      return { code: 'SB', colour: '#059669', label: 'Splashback join' };
+      return { code: 'SB', colour: '#059669', label: 'Splashback join, not a wall edge' };
     }
     if (edgeListIncludes(piece.noStripEdges, side)) {
       return { code: 'WALL', colour: '#78716c', label: 'Against wall' };

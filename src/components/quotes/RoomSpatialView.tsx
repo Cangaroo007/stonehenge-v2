@@ -444,14 +444,14 @@ export default function RoomSpatialView({
       const isChildJoin = rel.childPieceId === pieceId && OPPOSITE_EDGE[parentEdge] === normalisedSide;
       if (isParentJoin || isChildJoin) {
         if (rel.relationshipType === 'WATERFALL') {
-          return { code: 'WF', colour: '#2563eb', label: 'Waterfall join - edit the relationship instead' };
+          return { code: 'WF', colour: '#2563eb', label: 'Waterfall join, not a wall edge - edit the relationship instead' };
         }
-        return { code: 'SB', colour: '#059669', label: 'Splashback join - edit the relationship instead' };
+        return { code: 'SB', colour: '#059669', label: 'Splashback join, not a wall edge - edit the relationship instead' };
       }
     }
 
     if (edgeListIncludes(piece.noStripEdges, normalisedSide)) {
-      return { code: 'Wall', colour: '#78716c', label: 'Against wall - no return strip or edge polish' };
+      return { code: 'WALL', colour: '#78716c', label: 'Against wall - no return strip or edge polish' };
     }
 
     return null;
