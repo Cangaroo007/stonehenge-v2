@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
+}
 
 /**
  * GET /api/quotes/[id]/custom-charges
@@ -93,6 +103,8 @@ export async function POST(
         sort_order: typeof sortOrder === 'number' ? sortOrder : 0,
       },
     });
+
+    await recalculateQuote(quoteId);
 
     return NextResponse.json({
       id: charge.id,
