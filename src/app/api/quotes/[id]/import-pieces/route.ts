@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 
 interface ImportPieceData {
@@ -27,6 +29,14 @@ interface ImportRequest {
   pieces: ImportPieceData[];
   sourceAnalysisId?: string;
   replaceExisting?: boolean;
+}
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
 }
 
 // POST - Import multiple pieces from drawing analysis
@@ -200,6 +210,7 @@ export async function POST(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
 
     // If sourceAnalysisId is provided, update the analysis record with imported piece IDs
     if (sourceAnalysisId) {

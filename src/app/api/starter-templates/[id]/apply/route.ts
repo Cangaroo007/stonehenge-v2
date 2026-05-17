@@ -2,7 +2,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 import { applyTemplateToQuote } from '@/lib/services/template-applier';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import type { MaterialRole } from '@/lib/types/starter-templates';
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
+}
 
 // POST — Apply this template to a quote (create pieces from template)
 export async function POST(
@@ -19,7 +29,7 @@ export async function POST(
 
     // Verify template exists and is accessible
     const template = await prisma.starter_templates.findUnique({
-      where: { id },
+      where: { id, companyId: authResult.user.companyId },
     });
 
     if (!template) {
@@ -37,7 +47,7 @@ export async function POST(
     // If quoteId provided, verify it exists
     if (quoteId) {
       const quote = await prisma.quotes.findUnique({
-        where: { id: Number(quoteId) },
+        where: { id: Number(quoteId), company_id: authResult.user.companyId },
       });
       if (!quote) {
         return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
@@ -54,6 +64,11 @@ export async function POST(
       contactId: contactId ? Number(contactId) : undefined,
       projectName,
     });
+
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId: result.quoteId },
+    });
+    await recalculateQuote(result.quoteId);
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
