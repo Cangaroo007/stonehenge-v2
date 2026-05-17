@@ -500,6 +500,20 @@ export default function PieceVisualEditor({
 
   // ── Helpers ───────────────────────────────────────────────────────────
 
+  const getEdgeSuppression = useCallback((edgeId: string) => {
+    const attachedType = attachedPieceTypes?.[edgeId];
+    if (attachedType === 'WATERFALL') {
+      return { type: 'ATTACHED' as const, code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
+    }
+    if (attachedType === 'SPLASHBACK') {
+      return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join' };
+    }
+    if (edgeListIncludes(noStripEdges, edgeId)) {
+      return { type: 'WALL' as const, code: 'Wall', colour: '#78716c', label: 'Against wall' };
+    }
+    return null;
+  }, [attachedPieceTypes, noStripEdges]);
+
   const clearSelection = useCallback(() => {
     setSelectedEdges(new Set());
     setSelectedArcEdges(new Set());
@@ -507,30 +521,31 @@ export default function PieceVisualEditor({
   }, []);
 
   const selectAllEdges = useCallback(() => {
-    setSelectedEdges(new Set(ALL_SIDES));
-  }, []);
+    setSelectedEdges(new Set(ALL_SIDES.filter(side => !getEdgeSuppression(side))));
+  }, [getEdgeSuppression]);
 
   const applyProfileToSelected = useCallback(
     (profileId: string | null) => {
       if (selectedEdges.size === 0 && selectedArcEdges.size === 0) return;
-      const sides = Array.from(selectedEdges);
+      const sides = Array.from(selectedEdges).filter(side => !getEdgeSuppression(side));
+      const arcSides = Array.from(selectedArcEdges).filter(edgeId => !getEdgeSuppression(edgeId));
       // Apply to rectangle edges
-      if (selectedEdges.size > 0) {
+      if (sides.length > 0) {
         if (onEdgesChange) {
           const changes: Record<string, string | null> = {};
-          selectedEdges.forEach((side) => {
+          sides.forEach((side) => {
             changes[side] = profileId;
           });
           onEdgesChange(changes as { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null });
         } else if (onEdgeChange) {
-          selectedEdges.forEach((side) => {
+          sides.forEach((side) => {
             onEdgeChange(side, profileId);
           });
         }
       }
       // Apply to arc edges
-      if (selectedArcEdges.size > 0 && onShapeEdgeChange) {
-        selectedArcEdges.forEach(edgeId => {
+      if (arcSides.length > 0 && onShapeEdgeChange) {
+        arcSides.forEach(edgeId => {
           onShapeEdgeChange(edgeId, profileId);
         });
         setSelectedArcEdges(new Set());
@@ -542,10 +557,12 @@ export default function PieceVisualEditor({
         const profileName = profileId
           ? (edgeTypes.find(e => e.id === profileId)?.name ?? 'Profile')
           : 'Raw';
-        setScopeApplyInfo({ profileName, profileId, sides });
+        if (sides.length > 0) {
+          setScopeApplyInfo({ profileName, profileId, sides });
+        }
       }
     },
-    [selectedEdges, selectedArcEdges, onEdgesChange, onEdgeChange, onShapeEdgeChange, clearSelection, onBulkApply, edgeTypes]
+    [selectedEdges, selectedArcEdges, getEdgeSuppression, onEdgesChange, onEdgeChange, onShapeEdgeChange, clearSelection, onBulkApply, edgeTypes]
   );
 
   const applyProfileByIndex = useCallback(
@@ -569,6 +586,15 @@ export default function PieceVisualEditor({
       event.stopPropagation();
 
       if (editMode === 'quickEdge') {
+        if (getEdgeSuppression(side)) {
+          const svgRect = (event.currentTarget as SVGElement)
+            .closest('svg')
+            ?.getBoundingClientRect();
+          if (svgRect) {
+            setPopover({ side, x: event.clientX - svgRect.left, y: event.clientY - svgRect.top });
+          }
+          return;
+        }
         // Quick Edge mode: instantly apply selected profile
         if (quickEdgeProfile !== null) {
           if (onEdgeChange) onEdgeChange(side, quickEdgeProfile);
@@ -621,17 +647,21 @@ export default function PieceVisualEditor({
         return next;
       });
     },
-    [isEditMode, onEdgeChange, onEdgesChange, editMode, quickEdgeProfile, selectedEdges.size, updateRecents]
+    [isEditMode, onEdgeChange, onEdgesChange, editMode, quickEdgeProfile, selectedEdges.size, updateRecents, getEdgeSuppression]
   );
 
   const handleProfileSelect = useCallback(
     (profileId: string | null) => {
       if (!popover || !onEdgeChange) return;
+      if (getEdgeSuppression(popover.side)) {
+        setPopover(null);
+        return;
+      }
       onEdgeChange(popover.side, profileId);
       if (profileId) updateRecents(profileId);
       setPopover(null);
     },
-    [popover, onEdgeChange, updateRecents]
+    [popover, onEdgeChange, updateRecents, getEdgeSuppression]
   );
 
   // Wrapper for scope-aware apply — captures the clicked side from popover state
@@ -1508,20 +1538,6 @@ export default function PieceVisualEditor({
     if (attachedType === 'SPLASHBACK') return 'Splashback join - return strip suppressed';
     return 'Wall edge - no profile or lamination strip';
   }, [attachedPieceTypes]);
-
-  const getEdgeSuppression = useCallback((edgeId: string) => {
-    const attachedType = attachedPieceTypes?.[edgeId];
-    if (attachedType === 'WATERFALL') {
-      return { type: 'ATTACHED' as const, code: 'WF', colour: '#2563eb', label: 'Waterfall join' };
-    }
-    if (attachedType === 'SPLASHBACK') {
-      return { type: 'ATTACHED' as const, code: 'SB', colour: '#059669', label: 'Splashback join' };
-    }
-    if (edgeListIncludes(noStripEdges, edgeId)) {
-      return { type: 'WALL' as const, code: 'Wall', colour: '#78716c', label: 'Against wall' };
-    }
-    return null;
-  }, [attachedPieceTypes, noStripEdges]);
 
   // ── Render ────────────────────────────────────────────────────────────
 
