@@ -171,23 +171,43 @@ export async function applyTemplateToQuote(
     let piecesCreated = 0;
     let totalAreaSqm = 0;
 
-    // Get existing room count for sort_order offset
-    const existingRoomCount = await tx.quote_rooms.count({
+    // Get existing rooms for sort_order offset. Draft quotes are created with a
+    // default empty Kitchen room; when a starter template is applied, reuse that
+    // placeholder instead of leaving a confusing empty room behind.
+    const existingRooms = await tx.quote_rooms.findMany({
       where: { quote_id: actualQuoteId },
+      orderBy: { sort_order: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        sort_order: true,
+        _count: { select: { quote_pieces: true } },
+      },
     });
+    const reusableEmptyRooms = existingRooms.filter(room => room._count.quote_pieces === 0);
+    const sortOrderBase = existingRooms.length - reusableEmptyRooms.length;
 
     for (let roomIdx = 0; roomIdx < rooms.length; roomIdx++) {
       const templateRoom = rooms[roomIdx];
 
-      // Create room
-      const room = await tx.quote_rooms.create({
-        data: {
-          quote_id: actualQuoteId,
-          name: templateRoom.name,
-          sort_order: existingRoomCount + roomIdx,
-        },
-      });
-      roomsCreated++;
+      // Create or reuse an empty placeholder room.
+      const reusableRoom = reusableEmptyRooms[roomIdx];
+      const room = reusableRoom
+        ? await tx.quote_rooms.update({
+            where: { id: reusableRoom.id },
+            data: {
+              name: templateRoom.name,
+              sort_order: sortOrderBase + roomIdx,
+            },
+          })
+        : await tx.quote_rooms.create({
+            data: {
+              quote_id: actualQuoteId,
+              name: templateRoom.name,
+              sort_order: sortOrderBase + roomIdx,
+            },
+          });
+      if (!reusableRoom) roomsCreated++;
 
       // Relationship links in starter templates are room-local. Keeping this
       // scoped prevents a repeated piece name in another room from being linked
