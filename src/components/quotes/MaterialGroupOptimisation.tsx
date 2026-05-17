@@ -2,8 +2,7 @@
 
 import React, { useState } from 'react';
 import type { MaterialGroupResult, MultiMaterialOptimisationResult, SlabCutoutInfo } from '@/types/slab-optimization';
-import { SlabCanvas } from '@/components/slab-optimizer/SlabCanvas';
-import { PIECE_COLORS } from '@/components/slab-optimizer/SlabResults';
+import { SlabCanvas, buildGroupColorMap, getColorForPlacement } from '@/components/slab-optimizer/SlabCanvas';
 import { OversizePieceIndicator } from './OversizePieceIndicator';
 
 function getShapeWasteM2(placement: { width: number; height: number; trueArea_m2?: number }): number {
@@ -29,6 +28,8 @@ function MaterialGroupSection({
   edgeAllowanceMm = 0,
 }: MaterialGroupSectionProps) {
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
+  const allPlacements = group.slabLayouts.flatMap(s => s.placements);
+  const groupColorMap = buildGroupColorMap(allPlacements);
 
   return (
     <div className="border border-gray-200 rounded-lg overflow-hidden">
@@ -79,6 +80,7 @@ function MaterialGroupSection({
                 className="text-xs bg-gray-100 text-gray-700 px-2 py-1 rounded"
               >
                 {piece.label} ({piece.dimensions.length}&times;{piece.dimensions.width}mm)
+                {(piece.grainMatched || piece.canRotate === false) && ' · locked'}
               </span>
             ))}
           </div>
@@ -123,7 +125,7 @@ function MaterialGroupSection({
                 slabWidth={group.slabDimensions.length}
                 slabHeight={group.slabDimensions.width}
                 placements={slab.placements}
-                allPlacements={group.slabLayouts.flatMap(s => s.placements)}
+                allPlacements={allPlacements}
                 showLabels={true}
                 showDimensions={true}
                 edgeAllowanceMm={edgeAllowanceMm}
@@ -137,7 +139,7 @@ function MaterialGroupSection({
                   const isSegment = p.isSegment === true;
                   return (
                     <span
-                      key={p.pieceId}
+                      key={`${p.pieceId}-${i}`}
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
                         isLamination
                           ? 'bg-gray-300 text-gray-700 border border-gray-400'
@@ -145,12 +147,13 @@ function MaterialGroupSection({
                           ? 'text-white border-2 border-dashed border-white/50'
                           : 'text-white'
                       }`}
-                      style={isLamination ? {} : { backgroundColor: PIECE_COLORS[i % PIECE_COLORS.length] }}
+                      style={isLamination ? {} : { backgroundColor: getColorForPlacement(p, groupColorMap) }}
                     >
                       {isLamination && '\u25A6 '}
                       {isSegment && '\u229E '}
                       {p.label} ({p.width}&times;{p.height})
                       {p.rotated && ' \u21BB'}
+                      {(p.grainMatched || p.canRotate === false) && ' locked'}
                     </span>
                   );
                 })}

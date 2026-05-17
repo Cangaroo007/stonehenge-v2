@@ -20,6 +20,10 @@ export interface Placement {
   height: number;
   rotated: boolean;
   label: string;
+  /** Whether this placement was locked to the slab grain/vein direction. */
+  grainMatched?: boolean;
+  /** Whether this piece was allowed to rotate during optimisation. */
+  canRotate?: boolean;
   // Lamination tracking
   isLaminationStrip?: boolean;
   parentPieceId?: string;
@@ -152,6 +156,8 @@ export interface MaterialGroupResult {
     pieceId: string;
     label: string;
     dimensions: { length: number; width: number };
+    grainMatched?: boolean | null;
+    canRotate?: boolean | null;
   }>;
   slabCount: number;
   wastePercentage: number;

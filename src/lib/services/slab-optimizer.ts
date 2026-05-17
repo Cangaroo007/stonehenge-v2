@@ -1284,6 +1284,8 @@ function placePiece(
     height: rotated ? piece.width : piece.height,
     rotated,
     label: piece.label,
+    grainMatched: piece.grainMatched,
+    canRotate: piece.canRotate,
     // Include lamination data if this is a strip
     isLaminationStrip: piece.isLaminationStrip,
     parentPieceId: piece.parentPieceId,
@@ -1301,6 +1303,7 @@ function placePiece(
     trueArea_m2: piece.trueArea_m2 ?? undefined,
     // Strip sub-type (face vs return for MITRED pieces)
     stripSubType: piece.stripSubType,
+    kerfWidthMm: piece.pieceKerfWidth,
   };
 
   slab.placements.push(placement);

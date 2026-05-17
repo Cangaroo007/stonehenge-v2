@@ -123,7 +123,34 @@ describe('optimizeSlabs', () => {
 
     expect(mainPlacements).toHaveLength(2);
     expect(mainPlacements.every(p => p.rotated === false)).toBe(true);
+    expect(mainPlacements.every(p => p.grainMatched === true)).toBe(true);
     expect(mainPlacements.every(p => p.pieceId.startsWith('veined-waterfall-seg-'))).toBe(true);
+  });
+
+  it('exposes no-rotation metadata on slab placements for renderer warnings', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'locked-bench',
+          label: 'Locked Bench',
+          width: 500,
+          height: 400,
+          canRotate: false,
+        },
+      ],
+    });
+
+    expect(result.placements[0]).toEqual(
+      expect.objectContaining({
+        pieceId: 'locked-bench',
+        canRotate: false,
+        rotated: false,
+      })
+    );
   });
 
   it('keeps non-grain pieces rotatable when global rotation is enabled', async () => {

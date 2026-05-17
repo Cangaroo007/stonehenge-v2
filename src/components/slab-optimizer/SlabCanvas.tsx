@@ -77,6 +77,54 @@ const CUTOUT_STYLE = {
   fill: 'rgba(0,0,0,0.08)',
 } as const;
 
+function isRotationLockedPlacement(placement: Placement): boolean {
+  return placement.grainMatched === true ||
+    placement.canRotate === false ||
+    placement.groupId?.startsWith('grain-') === true;
+}
+
+function renderGrainLockOverlay(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+) {
+  if (width < 40 || height < 20) return null;
+
+  const lineCount = Math.max(2, Math.min(5, Math.floor(height / 18)));
+  const startY = y + height * 0.25;
+  const spacing = lineCount > 1 ? (height * 0.5) / (lineCount - 1) : 0;
+  const arrowX = x + width - Math.min(18, width * 0.18);
+  const arrowY = y + height / 2;
+
+  return (
+    <g pointerEvents="none">
+      {Array.from({ length: lineCount }).map((_, i) => (
+        <line
+          key={i}
+          x1={x + 6}
+          y1={startY + i * spacing}
+          x2={x + width - 6}
+          y2={startY + i * spacing}
+          stroke="rgba(255,255,255,0.78)"
+          strokeWidth={1.25}
+          strokeDasharray="8 5"
+        />
+      ))}
+      {width > 70 && height > 30 && (
+        <path
+          d={`M ${arrowX - 8} ${arrowY - 5} L ${arrowX} ${arrowY} L ${arrowX - 8} ${arrowY + 5}`}
+          fill="none"
+          stroke="rgba(255,255,255,0.9)"
+          strokeWidth={1.5}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      )}
+    </g>
+  );
+}
+
 /**
  * Render cutout shapes inside a piece on the slab layout.
  * Only renders when piece is large enough to show cutouts meaningfully.
@@ -214,6 +262,7 @@ export function SlabCanvas({
 
   // Track whether any cutouts are rendered (for legend)
   const hasCutouts = pieceCutouts && Object.values(pieceCutouts).some(c => c.length > 0);
+  const hasRotationLockedPieces = placements.some(p => !p.isLaminationStrip && isRotationLockedPlacement(p));
 
   return (
     <div className="inline-block">
@@ -318,6 +367,7 @@ export function SlabCanvas({
           const isHighlighted = highlightPieceId === placement.pieceId;
           const isLaminationStrip = placement.isLaminationStrip === true;
           const isSegment = placement.isSegment === true;
+          const isRotationLocked = !isLaminationStrip && isRotationLockedPlacement(placement);
 
           // Look up cutouts for this piece (skip for lamination strips)
           const cutouts = (!isLaminationStrip && pieceCutouts)
@@ -326,6 +376,10 @@ export function SlabCanvas({
 
           return (
             <g key={`${placement.pieceId}-${index}`}>
+              {isRotationLocked && (
+                <title>Grain or rotation locked: keep this piece in slab direction</title>
+              )}
+
               {/* Piece rectangle */}
               <rect
                 x={x}
@@ -339,6 +393,9 @@ export function SlabCanvas({
                 opacity={isLaminationStrip ? 0.7 : 0.85}
                 className="transition-opacity hover:opacity-100"
               />
+
+              {/* Grain / vein direction overlay for pieces that cannot be rotated */}
+              {isRotationLocked && renderGrainLockOverlay(x, y, width, height)}
 
               {/* Cutout overlay shapes (inside piece rectangle) */}
               {cutouts.length > 0 && renderCutouts(cutouts, x, y, width, height, scale, placement.pieceId)}
@@ -471,6 +528,16 @@ export function SlabCanvas({
                 fill="rgba(0,0,0,0.08)" stroke="#666" strokeWidth={1} strokeDasharray="3 1" />
             </svg>
             <span>Cutout/Feature</span>
+          </div>
+        )}
+        {hasRotationLockedPieces && (
+          <div className="flex items-center gap-1.5">
+            <svg width="16" height="16" className="border border-gray-400 rounded-sm bg-blue-500">
+              <line x1={3} y1={6} x2={13} y2={6} stroke="white" strokeWidth={1.25} strokeDasharray="3 2" />
+              <line x1={3} y1={10} x2={13} y2={10} stroke="white" strokeWidth={1.25} strokeDasharray="3 2" />
+              <path d="M 10 4 L 14 8 L 10 12" fill="none" stroke="white" strokeWidth={1.25} strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Grain/rotation locked</span>
           </div>
         )}
       </div>
