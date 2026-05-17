@@ -167,7 +167,28 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 3: Customer selected ──
+  // ── Check 3: Specific material colours confirmed ──
+  const collectionOnlyPieces = allPieces.filter((p) => p.material_collection_only);
+  if (collectionOnlyPieces.length > 0) {
+    const collections = new Set(collectionOnlyPieces.map((p) => p.material_collection_name || p.material_name).filter(Boolean));
+    checks.push({
+      id: 'material-colour',
+      label: 'Specific material colours confirmed',
+      status: 'warn',
+      detail: `${collectionOnlyPieces.length} piece${collectionOnlyPieces.length !== 1 ? 's are' : ' is'} priced from a supplier/collection instead of a final colour${collections.size ? ` (${Array.from(collections).join(', ')})` : ''}`,
+      fix: 'Select final colours before issuing a firm customer quote, or leave this as an intentional generic allowance',
+      fixAction: 'Review Materials',
+    });
+  } else if (totalPieces > 0) {
+    checks.push({
+      id: 'material-colour',
+      label: 'Specific material colours confirmed',
+      status: 'pass',
+      detail: 'No pieces are using generic collection-only pricing',
+    });
+  }
+
+  // ── Check 4: Customer selected ──
   if (!quote.customer_id || !quote.customers) {
     checks.push({
       id: 'customer',
@@ -186,7 +207,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 4: Quote contact assigned ──
+  // ── Check 5: Quote contact assigned ──
   if (!quote.contact_id || !quote.contact) {
     checks.push({
       id: 'contact',
@@ -205,7 +226,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 5: At least one piece exists ──
+  // ── Check 6: At least one piece exists ──
   if (totalPieces === 0) {
     checks.push({
       id: 'pieces',
@@ -224,7 +245,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 6: All pieces have dimensions ──
+  // ── Check 7: All pieces have dimensions ──
   const piecesWithoutDimensions = allPieces.filter(
     (p) => !p.length_mm || p.length_mm <= 0 || !p.width_mm || p.width_mm <= 0,
   );
@@ -246,7 +267,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 7: Edge profiles configured ──
+  // ── Check 8: Edge profiles configured ──
   const isRawEdge = (edgeId: string | null) => {
     if (!edgeId) return true;
     const edgeType = edgeTypeMap.get(edgeId);
@@ -282,7 +303,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 8: PDF template exists ──
+  // ── Check 9: PDF template exists ──
   const template = await prisma.quote_templates.findFirst({
     where: {
       company_id: companyId,

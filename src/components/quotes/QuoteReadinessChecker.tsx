@@ -34,6 +34,12 @@ interface QuoteReadinessCheckerProps {
   onGeneratePdf: () => void;
 }
 
+function formatQuoteLabel(quoteNumber: string): string {
+  const trimmed = quoteNumber.trim();
+  if (!trimmed) return 'Draft quote';
+  return trimmed.toLowerCase().startsWith('draft') ? trimmed : `Quote #${trimmed}`;
+}
+
 /* ─── Status Icon ─── */
 
 function StatusIcon({ status }: { status: ReadinessStatus }) {
@@ -161,8 +167,9 @@ export default function QuoteReadinessChecker({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [checkedCount, setCheckedCount] = useState(0);
-  const [totalChecks, setTotalChecks] = useState(8); // estimated
+  const [totalChecks, setTotalChecks] = useState(9); // estimated
   const [error, setError] = useState<string | null>(null);
+  const quoteLabel = formatQuoteLabel(quoteNumber);
 
   const runChecks = useCallback(async () => {
     setIsChecking(true);
@@ -241,7 +248,7 @@ export default function QuoteReadinessChecker({
             </button>
           </div>
           <p className="text-[13px] text-gray-400 mt-1">
-            Quote #{quoteNumber} — Checking all requirements before generating your PDF
+            {quoteLabel} — Checking all requirements before generating your PDF
           </p>
 
           {/* Progress bar */}
