@@ -58,7 +58,7 @@ import MaterialComparisonPanel, { type ComparisonSlot } from '@/components/quote
 import MaterialComparisonErrorBoundary from '@/components/quotes/MaterialComparisonErrorBoundary';
 import MultiSelectToolbar from '@/components/quotes/MultiSelectToolbar';
 import PieceContextMenu from '@/components/quotes/PieceContextMenu';
-import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+import { normaliseRectEdgeSide, rectEdgeDisplayLabel, type RectEdgeSide } from '@/lib/utils/edge-side';
 import { useQuoteOptions } from '@/hooks/useQuoteOptions';
 import { useUndoRedo } from '@/hooks/useUndoRedo';
 import { useQuoteKeyboardShortcuts } from '@/hooks/useQuoteKeyboardShortcuts';
@@ -80,6 +80,17 @@ import WaterfallSplashbackModal from '@/components/quotes/WaterfallSplashbackMod
 import { generatePieceDescription } from '@/lib/utils/description-generator';
 
 type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
+
+function relationshipDisplayLabel(type: RelationshipType, joinPosition?: string | null): string {
+  const readableType = type
+    .replace(/_/g, ' ')
+    .toLowerCase()
+    .replace(/\b\w/g, c => c.toUpperCase());
+  const side = normaliseRectEdgeSide(joinPosition);
+  return side
+    ? `Attached ${readableType} - ${rectEdgeDisplayLabel(side)} edge`
+    : `Attached ${readableType}`;
+}
 
 // ─── Shared interfaces (from builder) ───────────────────────────────────────
 
@@ -4330,7 +4341,7 @@ export default function QuoteDetailClient({
                                         return (
                                           <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
                                             {renderEditPieceCard(childPiece, globalIndex, {
-                                              relationshipLabel: `↳ ${rel.relationshipType}${rel.joinPosition ? ` (${rel.joinPosition})` : ''}`,
+                                              relationshipLabel: relationshipDisplayLabel(rel.relationshipType, rel.joinPosition),
                                               grainMatch: rel.grainMatch,
                                               onDetach: () => handleDetachRelationship(rel.id),
                                             })}
@@ -4400,7 +4411,7 @@ export default function QuoteDetailClient({
                                     return (
                                       <div key={rel.id} className="ml-6 border-l-2 border-gray-100 pl-3">
                                         {renderEditPieceCard(childPiece, globalIndex, {
-                                          relationshipLabel: `↳ ${rel.relationshipType}${rel.joinPosition ? ` (${rel.joinPosition})` : ''}`,
+                                          relationshipLabel: relationshipDisplayLabel(rel.relationshipType, rel.joinPosition),
                                           grainMatch: rel.grainMatch,
                                           onDetach: () => handleDetachRelationship(rel.id),
                                         })}
