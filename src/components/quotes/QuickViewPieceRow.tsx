@@ -1013,14 +1013,8 @@ export default function QuickViewPieceRow({
     }
   }, [quoteId, piece.id, piece.lengthMm, piece.widthMm, piece.thicknessMm, piece.materialName, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.roomName, localOverrideFabCost, onSavePiece]);
 
-  const MITERED_EDGE_ID = 'cmlar3eu20006znatmv7mbivv';
-  const edgeFieldMap = useMemo<Record<string, string>>(() => ({
-    top: 'edgeTop', bottom: 'edgeBottom', left: 'edgeLeft', right: 'edgeRight',
-  }), []);
-
   const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
     const next = { ...localEdgeBuildups };
-    const profileField = edgeFieldMap[edge];
     if (active) {
       next[edge] = {
         ...(next[edge] ?? {}),
@@ -1036,11 +1030,10 @@ export default function QuickViewPieceRow({
     setBuildupSaveState('saving');
     savePieceImmediate({
       edgeBuildups: Object.keys(next).length > 0 ? next : null,
-      ...(profileField ? { [profileField]: active ? MITERED_EDGE_ID : null } : {}),
     });
     setBuildupSaveState('saved');
     setTimeout(() => setBuildupSaveState('idle'), 2000);
-  }, [edgeFieldMap, localEdgeBuildups, savePieceImmediate]);
+  }, [localEdgeBuildups, savePieceImmediate]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
@@ -1698,16 +1691,14 @@ export default function QuickViewPieceRow({
                     e.stopPropagation();
                     const wallEdges = piece.noStripEdges ?? [];
                     const next: Record<string, EdgeBuildupConfig> = {};
-                    const profileOverrides: Record<string, string | null> = {};
                     (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
                       if (!edgeListIncludes(wallEdges, edge)) {
                         next[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
-                        profileOverrides[edgeFieldMap[edge]] = MITERED_EDGE_ID;
                       }
                     });
                     setLocalEdgeBuildups(next);
                     setBuildupSaveState('saving');
-                    savePieceImmediate({ edgeBuildups: next, ...profileOverrides });
+                    savePieceImmediate({ edgeBuildups: next });
                     setBuildupSaveState('saved');
                     setTimeout(() => setBuildupSaveState('idle'), 2000);
                   }}
@@ -2453,7 +2444,6 @@ export default function QuickViewPieceRow({
                   // Calling handleEdgeBuildup per edge causes stale closure bug —
                   // each call reads the same localEdgeBuildups snapshot and last write wins.
                   const next = { ...localEdgeBuildups };
-                  const profileOverrides: Record<string, string | null> = {};
                   const active = depth !== null;
                   const depthValue = depth ?? 40;
 
@@ -2467,17 +2457,12 @@ export default function QuickViewPieceRow({
                     } else {
                       delete next[edgeId];
                     }
-                    const profileField = edgeFieldMap[edgeId];
-                    if (profileField) {
-                      profileOverrides[profileField] = active ? MITERED_EDGE_ID : null;
-                    }
                   }
 
                   setLocalEdgeBuildups(next);
                   setBuildupSaveState('saving');
                   savePieceImmediate({
                     edgeBuildups: Object.keys(next).length > 0 ? next : null,
-                    ...profileOverrides,
                   });
                   setBuildupSaveState('saved');
                   setTimeout(() => setBuildupSaveState('idle'), 2000);
