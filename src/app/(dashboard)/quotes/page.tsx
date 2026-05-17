@@ -8,7 +8,7 @@ export const dynamic = 'force-dynamic';
 
 async function getQuotes(companyId: number) {
   const quotes = await prisma.quotes.findMany({
-    where: { company_id: companyId, quote_number: { not: null } },
+    where: { company_id: companyId },
     orderBy: [
       { status_changed_at: 'desc' },
       { created_at: 'desc' },

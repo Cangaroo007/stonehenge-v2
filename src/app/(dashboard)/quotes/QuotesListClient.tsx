@@ -23,6 +23,7 @@ interface QuotesListClientProps {
 const STATUS_FILTERS = [
   { value: 'all', label: 'All' },
   { value: 'active', label: 'Active' },
+  { value: 'unsaved', label: 'Unsaved' },
   { value: 'draft', label: 'Draft' },
   { value: 'review', label: 'Review' },
   { value: 'sent', label: 'Sent' },
@@ -44,6 +45,9 @@ export default function QuotesListClient({ quotes }: QuotesListClientProps) {
     if (statusFilter === 'active') {
       return quotes.filter((q) => !ACTIVE_FILTER_EXCLUDE.includes(q.status.toLowerCase()));
     }
+    if (statusFilter === 'unsaved') {
+      return quotes.filter((q) => !q.quote_number);
+    }
     return quotes.filter((q) => q.status.toLowerCase() === statusFilter);
   }, [quotes, statusFilter]);
 
@@ -56,6 +60,8 @@ export default function QuotesListClient({ quotes }: QuotesListClientProps) {
             ? quotes.length
             : filter.value === 'active'
               ? quotes.filter((q) => !ACTIVE_FILTER_EXCLUDE.includes(q.status.toLowerCase())).length
+              : filter.value === 'unsaved'
+                ? quotes.filter((q) => !q.quote_number).length
               : quotes.filter((q) => q.status.toLowerCase() === filter.value).length;
 
           return (
@@ -117,8 +123,13 @@ export default function QuotesListClient({ quotes }: QuotesListClientProps) {
                   <tr key={quote.id} className="hover:bg-gray-50">
                     <td className="table-cell font-medium">
                       <Link href={`/quotes/${quote.id}`} className="text-primary-600 hover:text-primary-700">
-                        {quote.quote_number}
+                        {quote.quote_number ?? `Draft #${quote.id}`}
                       </Link>
+                      {!quote.quote_number && (
+                        <span className="ml-2 inline-flex rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          Unsaved
+                        </span>
+                      )}
                     </td>
                     <td className="table-cell">{quote.customers?.name || '-'}</td>
                     <td className="table-cell">{quote.project_name || '-'}</td>
