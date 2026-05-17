@@ -7,7 +7,7 @@ import { cn } from '@/lib/utils';
 const navigation = [
   { name: 'Dashboard', href: '/dashboard', icon: HomeIcon },
   { name: 'Quotes', href: '/quotes', icon: DocumentIcon },
-  { name: 'Build Quote', href: '/quotes/new?mode=classic', icon: HammerIcon },
+  { name: 'Build Quote', href: '/quotes/new', icon: HammerIcon },
   { name: 'Unit Block', href: '/quotes/unit-block', icon: BuildingIcon },
   { name: 'Customers', href: '/customers', icon: UsersIcon },
   { name: 'Materials', href: '/materials', icon: SwatchIcon },
