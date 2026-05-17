@@ -248,43 +248,48 @@ export async function POST(
     // Material → Edge compatibility check
     const edgeCompatibilityWarnings: string[] = [];
     if (materialId) {
-      const material = await prisma.materials.findUnique({
-        where: { id: materialId },
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: materialId,
+          company_id: auth.user.companyId,
+        },
         select: { fabrication_category: true },
       });
 
-      if (material) {
-        const edgeIds = Array.from(new Set(
-          [edgeTop, edgeBottom, edgeLeft, edgeRight].filter(Boolean) as string[]
-        ));
+      if (!material) {
+        return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+      }
 
-        if (edgeIds.length > 0) {
-          const pricingSettings = await prisma.pricing_settings.findUnique({
-            where: { organisation_id: `company-${auth.user.companyId}` },
+      const edgeIds = Array.from(new Set(
+        [edgeTop, edgeBottom, edgeLeft, edgeRight].filter(Boolean) as string[]
+      ));
+
+      if (edgeIds.length > 0) {
+        const pricingSettings = await prisma.pricing_settings.findUnique({
+          where: { organisation_id: `company-${auth.user.companyId}` },
+        });
+        if (pricingSettings) {
+          const compatibilityRules = await prisma.material_edge_compatibility.findMany({
+            where: {
+              pricingSettingsId: pricingSettings.id,
+              fabricationCategory: material.fabrication_category,
+              edgeTypeId: { in: edgeIds },
+            },
+            include: { edgeType: { select: { name: true } } },
           });
-          if (pricingSettings) {
-            const compatibilityRules = await prisma.material_edge_compatibility.findMany({
-              where: {
-                pricingSettingsId: pricingSettings.id,
-                fabricationCategory: material.fabrication_category,
-                edgeTypeId: { in: edgeIds },
-              },
-              include: { edgeType: { select: { name: true } } },
-            });
 
-            for (const rule of compatibilityRules) {
-              if (!rule.isAllowed) {
-                return NextResponse.json(
-                  {
-                    error: rule.warningMessage || `${rule.edgeType.name} is not available for ${rule.fabricationCategory} materials.`,
-                    code: 'EDGE_MATERIAL_INCOMPATIBLE',
-                  },
-                  { status: 400 }
-                );
-              }
-              if (rule.warningMessage) {
-                edgeCompatibilityWarnings.push(rule.warningMessage);
-              }
+          for (const rule of compatibilityRules) {
+            if (!rule.isAllowed) {
+              return NextResponse.json(
+                {
+                  error: rule.warningMessage || `${rule.edgeType.name} is not available for ${rule.fabricationCategory} materials.`,
+                  code: 'EDGE_MATERIAL_INCOMPATIBLE',
+                },
+                { status: 400 }
+              );
+            }
+            if (rule.warningMessage) {
+              edgeCompatibilityWarnings.push(rule.warningMessage);
             }
           }
         }
@@ -344,8 +349,11 @@ export async function POST(
     // Calculate material cost if material is provided
     let materialCost = 0;
     if (materialId) {
-      const material = await prisma.materials.findUnique({
-        where: { id: materialId },
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: materialId,
+          company_id: auth.user.companyId,
+        },
       });
       if (material) {
         const pricingSettingsForCost = await prisma.pricing_settings.findUnique({

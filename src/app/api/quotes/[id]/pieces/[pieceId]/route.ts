@@ -297,6 +297,19 @@ export async function PATCH(
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
     }
 
+    if (materialId !== undefined && materialId !== null) {
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: materialId,
+          company_id: authResult.user.companyId,
+        },
+        select: { id: true },
+      });
+      if (!material) {
+        return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+      }
+    }
+
     // Validate lamination method if provided
     if (laminationMethod !== undefined) {
       const validLaminationMethods = ['NONE', 'LAMINATED', 'MITRED'];
@@ -339,7 +352,12 @@ export async function PATCH(
     let materialCost = 0;
     const matId = materialId !== undefined ? materialId : currentPiece.material_id;
     if (matId) {
-      const material = await prisma.materials.findUnique({ where: { id: matId } });
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: matId,
+          company_id: authResult.user.companyId,
+        },
+      });
       if (material) {
         const pricingSettingsForCost = await prisma.pricing_settings.findUnique({
           where: { organisation_id: `company-${authResult.user.companyId}` },
@@ -606,6 +624,24 @@ export async function PUT(
       return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
     }
 
+    // Verify piece belongs to the requested quote
+    if (currentPiece.quote_rooms.quote_id !== quoteId) {
+      return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
+    if (materialId !== undefined && materialId !== null) {
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: materialId,
+          company_id: auth.user.companyId,
+        },
+        select: { id: true },
+      });
+      if (!material) {
+        return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+      }
+    }
+
     // Validate lamination method if provided
     if (laminationMethod !== undefined) {
       const validLaminationMethods = ['NONE', 'LAMINATED', 'MITRED'];
@@ -621,8 +657,11 @@ export async function PUT(
     const edgeCompatibilityWarnings: string[] = [];
     const effectiveMatId = materialId !== undefined ? materialId : currentPiece.material_id;
     if (effectiveMatId) {
-      const matForCompat = await prisma.materials.findUnique({
-        where: { id: effectiveMatId },
+      const matForCompat = await prisma.materials.findFirst({
+        where: {
+          id: effectiveMatId,
+          company_id: auth.user.companyId,
+        },
         select: { fabrication_category: true },
       });
 
@@ -705,8 +744,11 @@ export async function PUT(
     let materialCost = 0;
     const matId = materialId !== undefined ? materialId : currentPiece.material_id;
     if (matId) {
-      const material = await prisma.materials.findUnique({
-        where: { id: matId },
+      const material = await prisma.materials.findFirst({
+        where: {
+          id: matId,
+          company_id: auth.user.companyId,
+        },
       });
       if (material) {
         const pricingSettingsForCost = await prisma.pricing_settings.findUnique({

@@ -135,6 +135,27 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const materialIds = Array.from(new Set(
+      body.rooms
+        .flatMap((room) => room.pieces)
+        .map((piece) => piece.materialId)
+        .filter((id): id is number => Number.isInteger(id) && Number(id) > 0)
+    ));
+    if (materialIds.length > 0) {
+      const ownedMaterialCount = await prisma.materials.count({
+        where: {
+          id: { in: materialIds },
+          company_id: companyId,
+        },
+      });
+      if (ownedMaterialCount !== materialIds.length) {
+        return NextResponse.json(
+          { error: 'Material not found' },
+          { status: 404 },
+        );
+      }
+    }
+
     // GATE 2: Enhanced validation — type coercion + structured errors
     const enhancedValidation = validateBatchCreatePayload(rawBody);
     if (!enhancedValidation.valid) {

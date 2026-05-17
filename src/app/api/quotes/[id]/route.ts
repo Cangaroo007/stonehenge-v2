@@ -277,6 +277,28 @@ export async function PUT(
       }
     }
 
+    if (data.rooms) {
+      const materialIds = Array.from(new Set(
+        data.rooms
+          .flatMap((room) => room.pieces)
+          .map((piece) => piece.materialId)
+          .filter((materialId): materialId is number =>
+            Number.isInteger(materialId) && Number(materialId) > 0
+          )
+      ));
+      if (materialIds.length > 0) {
+        const ownedMaterialCount = await prisma.materials.count({
+          where: {
+            id: { in: materialIds },
+            company_id: companyId,
+          },
+        });
+        if (ownedMaterialCount !== materialIds.length) {
+          return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+        }
+      }
+    }
+
     // Handle calculation save (partial update)
     if (data.saveCalculation) {
       if (!data.calculation) {

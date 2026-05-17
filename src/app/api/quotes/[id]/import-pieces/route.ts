@@ -92,6 +92,25 @@ export async function POST(
       }
     }
 
+    const materialIds = Array.from(new Set(
+      pieces
+        .map((piece) => piece.materialId)
+        .filter((materialId): materialId is number =>
+          Number.isInteger(materialId) && Number(materialId) > 0
+        )
+    ));
+    if (materialIds.length > 0) {
+      const ownedMaterialCount = await prisma.materials.count({
+        where: {
+          id: { in: materialIds },
+          company_id: auth.user.companyId,
+        },
+      });
+      if (ownedMaterialCount !== materialIds.length) {
+        return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+      }
+    }
+
     // If replaceExisting, delete all existing rooms and pieces for this quote
     if (replaceExisting) {
       const existingRooms = await prisma.quote_rooms.findMany({
