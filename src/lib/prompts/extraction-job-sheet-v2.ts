@@ -20,7 +20,7 @@ Every value you extract MUST have a confidence level:
 - Circle marks = laminated edge (LAMINATED)
 - "PR" or "Pencil Round" = Pencil Round profile
 - "BN" or "Bullnose" = Bullnose profile
-- "M" or "Mitred" = Mitred edge (MITRED)
+- "M" or "Mitred" usually means mitred build-up construction (MITRED), not a decorative visible profile. Record it as MITRED only when the drawing clearly marks build-up/mitre construction; keep any visible profile such as PR/Pencil Round separate in profileType.
 - Unmarked edges = raw/unfinished (RAW)
 - Edges touching "WALL" labels are always RAW
 

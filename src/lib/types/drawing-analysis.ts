@@ -256,6 +256,7 @@ export interface ExtractedPieceV2 {
 
 export interface ExtractedEdgeV2 {
   side: 'FRONT' | 'BACK' | 'LEFT' | 'RIGHT';
+  // MITRED means mitred build-up / construction, not a decorative visible profile.
   finish: ExtractedValue<'RAW' | 'POLISHED' | 'LAMINATED' | 'MITRED'>;
   profileType?: ExtractedValue<string>;
 }

@@ -115,7 +115,7 @@ function mapEdgeV2ToV1(v2Edge: ExtractedEdgeV2): ExtractedEdge {
     'RAW': 'RAW',
     'POLISHED': 'POLISHED_20MM',
     'LAMINATED': 'POLISHED_40MM',
-    'MITRED': 'POLISHED_20MM', // Mitred edges have polished finish in v1
+    'MITRED': 'POLISHED_40MM', // Mitred means build-up construction in v2 extraction
   };
 
   const finish = finishMap[v2Edge.finish.value] || 'UNKNOWN';

@@ -96,7 +96,7 @@ function mapEdgeFinish(finish: string | undefined): string | undefined {
   if (upper.includes('BULLNOSE')) return 'Bullnose';
   if (upper.includes('OGEE')) return 'Ogee';
   if (upper.includes('BEVEL')) return 'Bevelled';
-  if (upper.includes('MITR')) return 'Mitred';
+  if (upper.includes('MITR')) return 'Mitred build-up';
   if (upper.includes('POLISH')) return 'Polished';
   return finish;
 }

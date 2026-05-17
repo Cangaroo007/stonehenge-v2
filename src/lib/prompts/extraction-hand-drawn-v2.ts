@@ -33,6 +33,7 @@ Hand-drawn notation varies but look for:
 - Hatching marks "X" or "//" along edges = polished (POLISHED)
 - Circles along edges = laminated edge (LAMINATED)
 - Written labels like "polish", "raw", "PR", "BN", "mitred"
+- Treat "mitred" as build-up/join construction unless the note clearly names a visible edge profile. A mitred build-up can still have a visible profile such as PR/Pencil Round.
 - Arrows pointing to edges with annotations
 - No marking typically means RAW (against wall)
 
