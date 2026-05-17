@@ -128,6 +128,34 @@ Human correction should store:
 
 This correction log is the ML/training asset. Without it, every AI improvement becomes guesswork.
 
+The Claude project audit also makes one point very strongly: do not treat every drawing as the same problem. The reader needs a router before extraction:
+
+- classify each page as plan, elevation, section, 3D render, title page, or other
+- classify the source as stone shop drawing, cabinetry pack, tradie sketch, architectural plan, DXF/vector export, or unknown
+- only send pages with real plan-view benchtop geometry to the geometry extractor
+- use elevations, renders, and spec pages as cross-check evidence, not primary geometry
+
+The reader should have specialist extraction prompts for at least:
+
+- tradesman sketches with mixed cabinet notes and dimensions
+- stone shop drawings with legends and edge symbols
+- clean CAD/vector benchtop plans
+- multi-page cabinetry packs where the benchtop is inferred from cabinet runs
+
+For dimensions, do not rely on vision alone. The robust path is OCR first, with bounding boxes for numeric tokens, then LLM association of those tokens to edges, cutouts, and callouts. Vision models can read a drawing shape impressively while still inventing or misplacing a number.
+
+The extractor should read in this order:
+
+1. title block / project metadata
+2. units and scale
+3. legend / edge symbol mappings
+4. spec block
+5. main plan geometry
+6. cutouts
+7. secondary pieces
+8. joints and callouts
+9. reconciliation warnings
+
 ## Calculator Design Rules
 
 The calculator should be a pure calculation engine:
@@ -186,6 +214,22 @@ Every override needs a reason and audit trail.
 
 10. Do not rely on final totals alone when comparing to NCS. Compare line categories: material, cutting, profile/edge labour, cutouts, install, delivery, discounts, manual adjustments, GST.
 
+11. Do not silently assign material to pieces for optimiser convenience. A piece without material should be excluded from slab allocation unless it is an explicitly attached waterfall/splashback child inheriting the parent material.
+
+12. Do not let optimiser persistence overwrite human grain/vein decisions. Optimiser runs may persist oversize and join facts, but grain requirements must come from material, relationship, or user intent.
+
+13. Do not hard-code slab sizes as truth. Slab dimensions and trim/edge allowance belong on material records, with type-level defaults only as fallback.
+
+14. Do not skip dimension reconciliation on AI imports. Partial dimension chains should be summed and checked against overall dimensions; conflicts should create review warnings rather than guessed geometry.
+
+15. Do not model `RETURN` as a relationship. A return is a piece type joined to another piece; the relationship is the join.
+
+16. Do not let cabinetry annotations become stone features. Labels like drawers, doors, kick boards, appliance spaces, shelves, and bulkheads are evidence about cabinetry, not automatically benchtop pieces or cutouts.
+
+17. Do not omit fabrication-critical callouts. Joints, small radius notes, post cut-arounds, sink/cooktop type, and edge legends need first-class extraction fields.
+
+18. Do not make edge symbols tenant-global when a drawing has its own legend. The drawing legend wins.
+
 ## Slab Optimizer Guidance
 
 For early v3, position the optimizer as material allowance / estimating support unless it supports:
@@ -204,6 +248,35 @@ For early v3, position the optimizer as material allowance / estimating support 
 - fabricator approval
 
 Stone-industry nesting is not just packing rectangles into a slab. Avoid over-promising.
+
+Material gating matters. A slab optimiser should:
+
+- skip standalone pieces with no material
+- allow attached WF/SB children to inherit parent material intentionally
+- show skipped pieces as warnings so the estimator knows why slab count is incomplete
+- preserve group and parent metadata when oversize pieces are split
+- visibly mark grain/rotation-locked pieces
+- distinguish estimating layout from approved production nesting
+
+Grain matching needs a single coherent model. v2 had disconnected sources: material grain fields, relationship flags, and piece-level flags. v3 should resolve grain from:
+
+- material grain type and whether matching is physically relevant
+- relationship-level continuity requirements
+- explicit user override
+- AI extraction evidence when the drawing specifies bookmatching/vein direction
+
+Uniform materials should not force grain constraints merely because a waterfall exists. Veined materials should make the constraint explicit and visible.
+
+Segment display is not optional. If an oversized piece is split, the UI should show:
+
+- original parent piece
+- segment count
+- each segment dimension
+- slab assignment for each segment
+- join count and join length
+- whether a segment is below preferred fabricable size
+
+This avoids the common v2 confusion where a split piece looks like several unrelated parts.
 
 ## UX Recommendations
 
@@ -247,6 +320,29 @@ The most valuable comparison is not just total vs total. The useful structure is
 - notes on likely cause
 
 Some NCS quotes may contain inconsistent or judgement-based pricing. v3 should be able to model consistent rules first, then represent deviations through explicit overrides.
+
+When importing Acrual/NCS examples into training or validation, keep three separate comparisons:
+
+- NCS customer quote total and visible notes
+- NCS internal item build-up by charge category
+- Stonehenge calculated quote from structured pieces and settings
+
+Do not use customer quote PDFs alone as exact truth when internal build-up is available. The customer-facing number may include judgement, rounding, package decisions, or manual adjustment not visible on the PDF.
+
+## Source Documents Worth Reusing
+
+The Claude project folders contain several high-value references that should be treated as project memory, not background noise:
+
+- `STONEHENGE-V2-COMPREHENSIVE-ANALYSIS.md`
+- `PIECE-RULES-DEEP-REVIEW-v2.md`
+- `Drawing-AI-Reader-Audit-and-Fixes-2026-05-05.md`
+- `Slab-Optimizer-Comprehensive-Audit-2026-04-09.md`
+- `V3-MASTER-BIBLE-REVISED.md`
+- `STONEHENGE-V3-STONE-DOMAIN-ARCHITECTURE.md`
+- `stonehenge-v4/docs/contracts/*`
+- `stonehenge-v4/packages/core/*`
+
+Before rebuilding or changing core quote logic, read these first. A lot of apparent bugs in v2 are already named there, including the reasons behind them.
 
 ## Launch Principle
 
