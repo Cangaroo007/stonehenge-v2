@@ -98,6 +98,24 @@ export async function checkQuoteReadiness(
   const allPieces = quote.quote_rooms.flatMap((r) => r.quote_pieces);
   const totalPieces = allPieces.length;
   const totalRooms = quote.quote_rooms.length;
+  const edgeIds = Array.from(new Set(
+    allPieces
+      .flatMap((p) => [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right])
+      .filter((edgeId): edgeId is string => Boolean(edgeId))
+  ));
+  const edgeTypeMap = new Map<string, { name: string; category: string | null }>();
+  if (edgeIds.length > 0) {
+    const edgeTypes = await prisma.edge_types.findMany({
+      where: { id: { in: edgeIds } },
+      select: { id: true, name: true, category: true },
+    });
+    for (const edgeType of edgeTypes) {
+      edgeTypeMap.set(edgeType.id, {
+        name: edgeType.name,
+        category: edgeType.category,
+      });
+    }
+  }
 
   // ── Check 1: Quote pricing calculated ──
   const subtotal = toNumber(quote.subtotal);
@@ -229,14 +247,15 @@ export async function checkQuoteReadiness(
   }
 
   // ── Check 7: Edge profiles configured ──
+  const isRawEdge = (edgeId: string | null) => {
+    if (!edgeId) return true;
+    const edgeType = edgeTypeMap.get(edgeId);
+    if (!edgeType) return false;
+    return edgeType.name.toLowerCase() === 'raw' || edgeType.category === 'raw';
+  };
   const piecesAllRaw = allPieces.filter((p) => {
     const edges = [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right];
-    const nonNull = edges.filter(Boolean);
-    // All edges are either null or RAW
-    return (
-      nonNull.length === 0 ||
-      nonNull.every((e) => e!.toLowerCase() === 'raw')
-    );
+    return edges.every(isRawEdge);
   });
   if (totalPieces > 0 && piecesAllRaw.length === totalPieces) {
     checks.push({

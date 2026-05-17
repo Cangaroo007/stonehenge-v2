@@ -2290,7 +2290,9 @@ export default function QuoteDetailClient({
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${editQuote?.quote_number ?? serverData.quote_number}.pdf`;
+      const disposition = response.headers.get('Content-Disposition') ?? '';
+      const filenameMatch = disposition.match(/filename="([^"]+)"/);
+      a.download = filenameMatch?.[1] ?? `${editQuote?.quote_number ?? serverData.quote_number ?? `quote-${quoteIdStr}`}.pdf`;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
