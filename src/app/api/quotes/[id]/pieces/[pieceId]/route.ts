@@ -608,8 +608,14 @@ export async function PUT(
       cutouts,
       laminationMethod,
       requiresGrainMatch: reqGrainMatch,
+      mitredCornerTreatment: putMitredCornerTreatment,
+      overrideMaterialCost: putOverrideMaterialCost,
+      overrideSlabPrice: putOverrideSlabPrice,
+      overrideFabricationCost: putOverrideFabricationCost,
       shapeConfig: putShapeConfig,
       noStripEdges: putNoStripEdges,
+      stripWidthOverrides: putStripWidthOverrides,
+      pieceType: putPieceType,
       edgeBuildups: putEdgeBuildups,
       edgeArcConfig: putEdgeArcConfig,
       materialCollectionOnly: putMaterialCollectionOnly,
@@ -803,6 +809,18 @@ export async function PUT(
         cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
         lamination_method: laminationMethod !== undefined ? laminationMethod : currentPiece.lamination_method,
         requiresGrainMatch: reqGrainMatch !== undefined ? reqGrainMatch : currentPiece.requiresGrainMatch,
+        ...(putMitredCornerTreatment !== undefined && {
+          mitred_corner_treatment: putMitredCornerTreatment,
+        }),
+        ...(putOverrideMaterialCost !== undefined && {
+          override_material_cost: putOverrideMaterialCost,
+        }),
+        ...(putOverrideSlabPrice !== undefined && {
+          override_slab_price: putOverrideSlabPrice,
+        }),
+        ...(putOverrideFabricationCost !== undefined && {
+          override_fabrication_cost: putOverrideFabricationCost,
+        }),
         // shape_config: stores extra L/U shape data including extended edge profiles
         ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
@@ -814,6 +832,10 @@ export async function PUT(
         ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
         ...(putEdgeBuildups !== undefined && { edge_buildups: putEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),
+        ...(putStripWidthOverrides !== undefined && {
+          strip_width_overrides: putStripWidthOverrides as unknown as Prisma.InputJsonValue,
+        }),
+        ...(putPieceType !== undefined && { piece_type: putPieceType }),
         ...(putMaterialCollectionOnly !== undefined && { material_collection_only: Boolean(putMaterialCollectionOnly) }),
         ...(putMaterialCollectionName !== undefined && { material_collection_name: putMaterialCollectionName }),
       },
