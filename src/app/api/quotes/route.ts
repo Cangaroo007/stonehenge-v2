@@ -78,20 +78,46 @@ interface QuoteCreateData {
   overrideTemplatingCost?: number | null;
 }
 
-export async function GET() {
+function toNumber(value: unknown): number {
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string') return Number(value) || 0;
+  if (value && typeof value === 'object' && 'toNumber' in value) {
+    return (value as { toNumber: () => number }).toNumber();
+  }
+  return Number(value) || 0;
+}
+
+export async function GET(request: NextRequest) {
   try {
     const auth = await requireAuth();
     if ('error' in auth) {
       return NextResponse.json({ error: auth.error }, { status: auth.status });
     }
     const { companyId } = auth.user;
+    const { searchParams } = new URL(request.url);
+    const customerIdParam = searchParams.get('customerId');
+    const customerId = customerIdParam ? parseInt(customerIdParam, 10) : null;
+
+    if (customerIdParam && (!customerId || isNaN(customerId))) {
+      return NextResponse.json({ error: 'Invalid customer ID' }, { status: 400 });
+    }
 
     const quotes = await prisma.quotes.findMany({
-      where: { company_id: companyId, quote_number: { not: null } },
+      where: {
+        company_id: companyId,
+        ...(customerId ? { customer_id: customerId } : {}),
+      },
       orderBy: { created_at: 'desc' },
       include: { customers: true },
     });
-    return NextResponse.json(quotes);
+    return NextResponse.json(
+      quotes.map((quote) => ({
+        ...quote,
+        customer: quote.customers,
+        totalPrice: toNumber(quote.total),
+        createdAt: quote.created_at.toISOString(),
+      }))
+    );
   } catch (error) {
     console.error('Error fetching quotes:', error);
     return NextResponse.json({ error: 'Failed to fetch quotes' }, { status: 500 });

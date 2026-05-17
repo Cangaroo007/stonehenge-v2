@@ -28,10 +28,12 @@ interface Customer {
 
 interface Quote {
   id: number;
-  quote_number: string;
+  quote_number: string | null;
   status: string;
-  totalPrice: number;
-  createdAt: string;
+  totalPrice?: number;
+  total?: number;
+  createdAt?: string;
+  created_at?: string;
 }
 
 type TabType = 'details' | 'contacts' | 'locations' | 'quotes' | 'drawings';
@@ -283,18 +285,18 @@ function QuotesTab({ quotes, customerId }: { quotes: Quote[]; customerId: number
             <tbody className="bg-white divide-y divide-gray-200">
               {quotes.map((quote) => (
                 <tr key={quote.id} className="hover:bg-gray-50">
-                  <td className="table-cell font-medium">{quote.quote_number}</td>
+                  <td className="table-cell font-medium">{quote.quote_number ?? `Draft #${quote.id}`}</td>
                   <td className="table-cell">
                     <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      quote.status === 'ACCEPTED' ? 'bg-green-100 text-green-800' :
-                      quote.status === 'SENT' ? 'bg-blue-100 text-blue-800' :
+                      quote.status.toLowerCase() === 'accepted' ? 'bg-green-100 text-green-800' :
+                      quote.status.toLowerCase() === 'sent' ? 'bg-blue-100 text-blue-800' :
                       'bg-gray-100 text-gray-800'
                     }`}>
                       {quote.status}
                     </span>
                   </td>
-                  <td className="table-cell">${quote.totalPrice?.toFixed(2) || '0.00'}</td>
-                  <td className="table-cell">{new Date(quote.createdAt).toLocaleDateString()}</td>
+                  <td className="table-cell">${(quote.totalPrice ?? quote.total ?? 0).toFixed(2)}</td>
+                  <td className="table-cell">{new Date(quote.createdAt ?? quote.created_at ?? '').toLocaleDateString()}</td>
                   <td className="table-cell text-right">
                     <Link
                       href={`/quotes/${quote.id}`}
