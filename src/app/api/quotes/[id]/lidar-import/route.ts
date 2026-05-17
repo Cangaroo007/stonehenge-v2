@@ -167,6 +167,7 @@ export async function POST(
             no_strip_edges: toPrismaJson(draft.noStripEdges),
             shape_type: draft.shapeType,
             shape_config: draft.shapeConfig ? toPrismaJson(draft.shapeConfig) : undefined,
+            piece_type: draft.pieceType,
           },
         });
 

@@ -17,6 +17,7 @@ export interface LidarQuotePieceDraft {
   lengthMm: number;
   widthMm: number;
   thicknessMm: number;
+  pieceType: string;
   areaSqm: number;
   shapeType: ShapeType;
   shapeConfig: ShapeConfig;
@@ -59,6 +60,7 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
       lengthMm: bounds.width,
       widthMm: bounds.height,
       thicknessMm: 20,
+      pieceType: inferPieceType(scan.roomType),
       areaSqm,
       shapeType: shape.shapeType,
       shapeConfig: shape.shapeConfig,
@@ -76,6 +78,14 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
   });
 
   return { pieces, warnings };
+}
+
+function inferPieceType(roomType: string): string {
+  const normalized = roomType.toLowerCase();
+  if (normalized.includes('bath') || normalized.includes('ensuite') || normalized.includes('powder')) {
+    return 'VANITY';
+  }
+  return 'BENCHTOP';
 }
 
 export function toPrismaJson(value: unknown): Prisma.InputJsonValue {

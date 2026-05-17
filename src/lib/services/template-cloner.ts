@@ -141,6 +141,30 @@ function applyEdgeOverrides(
   return edges;
 }
 
+function inferPieceTypeFromTemplate(piece: TemplatePiece): string {
+  const label = piece.label.toLowerCase();
+
+  if (label.includes('splash')) return 'SPLASHBACK';
+  if (label.includes('waterfall')) return 'WATERFALL';
+  if (label.includes('vanity')) return 'VANITY';
+  if (label.includes('island')) return 'ISLAND';
+  if (label.includes('sill')) return 'WINDOW_SILL';
+  if (label.includes('shelf')) return 'SHELF';
+
+  switch (piece.materialRole) {
+    case 'SPLASHBACK':
+      return 'SPLASHBACK';
+    case 'VANITY':
+      return 'VANITY';
+    case 'SHOWER_SHELF':
+      return 'SHELF';
+    case 'WINDOW_SILL':
+      return 'WINDOW_SILL';
+    default:
+      return 'BENCHTOP';
+  }
+}
+
 /**
  * Clone a template into a fully structured quote.
  * Supports optional edge overrides for finish-tier-specific edge profiles.
@@ -289,6 +313,7 @@ export async function cloneTemplateToQuote(options: CloneOptions): Promise<Clone
             edge_left: edgeLeft,
             edge_right: edgeRight,
             lamination_method: laminationMethod,
+            piece_type: inferPieceTypeFromTemplate(templatePiece),
           },
         });
 

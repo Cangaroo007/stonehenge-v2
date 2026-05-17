@@ -273,6 +273,7 @@ export async function applyTemplateToQuote(
             edge_left: edgeLeft,
             edge_right: edgeRight,
             lamination_method: 'NONE',
+            piece_type: templatePiece.pieceType,
             waterfall_height_mm: waterfallHeightMm,
           },
         });
