@@ -73,12 +73,15 @@ export const OptimizationVisualizer: React.FC<OptimizationVisualizerProps> = ({
     return currentSlab.placements.map(placement => ({
       pieceId: placement.pieceId,
       pieceName: placement.label,
-      lengthMm: placement.width,
-      widthMm: placement.height,
+      // Optimizer placements are already expressed in final slab coordinates.
+      // The canvas draws widthMm horizontally and lengthMm vertically, so keep
+      // the optimizer width/height in that orientation instead of rotating twice.
+      lengthMm: placement.height,
+      widthMm: placement.width,
       thicknessMm: 20, // Default, could be enhanced
       positionX: placement.x,
       positionY: placement.y,
-      rotation: placement.rotated ? 90 : 0,
+      rotation: 0,
       selected: placement.pieceId === selectedPieceId,
       label: placement.label,
     }));
