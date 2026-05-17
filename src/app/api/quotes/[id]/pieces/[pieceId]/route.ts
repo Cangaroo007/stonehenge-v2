@@ -612,6 +612,8 @@ export async function PUT(
       noStripEdges: putNoStripEdges,
       edgeBuildups: putEdgeBuildups,
       edgeArcConfig: putEdgeArcConfig,
+      materialCollectionOnly: putMaterialCollectionOnly,
+      materialCollectionName: putMaterialCollectionName,
     } = data;
 
     // Get the current piece
@@ -812,6 +814,8 @@ export async function PUT(
         ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
         ...(putEdgeBuildups !== undefined && { edge_buildups: putEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),
+        ...(putMaterialCollectionOnly !== undefined && { material_collection_only: Boolean(putMaterialCollectionOnly) }),
+        ...(putMaterialCollectionName !== undefined && { material_collection_name: putMaterialCollectionName }),
       },
       include: {
         materials: true,
@@ -844,6 +848,8 @@ export async function PUT(
       thicknessMm: pu.thickness_mm,
       materialId: pu.material_id,
       materialName: pu.material_name,
+      materialCollectionOnly: pu.material_collection_only ?? false,
+      materialCollectionName: pu.material_collection_name ?? null,
       edgeTop: pu.edge_top,
       edgeBottom: pu.edge_bottom,
       edgeLeft: pu.edge_left,
