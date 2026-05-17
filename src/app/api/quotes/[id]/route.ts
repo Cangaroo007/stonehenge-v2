@@ -5,6 +5,8 @@ import { requireAuth } from '@/lib/auth';
 import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 import { checkAndRecordQuoteChanges } from '@/lib/services/buyer-change-tracker';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 interface RoomData {
   name: string;
@@ -93,6 +95,14 @@ interface QuoteUpdateData {
   material_margin_source?: string | null;
   // Per-quote slab dimension overrides
   slabDimensionOverrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null;
+}
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
 }
 
 export async function GET(
@@ -292,6 +302,22 @@ export async function PUT(
         return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
       }
 
+      const priceAffectingUpdate =
+        data.deliveryAddress !== undefined ||
+        data.deliveryDistanceKm !== undefined ||
+        data.deliveryCost !== undefined ||
+        data.overrideDeliveryCost !== undefined ||
+        data.templatingRequired !== undefined ||
+        data.templatingDistanceKm !== undefined ||
+        data.templatingCost !== undefined ||
+        data.overrideTemplatingCost !== undefined ||
+        data.discount_type !== undefined ||
+        data.discount_value !== undefined ||
+        data.discount_applies_to !== undefined ||
+        data.material_margin_percent !== undefined ||
+        data.material_margin_source !== undefined ||
+        data.slabDimensionOverrides !== undefined;
+
       const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: updateFields,
@@ -305,6 +331,15 @@ export async function PUT(
           price_books: true,
         },
       });
+
+      if (data.slabDimensionOverrides !== undefined) {
+        await prisma.slab_optimizations.deleteMany({
+          where: { quoteId },
+        });
+      }
+      if (priceAffectingUpdate) {
+        await recalculateQuote(quoteId);
+      }
 
       // Record version
       try {
@@ -326,6 +361,9 @@ export async function PUT(
         // Delete existing rooms (cascade deletes pieces and features)
         await tx.quote_rooms.deleteMany({
           where: { quote_id: quoteId },
+        });
+        await tx.slab_optimizations.deleteMany({
+          where: { quoteId },
         });
 
         // Handle drawing analysis - upsert or delete
@@ -413,6 +451,8 @@ export async function PUT(
         maxWait: 10000,
         timeout: 30000,
       });
+
+      await recalculateQuote(quoteId);
 
       // Record version (non-blocking — outside transaction)
       try {
