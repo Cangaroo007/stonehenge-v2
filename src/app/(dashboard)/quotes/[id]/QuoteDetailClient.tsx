@@ -3970,6 +3970,15 @@ export default function QuoteDetailClient({
                     </svg>
                     Import Drawing
                   </button>
+                  <Link
+                    href={`/quotes/${quoteIdStr}/lidar-import`}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.364-6.364-2.121 2.121M7.757 16.243l-2.121 2.121m12.728 0-2.121-2.121M7.757 7.757 5.636 5.636" />
+                    </svg>
+                    LiDAR Proto
+                  </Link>
                   <button
                     onClick={() => setShowFromTemplate(true)}
                     className="btn-secondary text-sm flex items-center gap-1"
