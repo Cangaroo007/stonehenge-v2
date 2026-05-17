@@ -1205,7 +1205,7 @@ export default function QuoteDetailClient({
       console.error('Failed to update piece:', err);
       await fetchQuote();
     }
-  }, [quoteIdStr, pieces, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange, pushAction]);
+  }, [quoteIdStr, pieces, cutoutTypes, triggerRecalculate, triggerOptimise, markAsChanged, fetchQuote, recalculateOptionsAfterPieceChange, pushAction]);
 
   const handleMaterialChange = useCallback(async (pieceId: number, materialId: number | null) => {
     const material = materialId ? materials.find(m => m.id === materialId) : null;
@@ -1571,7 +1571,7 @@ export default function QuoteDetailClient({
         }
       }
     }
-  }, [quoteIdStr, pieces, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
+  }, [quoteIdStr, pieces, cutoutTypes, materials, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, recalculateOptionsAfterPieceChange, pushAction]);
 
   // Bulk edge apply — applies edge profile template to all pieces in room or quote
   const handleBulkEdgeApply = useCallback(async (
@@ -1643,7 +1643,7 @@ export default function QuoteDetailClient({
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to bulk update edges');
     }
-  }, [pieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
+  }, [effectivePieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
   // Single-edge change from RoomSpatialView (1-click edge editing — Rule 37)
   const handlePieceEdgeChange = useCallback(async (pieceId: string, side: string, profileId: string | null) => {
@@ -1723,7 +1723,7 @@ export default function QuoteDetailClient({
       },
       piece.quote_rooms?.name || 'Kitchen'
     );
-  }, [pieces, handleInlineSavePiece]);
+  }, [effectivePieces, handleInlineSavePiece]);
 
   // Batch edge update — applies a single edge profile to multiple pieces/sides based on scope
   const handleBatchEdgeUpdate = useCallback(async (
@@ -1875,7 +1875,7 @@ export default function QuoteDetailClient({
       // Revert optimistic update on error
       await fetchQuote();
     }
-  }, [pieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, handleInlineSavePiece]);
+  }, [effectivePieces, quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged, handleInlineSavePiece]);
 
   const handleCreateRoom = useCallback(async (name: string) => {
     if (!name.trim()) return;
@@ -2466,7 +2466,7 @@ export default function QuoteDetailClient({
         }
       } else if (event.shiftKey) {
         // Range select — select from last selected to this piece
-        const allPieceIds = pieces.map(p => String(p.id));
+        const allPieceIds = effectivePieces.map(p => String(p.id));
         const lastSelected = Array.from(prev).pop();
         if (lastSelected) {
           const startIdx = allPieceIds.indexOf(lastSelected);
@@ -2483,7 +2483,7 @@ export default function QuoteDetailClient({
       }
       return next;
     });
-  }, [pieces]);
+  }, [effectivePieces]);
 
   const handleBatchMaterial = useCallback(async (materialId: number) => {
     const pieceIds = Array.from(selectedPieceIds).map(Number);
@@ -2715,7 +2715,7 @@ export default function QuoteDetailClient({
       pieceName: piece?.name || `Piece #${pieceId}`,
       position,
     });
-  }, [pieces]);
+  }, [effectivePieces]);
 
   const handleCloseContextMenu = useCallback(() => {
     setContextMenu(prev => ({ ...prev, isOpen: false }));
