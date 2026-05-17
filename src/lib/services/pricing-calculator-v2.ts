@@ -51,6 +51,16 @@ import type {
   AppliedPricingOverride,
 } from '@/lib/types/pricing';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+
+const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
 
 /** Margin resolution result — tracks which source provided the margin */
 export interface MarginResolution {
@@ -986,6 +996,22 @@ export async function calculateQuotePrice(
                   pricing_rules: true,
                 },
               },
+              sourceRelationships: {
+                select: {
+                  target_piece_id: true,
+                  relation_type: true,
+                  relationship_type: true,
+                  side: true,
+                },
+              },
+              targetRelationships: {
+                select: {
+                  source_piece_id: true,
+                  relation_type: true,
+                  relationship_type: true,
+                  side: true,
+                },
+              },
             },
           },
         },
@@ -1040,16 +1066,45 @@ export async function calculateQuotePrice(
   // Flatten all pieces
   const allPieces = quote.quote_rooms.flatMap(room => room.quote_pieces);
 
-  // Task C safeguard: build a map of promoted edge positions per parent piece ID.
-  // Even if no_strip_edges wasn't patched correctly, this prevents double-charging
-  // lamination on edges that have been promoted to standalone pieces.
+  // Build suppression safeguards from explicit relationships and promoted
+  // strips. That keeps pricing correct even when the legacy no_strip_edges
+  // field is stale or overloaded by UI labels.
   const promotedEdgesByParent = new Map<number, string[]>();
+  const relationshipJoinEdgesByPiece = new Map<number, RectEdgeSide[]>();
+  const appendRelationshipJoinEdge = (pieceId: number, edge: RectEdgeSide) => {
+    const existing = relationshipJoinEdgesByPiece.get(pieceId) ?? [];
+    if (!existing.includes(edge)) {
+      relationshipJoinEdgesByPiece.set(pieceId, [...existing, edge]);
+    }
+  };
+
   for (const p of allPieces) {
-    // Scalar fields come through automatically via Prisma include (promoted_from_piece_id, promoted_edge_position, piece_type)
     if ((p as any).promoted_from_piece_id && (p as any).promoted_edge_position) {
       const existing = promotedEdgesByParent.get((p as any).promoted_from_piece_id) ?? [];
       existing.push((p as any).promoted_edge_position);
       promotedEdgesByParent.set((p as any).promoted_from_piece_id, existing);
+    }
+
+    for (const rel of ((p as any).sourceRelationships ?? [])) {
+      const relationshipType = rel.relationship_type ?? rel.relation_type;
+      const parentJoinEdge = normaliseRectEdgeSide(rel.side);
+      if (!EDGE_JOIN_RELATIONSHIP_TYPES.has(relationshipType) || !parentJoinEdge) continue;
+
+      appendRelationshipJoinEdge(p.id, parentJoinEdge);
+      if (rel.target_piece_id) {
+        appendRelationshipJoinEdge(rel.target_piece_id, OPPOSITE_EDGE[parentJoinEdge]);
+      }
+    }
+
+    for (const rel of ((p as any).targetRelationships ?? [])) {
+      const relationshipType = rel.relationship_type ?? rel.relation_type;
+      const parentJoinEdge = normaliseRectEdgeSide(rel.side);
+      if (!EDGE_JOIN_RELATIONSHIP_TYPES.has(relationshipType) || !parentJoinEdge) continue;
+
+      appendRelationshipJoinEdge(p.id, OPPOSITE_EDGE[parentJoinEdge]);
+      if (rel.source_piece_id) {
+        appendRelationshipJoinEdge(rel.source_piece_id, parentJoinEdge);
+      }
     }
   }
 
@@ -1298,11 +1353,12 @@ export async function calculateQuotePrice(
     const pieceShapeTypeForEdges = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
     const isLOrUShapeForEdges = pieceShapeTypeForEdges === 'L_SHAPE' || pieceShapeTypeForEdges === 'U_SHAPE';
 
-    // Edges marked as against-wall or structural joins should not receive
-    // return strips or visible edge finish charges.
+    // Edges marked as against-wall, promoted strips, or structural joins should
+    // not receive return strips or visible edge finish charges.
     const storedNoStrip = (piece.no_strip_edges as unknown as string[]) ?? [];
     const promotedEdges = promotedEdgesByParent.get(piece.id) ?? [];
-    const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges]));
+    const relationshipJoinEdges = relationshipJoinEdgesByPiece.get(piece.id) ?? [];
+    const noStripEdges = Array.from(new Set([...storedNoStrip, ...promotedEdges, ...relationshipJoinEdges]));
 
     let edges: EnginePiece['edges'];
 
