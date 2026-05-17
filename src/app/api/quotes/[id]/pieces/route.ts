@@ -4,7 +4,16 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
 import { getShapeGeometry } from '@/lib/types/shapes';
 import type { Prisma } from '@prisma/client';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
+}
 
 // GET - List all pieces for a quote
 export async function GET(
@@ -425,6 +434,7 @@ export async function POST(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
 
     const pieceAny = piece as any;
     return NextResponse.json({
