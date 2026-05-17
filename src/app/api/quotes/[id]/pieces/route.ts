@@ -200,6 +200,8 @@ export async function POST(
       joinMethod = null,
       edgeBuildups = null,
       noStripEdges = [],
+      materialCollectionOnly = false,
+      materialCollectionName = null,
     } = data;
 
     // Splashback: only top edge is polished — bottom/left/right are hidden (raw)
@@ -408,6 +410,8 @@ export async function POST(
         corner_edge_br: (shapeConfig as Record<string, unknown> | null)?.corner_edge_br as string ?? null,
         no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue,
         ...(edgeBuildups != null && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
+        material_collection_only: Boolean(materialCollectionOnly),
+        material_collection_name: materialCollectionOnly ? materialCollectionName : null,
         requiresGrainMatch: requiresGrainMatch ?? false,
         promoted_from_piece_id: promotedFromPieceId ? parseInt(String(promotedFromPieceId), 10) : null,
         promoted_edge_position: promotedEdgePosition || null,
@@ -454,6 +458,8 @@ export async function POST(
       thicknessMm: pieceAny.thickness_mm,
       materialId: pieceAny.material_id,
       materialName: pieceAny.material_name,
+      materialCollectionOnly: pieceAny.material_collection_only ?? false,
+      materialCollectionName: pieceAny.material_collection_name ?? null,
       edgeTop: pieceAny.edge_top,
       edgeBottom: pieceAny.edge_bottom,
       edgeLeft: pieceAny.edge_left,
