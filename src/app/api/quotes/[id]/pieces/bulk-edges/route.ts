@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
   top: 'bottom',
@@ -14,6 +16,18 @@ function edgeListIncludes(edges: unknown, edgeId: string): boolean {
   if (!Array.isArray(edges)) return false;
   const target = edgeId.toLowerCase();
   return edges.some(edge => String(edge).toLowerCase() === target);
+}
+
+async function recalculateQuote(quoteId: number) {
+  try {
+    const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+    await prisma.quotes.update({
+      where: { id: quoteId },
+      data: buildQuotePricingUpdate(calcResult),
+    });
+  } catch (recalcError) {
+    console.error('Post-bulk-edge recalculation failed:', recalcError);
+  }
 }
 
 // PATCH — Bulk update edges on multiple pieces
@@ -191,6 +205,14 @@ export async function PATCH(
       });
 
       updated++;
+    }
+
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
+
+    if (updated > 0) {
+      await recalculateQuote(quoteId);
     }
 
     return NextResponse.json({

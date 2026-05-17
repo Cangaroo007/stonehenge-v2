@@ -1,6 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
+
+async function recalculateQuote(quoteId: number) {
+  try {
+    const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+    await prisma.quotes.update({
+      where: { id: quoteId },
+      data: buildQuotePricingUpdate(calcResult),
+    });
+  } catch (recalcError) {
+    console.error('Post-bulk-update recalculation failed:', recalcError);
+  }
+}
 
 // PATCH — Bulk update material or thickness on multiple pieces
 export async function PATCH(
@@ -120,6 +134,8 @@ export async function PATCH(
           where: { quoteId },
         });
 
+        await recalculateQuote(quoteId);
+
         return NextResponse.json({ updated });
       } else {
         // Clear material
@@ -149,6 +165,8 @@ export async function PATCH(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+
+    await recalculateQuote(quoteId);
 
     return NextResponse.json({ updated: result.count });
   } catch (error) {

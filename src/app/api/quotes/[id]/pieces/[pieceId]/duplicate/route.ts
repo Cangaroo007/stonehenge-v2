@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 // POST - Duplicate a piece
 export async function POST(
@@ -93,6 +95,16 @@ export async function POST(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+
+    try {
+      const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: buildQuotePricingUpdate(calcResult),
+      });
+    } catch (recalcError) {
+      console.error('Post-duplicate recalculation failed:', recalcError);
+    }
 
     return NextResponse.json({
       ...duplicatedPiece,

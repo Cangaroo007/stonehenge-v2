@@ -46,7 +46,7 @@ export async function PATCH(
         id: { in: pieceIds },
         quote_rooms: { quote_id: quoteId },
       },
-      select: { id: true },
+      select: { id: true, room_id: true },
     });
 
     if (pieces.length === 0) {
@@ -101,18 +101,34 @@ export async function PATCH(
     });
     const startOrder = (maxPiece?.sort_order ?? -1) + 1;
 
-    // Move pieces with sequential sort orders
-    await prisma.$transaction(
-      pieces.map((piece, i) =>
-        prisma.quote_pieces.update({
+    const sourceRoomIds = Array.from(new Set(pieces.map(piece => piece.room_id)));
+
+    await prisma.$transaction(async (tx) => {
+      for (let i = 0; i < pieces.length; i++) {
+        const piece = pieces[i];
+        await tx.quote_pieces.update({
           where: { id: piece.id },
           data: {
             room_id: roomId,
             sort_order: startOrder + i,
           },
-        })
-      )
-    );
+        });
+      }
+
+      for (const sourceRoomId of sourceRoomIds) {
+        if (sourceRoomId === roomId) continue;
+        const remaining = await tx.quote_pieces.count({
+          where: { room_id: sourceRoomId },
+        });
+        if (remaining === 0) {
+          await tx.quote_rooms.delete({ where: { id: sourceRoomId } });
+        }
+      }
+    });
+
+    await prisma.slab_optimizations.deleteMany({
+      where: { quoteId },
+    });
 
     return NextResponse.json({
       moved: pieces.length,
