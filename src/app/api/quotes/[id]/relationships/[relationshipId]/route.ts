@@ -1,10 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import {
   updateRelationship,
   deleteRelationship,
 } from '@/lib/services/piece-relationship-service';
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
+}
 
 /**
  * PATCH /api/quotes/[id]/relationships/[relationshipId]
@@ -39,6 +49,7 @@ export async function PATCH(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
     return NextResponse.json(updated);
   } catch {
     return NextResponse.json(
@@ -77,6 +88,7 @@ export async function DELETE(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json(

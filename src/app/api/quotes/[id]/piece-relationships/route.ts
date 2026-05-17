@@ -3,6 +3,8 @@ import { RelationshipType } from '@prisma/client';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { deleteRelationship, syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
+import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 const VALID_RELATION_TYPES = [
   'WATERFALL',
@@ -17,6 +19,14 @@ const VALID_RELATION_TYPES = [
 ] as const;
 
 const VALID_SIDES = ['top', 'bottom', 'left', 'right'] as const;
+
+async function recalculateQuote(quoteId: number) {
+  const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+  await prisma.quotes.update({
+    where: { id: quoteId },
+    data: buildQuotePricingUpdate(calcResult),
+  });
+}
 
 /**
  * GET /api/quotes/[id]/piece-relationships
@@ -206,6 +216,7 @@ export async function POST(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
 
     return NextResponse.json(relationship, { status: 201 });
   } catch (error: unknown) {
@@ -290,6 +301,7 @@ export async function DELETE(
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },
     });
+    await recalculateQuote(quoteId);
 
     return NextResponse.json({ success: true });
   } catch (error) {
