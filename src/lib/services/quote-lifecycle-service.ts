@@ -339,6 +339,11 @@ export async function duplicateQuote(
 
     // 6. Duplicate rooms and pieces, building an old→new piece ID map
     const pieceIdMap = new Map<number, number>();
+    const selfReferenceUpdates: Array<{
+      newPieceId: number;
+      promotedFromPieceId: number | null;
+      apronParentId: number | null;
+    }> = [];
 
     for (const room of source.quote_rooms) {
       const newRoom = await tx.quote_rooms.create({
@@ -379,11 +384,37 @@ export async function duplicateQuote(
             joinCount: piece.joinCount,
             joinLengthMm: piece.joinLengthMm,
             requiresGrainMatch: piece.requiresGrainMatch,
+            override_material_cost: piece.override_material_cost,
+            override_slab_price: piece.override_slab_price,
+            override_fabrication_cost: piece.override_fabrication_cost,
+            strip_width_overrides: piece.strip_width_overrides ?? undefined,
             waterfall_height_mm: piece.waterfall_height_mm,
+            shape_type: piece.shape_type,
+            shape_config: piece.shape_config ?? undefined,
+            no_strip_edges: piece.no_strip_edges ?? undefined,
+            edge_buildups: piece.edge_buildups ?? undefined,
+            mitred_corner_treatment: piece.mitred_corner_treatment,
+            promoted_from_piece_id: null,
+            promoted_edge_position: piece.promoted_edge_position,
+            apron_parent_id: null,
+            apron_position: piece.apron_position,
+            corner_edge_tl: piece.corner_edge_tl,
+            corner_edge_tr: piece.corner_edge_tr,
+            corner_edge_bl: piece.corner_edge_bl,
+            corner_edge_br: piece.corner_edge_br,
+            piece_type: piece.piece_type,
+            join_method: piece.join_method,
+            material_collection_only: piece.material_collection_only,
+            material_collection_name: piece.material_collection_name,
           },
         });
 
         pieceIdMap.set(piece.id, newPiece.id);
+        selfReferenceUpdates.push({
+          newPieceId: newPiece.id,
+          promotedFromPieceId: piece.promoted_from_piece_id,
+          apronParentId: piece.apron_parent_id,
+        });
 
         // Duplicate piece features
         for (const feature of piece.piece_features) {
@@ -398,6 +429,25 @@ export async function duplicateQuote(
             },
           });
         }
+      }
+    }
+
+    for (const selfRef of selfReferenceUpdates) {
+      const remappedPromotedFromId = selfRef.promotedFromPieceId
+        ? pieceIdMap.get(selfRef.promotedFromPieceId)
+        : null;
+      const remappedApronParentId = selfRef.apronParentId
+        ? pieceIdMap.get(selfRef.apronParentId)
+        : null;
+
+      if (remappedPromotedFromId || remappedApronParentId) {
+        await tx.quote_pieces.update({
+          where: { id: selfRef.newPieceId },
+          data: {
+            ...(remappedPromotedFromId && { promoted_from_piece_id: remappedPromotedFromId }),
+            ...(remappedApronParentId && { apron_parent_id: remappedApronParentId }),
+          },
+        });
       }
     }
 
