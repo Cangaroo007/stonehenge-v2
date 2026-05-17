@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
+import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
 
 const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
 
@@ -888,10 +889,9 @@ export async function DELETE(
       }
     }
 
-    // Delete the piece
-    await prisma.quote_pieces.delete({
-      where: { id: pieceIdNum },
-    });
+    await deleteRelationshipsForPiece(pieceIdNum);
+
+    await prisma.quote_pieces.delete({ where: { id: pieceIdNum } });
 
     // Invalidate stale optimizer results — piece data has changed
     await prisma.slab_optimizations.deleteMany({

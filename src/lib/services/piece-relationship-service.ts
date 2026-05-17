@@ -595,13 +595,50 @@ export async function deleteRelationshipsForPiece(
 ): Promise<number> {
   const numericId = typeof pieceId === 'string' ? parseInt(pieceId, 10) : pieceId;
 
-  const result = await prisma.piece_relationships.deleteMany({
-    where: {
-      OR: [
-        { source_piece_id: numericId },
-        { target_piece_id: numericId },
-      ],
-    },
+  return prisma.$transaction(async (tx) => {
+    const relationships = await tx.piece_relationships.findMany({
+      where: {
+        OR: [
+          { source_piece_id: numericId },
+          { target_piece_id: numericId },
+        ],
+      },
+      select: {
+        id: true,
+        source_piece_id: true,
+        target_piece_id: true,
+        relationship_type: true,
+        relation_type: true,
+        side: true,
+      },
+    });
+
+    for (const relationship of relationships) {
+      const relationshipType = relationship.relationship_type
+        ?? (relationship.relation_type as RelationshipType);
+      await clearEdgeSemanticsForRelationship(tx, {
+        relationshipType,
+        sourceId: relationship.source_piece_id,
+        targetId: relationship.target_piece_id,
+        joinPosition: relationship.side,
+      });
+    }
+
+    await tx.piece_relationships.deleteMany({
+      where: {
+        id: { in: relationships.map((relationship) => relationship.id) },
+      },
+    });
+
+    const affectedPieceIds = new Set<number>();
+    relationships.forEach((relationship) => {
+      affectedPieceIds.add(relationship.source_piece_id);
+      affectedPieceIds.add(relationship.target_piece_id);
+    });
+    for (const affectedPieceId of Array.from(affectedPieceIds)) {
+      await normaliseLaminationMethod(tx, affectedPieceId);
+    }
+
+    return relationships.length;
   });
-  return result.count;
 }
