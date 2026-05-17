@@ -22,6 +22,7 @@ export interface ComparisonSlot {
   collectionName?: string | null;
   collectionOnly?: boolean;
   useCollectionAvg: boolean;
+  useCollectionMax?: boolean;
   subtotal: number;
   gstAmount: number;
   totalIncGst: number;
@@ -39,7 +40,13 @@ interface MaterialComparisonPanelProps {
   currentMaterialCost: number | null;
   currentFabCost: number | null;
   savedSlots: (ComparisonSlot | null)[];  // from quote.comparison_slots
-  onSwitchMaterial: (changes: { pieceId: number; toMaterialId: number }[]) => Promise<void>;
+  onSwitchMaterial: (changes: {
+    pieceId: number;
+    toMaterialId: number;
+    materialName?: string;
+    materialCollectionOnly?: boolean;
+    materialCollectionName?: string | null;
+  }[]) => Promise<void>;
   onSwitchComplete?: (slotIndex: number) => void;
   piecesForSwitch: { id: number; materialId: number | null }[];
   onClose: () => void;
@@ -74,7 +81,23 @@ export default function MaterialComparisonPanel({
     collectionOnly: true;
     collectionName: string;
     displayName: string;
-  } | null>>([null, null, null]);
+  } | null>>(() => {
+    const initial: Array<{
+      collectionOnly: true;
+      collectionName: string;
+      displayName: string;
+    } | null> = [null, null, null];
+    savedSlots.forEach((s, i) => {
+      if (s?.collectionOnly && s.collectionName && i < MAX_SLOTS) {
+        initial[i] = {
+          collectionOnly: true,
+          collectionName: s.collectionName,
+          displayName: s.materialName,
+        };
+      }
+    });
+    return initial;
+  });
   const [loadingSlots, setLoadingSlots] = useState<boolean[]>([false, false, false]);
   const [switchingSlot, setSwitchingSlot] = useState<number | null>(null);
 
@@ -121,6 +144,7 @@ export default function MaterialComparisonPanel({
     });
     setSlots(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
     setSelectedMaterialIds(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
+    setSelectedCollectionInfo(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
   }, [quoteId]);
 
   const handleSwitch = useCallback(async (slotIndex: number) => {
@@ -131,11 +155,15 @@ export default function MaterialComparisonPanel({
       const changes = piecesForSwitch.map(p => ({
         pieceId: p.id,
         toMaterialId: slot.materialId,
+        materialName: slot.materialName,
+        materialCollectionOnly: Boolean(slot.collectionOnly),
+        materialCollectionName: slot.collectionName ?? null,
       }));
       await onSwitchMaterial(changes);
       // Clear the switched slot — that material is now current
       setSlots(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
       setSelectedMaterialIds(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
+      setSelectedCollectionInfo(prev => { const n = [...prev]; n[slotIndex] = null; return n; });
       onSwitchComplete?.(slotIndex);
     } finally {
       setSwitchingSlot(null);

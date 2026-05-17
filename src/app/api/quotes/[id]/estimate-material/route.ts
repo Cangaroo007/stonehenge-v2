@@ -19,6 +19,35 @@ export const dynamic = 'force-dynamic';
 
 const MAX_SLOTS = 3;
 
+type MaterialForCollectionPricing = {
+  id: number;
+  name: string;
+  collection: string | null;
+  price_per_slab: Prisma.Decimal | null;
+  price_per_sqm: Prisma.Decimal;
+  price_per_square_metre: Prisma.Decimal | null;
+  supplier_id: string | null;
+};
+
+function decimalToNumber(value: Prisma.Decimal | null | undefined): number {
+  return value ? value.toNumber() : 0;
+}
+
+function conservativeMaterialPrice(material: MaterialForCollectionPricing): number {
+  const slabPrice = decimalToNumber(material.price_per_slab);
+  if (slabPrice > 0) return slabPrice;
+  return decimalToNumber(material.price_per_square_metre) || decimalToNumber(material.price_per_sqm);
+}
+
+function pickCollectionMaxMaterial(
+  materials: MaterialForCollectionPricing[]
+): MaterialForCollectionPricing | null {
+  if (materials.length === 0) return null;
+  return materials.reduce((max, material) =>
+    conservativeMaterialPrice(material) > conservativeMaterialPrice(max) ? material : max
+  );
+}
+
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -81,11 +110,40 @@ export async function POST(
   }
 
   // Fetch the alternative material
-  const material = await prisma.materials.findFirst({
+  let material = await prisma.materials.findFirst({
     where: { id: Number(materialId), company_id: companyId },
   });
   if (!material) {
     return NextResponse.json({ error: 'Material not found' }, { status: 404 });
+  }
+
+  // Collection-only pricing is intentionally conservative: price from the most
+  // expensive colour in that supplier/collection, but keep the quote label as
+  // supplier + collection until the user confirms an exact colour.
+  if (collectionOnly && typeof collectionName === 'string' && collectionName.trim()) {
+    const collectionMaterials = await prisma.materials.findMany({
+      where: {
+        company_id: companyId,
+        is_active: true,
+        collection: collectionName.trim(),
+        ...(material.supplier_id ? { supplier_id: material.supplier_id } : {}),
+      },
+      select: {
+        id: true,
+        name: true,
+        collection: true,
+        price_per_slab: true,
+        price_per_sqm: true,
+        price_per_square_metre: true,
+        supplier_id: true,
+      },
+    });
+    const maxMaterial = pickCollectionMaxMaterial(collectionMaterials);
+    if (maxMaterial && maxMaterial.id !== material.id) {
+      material = await prisma.materials.findFirst({
+        where: { id: maxMaterial.id, company_id: companyId },
+      }) ?? material;
+    }
   }
 
   // Flatten pieces from rooms and save originals for restoration
@@ -110,7 +168,7 @@ export async function POST(
     await prisma.quote_pieces.updateMany({
       where: { id: { in: pieceIds } },
       data: {
-        material_id: Number(materialId),
+        material_id: material.id,
         material_name: displayMaterialName,
         material_collection_only: Boolean(collectionOnly),
         material_collection_name: collectionOnly && typeof collectionName === 'string'
@@ -132,7 +190,7 @@ export async function POST(
     // Defensive: warn if materialCost is 0 for a material with pricing data
     if (materialCost === 0 && allPieces.length > 0) {
       console.warn(
-        `[estimate-material] materialCost is $0 for material ${material.name} (id=${materialId}) ` +
+        `[estimate-material] materialCost is $0 for material ${material.name} (id=${material.id}) ` +
         `on quote ${quoteId} with ${allPieces.length} pieces. ` +
         `price_per_slab=${material.price_per_slab}, price_per_sqm=${material.price_per_sqm}`
       );
@@ -175,7 +233,7 @@ export async function POST(
   // Build the slot result
   const slotResult = {
     slotIndex,
-    materialId: Number(materialId),
+    materialId: material.id,
     materialName: displayMaterialName,
     collectionId: collectionId ?? collectionName ?? null,
     collectionName: typeof collectionName === 'string' ? collectionName : null,
