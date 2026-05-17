@@ -169,6 +169,7 @@ export async function GET(
       thicknessMm: p.thickness_mm,
       materialId: p.material_id,
       materialName: p.material_name,
+      pieceType: p.piece_type,
       // CURVE-2a: Prefer top-level edge columns, fallback to shape_config.edges for legacy ROUNDED_RECT data
       edgeTop: p.edge_top ?? (piece.shape_config as any)?.edges?.top ?? null,
       edgeBottom: p.edge_bottom ?? (piece.shape_config as any)?.edges?.bottom ?? null,
@@ -531,6 +532,7 @@ export async function PATCH(
       thicknessMm: pu.thickness_mm,
       materialId: pu.material_id,
       materialName: pu.material_name,
+      pieceType: pu.piece_type,
       edgeTop: pu.edge_top,
       edgeBottom: pu.edge_bottom,
       edgeLeft: pu.edge_left,
@@ -870,6 +872,7 @@ export async function PUT(
       thicknessMm: pu.thickness_mm,
       materialId: pu.material_id,
       materialName: pu.material_name,
+      pieceType: pu.piece_type,
       materialCollectionOnly: pu.material_collection_only ?? false,
       materialCollectionName: pu.material_collection_name ?? null,
       edgeTop: pu.edge_top,
