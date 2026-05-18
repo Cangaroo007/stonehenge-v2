@@ -467,6 +467,10 @@ export async function duplicateQuote(
                   relationship_type: rel.relationship_type,
                   side: rel.side,
                   notes: rel.notes,
+                  grain_match: rel.grain_match,
+                  position_mm: rel.position_mm,
+                  position_reference: rel.position_reference,
+                  coverage_mm: rel.coverage_mm,
                 },
               });
             } catch (err) {
