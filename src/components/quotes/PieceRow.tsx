@@ -16,6 +16,8 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
+type AttachedPieceTypes = Record<string, 'WATERFALL' | 'SPLASHBACK'> | undefined;
+
 // ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
 function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
   const cfg = piece.shapeConfig as unknown as Record<string, unknown>;
@@ -35,6 +37,11 @@ function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shap
   }
 
   return `${piece.lengthMm}\u00D7${piece.widthMm} mm`;
+}
+
+function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some(edge => String(edge).toLowerCase() === target);
 }
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -320,6 +327,7 @@ function getEdgeSummaryEntries(
   piece: PieceRowProps['piece'],
   breakdown?: PiecePricingBreakdown,
   edgeTypes?: Array<{ id: string; name: string }>,
+  attachedPieceTypes?: AttachedPieceTypes,
 ): EdgeSummaryEntry[] {
   const sides = [
     { key: 'edgeTop' as const, label: 'T', side: 'top' as const },
@@ -336,6 +344,27 @@ function getEdgeSummaryEntries(
   const entries: EdgeSummaryEntry[] = [];
 
   for (const s of sides) {
+    const attachedType = attachedPieceTypes?.[s.side];
+    if (attachedType) {
+      entries.push({
+        label: s.label,
+        profileName: attachedType === 'WATERFALL' ? 'Waterfall join' : 'Splashback join',
+        code: attachedType === 'WATERFALL' ? 'WF' : 'SB',
+        colour: attachedType === 'WATERFALL' ? '#2563eb' : '#059669',
+      });
+      continue;
+    }
+
+    if (edgeListIncludes(piece.noStripEdges, s.side)) {
+      entries.push({
+        label: s.label,
+        profileName: 'Against wall',
+        code: 'WALL',
+        colour: '#78716c',
+      });
+      continue;
+    }
+
     const edgeId = piece[s.key] as string | null;
 
     if (edgeId) {
@@ -890,10 +919,39 @@ export default function PieceRow({
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
+  const attachedPieceTypes = useMemo(() => {
+    if (!relationships) return undefined;
+    const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};
+    const oppositeEdge: Record<string, string> = {
+      top: 'bottom',
+      bottom: 'top',
+      left: 'right',
+      right: 'left',
+    };
+
+    relationships.forEach(rel => {
+      if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+        return;
+      }
+
+      const parentEdge = normaliseRectEdgeSide(rel.joinPosition);
+      if (!parentEdge) return;
+
+      if (String(rel.parentPieceId) === String(piece.id)) {
+        map[parentEdge] = rel.relationshipType;
+      }
+
+      if (String(rel.childPieceId) === String(piece.id)) {
+        map[oppositeEdge[parentEdge] ?? parentEdge] = rel.relationshipType;
+      }
+    });
+
+    return Object.keys(map).length > 0 ? map : undefined;
+  }, [relationships, piece.id]);
 
   // Collapsed state display values
   const displayName = getDisplayName(piece);
-  const edgeEntries = getEdgeSummaryEntries(piece, breakdown, editData?.edgeTypes);
+  const edgeEntries = getEdgeSummaryEntries(piece, breakdown, editData?.edgeTypes, attachedPieceTypes);
   const cutoutSummary = getCutoutSummaryText(fullPiece, breakdown, editData?.cutoutTypes);
   const fullDescription = getFullDescription(piece);
 
