@@ -38,18 +38,23 @@ function normaliseJoinEdge(side: string | null | undefined): EdgeName | null {
   return normaliseRectEdgeSide(side);
 }
 
-function appendUniqueEdge(value: unknown, edge: EdgeName): EdgeName[] {
+function appendUniqueEdge(value: unknown, edge: EdgeName): string[] {
   const current = Array.isArray(value)
-    ? value.filter((item): item is EdgeName => ['top', 'bottom', 'left', 'right'].includes(String(item)))
+    ? value
+        .map(item => String(item ?? '').trim())
+        .filter(Boolean)
     : [];
+  const hasEdge = current.some(item => normaliseRectEdgeSide(item) === edge);
 
-  return current.includes(edge) ? current : [...current, edge];
+  return hasEdge ? current : [...current, edge];
 }
 
-function removeEdge(value: unknown, edge: EdgeName): EdgeName[] {
+function removeEdge(value: unknown, edge: EdgeName): string[] {
   return Array.isArray(value)
-    ? value.filter((item): item is EdgeName =>
-        ['top', 'bottom', 'left', 'right'].includes(String(item)) && item !== edge
+    ? value
+        .map(item => String(item ?? '').trim())
+        .filter(item =>
+          Boolean(item) && normaliseRectEdgeSide(item) !== edge
       )
     : [];
 }
