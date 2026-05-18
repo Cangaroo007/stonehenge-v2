@@ -113,6 +113,7 @@
 | **8.1–8.4 Visual-to-Stone** | AI auto-identifies stone from PDF elevations | Long term |
 | **8.5 Waste toggle** | 10–15% waste factor toggle | |
 | **8.6–8.7 NL text + voice** | "Change all sills to bullnose granite" | |
+| **8.9 Voice/task ML feedback loop** | Store expected vs AI-detected tasks, meetings, activities, owners, dates and follow-ups from voice/NL analysis | Post-Alpha. Use corrections as training/eval data before automating actions. |
 | **8.8 Budget Negotiator** | Scans quote for top 3 cost drivers, suggests alternatives | |
 
 ---
