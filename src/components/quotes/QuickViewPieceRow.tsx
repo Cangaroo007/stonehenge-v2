@@ -150,6 +150,7 @@ export interface QuickViewPieceRowProps {
     description: string;
     piece_type: string | null;
     room_name: string | null;
+    noStripEdges?: string[] | null;
   }>;
   quoteIdStr?: string;
   onRelationshipChange?: () => void;

@@ -8,6 +8,7 @@ import {
   JOIN_POSITIONS,
 } from '@/lib/types/piece-relationship';
 import type { RelationshipType } from '@prisma/client';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -19,6 +20,7 @@ interface RelationshipEditorProps {
     description: string;
     piece_type: string | null;
     room_name: string | null;
+    noStripEdges?: string[] | null;
   }>;
   existingRelationships: PieceRelationshipData[];
   onRelationshipChange: () => void;
@@ -33,6 +35,11 @@ function joinPositionLabel(position: string): string {
   if (position === 'BACK') return 'Back / wall';
   if (position === 'FRONT') return 'Front / exposed';
   return position.charAt(0) + position.slice(1).toLowerCase();
+}
+
+function edgeListIncludes(edges: string[] | null | undefined, edgeId: string): boolean {
+  const target = edgeId.toLowerCase();
+  return (edges ?? []).some(edge => String(edge).toLowerCase() === target);
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -105,6 +112,16 @@ export default function RelationshipEditor({
     [allPieces]
   );
 
+  const isPieceWallEdge = useCallback(
+    (pieceId: string, joinPosition: string | null | undefined) => {
+      const edge = normaliseRectEdgeSide(joinPosition);
+      if (!edge) return false;
+      const piece = allPieces.find(p => p.id === pieceId);
+      return edgeListIncludes(piece?.noStripEdges, edge);
+    },
+    [allPieces]
+  );
+
   const isDuplicate = useCallback(
     (parentId: string, childId: string, excludeRelId?: string) => {
       return existingRelationships.some(
@@ -129,6 +146,14 @@ export default function RelationshipEditor({
 
     if (isDuplicate(selectedPieceId, newChildPieceId)) {
       toast.error('This relationship already exists');
+      return;
+    }
+
+    if (
+      (newType === 'WATERFALL' || newType === 'SPLASHBACK') &&
+      isPieceWallEdge(selectedPieceId, newPosition)
+    ) {
+      toast.error('That edge is marked against wall. Remove the wall tag before creating a waterfall or splashback join.');
       return;
     }
 
@@ -169,6 +194,16 @@ export default function RelationshipEditor({
 
   const handleUpdate = async (relId: string) => {
     if (!relId) return;
+    const existing = existingRelationships.find(rel => rel.id === relId);
+    const parentPieceId = existing?.parentPieceId ?? selectedPieceId;
+
+    if (
+      (editType === 'WATERFALL' || editType === 'SPLASHBACK') &&
+      isPieceWallEdge(parentPieceId, editPosition)
+    ) {
+      toast.error('That edge is marked against wall. Remove the wall tag before setting a waterfall or splashback join.');
+      return;
+    }
 
     setSaving(true);
     try {

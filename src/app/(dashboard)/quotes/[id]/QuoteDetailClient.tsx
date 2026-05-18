@@ -2989,6 +2989,7 @@ export default function QuoteDetailClient({
       description: p.name || 'Unnamed Piece',
       piece_type: p.pieceType ?? null,
       room_name: p.quote_rooms?.name ?? null,
+      noStripEdges: p.noStripEdges ?? [],
     })),
     [effectivePieces]
   );
