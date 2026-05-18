@@ -1015,6 +1015,10 @@ export default function QuickViewPieceRow({
   }, [quoteId, piece.id, piece.lengthMm, piece.widthMm, piece.thicknessMm, piece.materialName, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.roomName, localOverrideFabCost, onSavePiece]);
 
   const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
+    if (attachedPieceTypes?.[edge] || edgeListIncludes(piece.noStripEdges, edge)) {
+      return;
+    }
+
     const next = { ...localEdgeBuildups };
     if (active) {
       next[edge] = {
@@ -1034,7 +1038,7 @@ export default function QuickViewPieceRow({
     });
     setBuildupSaveState('saved');
     setTimeout(() => setBuildupSaveState('idle'), 2000);
-  }, [localEdgeBuildups, savePieceImmediate]);
+  }, [attachedPieceTypes, localEdgeBuildups, piece.noStripEdges, savePieceImmediate]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
@@ -1693,7 +1697,7 @@ export default function QuickViewPieceRow({
                     const wallEdges = piece.noStripEdges ?? [];
                     const next: Record<string, EdgeBuildupConfig> = {};
                     (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
-                      if (!edgeListIncludes(wallEdges, edge)) {
+                      if (!edgeListIncludes(wallEdges, edge) && !attachedPieceTypes?.[edge]) {
                         next[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
                       }
                     });
@@ -1711,12 +1715,15 @@ export default function QuickViewPieceRow({
               <div className="flex gap-1 flex-wrap">
                 {(['top','bottom','left','right'] as const).map(edge => {
                   const isWall = edgeListIncludes(piece.noStripEdges, edge);
+                  const attachedType = attachedPieceTypes?.[edge];
+                  const isSuppressed = isWall || Boolean(attachedType);
                   const buildup = localEdgeBuildups[edge];
                   return (
-                    <div key={edge} className={`flex items-center gap-1 ${isWall ? 'opacity-40' : ''}`}>
+                    <div key={edge} className={`flex items-center gap-1 ${isSuppressed ? 'opacity-40' : ''}`}>
                       <button
                         type="button"
-                        disabled={isWall}
+                        disabled={isSuppressed}
+                        title={attachedType ? `${edge} has an attached ${attachedType.toLowerCase()} join` : isWall ? `${edge} is marked against wall` : undefined}
                         onClick={(e) => { e.stopPropagation(); handleEdgeBuildup(edge, !buildup); }}
                         className={`px-2 py-0.5 text-xs rounded border transition-colors ${
                           buildup ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-500 border-gray-300'
