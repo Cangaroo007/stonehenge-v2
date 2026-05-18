@@ -4,6 +4,7 @@ import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
+import { deleteRelationshipsForPieceInTransaction } from '@/lib/services/piece-relationship-service';
 
 // DELETE — Bulk delete multiple pieces (relationships cascade automatically)
 export async function DELETE(
@@ -81,6 +82,10 @@ export async function DELETE(
           where: { id: piece.promoted_from_piece_id },
           data: { no_strip_edges: restored as unknown as Prisma.InputJsonValue },
         });
+      }
+
+      for (const pieceId of pieceIdsToDelete) {
+        await deleteRelationshipsForPieceInTransaction(tx, pieceId);
       }
 
       const deleteResult = await tx.quote_pieces.deleteMany({
