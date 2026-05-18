@@ -212,6 +212,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
                     {isSegment && '⊞ '}
                     {p.label} ({p.width}×{p.height})
                     {p.rotated && ' ↻'}
+                    {(p.grainMatched || p.canRotate === false) && ' locked'}
                   </span>
                 );
               })}

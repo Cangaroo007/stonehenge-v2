@@ -664,6 +664,13 @@ export async function POST(
                 wastePercentage: g.wastePercentage,
                 oversizePieces: g.oversizePieces,
                 pieceIds: g.pieces.map((p) => p.pieceId),
+                pieces: g.pieces.map((p) => ({
+                  pieceId: p.pieceId,
+                  label: p.label,
+                  dimensions: p.dimensions,
+                  grainMatched: p.grainMatched ?? null,
+                  canRotate: p.canRotate ?? null,
+                })),
               })),
               totalSlabCount: multiResult.totalSlabCount,
               overallWastePercentage: multiResult.overallWastePercentage,

@@ -684,15 +684,18 @@ function reconstructMultiMaterialResult(
       materialId: gMeta.materialId,
       materialName: gMeta.materialName,
       slabDimensions: gMeta.slabDimensions,
-      pieces: (gMeta.pieceIds || []).map((pid: string) => {
+      pieces: (gMeta.pieces || (gMeta.pieceIds || []).map((pieceId: string) => ({ pieceId }))).map((pieceMeta: any) => {
+        const pid = String(pieceMeta.pieceId ?? pieceMeta);
         const match = findPlacementForPiece(pid, groupPlacements);
         return {
           pieceId: pid,
-          label: match?.label ?? match?.pieceId ?? pid,
+          label: pieceMeta.label ?? match?.label ?? match?.pieceId ?? pid,
           dimensions: {
-            length: match?.width ?? 0,
-            width: match?.height ?? 0,
+            length: pieceMeta.dimensions?.length ?? match?.width ?? 0,
+            width: pieceMeta.dimensions?.width ?? match?.height ?? 0,
           },
+          grainMatched: pieceMeta.grainMatched ?? match?.grainMatched ?? null,
+          canRotate: pieceMeta.canRotate ?? match?.canRotate ?? null,
         };
       }),
       slabCount: gMeta.slabCount,
