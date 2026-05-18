@@ -495,7 +495,7 @@ export default function RoomPieceSVG({
         </text>
       )}
 
-      {/* Mitred corner treatment badge */}
+      {/* Build-up construction badge */}
       {piece.laminationMethod === 'MITRED' && w > 50 && h > 36 && (
         <text
           x={x + w / 2}
@@ -504,9 +504,9 @@ export default function RoomPieceSVG({
           dominantBaseline="central"
           style={{ fontSize: '9px', fill: '#92400e', pointerEvents: 'none' }}
         >
-          {piece.mitredCornerTreatment === 'SQUARE_TOP' ? 'Mitre SQ'
-            : piece.mitredCornerTreatment === 'ROUND_TOP' ? 'Mitre RD'
-            : 'Mitre'}
+          {piece.mitredCornerTreatment === 'SQUARE_TOP' ? 'Build-up SQ'
+            : piece.mitredCornerTreatment === 'ROUND_TOP' ? 'Build-up RD'
+            : 'Build-up'}
         </text>
       )}
 
