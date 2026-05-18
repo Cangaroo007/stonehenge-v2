@@ -82,6 +82,7 @@ interface QuoteUpdateData {
   deliveryZoneId?: number | null;
   deliveryCost?: number | null;
   overrideDeliveryCost?: number | null;
+  installationIncluded?: boolean;
   templatingRequired?: boolean;
   templatingDistanceKm?: number | null;
   templatingCost?: number | null;
@@ -299,6 +300,10 @@ export async function PUT(
       }
     }
 
+    if (data.installationIncluded !== undefined && typeof data.installationIncluded !== 'boolean') {
+      return NextResponse.json({ error: 'installationIncluded must be true or false' }, { status: 400 });
+    }
+
     // Handle calculation save (partial update)
     if (data.saveCalculation) {
       if (!data.calculation) {
@@ -377,6 +382,7 @@ export async function PUT(
       if (data.deliveryDistanceKm !== undefined) updateFields.deliveryDistanceKm = data.deliveryDistanceKm;
       if (data.deliveryCost !== undefined) updateFields.deliveryCost = data.deliveryCost;
       if (data.overrideDeliveryCost !== undefined) updateFields.overrideDeliveryCost = data.overrideDeliveryCost;
+      if (data.installationIncluded !== undefined) updateFields.installationIncluded = data.installationIncluded;
       if (data.templatingRequired !== undefined) updateFields.templatingRequired = data.templatingRequired;
       if (data.templatingDistanceKm !== undefined) updateFields.templatingDistanceKm = data.templatingDistanceKm;
       if (data.templatingCost !== undefined) updateFields.templatingCost = data.templatingCost;
@@ -400,6 +406,7 @@ export async function PUT(
         data.deliveryDistanceKm !== undefined ||
         data.deliveryCost !== undefined ||
         data.overrideDeliveryCost !== undefined ||
+        data.installationIncluded !== undefined ||
         data.templatingRequired !== undefined ||
         data.templatingDistanceKm !== undefined ||
         data.templatingCost !== undefined ||
@@ -641,6 +648,7 @@ function transformQuoteForClient(quote: any) {
       amount: Number(c.amount),
       sortOrder: c.sort_order,
     })),
+    installationIncluded: quote.installationIncluded ?? true,
   };
 }
 

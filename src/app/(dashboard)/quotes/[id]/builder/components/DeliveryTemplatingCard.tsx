@@ -17,6 +17,7 @@ export default function DeliveryTemplatingCard({
   const [isExpanded, setIsExpanded] = useState(false);
   const [saving, setSaving] = useState(false);
   const [hasData, setHasData] = useState(false);
+  const [installationIncluded, setInstallationIncluded] = useState(true);
   const [currentDeliveryCost, setCurrentDeliveryCost] = useState<number | null>(null);
   const [currentTemplatingCost, setCurrentTemplatingCost] = useState<number | null>(null);
 
@@ -32,6 +33,7 @@ export default function DeliveryTemplatingCard({
             setCurrentDeliveryCost(data.deliveryCost);
             setCurrentTemplatingCost(data.templatingCost);
           }
+          setInstallationIncluded(data.installationIncluded !== false);
         }
       } catch (err) {
         console.error('Failed to fetch quote data:', err);
@@ -88,6 +90,30 @@ export default function DeliveryTemplatingCard({
     }
   };
 
+  const handleInstallationIncludedChange = async (included: boolean) => {
+    setInstallationIncluded(included);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ installationIncluded: included }),
+      });
+
+      if (!res.ok) {
+        setInstallationIncluded(!included);
+        return;
+      }
+
+      onUpdate?.();
+    } catch (err) {
+      console.error('Failed to update installation mode:', err);
+      setInstallationIncluded(!included);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="card">
       {/* Header */}
@@ -104,10 +130,15 @@ export default function DeliveryTemplatingCard({
           >
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
           </svg>
-          Delivery & Templating
+          Install, Delivery & Templating
         </button>
-        {hasData && !isExpanded && (
+        {!isExpanded && (hasData || !installationIncluded) && (
           <div className="flex items-center gap-3 text-sm">
+            {!installationIncluded && (
+              <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800">
+                Supply only
+              </span>
+            )}
             {currentDeliveryCost !== null && currentDeliveryCost > 0 && (
               <span className="text-gray-600">
                 Delivery: <span className="font-medium">${(Number(currentDeliveryCost) || 0).toFixed(2)}</span>
@@ -140,6 +171,33 @@ export default function DeliveryTemplatingCard({
               Saving...
             </div>
           )}
+          <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <div className="text-sm font-medium text-gray-900 mb-2">Installation</div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => handleInstallationIncludedChange(true)}
+                className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                  installationIncluded
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Install included
+              </button>
+              <button
+                type="button"
+                onClick={() => handleInstallationIncludedChange(false)}
+                className={`rounded-md border px-3 py-2 text-sm font-medium ${
+                  !installationIncluded
+                    ? 'border-primary-500 bg-primary-50 text-primary-700'
+                    : 'border-gray-300 bg-white text-gray-700 hover:bg-gray-50'
+                }`}
+              >
+                Supply only
+              </button>
+            </div>
+          </div>
           <DistanceCalculator
             initialAddress={initialProjectAddress || ''}
             onChange={handleDistanceChange}

@@ -711,6 +711,7 @@ model quotes {
   templatingCost       Decimal? @db.Decimal(10, 2)
   deliveryAddress      String?
   deliveryDistanceKm   Decimal? @db.Decimal(10, 2)
+  installationIncluded Boolean  @default(true) @map("installation_included")
   templatingRequired   Boolean  @default(false)
   templatingDistanceKm Decimal? @db.Decimal(10, 2)
 

@@ -1954,6 +1954,18 @@ export async function calculateQuotePrice(
     engineResult.installationSubtotal = engineResult.pieces.reduce((sum, p) => sum + p.installation.cost, 0);
   }
 
+  if ((quote as unknown as { installationIncluded?: boolean | null }).installationIncluded === false) {
+    for (const ep of engineResult.pieces) {
+      ep.installation.cost = 0;
+      ep.installation.ratePerSqm = 0;
+      ep.subtotal =
+        ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
+        ep.edgeProfiles.cost + ep.cutouts.cost +
+        (ep.join?.cost ?? 0) + (ep.grainSurcharge?.cost ?? 0);
+    }
+    engineResult.installationSubtotal = 0;
+  }
+
   // ─── Map engine results to existing result shapes ──────────────────────────
 
   // Build aggregate service breakdown from engine results
