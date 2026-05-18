@@ -141,13 +141,32 @@ export async function DELETE(
       });
     }
 
-    // Move pieces to Unassigned room, then delete the room
+    const maxUnassignedPiece = pieceCount > 0 && unassignedRoom
+      ? await prisma.quote_pieces.findFirst({
+          where: { room_id: unassignedRoom.id },
+          orderBy: { sort_order: 'desc' },
+          select: { sort_order: true },
+        })
+      : null;
+    const unassignedStartOrder = (maxUnassignedPiece?.sort_order ?? -1) + 1;
+
+    // Move pieces to Unassigned room in their existing order, then delete the room
     await prisma.$transaction(async (tx) => {
       if (pieceCount > 0 && unassignedRoom) {
-        await tx.quote_pieces.updateMany({
+        const piecesToMove = await tx.quote_pieces.findMany({
           where: { room_id: roomIdNum },
-          data: { room_id: unassignedRoom.id },
+          orderBy: { sort_order: 'asc' },
         });
+
+        for (let i = 0; i < piecesToMove.length; i++) {
+          await tx.quote_pieces.update({
+            where: { id: piecesToMove[i].id },
+            data: {
+              room_id: unassignedRoom.id,
+              sort_order: unassignedStartOrder + i,
+            },
+          });
+        }
       }
       await tx.quote_rooms.delete({ where: { id: roomIdNum } });
     });
