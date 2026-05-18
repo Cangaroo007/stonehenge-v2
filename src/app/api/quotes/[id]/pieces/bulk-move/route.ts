@@ -53,6 +53,15 @@ export async function PATCH(
       return NextResponse.json({ error: 'No matching pieces found' }, { status: 404 });
     }
 
+    const requestedPieceIds = Array.from(new Set(pieceIds));
+    const foundPieceIds = new Set(pieces.map(piece => piece.id));
+    if (requestedPieceIds.some(pieceId => !foundPieceIds.has(pieceId))) {
+      return NextResponse.json(
+        { error: 'All moved pieces must belong to this quote' },
+        { status: 400 }
+      );
+    }
+
     let roomId: number;
 
     if (targetRoomId) {
@@ -69,6 +78,9 @@ export async function PATCH(
     } else {
       // Create new room
       const trimmedName = newRoomName!.trim();
+      if (!trimmedName) {
+        return NextResponse.json({ error: 'New room name is required' }, { status: 400 });
+      }
 
       const existing = await prisma.quote_rooms.findFirst({
         where: { quote_id: quoteId, name: trimmedName },

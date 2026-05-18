@@ -53,6 +53,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'No matching pieces found' }, { status: 404 });
     }
 
+    const requestedPieceIds = Array.from(new Set(pieceIds));
+    const foundPieceIds = new Set(pieces.map(piece => piece.id));
+    if (requestedPieceIds.some(pieceId => !foundPieceIds.has(pieceId))) {
+      return NextResponse.json(
+        { error: 'All deleted pieces must belong to this quote' },
+        { status: 400 }
+      );
+    }
+
     const pieceIdsToDelete = pieces.map(p => p.id);
     const affectedRoomIds = Array.from(new Set(pieces.map(p => p.room_id)));
 
