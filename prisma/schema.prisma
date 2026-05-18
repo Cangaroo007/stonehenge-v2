@@ -484,6 +484,9 @@ model pricing_settings {
   waste_factor_percent             Decimal                       @default(15.0) @db.Decimal(5, 2)
   grain_matching_surcharge_percent Decimal                       @default(15.0) @db.Decimal(5, 2)
   cutout_thickness_multiplier      Decimal                       @default(1.0) @db.Decimal(5, 2)
+  cutting_labour_multiplier        Decimal                       @default(1.0) @db.Decimal(5, 2)
+  edge_finish_labour_multiplier    Decimal                       @default(1.0) @db.Decimal(5, 2)
+  cutout_labour_multiplier         Decimal                       @default(1.0) @db.Decimal(5, 2)
   waterfall_pricing_method         WaterfallPricingMethod        @default(FIXED_PER_END)
   slab_edge_allowance_mm           Int?
   strip_to_piece_threshold_mm      Int                           @default(300)

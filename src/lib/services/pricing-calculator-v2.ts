@@ -520,6 +520,9 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       wasteFactorPercent: Number(settings.waste_factor_percent),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier),
+      cuttingLabourMultiplier: Number(settings.cutting_labour_multiplier ?? 1),
+      edgeFinishLabourMultiplier: Number(settings.edge_finish_labour_multiplier ?? 1),
+      cutoutLabourMultiplier: Number(settings.cutout_labour_multiplier ?? 1),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       stripToPieceThresholdMm: settings.strip_to_piece_threshold_mm ?? 300,
       curvedCuttingMode: settings.curved_cutting_mode,
@@ -1913,6 +1916,42 @@ export async function calculateQuotePrice(
         });
       }
     }
+  }
+
+  const cuttingLabourMultiplier = pricingContext.cuttingLabourMultiplier ?? 1;
+  const edgeFinishLabourMultiplier = pricingContext.edgeFinishLabourMultiplier ?? 1;
+  const cutoutLabourMultiplier = pricingContext.cutoutLabourMultiplier ?? 1;
+
+  if (cuttingLabourMultiplier !== 1 || edgeFinishLabourMultiplier !== 1 || cutoutLabourMultiplier !== 1) {
+    for (const ep of engineResult.pieces) {
+      if (cuttingLabourMultiplier !== 1) {
+        applyMultiplierToCutting(ep.cutting, cuttingLabourMultiplier);
+      }
+      if (edgeFinishLabourMultiplier !== 1) {
+        for (const item of ep.edgeProfiles.items) {
+          item.cost *= edgeFinishLabourMultiplier;
+          item.rate *= edgeFinishLabourMultiplier;
+        }
+        ep.edgeProfiles.cost *= edgeFinishLabourMultiplier;
+      }
+      if (cutoutLabourMultiplier !== 1) {
+        for (const item of ep.cutouts.items) {
+          item.cost *= cutoutLabourMultiplier;
+          item.rate *= cutoutLabourMultiplier;
+        }
+        ep.cutouts.cost *= cutoutLabourMultiplier;
+      }
+      ep.subtotal =
+        ep.cutting.cost + (ep.curvedCutting?.cost ?? 0) +
+        ep.edgeProfiles.cost + ep.cutouts.cost +
+        (ep.join?.cost ?? 0) + (ep.grainSurcharge?.cost ?? 0) +
+        ep.installation.cost;
+    }
+    engineResult.fabricationSubtotal = engineResult.pieces.reduce(
+      (sum, p) => sum + p.cutting.cost + (p.curvedCutting?.cost ?? 0) + p.edgeProfiles.cost + p.cutouts.cost + (p.join?.cost ?? 0) + (p.grainSurcharge?.cost ?? 0),
+      0
+    );
+    engineResult.installationSubtotal = engineResult.pieces.reduce((sum, p) => sum + p.installation.cost, 0);
   }
 
   // ─── Map engine results to existing result shapes ──────────────────────────

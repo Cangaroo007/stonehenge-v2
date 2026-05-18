@@ -27,6 +27,9 @@ export interface PricingContext {
   wasteFactorPercent: number;
   grainMatchingSurchargePercent: number;
   cutoutThicknessMultiplier: number;
+  cuttingLabourMultiplier: number;
+  edgeFinishLabourMultiplier: number;
+  cutoutLabourMultiplier: number;
   waterfallPricingMethod: WaterfallPricingMethod;
   stripToPieceThresholdMm: number;
   curvedCuttingMode: CurvedSurchargeMode;

@@ -41,6 +41,9 @@ export async function GET(request: NextRequest) {
         wasteFactorPercent: '15.00',
         grainMatchingSurchargePercent: '15.00',
         cutoutThicknessMultiplier: '1.00',
+        cuttingLabourMultiplier: '1.00',
+        edgeFinishLabourMultiplier: '1.00',
+        cutoutLabourMultiplier: '1.00',
         waterfallPricingMethod: 'FIXED_PER_END',
         slabEdgeAllowanceMm: null,
         defaultEdgeTypeId: null,
@@ -66,6 +69,9 @@ export async function GET(request: NextRequest) {
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
+      cuttingLabourMultiplier: Number(settings.cutting_labour_multiplier ?? 1).toFixed(2),
+      edgeFinishLabourMultiplier: Number(settings.edge_finish_labour_multiplier ?? 1).toFixed(2),
+      cutoutLabourMultiplier: Number(settings.cutout_labour_multiplier ?? 1).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,
@@ -182,6 +188,22 @@ export async function PUT(request: NextRequest) {
       }
     }
 
+    for (const [field, label] of [
+      ['cuttingLabourMultiplier', 'Cutting labour multiplier'],
+      ['edgeFinishLabourMultiplier', 'Edge finish labour multiplier'],
+      ['cutoutLabourMultiplier', 'Cutout labour multiplier'],
+    ] as const) {
+      if (body[field] !== undefined) {
+        const value = Number(body[field]);
+        if (isNaN(value) || value < 0 || value > 5) {
+          return NextResponse.json(
+            { error: `${label} must be between 0 and 5` },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
     // Check if settings already exist
     const existingSettings = await prisma.pricing_settings.findUnique({
       where: { organisation_id: organisationId }
@@ -226,6 +248,9 @@ export async function PUT(request: NextRequest) {
           waste_factor_percent: body.wasteFactorPercent !== undefined ? parseFloat(body.wasteFactorPercent) : undefined,
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent !== undefined ? parseFloat(body.grainMatchingSurchargePercent) : undefined,
           cutout_thickness_multiplier: body.cutoutThicknessMultiplier !== undefined ? parseFloat(body.cutoutThicknessMultiplier) : undefined,
+          cutting_labour_multiplier: body.cuttingLabourMultiplier !== undefined ? parseFloat(body.cuttingLabourMultiplier) : undefined,
+          edge_finish_labour_multiplier: body.edgeFinishLabourMultiplier !== undefined ? parseFloat(body.edgeFinishLabourMultiplier) : undefined,
+          cutout_labour_multiplier: body.cutoutLabourMultiplier !== undefined ? parseFloat(body.cutoutLabourMultiplier) : undefined,
           waterfall_pricing_method: body.waterfallPricingMethod || undefined,
           slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined
             ? (body.slabEdgeAllowanceMm === null ? null : parseInt(String(body.slabEdgeAllowanceMm), 10))
@@ -260,6 +285,9 @@ export async function PUT(request: NextRequest) {
           waste_factor_percent: body.wasteFactorPercent ? parseFloat(body.wasteFactorPercent) : 15.0,
           grain_matching_surcharge_percent: body.grainMatchingSurchargePercent ? parseFloat(body.grainMatchingSurchargePercent) : 15.0,
           cutout_thickness_multiplier: body.cutoutThicknessMultiplier ? parseFloat(body.cutoutThicknessMultiplier) : 1.0,
+          cutting_labour_multiplier: body.cuttingLabourMultiplier ? parseFloat(body.cuttingLabourMultiplier) : 1.0,
+          edge_finish_labour_multiplier: body.edgeFinishLabourMultiplier ? parseFloat(body.edgeFinishLabourMultiplier) : 1.0,
+          cutout_labour_multiplier: body.cutoutLabourMultiplier ? parseFloat(body.cutoutLabourMultiplier) : 1.0,
           waterfall_pricing_method: body.waterfallPricingMethod || 'FIXED_PER_END',
           slab_edge_allowance_mm: body.slabEdgeAllowanceMm !== undefined && body.slabEdgeAllowanceMm !== null
             ? parseInt(String(body.slabEdgeAllowanceMm), 10)
@@ -290,6 +318,9 @@ export async function PUT(request: NextRequest) {
       wasteFactorPercent: Number(settings.waste_factor_percent).toFixed(2),
       grainMatchingSurchargePercent: Number(settings.grain_matching_surcharge_percent).toFixed(2),
       cutoutThicknessMultiplier: Number(settings.cutout_thickness_multiplier).toFixed(2),
+      cuttingLabourMultiplier: Number(settings.cutting_labour_multiplier ?? 1).toFixed(2),
+      edgeFinishLabourMultiplier: Number(settings.edge_finish_labour_multiplier ?? 1).toFixed(2),
+      cutoutLabourMultiplier: Number(settings.cutout_labour_multiplier ?? 1).toFixed(2),
       waterfallPricingMethod: settings.waterfall_pricing_method,
       slabEdgeAllowanceMm: settings.slab_edge_allowance_mm ?? null,
       defaultEdgeTypeId: settings.default_edge_type_id ?? null,

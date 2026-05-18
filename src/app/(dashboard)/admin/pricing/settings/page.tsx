@@ -15,6 +15,9 @@ interface PricingSettings {
   unitSystem: 'METRIC' | 'IMPERIAL';
   currency: string;
   gstRate: string;
+  cuttingLabourMultiplier: string;
+  edgeFinishLabourMultiplier: string;
+  cutoutLabourMultiplier: string;
   waterfallPricingMethod: 'FIXED_PER_END' | 'PER_LINEAR_METRE' | 'INCLUDED_IN_SLAB';
   slabEdgeAllowanceMm: number | null;
   defaultEdgeTypeId: string | null;
@@ -41,6 +44,9 @@ export default function PricingSettingsPage() {
     unitSystem: 'METRIC',
     currency: 'AUD',
     gstRate: '0.1000',
+    cuttingLabourMultiplier: '1.00',
+    edgeFinishLabourMultiplier: '1.00',
+    cutoutLabourMultiplier: '1.00',
     waterfallPricingMethod: 'FIXED_PER_END',
     slabEdgeAllowanceMm: null,
     defaultEdgeTypeId: null,
@@ -353,6 +359,68 @@ export default function PricingSettingsPage() {
             <p className="text-xs text-gray-500">
               Enter as decimal (e.g., 0.10 for 10% GST)
             </p>
+          </div>
+        </div>
+
+        <hr className="border-gray-200" />
+
+        {/* Pricing Calibration */}
+        <div className="space-y-4">
+          <div>
+            <h3 className="text-sm font-medium text-gray-900">Pricing Calibration</h3>
+            <p className="text-xs text-gray-500">
+              Company-level labour multipliers for matching real quoting behaviour. Leave at 1.00 for standard rates.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-2">
+              <label htmlFor="cuttingLabourMultiplier" className="block text-sm font-medium text-gray-700">
+                Cutting Labour Multiplier
+              </label>
+              <input
+                type="number"
+                id="cuttingLabourMultiplier"
+                min={0}
+                max={5}
+                step={0.05}
+                value={settings.cuttingLabourMultiplier ?? '1.00'}
+                onChange={(e) => setSettings({ ...settings, cuttingLabourMultiplier: e.target.value })}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="edgeFinishLabourMultiplier" className="block text-sm font-medium text-gray-700">
+                Edge Finish Labour Multiplier
+              </label>
+              <input
+                type="number"
+                id="edgeFinishLabourMultiplier"
+                min={0}
+                max={5}
+                step={0.05}
+                value={settings.edgeFinishLabourMultiplier ?? '1.00'}
+                onChange={(e) => setSettings({ ...settings, edgeFinishLabourMultiplier: e.target.value })}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <label htmlFor="cutoutLabourMultiplier" className="block text-sm font-medium text-gray-700">
+                Cutout Labour Multiplier
+              </label>
+              <input
+                type="number"
+                id="cutoutLabourMultiplier"
+                min={0}
+                max={5}
+                step={0.05}
+                value={settings.cutoutLabourMultiplier ?? '1.00'}
+                onChange={(e) => setSettings({ ...settings, cutoutLabourMultiplier: e.target.value })}
+                className="w-full rounded-lg border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 sm:text-sm"
+              />
+            </div>
           </div>
         </div>
 
