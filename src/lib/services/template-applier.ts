@@ -18,6 +18,8 @@ import type {
   MaterialRole,
 } from '@/lib/types/starter-templates';
 import { inferMaterialRole } from '@/lib/types/starter-templates';
+import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
+import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 
 const SAME_ROOM_RELATIONSHIP_TYPES = new Set<RelationshipType>([
   RelationshipType.WATERFALL,
@@ -31,6 +33,28 @@ function normalizeRelationshipType(relationType: string): RelationshipType | nul
   if (normalized in RelationshipType) {
     return RelationshipType[normalized as keyof typeof RelationshipType];
   }
+  return null;
+}
+
+function inferRelationshipSide(
+  relationshipType: RelationshipType,
+  templatePiece: StarterTemplatePiece
+): string | null {
+  const explicitSide = normaliseRectEdgeSide(templatePiece.relatedTo?.joinPosition);
+  if (explicitSide) return explicitSide;
+
+  const text = `${templatePiece.name} ${templatePiece.notes ?? ''}`.toLowerCase();
+  const inferredSide = normaliseRectEdgeSide(
+    text.includes('left') ? 'left'
+      : text.includes('right') ? 'right'
+      : text.includes('front') ? 'front'
+      : text.includes('back') || text.includes('rear') ? 'back'
+      : null
+  );
+  if (inferredSide) return inferredSide;
+
+  if (relationshipType === RelationshipType.SPLASHBACK) return 'top';
+  if (relationshipType === RelationshipType.WATERFALL) return 'right';
   return null;
 }
 
@@ -292,6 +316,8 @@ export async function applyTemplateToQuote(
 
           if (sourcePieceId && targetPieceId && relationshipType) {
             try {
+              const relationshipSide = inferRelationshipSide(relationshipType, templatePiece);
+
               if (SAME_ROOM_RELATIONSHIP_TYPES.has(relationshipType)) {
                 await tx.quote_pieces.update({
                   where: { id: targetPieceId },
@@ -305,7 +331,15 @@ export async function applyTemplateToQuote(
                   target_piece_id: targetPieceId,
                   relation_type: relationshipType,
                   relationship_type: relationshipType,
+                  side: relationshipSide,
                 },
+              });
+
+              await syncEdgeSemanticsForRelationship(tx, {
+                relationshipType,
+                sourceId: sourcePieceId,
+                targetId: targetPieceId,
+                joinPosition: relationshipSide,
               });
             } catch (err) {
               console.error('Failed to create piece relationship:', err);

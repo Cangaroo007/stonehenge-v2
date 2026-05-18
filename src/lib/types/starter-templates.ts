@@ -78,6 +78,7 @@ export interface StarterTemplatePiece {
   relatedTo?: {
     pieceName: string;
     relationType: string; // SPLASHBACK, WATERFALL, RETURN_END, etc.
+    joinPosition?: string | null; // BACK/FRONT/LEFT/RIGHT when known
   };
 
   /** Material role — inferred when saving from quote, used when applying */
