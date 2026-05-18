@@ -2098,7 +2098,7 @@ export default function QuickViewPieceRow({
                       <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
                         stroke={isFlashing ? '#22c55e' : colour}
                         strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
-                        strokeDasharray={suppressed ? '4 2' : (isFinished ? undefined : '2 1.5')}
+                        strokeDasharray={suppressed?.code === 'WALL' ? '4 2' : (isFinished || suppressed ? undefined : '2 1.5')}
                         className={isFlashing ? 'qv-edge-flash' : undefined}
                       />
                       {isEditMode && (

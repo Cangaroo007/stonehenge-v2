@@ -46,6 +46,10 @@ interface RoomPieceSVGProps {
   suppressedEdges?: Partial<Record<'top' | 'bottom' | 'left' | 'right', SuppressedEdgeDisplay>>;
 }
 
+function isWallSuppression(suppression: SuppressedEdgeDisplay | undefined): boolean {
+  return suppression?.code.toUpperCase() === 'WALL';
+}
+
 function isRawEdge(name: string | null | undefined): boolean {
   if (!name) return true;
   const lower = name.toLowerCase();
@@ -286,7 +290,7 @@ export default function RoomPieceSVG({
             y2={y + 1}
             stroke={topSuppression?.colour ?? (hoveredEdge === 'top' && isEditMode ? '#3b82f6' : edgeColour(topEdge))}
             strokeWidth={hoveredEdge === 'top' && isEditMode ? 4 : 2}
-            strokeDasharray={topSuppression ? '4 2' : (isRawEdge(topEdge) ? '3 2' : undefined)}
+            strokeDasharray={isWallSuppression(topSuppression) ? '4 2' : (isRawEdge(topEdge) && !topSuppression ? '3 2' : undefined)}
           >
             <title>{topSuppression?.label ?? edgeProfileDisplayName(topEdge)}</title>
           </line>
@@ -298,7 +302,7 @@ export default function RoomPieceSVG({
             y2={y + h - 1}
             stroke={bottomSuppression?.colour ?? (hoveredEdge === 'bottom' && isEditMode ? '#3b82f6' : edgeColour(bottomEdge))}
             strokeWidth={hoveredEdge === 'bottom' && isEditMode ? 4 : 2}
-            strokeDasharray={bottomSuppression ? '4 2' : (isRawEdge(bottomEdge) ? '3 2' : undefined)}
+            strokeDasharray={isWallSuppression(bottomSuppression) ? '4 2' : (isRawEdge(bottomEdge) && !bottomSuppression ? '3 2' : undefined)}
           >
             <title>{bottomSuppression?.label ?? edgeProfileDisplayName(bottomEdge)}</title>
           </line>
@@ -310,7 +314,7 @@ export default function RoomPieceSVG({
             y2={y + h - 3}
             stroke={leftSuppression?.colour ?? (hoveredEdge === 'left' && isEditMode ? '#3b82f6' : edgeColour(leftEdge))}
             strokeWidth={hoveredEdge === 'left' && isEditMode ? 4 : 2}
-            strokeDasharray={leftSuppression ? '4 2' : (isRawEdge(leftEdge) ? '3 2' : undefined)}
+            strokeDasharray={isWallSuppression(leftSuppression) ? '4 2' : (isRawEdge(leftEdge) && !leftSuppression ? '3 2' : undefined)}
           >
             <title>{leftSuppression?.label ?? edgeProfileDisplayName(leftEdge)}</title>
           </line>
@@ -322,7 +326,7 @@ export default function RoomPieceSVG({
             y2={y + h - 3}
             stroke={rightSuppression?.colour ?? (hoveredEdge === 'right' && isEditMode ? '#3b82f6' : edgeColour(rightEdge))}
             strokeWidth={hoveredEdge === 'right' && isEditMode ? 4 : 2}
-            strokeDasharray={rightSuppression ? '4 2' : (isRawEdge(rightEdge) ? '3 2' : undefined)}
+            strokeDasharray={isWallSuppression(rightSuppression) ? '4 2' : (isRawEdge(rightEdge) && !rightSuppression ? '3 2' : undefined)}
           >
             <title>{rightSuppression?.label ?? edgeProfileDisplayName(rightEdge)}</title>
           </line>

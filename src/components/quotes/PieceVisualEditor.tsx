@@ -1540,6 +1540,10 @@ export default function PieceVisualEditor({
     return 'Wall edge - no profile or lamination strip';
   }, [attachedPieceTypes]);
 
+  const getSuppressionDash = useCallback((edgeId: string) => (
+    getEdgeSuppression(edgeId)?.type === 'WALL' ? '6 3' : undefined
+  ), [getEdgeSuppression]);
+
   // ── Render ────────────────────────────────────────────────────────────
 
   return (
@@ -1851,7 +1855,7 @@ export default function PieceVisualEditor({
                       fill="none"
                       stroke={isExternalSelected ? '#3b82f6' : colour}
                       strokeWidth={isExternalSelected ? 2.5 : (suppression ? 3 : isFinished ? 3 : 1)}
-                      strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
+                      strokeDasharray={getSuppressionDash(edge.side) ?? (isFinished ? undefined : '4 3')}
                     >
                       <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
                     </path>
@@ -1860,7 +1864,7 @@ export default function PieceVisualEditor({
                       x1={edge.x1} y1={edge.y1} x2={edge.x2} y2={edge.y2}
                       stroke={isExternalSelected ? '#3b82f6' : colour}
                       strokeWidth={isExternalSelected ? 2.5 : (suppression ? 3 : isFinished ? 3 : 1)}
-                      strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
+                      strokeDasharray={getSuppressionDash(edge.side) ?? (isFinished ? undefined : '4 3')}
                       opacity={1}
                     >
                       <title>{suppression?.label ?? name ?? 'Raw / Unfinished'}</title>
@@ -2152,7 +2156,7 @@ export default function PieceVisualEditor({
                     y2={def.y2}
                     stroke={isFlashing ? '#22c55e' : colour}
                     strokeWidth={isFlashing ? 5 : (suppression ? 3 : isFinished ? 3 : 1)}
-                    strokeDasharray={suppression ? '6 3' : isFinished ? undefined : '4 3'}
+                    strokeDasharray={getSuppressionDash(side) ?? (isFinished ? undefined : '4 3')}
                     opacity={1}
                     className={isFlashing ? 'edge-flash' : undefined}
                   >
