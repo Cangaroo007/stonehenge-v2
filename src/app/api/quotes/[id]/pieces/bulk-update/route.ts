@@ -76,13 +76,22 @@ export async function PATCH(
       return NextResponse.json({ error: 'No matching pieces found' }, { status: 404 });
     }
 
+    const requestedPieceIds = Array.from(new Set(pieceIds));
+    const foundPieceIds = new Set(pieces.map(piece => piece.id));
+    if (requestedPieceIds.some(pieceId => !foundPieceIds.has(pieceId))) {
+      return NextResponse.json({ error: 'One or more pieces do not belong to this quote' }, { status: 404 });
+    }
+
     // Build the update payload
     const updateData: Record<string, unknown> = {};
 
     if (materialId !== undefined) {
       if (materialId !== null) {
-        const material = await prisma.materials.findUnique({
-          where: { id: materialId },
+        const material = await prisma.materials.findFirst({
+          where: {
+            id: materialId,
+            company_id: auth.user.companyId,
+          },
           select: { id: true, name: true, price_per_sqm: true },
         });
 

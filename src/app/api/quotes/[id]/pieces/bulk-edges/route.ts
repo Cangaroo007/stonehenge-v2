@@ -92,6 +92,12 @@ export async function PATCH(
       return NextResponse.json({ error: 'No matching pieces found' }, { status: 404 });
     }
 
+    const requestedPieceIds = Array.from(new Set(pieceIds));
+    const foundPieceIds = new Set(pieces.map(piece => piece.id));
+    if (requestedPieceIds.some(pieceId => !foundPieceIds.has(pieceId))) {
+      return NextResponse.json({ error: 'One or more pieces do not belong to this quote' }, { status: 404 });
+    }
+
     // Collect all edge type IDs being applied
     const edgeTypeIds = Array.from(new Set(
       [edges.top, edges.bottom, edges.left, edges.right].filter(Boolean) as string[]

@@ -339,6 +339,24 @@ export async function POST(
       orderBy: { sort_order: 'desc' },
     });
 
+    if (promotedFromPieceId && promotedEdgePosition) {
+      const parentPieceId = parseInt(String(promotedFromPieceId), 10);
+      if (!Number.isInteger(parentPieceId) || parentPieceId <= 0) {
+        return NextResponse.json({ error: 'Invalid parent piece ID' }, { status: 400 });
+      }
+
+      const parentPiece = await prisma.quote_pieces.findFirst({
+        where: {
+          id: parentPieceId,
+          quote_rooms: { quote_id: quoteId },
+        },
+        select: { id: true },
+      });
+      if (!parentPiece) {
+        return NextResponse.json({ error: 'Parent piece not found in this quote' }, { status: 404 });
+      }
+    }
+
     // Calculate area — use shape geometry for L/U shapes (K2)
     const shapeGeo = getShapeGeometry(
       (shapeType || 'RECTANGLE') as ShapeType,
@@ -425,20 +443,26 @@ export async function POST(
     // If this is a promoted strip, add the edge to the parent piece's no_strip_edges
     // so the calculator/optimizer no longer charges lamination or generates a strip for it
     if (promotedFromPieceId && promotedEdgePosition) {
-      const parentPiece = await prisma.quote_pieces.findUnique({
-        where: { id: parseInt(String(promotedFromPieceId), 10) },
+      const parentPieceId = parseInt(String(promotedFromPieceId), 10);
+      const parentPiece = await prisma.quote_pieces.findFirst({
+        where: {
+          id: parentPieceId,
+          quote_rooms: { quote_id: quoteId },
+        },
         select: { no_strip_edges: true },
       });
-      if (parentPiece) {
-        const currentNoStrip = (parentPiece.no_strip_edges as unknown as string[]) ?? [];
-        if (!currentNoStrip.includes(promotedEdgePosition)) {
-          await prisma.quote_pieces.update({
-            where: { id: parseInt(String(promotedFromPieceId), 10) },
-            data: {
-              no_strip_edges: [...currentNoStrip, promotedEdgePosition] as unknown as Prisma.InputJsonValue,
-            },
-          });
-        }
+      if (!parentPiece) {
+        return NextResponse.json({ error: 'Parent piece not found in this quote' }, { status: 404 });
+      }
+
+      const currentNoStrip = (parentPiece.no_strip_edges as unknown as string[]) ?? [];
+      if (!currentNoStrip.includes(promotedEdgePosition)) {
+        await prisma.quote_pieces.update({
+          where: { id: parentPieceId },
+          data: {
+            no_strip_edges: [...currentNoStrip, promotedEdgePosition] as unknown as Prisma.InputJsonValue,
+          },
+        });
       }
     }
 

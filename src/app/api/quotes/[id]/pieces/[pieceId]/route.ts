@@ -935,12 +935,15 @@ export async function DELETE(
     }
 
     // Get the piece first to check the room
-    const piece = await prisma.quote_pieces.findUnique({
-      where: { id: pieceIdNum },
+    const piece = await prisma.quote_pieces.findFirst({
+      where: {
+        id: pieceIdNum,
+        quote_rooms: { quote_id: quoteId },
+      },
     });
 
     if (!piece) {
-      return NextResponse.json({ error: 'Piece not found' }, { status: 404 });
+      return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
     }
 
     const roomId = piece.room_id;
@@ -948,8 +951,11 @@ export async function DELETE(
     // If this is a promoted strip, restore the parent piece's edge
     // by removing this edge from the parent's no_strip_edges array
     if (piece.promoted_from_piece_id && piece.promoted_edge_position) {
-      const parentPiece = await prisma.quote_pieces.findUnique({
-        where: { id: piece.promoted_from_piece_id },
+      const parentPiece = await prisma.quote_pieces.findFirst({
+        where: {
+          id: piece.promoted_from_piece_id,
+          quote_rooms: { quote_id: quoteId },
+        },
         select: { no_strip_edges: true },
       });
       if (parentPiece) {
