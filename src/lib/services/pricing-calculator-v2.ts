@@ -205,6 +205,11 @@ function overrideValue(override: PricingOverrideRecord): number {
   return typeof override.value === 'number' ? override.value : override.value.toNumber();
 }
 
+function decimalishToNumber(value: { toNumber: () => number } | number | null | undefined): number | null {
+  if (value == null) return null;
+  return typeof value === 'number' ? value : value.toNumber();
+}
+
 function normalizeOverrideToken(value: string): string {
   return value.trim().toUpperCase().replace(/[\s-]+/g, '_');
 }
@@ -593,8 +598,8 @@ export function calculateMaterialCost(
     totalAreaM2 += areaSqm;
 
     // Check for piece-level override — margin does NOT apply to overrides
-    if (piece.overrideMaterialCost) {
-      const overrideCost = piece.overrideMaterialCost.toNumber();
+    if (piece.overrideMaterialCost != null) {
+      const overrideCost = decimalishToNumber(piece.overrideMaterialCost) ?? 0;
       overriddenCost += overrideCost;
       pieceMaterialOverrideCost += overrideCost;
       continue;
@@ -641,7 +646,7 @@ export function calculateMaterialCost(
     if (materialWithSlabPrice) {
       const slabPrice = materialWithSlabPrice.materials!.price_per_slab!.toNumber();
       // Only override if no piece-level overrides were applied
-      const hasOverrides = pieces.some(p => p.overrideMaterialCost || p.overrideSlabPrice);
+      const hasOverrides = pieces.some(p => p.overrideMaterialCost != null || p.overrideSlabPrice != null);
       if (!hasOverrides) {
         calculatedCost = Math.ceil(slabCount) * slabPrice;
       }
@@ -724,7 +729,7 @@ export function calculateMaterialCost(
   const slabWidthMm = (firstMaterial as unknown as { slab_width_mm?: number | null } | null)?.slab_width_mm ?? undefined;
 
   // Build per-material groupings for multi-material quotes
-  const hasNullMaterialPieces = pieces.some(p => !(p as any).material_id && !p.overrideMaterialCost);
+  const hasNullMaterialPieces = pieces.some(p => !(p as any).material_id && p.overrideMaterialCost == null);
 
   // Build slab price override map: materialId → override price
   const slabPriceOverrideMap = new Map<number, number>();
@@ -839,6 +844,10 @@ function buildMaterialGroupings(
 
   for (let idx = 0; idx < pieces.length; idx++) {
     const piece = pieces[idx];
+    if (piece.overrideMaterialCost != null) {
+      continue;
+    }
+
     const mat = piece.materials;
     if (!mat) {
       // Null-material pieces (WF/SB) inherit the primary material group.
@@ -2053,6 +2062,13 @@ export async function calculateQuotePrice(
   );
   const totalMaterialCost = materialBreakdown.subtotal;
   const totalInstallationCost = engineResult.installationSubtotal;
+  const materialOverrideCostByIndex = allPieces.map((piece: any) =>
+    decimalishToNumber(piece.override_material_cost)
+  );
+  const totalPieceMaterialOverrides = roundToTwo(
+    materialOverrideCostByIndex.reduce((sum: number, value: number | null) => sum + (value ?? 0), 0)
+  );
+  const allocatableMaterialCost = roundToTwo(Math.max(0, totalMaterialCost - totalPieceMaterialOverrides));
   let allocatedMaterial = 0;
   let allocatedInstallation = 0;
   // Find last piece eligible for material allocation — includes null-material WF/SB
@@ -2060,8 +2076,18 @@ export async function calculateQuotePrice(
   const hasPrimaryMaterial = allPieces.some((p: { materials?: unknown }) => p.materials);
   let lastMaterialPieceIdx = -1;
   if (hasPrimaryMaterial) {
-    lastMaterialPieceIdx = allPieces.length - 1;
+    for (let j = allPieces.length - 1; j >= 0; j--) {
+      if (materialOverrideCostByIndex[j] == null) {
+        lastMaterialPieceIdx = j;
+        break;
+      }
+    }
   }
+  const allocatableMaterialAreaSqm = pieceGeometries.reduce(
+    (sum: number, g: { totalAreaSqm: number }, idx: number) =>
+      sum + (materialOverrideCostByIndex[idx] == null ? g.totalAreaSqm : 0),
+    0
+  );
 
   // Build materialId → group lookup for per-piece display fields and per-group allocation
   const materialGroupMap = new Map<number, { materialName: string; slabCount: number | undefined; slabRate: number | undefined; totalCost: number; totalAreaM2: number }>();
@@ -2085,7 +2111,7 @@ export async function calculateQuotePrice(
     // Find last piece index per material group for rounding correction
     for (let j = allPieces.length - 1; j >= 0; j--) {
       const matId = (allPieces[j].materials as unknown as { id?: number } | null)?.id ?? 0;
-      if (matId && allPieces[j].materials && !groupAllocation.has(matId)) {
+      if (matId && allPieces[j].materials && materialOverrideCostByIndex[j] == null && !groupAllocation.has(matId)) {
         groupAllocation.set(matId, { allocated: 0, lastPieceIdx: j });
       }
     }
@@ -2313,9 +2339,12 @@ export async function calculateQuotePrice(
       // For multi-material quotes, allocate within each material group so a piece's
       // cost comes exclusively from its own material, not from the cross-material total.
       let materialShare: number;
+      const overrideMaterialCost = materialOverrideCostByIndex[i];
       const matId = effectiveMatId;
       const matGroup = materialGroupMap.get(matId);
-      if (isMultiMaterial && matGroup) {
+      if (overrideMaterialCost != null) {
+        materialShare = roundToTwo(overrideMaterialCost);
+      } else if (isMultiMaterial && matGroup) {
         const ga = groupAllocation.get(matId);
         if (ga && i === ga.lastPieceIdx) {
           // Last piece in this material group gets remainder to avoid rounding drift
@@ -2329,10 +2358,10 @@ export async function calculateQuotePrice(
         allocatedMaterial += materialShare;
       } else if (i === lastMaterialPieceIdx) {
         // Single material: last piece gets remainder to avoid rounding drift
-        materialShare = roundToTwo(totalMaterialCost - allocatedMaterial);
+        materialShare = roundToTwo(allocatableMaterialCost - allocatedMaterial);
       } else {
-        materialShare = totalAreaSqm > 0
-          ? roundToTwo((pieceAreaM2 / totalAreaSqm) * totalMaterialCost)
+        materialShare = allocatableMaterialAreaSqm > 0
+          ? roundToTwo((pieceAreaM2 / allocatableMaterialAreaSqm) * allocatableMaterialCost)
           : 0;
         allocatedMaterial += materialShare;
       }
