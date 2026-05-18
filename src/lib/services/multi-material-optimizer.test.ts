@@ -43,6 +43,37 @@ describe('optimizeMultiMaterial', () => {
     );
   });
 
+  it('keeps grain and rotation lock metadata in the material group summary', async () => {
+    const result = await optimizeMultiMaterial({
+      pieces: [
+        {
+          id: 'bench',
+          width: 1200,
+          height: 600,
+          label: 'Bench',
+          materialId: 'mat-1',
+          grainMatched: true,
+          canRotate: false,
+        },
+      ],
+      materials: [
+        {
+          id: 'mat-1',
+          name: 'Test Stone',
+          slabLengthMm: 3200,
+          slabWidthMm: 1600,
+        },
+      ],
+      kerfWidth: 3,
+      allowRotation: true,
+    });
+
+    expect(result.materialGroups[0].pieces[0]).toEqual(expect.objectContaining({
+      grainMatched: true,
+      canRotate: false,
+    }));
+  });
+
   it('warns when pieces have no material assigned', async () => {
     const result = await optimizeMultiMaterial({
       pieces: [

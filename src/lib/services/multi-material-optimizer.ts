@@ -197,6 +197,8 @@ export async function optimizeMultiMaterial(
         pieceId: p.id,
         label: p.label,
         dimensions: { length: p.width, width: p.height },
+        grainMatched: p.grainMatched ?? null,
+        canRotate: p.canRotate ?? null,
       })),
       slabCount: result.totalSlabs,
       wastePercentage: result.wastePercent,
