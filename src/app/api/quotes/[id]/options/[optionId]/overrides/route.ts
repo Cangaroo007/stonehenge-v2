@@ -61,10 +61,41 @@ export async function POST(
       );
     }
 
+    const pieceIds = Array.from(new Set(
+      overrides
+        .map(override => Number(override.pieceId))
+        .filter(pieceId => Number.isInteger(pieceId) && pieceId > 0)
+    ));
+
+    if (pieceIds.length === 0) {
+      return NextResponse.json(
+        { error: 'At least one valid pieceId is required' },
+        { status: 400 }
+      );
+    }
+
+    const ownedPieces = await prisma.quote_pieces.findMany({
+      where: {
+        id: { in: pieceIds },
+        quote_rooms: { quote_id: quoteId },
+      },
+      select: { id: true },
+    });
+    const ownedPieceIds = new Set(ownedPieces.map(piece => piece.id));
+    const invalidPieceIds = pieceIds.filter(pieceId => !ownedPieceIds.has(pieceId));
+
+    if (invalidPieceIds.length > 0) {
+      return NextResponse.json(
+        { error: 'One or more pieces do not belong to this quote' },
+        { status: 404 }
+      );
+    }
+
     // Upsert each override
     const results = [];
     for (const override of overrides) {
-      if (!override.pieceId) continue;
+      const pieceId = Number(override.pieceId);
+      if (!ownedPieceIds.has(pieceId)) continue;
 
       const data: Record<string, unknown> = {};
       if (override.materialId !== undefined) data.materialId = override.materialId;
@@ -81,12 +112,12 @@ export async function POST(
         where: {
           optionId_pieceId: {
             optionId: optId,
-            pieceId: override.pieceId,
+            pieceId,
           },
         },
         create: {
           optionId: optId,
-          pieceId: override.pieceId,
+          pieceId,
           ...data,
         },
         update: data,

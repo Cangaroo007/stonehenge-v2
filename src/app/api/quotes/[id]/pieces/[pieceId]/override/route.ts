@@ -185,6 +185,18 @@ export async function DELETE(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
+    const currentPiece = await prisma.quote_pieces.findFirst({
+      where: {
+        id: pieceId,
+        quote_rooms: { quote_id: quoteId },
+      },
+      select: { id: true },
+    });
+
+    if (!currentPiece) {
+      return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
     const piece = await prisma.quote_pieces.update({
       where: { id: pieceId },
       data: {
