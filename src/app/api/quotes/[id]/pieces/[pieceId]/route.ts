@@ -5,8 +5,72 @@ import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
+import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
 
 const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
+const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
+const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
+function uniqueNoStripEdges(edges: unknown): string[] {
+  if (!Array.isArray(edges)) return [];
+  const unique = new Set<string>();
+  const values: string[] = [];
+  for (const edge of edges) {
+    const raw = String(edge ?? '').trim();
+    if (!raw) continue;
+    const value = normaliseRectEdgeSide(raw) ?? raw;
+    const key = value.toLowerCase();
+    if (unique.has(key)) continue;
+    unique.add(key);
+    values.push(value);
+  }
+  return values;
+}
+
+function removeEdgesFromRecord<T extends Record<string, unknown> | null | undefined>(
+  value: T,
+  edges: RectEdgeSide[]
+): Record<string, unknown> | null | undefined {
+  if (value == null) return value;
+  if (typeof value !== 'object' || Array.isArray(value)) return value as Record<string, unknown>;
+  const next = { ...(value as Record<string, unknown>) };
+  for (const edge of edges) {
+    delete next[edge];
+  }
+  return Object.keys(next).length > 0 ? next : null;
+}
+
+async function getRelationshipJoinEdgesForPiece(pieceId: number): Promise<RectEdgeSide[]> {
+  const relationships = await prisma.piece_relationships.findMany({
+    where: {
+      OR: [
+        { source_piece_id: pieceId },
+        { target_piece_id: pieceId },
+      ],
+    },
+    select: {
+      source_piece_id: true,
+      relation_type: true,
+      relationship_type: true,
+      side: true,
+    },
+  });
+
+  const edges = new Set<RectEdgeSide>();
+  for (const relationship of relationships) {
+    const relationshipType = relationship.relationship_type ?? relationship.relation_type;
+    const parentJoinEdge = normaliseRectEdgeSide(relationship.side);
+    if (!EDGE_JOIN_RELATIONSHIP_TYPES.has(relationshipType) || !parentJoinEdge) continue;
+    edges.add(relationship.source_piece_id === pieceId ? parentJoinEdge : OPPOSITE_EDGE[parentJoinEdge]);
+  }
+
+  return Array.from(edges);
+}
 
 // GET - Get a single piece with full detail for expanded view
 export async function GET(
@@ -405,6 +469,18 @@ export async function PATCH(
     const patchEdgeRight = scEdgesPatch?.right !== undefined ? (scEdgesPatch.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
     // CURVE-2a: Corner edge sync from shapeConfig
     const scForCornersPatch = shapeConfig as Record<string, unknown> | undefined;
+    const relationshipJoinEdges = await getRelationshipJoinEdgesForPiece(pieceIdNum);
+    const cleanNoStripEdges = noStripEdges !== undefined
+      ? Array.from(new Set([...uniqueNoStripEdges(noStripEdges), ...relationshipJoinEdges]))
+      : relationshipJoinEdges.length > 0
+        ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
+        : undefined;
+    const cleanEdgeBuildups = edgeBuildups !== undefined
+      ? removeEdgesFromRecord(edgeBuildups as Record<string, unknown> | null, relationshipJoinEdges)
+      : undefined;
+    const cleanStripWidthOverrides = stripWidthOverrides !== undefined
+      ? removeEdgesFromRecord(stripWidthOverrides as Record<string, unknown> | null, relationshipJoinEdges)
+      : undefined;
 
     // Update the piece
     const updatedPiece = await prisma.quote_pieces.update({
@@ -451,15 +527,15 @@ export async function PATCH(
         ...(scForCornersPatch?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPatch.corner_edge_tr as string) ?? null }),
         ...(scForCornersPatch?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPatch.corner_edge_bl as string) ?? null }),
         ...(scForCornersPatch?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPatch.corner_edge_br as string) ?? null }),
-        // no_strip_edges: wall edges that don't need lamination strips
-        ...(noStripEdges !== undefined && { no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue }),
-        ...(edgeBuildups !== undefined && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
+        // no_strip_edges: wall edges + relationship joins that don't need lamination strips
+        ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
+        ...(edgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(materialCollectionOnly !== undefined && { material_collection_only: materialCollectionOnly }),
         ...(materialCollectionName !== undefined && { material_collection_name: materialCollectionName }),
         ...(pieceType !== undefined && { piece_type: pieceType }),
         ...(edgeArcConfig !== undefined && { edge_arc_config: edgeArcConfig as unknown as Prisma.InputJsonValue }),
         strip_width_overrides: stripWidthOverrides !== undefined
-          ? stripWidthOverrides as unknown as Prisma.InputJsonValue
+          ? cleanStripWidthOverrides as unknown as Prisma.InputJsonValue
           : undefined,
       },
       include: {
@@ -784,6 +860,18 @@ export async function PUT(
     const putEdgeRight = scEdgesPut?.right !== undefined ? (scEdgesPut.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
     // CURVE-2a: Corner edge sync from putShapeConfig
     const scForCornersPut = putShapeConfig as Record<string, unknown> | undefined;
+    const relationshipJoinEdges = await getRelationshipJoinEdgesForPiece(pieceIdNum);
+    const cleanNoStripEdges = putNoStripEdges !== undefined
+      ? Array.from(new Set([...uniqueNoStripEdges(putNoStripEdges), ...relationshipJoinEdges]))
+      : relationshipJoinEdges.length > 0
+        ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
+        : undefined;
+    const cleanEdgeBuildups = putEdgeBuildups !== undefined
+      ? removeEdgesFromRecord(putEdgeBuildups as Record<string, unknown> | null, relationshipJoinEdges)
+      : undefined;
+    const cleanStripWidthOverrides = putStripWidthOverrides !== undefined
+      ? removeEdgesFromRecord(putStripWidthOverrides as Record<string, unknown> | null, relationshipJoinEdges)
+      : undefined;
 
     // Update the piece
     const piece = await prisma.quote_pieces.update({
@@ -830,12 +918,12 @@ export async function PUT(
         ...(scForCornersPut?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPut.corner_edge_tr as string) ?? null }),
         ...(scForCornersPut?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPut.corner_edge_bl as string) ?? null }),
         ...(scForCornersPut?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPut.corner_edge_br as string) ?? null }),
-        // no_strip_edges: wall edges that don't need lamination strips
-        ...(putNoStripEdges !== undefined && { no_strip_edges: putNoStripEdges as unknown as Prisma.InputJsonValue }),
-        ...(putEdgeBuildups !== undefined && { edge_buildups: putEdgeBuildups as unknown as Prisma.InputJsonValue }),
+        // no_strip_edges: wall edges + relationship joins that don't need lamination strips
+        ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
+        ...(putEdgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),
         ...(putStripWidthOverrides !== undefined && {
-          strip_width_overrides: putStripWidthOverrides as unknown as Prisma.InputJsonValue,
+          strip_width_overrides: cleanStripWidthOverrides as unknown as Prisma.InputJsonValue,
         }),
         ...(putPieceType !== undefined && { piece_type: putPieceType }),
         ...(putMaterialCollectionOnly !== undefined && { material_collection_only: Boolean(putMaterialCollectionOnly) }),
