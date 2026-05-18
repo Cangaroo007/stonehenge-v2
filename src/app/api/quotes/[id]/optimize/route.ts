@@ -52,6 +52,7 @@ async function persistOversizeToQuotePieces(
   quoteId: number,
   allPieceRows: Array<{
     id: number;
+    material_id?: number | null;
     length_mm: number;
     width_mm: number;
     shape_type?: string | null;
@@ -59,14 +60,16 @@ async function persistOversizeToQuotePieces(
     materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null;
   }>,
   fallbackSlabLengthMm: number,
-  fallbackSlabWidthMm: number
+  fallbackSlabWidthMm: number,
+  slabOverrides?: Record<string, { slabLengthMm: number; slabWidthMm: number }> | null
 ): Promise<void> {
   const oversizePieceIds: number[] = [];
 
   for (const piece of allPieceRows) {
     // Use per-piece material slab dimensions if available, otherwise the optimizer's resolved dims
-    const slabLengthMm = piece.materials?.slab_length_mm ?? fallbackSlabLengthMm;
-    const slabWidthMm = piece.materials?.slab_width_mm ?? fallbackSlabWidthMm;
+    const materialOverride = piece.material_id ? slabOverrides?.[String(piece.material_id)] : null;
+    const slabLengthMm = materialOverride?.slabLengthMm ?? piece.materials?.slab_length_mm ?? fallbackSlabLengthMm;
+    const slabWidthMm = materialOverride?.slabWidthMm ?? piece.materials?.slab_width_mm ?? fallbackSlabWidthMm;
     const materialName = piece.materials?.name ?? 'caesarstone';
 
     // For L/U shapes, decompose into legs and calculate per-leg cut plans
@@ -693,9 +696,10 @@ export async function POST(
 
       // OVERSIZE PERSISTENCE — Phase 2.5 (multi-material path)
       const allPieceRowsMulti = quote.quote_rooms.flatMap(
-        (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+        (room: { quote_pieces: Array<{ id: number; material_id: number | null; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
           room.quote_pieces.map(p => ({
             id: p.id,
+            material_id: p.material_id,
             length_mm: p.length_mm,
             width_mm: p.width_mm,
             shape_type: p.shape_type,
@@ -703,7 +707,7 @@ export async function POST(
             materials: p.materials,
           }))
       );
-      await persistOversizeToQuotePieces(quoteId, allPieceRowsMulti, slabWidth, slabHeight);
+      await persistOversizeToQuotePieces(quoteId, allPieceRowsMulti, slabWidth, slabHeight, slabOverrides);
 
       // Persist total slab count to quote record
       await prisma.quotes.update({
@@ -825,9 +829,10 @@ export async function POST(
     // Write optimizer oversize detection back to quote_pieces.
     // slabWidth in the optimizer = slab length (longer dimension), slabHeight = slab width (shorter).
     const allPieceRows = quote.quote_rooms.flatMap(
-      (room: { quote_pieces: Array<{ id: number; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
+      (room: { quote_pieces: Array<{ id: number; material_id: number | null; length_mm: number; width_mm: number; shape_type: string | null; shape_config: unknown; materials: { slab_length_mm: number | null; slab_width_mm: number | null; name: string } | null }> }) =>
         room.quote_pieces.map(p => ({
           id: p.id,
+          material_id: p.material_id,
           length_mm: p.length_mm,
           width_mm: p.width_mm,
           shape_type: p.shape_type,
@@ -835,7 +840,7 @@ export async function POST(
           materials: p.materials,
         }))
     );
-    await persistOversizeToQuotePieces(quoteId, allPieceRows, slabWidth, slabHeight);
+    await persistOversizeToQuotePieces(quoteId, allPieceRows, slabWidth, slabHeight, slabOverrides);
 
     // Persist total slab count to quote record
     await prisma.quotes.update({
