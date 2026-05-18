@@ -1313,29 +1313,46 @@ export default function QuoteDetailClient({
   }, [effectivePieces]);
 
   const handleMaterialSlabOverride = useCallback(async (materialId: string, price: number | null) => {
-    setSlabPriceOverrides(prev => ({ ...prev, [materialId]: price }));
+    const previousPrice = slabPriceOverrides[materialId] ?? null;
     const piece = effectivePieces.find(p => String(p.materialId) === materialId);
     if (!piece) return;
-    await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        lengthMm: piece.lengthMm,
-        widthMm: piece.widthMm,
-        thicknessMm: piece.thicknessMm,
-        materialId: piece.materialId,
-        materialName: piece.materialName,
-        edgeTop: piece.edgeTop,
-        edgeBottom: piece.edgeBottom,
-        edgeLeft: piece.edgeLeft,
-        edgeRight: piece.edgeRight,
-        overrideSlabPrice: price,
-        applyToAllMaterial: true,
-      }),
-    });
-    await fetchQuote();
-    triggerRecalculate();
-  }, [effectivePieces, quoteId, triggerRecalculate, fetchQuote]);
+    setSlabPriceOverrides(prev => ({ ...prev, [materialId]: price }));
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/pieces/${piece.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          lengthMm: piece.lengthMm,
+          widthMm: piece.widthMm,
+          thicknessMm: piece.thicknessMm,
+          materialId: piece.materialId,
+          materialName: piece.materialName,
+          edgeTop: piece.edgeTop,
+          edgeBottom: piece.edgeBottom,
+          edgeLeft: piece.edgeLeft,
+          edgeRight: piece.edgeRight,
+          overrideSlabPrice: price,
+          applyToAllMaterial: true,
+        }),
+      });
+      if (!response.ok) {
+        let message = 'Failed to save slab price override';
+        try {
+          const errorData = await response.json();
+          message = errorData.error || message;
+        } catch {
+          // Keep the generic message if the server response is not JSON.
+        }
+        throw new Error(message);
+      }
+      await fetchQuote();
+      triggerRecalculate();
+    } catch (err) {
+      setSlabPriceOverrides(prev => ({ ...prev, [materialId]: previousPrice }));
+      setError(err instanceof Error ? err.message : 'Failed to save slab price override');
+      toast.error('Failed to save slab price override');
+    }
+  }, [effectivePieces, quoteId, slabPriceOverrides, triggerRecalculate, fetchQuote]);
 
   const handleSavePiece = async (pieceData: Partial<QuotePiece>, roomName: string) => {
     setSaving(true);
@@ -1427,6 +1444,8 @@ export default function QuoteDetailClient({
       return;
     }
 
+    const pendingAttachedPiece = isCreate ? pendingWaterfallParentRef.current : null;
+
     setSaving(true);
     try {
       // Auto-generate piece description from current attributes
@@ -1449,10 +1468,10 @@ export default function QuoteDetailClient({
         cutouts: resolvedCutoutsForDesc,
       });
       // If creating a waterfall/splashback piece, override pieceType and laminationMethod
-      const effectiveData: Record<string, unknown> = (isCreate && pendingWaterfallParentRef.current)
+      const effectiveData: Record<string, unknown> = (isCreate && pendingAttachedPiece)
         ? {
             ...data,
-            pieceType: pendingWaterfallParentRef.current.type,
+            pieceType: pendingAttachedPiece.type,
             laminationMethod: 'NONE',
             joinMethod: 'MITRED',
             materialId: data.materialId ?? oldPiece?.materialId ?? null,
@@ -1508,9 +1527,10 @@ export default function QuoteDetailClient({
         const newPieceId = savedPiece.id;
 
         // Create piece_relationship if this piece was created from the waterfall modal
-        if (pendingWaterfallParentRef.current?.parentPieceId) {
-          const { parentPieceId, type, selectedEdge: pendingEdge } = pendingWaterfallParentRef.current;
+        if (pendingAttachedPiece?.parentPieceId) {
+          const { parentPieceId, type, selectedEdge: pendingEdge } = pendingAttachedPiece;
           pendingWaterfallParentRef.current = null;
+          let relationshipRolledBack = false;
           try {
             const relationshipResponse = await fetch(`/api/quotes/${quoteIdStr}/piece-relationships`, {
               method: 'POST',
@@ -1523,14 +1543,45 @@ export default function QuoteDetailClient({
                 grainMatch: false,
               }),
             });
-            if (relationshipResponse.ok) {
-              await fetchRelationships();
+            if (!relationshipResponse.ok) {
+              let relationshipError = 'Failed to create attached-piece relationship';
+              try {
+                const errorData = await relationshipResponse.json();
+                relationshipError = errorData.error || relationshipError;
+              } catch {
+                // Keep the generic error if the server response is not JSON.
+              }
+              const rollbackResponse = await fetch(`/api/quotes/${quoteIdStr}/pieces/${newPieceId}`, {
+                method: 'DELETE',
+              });
+              relationshipRolledBack = true;
+              if (!rollbackResponse.ok) {
+                relationshipError = `${relationshipError}; rollback failed for created piece ${newPieceId}`;
+              }
               await fetchQuote();
               triggerRecalculate();
               triggerOptimise();
+              throw new Error(relationshipError);
             }
-          } catch {
-            // Non-fatal — piece is created, relationship is best-effort
+            await fetchRelationships();
+            await fetchQuote();
+            triggerRecalculate();
+            triggerOptimise();
+          } catch (relationshipError) {
+            if (!relationshipRolledBack) {
+              const rollbackResponse = await fetch(`/api/quotes/${quoteIdStr}/pieces/${newPieceId}`, {
+                method: 'DELETE',
+              });
+              if (!rollbackResponse.ok) {
+                console.error('Attached piece rollback failed:', { newPieceId, relationshipError });
+              }
+            }
+            await fetchQuote();
+            triggerRecalculate();
+            triggerOptimise();
+            throw relationshipError instanceof Error
+              ? relationshipError
+              : new Error('Failed to create attached-piece relationship');
           }
         }
 
@@ -1583,6 +1634,9 @@ export default function QuoteDetailClient({
       console.error('handleInlineSavePiece error:', err);
     } finally {
       setSaving(false);
+      if (pendingAttachedPiece && pendingWaterfallParentRef.current === pendingAttachedPiece) {
+        pendingWaterfallParentRef.current = null;
+      }
       if (!isCreate) {
         savingPiecesRef.current.delete(pieceId);
         // If a save was queued while we were in flight, fire it now
