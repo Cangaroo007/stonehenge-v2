@@ -193,6 +193,40 @@ describe('optimizeSlabs', () => {
     expect(strips.map(strip => strip.lengthMm).sort((a, b) => a - b)).toEqual([403, 997]);
   });
 
+  it('keeps explicit build-up strip semantics when oversize pieces are split', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 1000,
+      slabHeight: 700,
+      kerfWidth: 3,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'oversize-build-up',
+          label: 'Oversize Build-Up',
+          width: 1400,
+          height: 650,
+          thickness: 20,
+          edgeBuildups: {
+            top: { depth: 80, exposed: true, chargeCut: true, chargePolish: true },
+          },
+        },
+      ],
+    });
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+
+    expect(strips).toHaveLength(6);
+    expect(strips.map(strip => strip.stripSubType)).toEqual([
+      'FACE',
+      'RETURN',
+      'SUPPORT',
+      'FACE',
+      'RETURN',
+      'SUPPORT',
+    ]);
+    expect(strips.map(strip => strip.widthMm)).toEqual([80, 60, 40, 80, 60, 40]);
+  });
+
   it('exposes no-rotation metadata on slab placements for renderer warnings', async () => {
     const result = await optimizeSlabs({
       slabWidth: 1000,

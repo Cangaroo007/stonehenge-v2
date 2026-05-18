@@ -690,6 +690,88 @@ function preprocessOversizePieces(
       if (!name) return false;
       return name.toLowerCase().includes('mitre');
     };
+    const pushSegmentEdgeStrips = (
+      edge: 'top' | 'bottom' | 'left' | 'right',
+      segmentLabel: string,
+      segmentId: string,
+      lengthMm: number,
+      isHorizontal: boolean,
+      edgeName?: string,
+    ) => {
+      const buildup = edgeBuildups[edge];
+      const isMitre = isMitreEdge(edgeName);
+      const cap = edge.charAt(0).toUpperCase() + edge.slice(1);
+
+      if (buildup) {
+        const depth = buildup.depth;
+        const returnWidth = (piece.stripWidthOverrides as Record<string, number> | null)?.[edge]
+          ?? stripConfigs?.standard
+          ?? LAMINATION_STRIP_WIDTH_DEFAULT;
+        const supportWidth = depth - (2 * (piece.thickness ?? 20));
+
+        segmentStrips.push({
+          id: `${segmentId}-front-${edge}`,
+          width: isHorizontal ? lengthMm : depth,
+          height: isHorizontal ? depth : lengthMm,
+          thickness: 20,
+          label: `${piece.label} (${segmentLabel} ${cap} front strip)`,
+          isLaminationStrip: true,
+          parentPieceId: piece.id,
+          stripPosition: edge,
+          stripSubType: 'FACE',
+          pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+        });
+
+        segmentStrips.push({
+          id: `${segmentId}-return-${edge}`,
+          width: isHorizontal ? lengthMm : returnWidth,
+          height: isHorizontal ? returnWidth : lengthMm,
+          thickness: 20,
+          label: `${piece.label} (${segmentLabel} ${cap} return strip)`,
+          isLaminationStrip: true,
+          parentPieceId: piece.id,
+          stripPosition: edge,
+          stripSubType: 'RETURN',
+          pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
+        });
+
+        if (supportWidth > 0) {
+          segmentStrips.push({
+            id: `${segmentId}-support-${edge}`,
+            width: isHorizontal ? lengthMm : supportWidth,
+            height: isHorizontal ? supportWidth : lengthMm,
+            thickness: 20,
+            label: `${piece.label} (${segmentLabel} ${cap} support block)`,
+            isLaminationStrip: true,
+            parentPieceId: piece.id,
+            stripPosition: edge,
+            stripSubType: 'SUPPORT',
+            pieceKerfWidth: kerfWidth,
+          });
+        }
+        return;
+      }
+
+      const stripW = getStripWidthForEdge(
+        edgeName,
+        piece.thickness,
+        kerfWidth,
+        stripConfigs,
+        piece.stripWidthOverrides as Record<string, number> | null | undefined,
+        edge,
+      );
+      segmentStrips.push({
+        id: `${segmentId}-lam-${edge}`,
+        width: isHorizontal ? lengthMm : stripW,
+        height: isHorizontal ? stripW : lengthMm,
+        thickness: 20,
+        label: `${piece.label} (${segmentLabel} Strip-${cap}${edgeName ? ` ${edgeName}` : ''})`,
+        isLaminationStrip: true,
+        parentPieceId: piece.id,
+        stripPosition: edge,
+        pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
+      });
+    };
 
     for (let row = 0; row < hSegments; row++) {
       for (let col = 0; col < wSegments; col++) {
@@ -728,76 +810,26 @@ function preprocessOversizePieces(
 
         // Generate position-aware strips for this segment (40mm+ pieces OR pieces with edge buildups)
         if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasExplicitBuildups)) {
+          const segmentId = `${piece.id}-seg-${segmentIndex}`;
+          const segmentLabel = `Part ${segmentIndex + 1}`;
           // TOP strip: only for segments on the top row (row === 0)
           if (isFirstRow && shouldGenerateSegmentStrip('top')) {
-            const edgeName = edgeNames?.top;
-            const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'top');
-            segmentStrips.push({
-              id: `${piece.id}-seg-${segmentIndex}-lam-top`,
-              width: thisWidth,
-              height: stripW,
-              thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Top${edgeName ? ` ${edgeName}` : ''})`,
-              isLaminationStrip: true,
-              parentPieceId: piece.id,
-              stripPosition: 'top',
-              pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-            });
+            pushSegmentEdgeStrips('top', segmentLabel, segmentId, thisWidth, true, edgeNames?.top);
           }
 
           // BOTTOM strip: only for segments on the bottom row (last row)
           if (isLastRow && shouldGenerateSegmentStrip('bottom')) {
-            const edgeName = edgeNames?.bottom;
-            const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'bottom');
-            segmentStrips.push({
-              id: `${piece.id}-seg-${segmentIndex}-lam-bottom`,
-              width: thisWidth,
-              height: stripW,
-              thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Bottom${edgeName ? ` ${edgeName}` : ''})`,
-              isLaminationStrip: true,
-              parentPieceId: piece.id,
-              stripPosition: 'bottom',
-              pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-            });
+            pushSegmentEdgeStrips('bottom', segmentLabel, segmentId, thisWidth, true, edgeNames?.bottom);
           }
 
           // LEFT strip: only for segments on the left column (col === 0)
           if (isFirstCol && shouldGenerateSegmentStrip('left')) {
-            const edgeName = edgeNames?.left;
-            const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'left');
-            segmentStrips.push({
-              id: `${piece.id}-seg-${segmentIndex}-lam-left`,
-              width: stripW,
-              height: thisHeight,
-              thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Left${edgeName ? ` ${edgeName}` : ''})`,
-              isLaminationStrip: true,
-              parentPieceId: piece.id,
-              stripPosition: 'left',
-              pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-            });
+            pushSegmentEdgeStrips('left', segmentLabel, segmentId, thisHeight, false, edgeNames?.left);
           }
 
           // RIGHT strip: only for segments on the right column (last col)
           if (isLastCol && shouldGenerateSegmentStrip('right')) {
-            const edgeName = edgeNames?.right;
-            const isMitre = isMitreEdge(edgeName);
-            const stripW = getStripWidthForEdge(edgeName, piece.thickness, kerfWidth, stripConfigs, piece.stripWidthOverrides as Record<string, number> | null | undefined, 'right');
-            segmentStrips.push({
-              id: `${piece.id}-seg-${segmentIndex}-lam-right`,
-              width: stripW,
-              height: thisHeight,
-              thickness: 20,
-              label: `${piece.label} (Part ${segmentIndex + 1} Strip-Right${edgeName ? ` ${edgeName}` : ''})`,
-              isLaminationStrip: true,
-              parentPieceId: piece.id,
-              stripPosition: 'right',
-              pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
-            });
+            pushSegmentEdgeStrips('right', segmentLabel, segmentId, thisHeight, false, edgeNames?.right);
           }
         }
 
