@@ -87,6 +87,30 @@ export async function POST(
   }
 
   try {
+    const parentPieceId = Number(body.parentPieceId);
+    const childPieceId = Number(body.childPieceId);
+    if (!Number.isInteger(parentPieceId) || !Number.isInteger(childPieceId)) {
+      return NextResponse.json(
+        { error: 'parentPieceId and childPieceId must be valid piece IDs' },
+        { status: 400 }
+      );
+    }
+
+    const pieces = await prisma.quote_pieces.findMany({
+      where: {
+        id: { in: [parentPieceId, childPieceId] },
+        quote_rooms: { quote_id: quoteId },
+      },
+      select: { id: true },
+    });
+    const foundPieceIds = new Set(pieces.map(piece => piece.id));
+    if (!foundPieceIds.has(parentPieceId) || !foundPieceIds.has(childPieceId)) {
+      return NextResponse.json(
+        { error: 'Both pieces must belong to this quote' },
+        { status: 400 }
+      );
+    }
+
     const relationship = await createRelationship(body);
     await prisma.slab_optimizations.deleteMany({
       where: { quoteId },

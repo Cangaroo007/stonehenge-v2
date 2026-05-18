@@ -289,6 +289,11 @@ export async function DELETE(
             quote_rooms: true,
           },
         },
+        targetPiece: {
+          include: {
+            quote_rooms: true,
+          },
+        },
       },
     });
 
@@ -296,7 +301,10 @@ export async function DELETE(
       return NextResponse.json({ error: 'Relationship not found' }, { status: 404 });
     }
 
-    if (relationship.sourcePiece.quote_rooms.quote_id !== quoteId) {
+    if (
+      relationship.sourcePiece.quote_rooms.quote_id !== quoteId ||
+      relationship.targetPiece.quote_rooms.quote_id !== quoteId
+    ) {
       return NextResponse.json(
         { error: 'Relationship does not belong to this quote' },
         { status: 403 }
