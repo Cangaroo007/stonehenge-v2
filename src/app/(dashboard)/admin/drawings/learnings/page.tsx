@@ -98,6 +98,9 @@ function pieceRows(value: unknown): unknown[] {
   const directPieces = arrayField(record, 'pieces');
   if (directPieces.length > 0) return directPieces;
 
+  const takeoffPieces = arrayField(asRecord(record?.takeoff), 'pieces');
+  if (takeoffPieces.length > 0) return takeoffPieces;
+
   const rooms = arrayField(record, 'rooms');
   return rooms.flatMap((room) => arrayField(asRecord(room), 'pieces'));
 }
@@ -132,11 +135,12 @@ function totalAreaSqm(pieces: unknown[]): number {
 }
 
 function takeoffSummary(value: unknown) {
+  const record = asRecord(value);
   const pieces = pieceRows(value);
   return {
-    pieces: pieces.length,
+    pieces: pieces.length || Number(record?.takeoff && asRecord(record.takeoff)?.pieceCount) || 0,
     cutouts: totalCutouts(pieces),
-    areaSqm: totalAreaSqm(pieces),
+    areaSqm: totalAreaSqm(pieces) || Number(record?.takeoff && asRecord(record.takeoff)?.totalAreaSqm) || 0,
   };
 }
 
@@ -355,6 +359,7 @@ export default function LearningsPage() {
                 {quoteLearningExamples.map((example) => {
                   const expected = takeoffSummary(example.expectedData);
                   const extracted = takeoffSummary(example.extractedData);
+                  const hasExtractedData = example.extractedData != null;
                   const areaDelta = extracted.areaSqm - expected.areaSqm;
 
                   return (
@@ -379,26 +384,28 @@ export default function LearningsPage() {
                     </td>
                     <td className="table-cell text-sm">
                       <div className="font-medium text-gray-900">
-                        {formatDelta(expected.pieces, extracted.pieces)}
+                        {hasExtractedData ? formatDelta(expected.pieces, extracted.pieces) : expected.pieces}
                       </div>
                       <div className="text-xs text-gray-500">
-                        expected {expected.pieces}
+                        {hasExtractedData ? `expected ${expected.pieces}` : 'expected pieces'}
                       </div>
                     </td>
                     <td className="table-cell text-sm">
                       <div className="font-medium text-gray-900">
-                        {formatDelta(expected.cutouts, extracted.cutouts)}
+                        {hasExtractedData ? formatDelta(expected.cutouts, extracted.cutouts) : expected.cutouts}
                       </div>
                       <div className="text-xs text-gray-500">
-                        expected {expected.cutouts}
+                        {hasExtractedData ? `expected ${expected.cutouts}` : 'expected cutouts'}
                       </div>
                     </td>
                     <td className="table-cell text-sm">
                       <div className="font-medium text-gray-900">
-                        {extracted.areaSqm.toFixed(2)} m² ({areaDelta >= 0 ? '+' : ''}{areaDelta.toFixed(2)} m²)
+                        {hasExtractedData
+                          ? `${extracted.areaSqm.toFixed(2)} m² (${areaDelta >= 0 ? '+' : ''}${areaDelta.toFixed(2)} m²)`
+                          : `${expected.areaSqm.toFixed(2)} m²`}
                       </div>
                       <div className="text-xs text-gray-500">
-                        expected {expected.areaSqm.toFixed(2)} m²
+                        {hasExtractedData ? `expected ${expected.areaSqm.toFixed(2)} m²` : 'expected area'}
                       </div>
                     </td>
                     <td className="table-cell max-w-xs">
