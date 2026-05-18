@@ -130,6 +130,9 @@ export default function EdgePanel({
   const selectedAttachedType = selectionCount === 1
     ? attachedPieceTypes?.[selectedEdgeIds[0]]
     : undefined;
+  const selectedWallEdge = selectionCount === 1 && !selectedAttachedType
+    ? edgeListIncludes(noStripEdges, selectedEdgeIds[0])
+    : false;
   const visibleEdgeTypes = useMemo(
     () => edgeTypes.filter((edgeType) => !edgeType.isMitred),
     [edgeTypes]
@@ -376,6 +379,10 @@ export default function EdgePanel({
           selectedAttachedType ? (
             <p className="text-xs text-blue-600">
               This edge has a {selectedAttachedType === 'WATERFALL' ? 'waterfall' : 'splashback'} join, not a wall edge.
+            </p>
+          ) : selectedWallEdge ? (
+            <p className="text-xs text-stone-600">
+              This edge is marked against wall. Untick it in Wall Edges before attaching a waterfall or splashback.
             </p>
           ) : (
             <div className="flex gap-2">
