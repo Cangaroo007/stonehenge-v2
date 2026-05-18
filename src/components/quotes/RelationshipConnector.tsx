@@ -27,6 +27,13 @@ interface EdgeMidpoint {
   side: 'top' | 'bottom' | 'left' | 'right';
 }
 
+const OPPOSITE_EDGE: Record<EdgeMidpoint['side'], EdgeMidpoint['side']> = {
+  top: 'bottom',
+  bottom: 'top',
+  left: 'right',
+  right: 'left',
+};
+
 function getEdgeMidpoints(pos: PiecePosition): EdgeMidpoint[] {
   const w = Math.max(pos.width, 20);
   const h = Math.max(pos.height, 16);
@@ -36,6 +43,21 @@ function getEdgeMidpoints(pos: PiecePosition): EdgeMidpoint[] {
     { x: pos.x, y: pos.y + h / 2, side: 'left' },
     { x: pos.x + w, y: pos.y + h / 2, side: 'right' },
   ];
+}
+
+function getEdgeMidpoint(pos: PiecePosition, side: EdgeMidpoint['side']): EdgeMidpoint {
+  const w = Math.max(pos.width, 20);
+  const h = Math.max(pos.height, 16);
+  switch (side) {
+    case 'top':
+      return { x: pos.x + w / 2, y: pos.y, side };
+    case 'bottom':
+      return { x: pos.x + w / 2, y: pos.y + h, side };
+    case 'left':
+      return { x: pos.x, y: pos.y + h / 2, side };
+    case 'right':
+      return { x: pos.x + w, y: pos.y + h / 2, side };
+  }
 }
 
 function edgeDistance(a: { x: number; y: number }, b: { x: number; y: number }): number {
@@ -63,6 +85,29 @@ function findNearestEdges(
   }
 
   return best;
+}
+
+function findRelationshipEdges(
+  relationship: PieceRelationshipData,
+  parentPos: PiecePosition,
+  childPos: PiecePosition,
+): { parent: EdgeMidpoint; child: EdgeMidpoint } {
+  const parentSide = normaliseRectEdgeSide(relationship.joinPosition);
+  if (!parentSide) return findNearestEdges(parentPos, childPos);
+
+  switch (relationship.relationshipType) {
+    case 'WATERFALL':
+    case 'SPLASHBACK':
+    case 'RETURN':
+    case 'MITRE_JOIN':
+    case 'BUTT_JOIN':
+      return {
+        parent: getEdgeMidpoint(parentPos, parentSide),
+        child: getEdgeMidpoint(childPos, OPPOSITE_EDGE[parentSide]),
+      };
+    default:
+      return findNearestEdges(parentPos, childPos);
+  }
 }
 
 // ─── Path Builders ──────────────────────────────────────────────────────────
@@ -205,7 +250,7 @@ export default function RelationshipConnector({
   const label = getLabel(relationship);
 
   const { pathData, labelPos, arrowPoints, mitreMarker, midpoint } = useMemo(() => {
-    const edges = findNearestEdges(parentPosition, childPosition);
+    const edges = findRelationshipEdges(relationship, parentPosition, childPosition);
     const from = edges.parent;
     const to = edges.child;
 
@@ -251,7 +296,7 @@ export default function RelationshipConnector({
       mitreMarker: mitre,
       midpoint: { x: midX, y: midY },
     };
-  }, [parentPosition, childPosition, type, showArrow]);
+  }, [relationship, parentPosition, childPosition, type, showArrow]);
 
   const opacity = isHighlighted ? 1.0 : isDimmed ? 0.4 : 0.7;
   const effectiveStrokeWidth = isHighlighted ? strokeWidth + 1 : strokeWidth;
