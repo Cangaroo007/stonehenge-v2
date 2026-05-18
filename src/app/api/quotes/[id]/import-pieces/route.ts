@@ -237,12 +237,21 @@ export async function POST(
     if (sourceAnalysisId) {
       const analysisId = parseInt(sourceAnalysisId);
       if (!isNaN(analysisId)) {
-        await prisma.quote_drawing_analyses.update({
-          where: { id: analysisId },
-          data: {
-            imported_pieces: createdPieces.map(p => p.id.toString()),
+        const analysis = await prisma.quote_drawing_analyses.findFirst({
+          where: {
+            id: analysisId,
+            quote_id: quoteId,
           },
+          select: { id: true },
         });
+        if (analysis) {
+          await prisma.quote_drawing_analyses.update({
+            where: { id: analysis.id },
+            data: {
+              imported_pieces: createdPieces.map(p => p.id.toString()),
+            },
+          });
+        }
       }
     }
 
