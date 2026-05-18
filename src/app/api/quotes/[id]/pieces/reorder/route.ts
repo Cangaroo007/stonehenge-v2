@@ -40,6 +40,24 @@ export async function PUT(
       );
     }
 
+    const pieceIds = pieces.map(piece => piece.id);
+    const ownedPieces = await prisma.quote_pieces.findMany({
+      where: {
+        id: { in: pieceIds },
+        quote_rooms: { quote_id: quoteId },
+      },
+      select: { id: true },
+    });
+    const ownedPieceIds = new Set(ownedPieces.map(piece => piece.id));
+    const hasForeignPiece = pieces.some(piece => !ownedPieceIds.has(piece.id));
+
+    if (hasForeignPiece) {
+      return NextResponse.json(
+        { error: 'All reordered pieces must belong to this quote' },
+        { status: 400 }
+      );
+    }
+
     // Update all pieces in a transaction
     await prisma.$transaction(
       pieces.map((piece: ReorderItem) =>
