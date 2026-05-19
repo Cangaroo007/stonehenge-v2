@@ -351,11 +351,20 @@ export async function checkQuoteReadiness(
 
   // ── Check 11: Manual charges and credits reviewed ──
   const hasReviewCharge = customCharges.some((charge) =>
-    /travel|measure|site|setup|small|manual|commercial|adjust|credit|discount/i.test(charge.description),
+    /travel|measure|templating|template|site|setup|small|manual|commercial|adjust|credit|discount/i.test(charge.description),
   );
   const chargeOrCreditLabel = customCharges.length === 1 ? 'charge/credit' : 'charges/credits';
   const isSmallJob = totalPieces > 0 && (totalPieces <= 2 || (subtotal > 0 && subtotal < 2500));
-  if (isSmallJob && !hasReviewCharge) {
+  if (quote.installationIncluded !== false && !hasReviewCharge) {
+    checks.push({
+      id: 'manual-charges',
+      label: 'Manual charges and credits reviewed',
+      status: 'warn',
+      detail: 'Install is included and there is no templating, travel, site, manual adjustment, credit, or discount line',
+      fix: 'Confirm this is intentional before issuing the quote. Add a custom charge/credit if NCS-style measure/travel or manual judgement applies.',
+      fixAction: 'Review Adjustments',
+    });
+  } else if (isSmallJob && !hasReviewCharge) {
     checks.push({
       id: 'manual-charges',
       label: 'Manual charges and credits reviewed',
