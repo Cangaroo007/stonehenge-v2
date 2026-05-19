@@ -464,7 +464,7 @@ function preprocessOversizeStrips(
 }
 
 /**
- * Generates lamination summary for reporting
+ * Generates build-up strip summary for reporting
  */
 function generateLaminationSummary(
   originalPieces: OptimizationPiece[],
@@ -538,6 +538,7 @@ function generateLaminationSummary(
         position: s.stripPosition || 'unknown',
         lengthMm: isHorizontalEdge(s.stripPosition || '') ? s.width : s.height,
         widthMm: isHorizontalEdge(s.stripPosition || '') ? s.height : s.width,
+        thicknessMm: s.thickness,
         stripSubType: s.stripSubType,
       }))
     });

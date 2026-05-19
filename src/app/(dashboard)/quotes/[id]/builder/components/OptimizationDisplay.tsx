@@ -613,7 +613,7 @@ function findPlacementForPiece(
   if (exact) return exact;
 
   // 2. Decomposed piece — find first non-lamination child placement
-  // Lamination strips use "-lam-" in their ID — skip those for dimension recovery
+  // Build-up strips use "-lam-" in their ID — skip those for dimension recovery
   const child = groupPlacements.find(
     (p: any) =>
       p.pieceId?.startsWith(pid + '-') &&
@@ -638,14 +638,14 @@ function reconstructMultiMaterialResult(
 
     // Filter placements belonging to this material group
     // Include placements whose pieceId is in the group's piece list,
-    // and also lamination strips whose parentPieceId is in the group
+    // and also build-up strips whose parentPieceId is in the group
     const groupPlacements = allPlacements.filter((p: any) => {
       if (pieceIdSet.has(p.pieceId)) return true;
       // Extract original piece ID by stripping all decomposition suffixes:
       // {id}-part-{n}-seg-{n}-lam-{position} → {id}
       const basePieceId = p.pieceId?.split('-seg-')[0]?.split('-part-')[0]?.split('-lam-')[0];
       if (basePieceId && pieceIdSet.has(basePieceId)) return true;
-      // Check parentPieceId for lamination strips
+      // Check parentPieceId for build-up strips
       if (p.parentPieceId && pieceIdSet.has(p.parentPieceId)) return true;
       return false;
     });

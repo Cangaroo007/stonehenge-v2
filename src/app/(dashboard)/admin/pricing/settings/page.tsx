@@ -504,7 +504,7 @@ export default function PricingSettingsPage() {
               Strip Promotion Threshold (mm)
             </label>
             <p className="text-xs text-gray-500">
-              Lamination strips at or above this width show a &ldquo;Promote to Piece&rdquo; option
+              Build-up strips at or above this width show a &ldquo;Promote to Piece&rdquo; option
               in the Parts List, enabling cutting charges to be applied.
             </p>
             <div className="flex items-center gap-3">

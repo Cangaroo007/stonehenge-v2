@@ -176,7 +176,7 @@ export interface PieceVisualEditorProps {
   /** Edge profiles stored in shape_config.edges (keyed by raw edge id) */
   shapeConfigEdges?: Record<string, string | null>;
 
-  /** Edges marked as wall edges (no lamination strip) */
+  /** Edges marked as wall/join edges (no build-up strip) */
   noStripEdges?: string[];
 
   /** Build-up depth per edge side — used to show e.g. "MIT 40mm" in labels */

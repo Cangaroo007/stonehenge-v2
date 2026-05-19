@@ -99,7 +99,7 @@ export interface EnginePiece {
   cuttingSegments?: EngineCuttingSegment[] // explicit per-edge straight cut segments for mixed 20/40mm build-up rates
   areaSqm?: number              // overrides (l*w)/1_000_000
   finishedEdgesLm?: number      // overrides sum-of-finished-edge-lengths from edges array
-  stripLm?: number              // all edges minus wall edges — for lamination strip cost
+  stripLm?: number              // all edges minus wall/join edges — for build-up strip cost
   shapeType?: string             // e.g. RECTANGLE, FULL_CIRCLE, RADIUS_END, ROUNDED_RECT
   shapeConfig?: unknown          // shape-specific configuration (RadiusEndConfig, etc.)
   arcLengthLm?: number          // curved arc length in Lm — set for ROUNDED_RECT, RADIUS_END, FULL_CIRCLE, CONCAVE_ARC

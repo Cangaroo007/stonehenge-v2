@@ -3,7 +3,7 @@
  *
  * Generates a manufacturing-ready JSON export for locked/finalised quotes.
  * Contains piece-level dimensions, edge profiles, cutout details,
- * machine assignments per operation, and lamination strip info.
+ * machine assignments per operation, and build-up strip info.
  *
  * Reference: Stonehenge-v2 Machine Logic doc — Section 4
  */
@@ -184,7 +184,7 @@ export async function generateManufacturingExport(
       const laminationMachine = machineByOp.get('LAMINATION');
       const cutoutMachine = machineByOp.get('CUTOUT');
 
-      // Build lamination strips for this piece from optimisation data
+      // Build build-up strips for this piece from optimisation data
       const pieceStrips = buildLaminationStrips(
         piece.id.toString(),
         laminationSummary,
@@ -332,7 +332,7 @@ function parseCutouts(
 }
 
 /**
- * Extract lamination strips for a specific piece from the optimisation summary.
+ * Extract build-up strips for a specific piece from the optimisation summary.
  */
 function buildLaminationStrips(
   pieceId: string,

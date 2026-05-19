@@ -13,7 +13,7 @@ interface PieceInput {
   height: string;
   label: string;
   thickness: string; // "20", "30", "40", "60"
-  finishedEdges: {   // Which edges need lamination
+  finishedEdges: {   // Which edges need build-up strips
     top: boolean;
     bottom: boolean;
     left: boolean;
@@ -529,7 +529,7 @@ export default function OptimizePage() {
                         Finished Edges
                         {hasFinishedEdges && is40mmPlus && (
                           <span className="ml-2 text-blue-600">
-                            → Will generate {edgeCount} lamination strip{edgeCount !== 1 ? 's' : ''}
+                            → Will generate {edgeCount} build-up strip{edgeCount !== 1 ? 's' : ''}
                           </span>
                         )}
                       </div>
@@ -573,11 +573,11 @@ export default function OptimizePage() {
                       </div>
                       {is40mmPlus ? (
                         <p className="text-xs text-blue-600 mt-1 font-medium">
-                          ✓ 40mm+ thickness: Each edge generates a lamination strip
+                          ✓ 40mm+ thickness: Each edge generates a build-up strip
                         </p>
                       ) : (
                         <p className="text-xs text-gray-500 mt-1">
-                          Finished edges for this piece (no lamination strips for {piece.thickness}mm)
+                          Finished edges for this piece (no build-up strips for {piece.thickness}mm)
                         </p>
                       )}
                     </div>

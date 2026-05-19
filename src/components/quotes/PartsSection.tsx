@@ -341,7 +341,7 @@ function derivePartsForPiece(
     });
   }
 
-  // 2. Lamination strips — edge_buildups takes priority, optimizer data used for slab assignment only
+  // 2. Build-up strips — edge_buildups takes priority, optimizer data used for slab assignment only
   const edgeBuildupsForStrips =
     (piece as unknown as { edgeBuildups?: Record<string, EdgeBuildupConfig> | null }).edgeBuildups ??
     (piece as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> | null }).edge_buildups ??
@@ -392,7 +392,7 @@ function derivePartsForPiece(
           name: stripName,
           lengthMm: strip.lengthMm,
           widthMm: strip.widthMm,
-          thicknessMm: 20,
+          thicknessMm: strip.thicknessMm ?? thicknessMm,
           slab: findSlabForStrip(piece.id, strip.position, placements, occurrenceIndex),
           stripPosition: strip.position,
           parentPieceId: piece.id,
@@ -889,7 +889,7 @@ export default function PartsSection({
           materialId: parentPiece.material_id,
           roomName,
           shapeType: 'RECTANGLE',
-          description: `Promoted from lamination strip (parent: ${parentPiece.name}, edge: ${part.stripPosition ?? 'unknown'})`,
+          description: `Promoted from build-up strip (parent: ${parentPiece.name}, edge: ${part.stripPosition ?? 'unknown'})`,
           promotedFromPieceId: parentPiece.id,
           promotedEdgePosition: part.stripPosition ?? null,
         }),
@@ -1090,7 +1090,7 @@ export default function PartsSection({
       </div>
 
       {/* WF-2c: Apron Strips section removed — strips already appear nested under
-          parent piece via lamination strip derivation in derivePartsForPiece() */}
+          parent piece via build-up strip derivation in derivePartsForPiece() */}
 
     </div>
   );

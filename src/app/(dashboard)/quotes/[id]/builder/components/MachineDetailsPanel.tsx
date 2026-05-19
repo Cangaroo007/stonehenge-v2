@@ -41,8 +41,8 @@ const OPERATION_LABELS: Record<string, { label: string; description: string }> =
     description: 'Mitre cuts for build-up/drop-edge construction',
   },
   LAMINATION: {
-    label: 'Lamination',
-    description: 'Lamination strip bonding',
+    label: 'Build-up bonding',
+    description: 'Build-up strip bonding',
   },
   CUTOUT: {
     label: 'Cutouts',

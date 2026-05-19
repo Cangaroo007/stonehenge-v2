@@ -527,7 +527,7 @@ export async function PATCH(
         ...(scForCornersPatch?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPatch.corner_edge_tr as string) ?? null }),
         ...(scForCornersPatch?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPatch.corner_edge_bl as string) ?? null }),
         ...(scForCornersPatch?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPatch.corner_edge_br as string) ?? null }),
-        // no_strip_edges: wall edges + relationship joins that don't need lamination strips
+        // no_strip_edges: wall edges + relationship joins that don't need build-up strips
         ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
         ...(edgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(materialCollectionOnly !== undefined && { material_collection_only: materialCollectionOnly }),
@@ -918,7 +918,7 @@ export async function PUT(
         ...(scForCornersPut?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPut.corner_edge_tr as string) ?? null }),
         ...(scForCornersPut?.corner_edge_bl !== undefined && { corner_edge_bl: (scForCornersPut.corner_edge_bl as string) ?? null }),
         ...(scForCornersPut?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPut.corner_edge_br as string) ?? null }),
-        // no_strip_edges: wall edges + relationship joins that don't need lamination strips
+        // no_strip_edges: wall edges + relationship joins that don't need build-up strips
         ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
         ...(putEdgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),

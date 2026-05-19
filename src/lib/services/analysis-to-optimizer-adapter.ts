@@ -167,7 +167,7 @@ function buildOptimizerInput(
       height: p.height,
       thickness: config.thickness,
       // Elevation faces are full-coverage stone — no specific finished edges
-      // (lamination strips are for benchtop pieces, not elevation cladding)
+      // (build-up strips are for benchtop pieces, not elevation cladding)
       canRotate: config.allowRotation,
     })),
     slabWidth: config.slabWidth,

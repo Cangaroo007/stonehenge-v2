@@ -94,7 +94,7 @@ export default function StripConfigurationsPage() {
       <div className="mb-6">
         <h1 className="text-xl font-semibold text-gray-900">Strip Configurations</h1>
         <p className="text-sm text-gray-500 mt-1">
-          Configure lamination strip widths for 40mm pieces. These values are used
+          Configure build-up strip widths. These values are used
           by the slab optimiser to calculate how much slab material is consumed by
           edge strips.
         </p>

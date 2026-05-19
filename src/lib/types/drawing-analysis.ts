@@ -309,7 +309,7 @@ export interface SlabFitConfig {
   slabHeight: number;                 // mm (maps to slab widthMm)
   kerfWidth: number;                  // mm (default 8)
   allowRotation: boolean;             // default true
-  thickness: number;                  // mm (20 or 40) — affects lamination strips
+  thickness: number;                  // mm (20 or 40) — affects build-up strips
 }
 
 /**

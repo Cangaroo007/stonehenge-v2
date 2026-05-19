@@ -3,7 +3,7 @@
  * Used by the bin-packing algorithm and API endpoints
  */
 
-// NEW: Which edges are finished (polished) - needed for 40mm+ lamination
+// NEW: Which edges are finished (polished) - used for build-up strip generation
 export interface FinishedEdges {
   top: boolean;
   bottom: boolean;
@@ -24,7 +24,7 @@ export interface Placement {
   grainMatched?: boolean;
   /** Whether this piece was allowed to rotate during optimisation. */
   canRotate?: boolean;
-  // Lamination tracking
+  // Build-up strip tracking
   isLaminationStrip?: boolean;
   parentPieceId?: string;
   stripPosition?: string;
@@ -68,7 +68,7 @@ export interface SlabResult {
   wastePercent: number;
 }
 
-// NEW: Lamination summary for reporting
+// NEW: Build-up strip summary for reporting
 export interface LaminationSummary {
   totalStrips: number;
   totalStripArea: number; // m²
@@ -79,6 +79,7 @@ export interface LaminationSummary {
       position: string;
       lengthMm: number;
       widthMm: number;
+      thicknessMm?: number;
       stripSubType?: 'FACE' | 'RETURN' | 'SUPPORT';
     }>;
   }>;
@@ -92,7 +93,7 @@ export interface OptimizationResult {
   totalWasteArea: number;
   wastePercent: number;
   unplacedPieces: string[];
-  // Lamination summary
+  // Build-up strip summary
   laminationSummary?: LaminationSummary;
   // Warnings from the optimizer (oversize splits, etc.)
   warnings?: string[];
@@ -117,7 +118,7 @@ export interface OptimizationInput {
     canRotate?: boolean;
     // Thickness tracking (20mm, 40mm, 60mm, etc.)
     thickness?: number;
-    // Which edges need lamination strips
+    // Which edges need build-up strips
     finishedEdges?: FinishedEdges;
     // Edge type names per edge (for determining strip widths)
     edgeTypeNames?: EdgeTypeInfo;
@@ -127,9 +128,9 @@ export interface OptimizationInput {
     // Pieces/shape parts with the same groupId should be kept on the same slab where possible.
     groupId?: string;
     grainMatched?: boolean;
-    // Extra edges from shape_config.edges (INNER, R-BTM, etc.) — used for L/U lamination strips
+    // Extra edges from shape_config.edges (INNER, R-BTM, etc.) — used for L/U build-up strips
     shapeConfigEdges?: Record<string, string | null>;
-    // Edges marked as wall edges — no lamination strip generated for these
+    // Edges marked as wall/join edges — no build-up strip generated for these
     noStripEdges?: string[];
     // Per-edge strip width overrides (mm) — overrides tenant default per edge
     stripWidthOverrides?: Record<string, number> | null;
