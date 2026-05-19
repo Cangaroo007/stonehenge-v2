@@ -4,6 +4,13 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { formatCurrency } from '@/lib/utils';
 import type { QuoteCustomCharge, QuoteDiscount, DiscountType, DiscountAppliesTo } from '@/lib/types/quote-adjustments';
 
+const CUSTOM_CHARGE_PRESETS = [
+  { description: 'Measure / travel charge', amount: 200 },
+  { description: 'Regional measure / travel charge', amount: 300 },
+  { description: 'Small job setup charge', amount: 200 },
+  { description: 'Manual commercial adjustment', amount: 0 },
+] as const;
+
 interface QuoteAdjustmentsProps {
   quoteId: number;
   customCharges: QuoteCustomCharge[];
@@ -88,7 +95,7 @@ export default function QuoteAdjustments({
   const handleAddCharge = useCallback(async () => {
     const desc = descriptionInput.trim();
     const amt = parseFloat(amountInput);
-    if (!desc || isNaN(amt) || amt <= 0) return;
+    if (!desc || isNaN(amt) || amt === 0) return;
 
     setSaving(true);
     try {
@@ -109,6 +116,33 @@ export default function QuoteAdjustments({
       setSaving(false);
     }
   }, [quoteId, descriptionInput, amountInput, onChanged]);
+
+  const handlePresetCharge = useCallback(async (description: string, amount: number) => {
+    if (amount === 0) {
+      setShowAddForm(true);
+      setDescriptionInput(description);
+      setAmountInput('');
+      setTimeout(() => {
+        const amountField = document.getElementById('charge-amount-input');
+        if (amountField) amountField.focus();
+      }, 50);
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/quotes/${quoteId}/custom-charges`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description, amount }),
+      });
+      if (res.ok) onChanged();
+    } catch {
+      // Error silently handled — user sees no change
+    } finally {
+      setSaving(false);
+    }
+  }, [quoteId, onChanged]);
 
   const handleDeleteCharge = useCallback(async (chargeId: number) => {
     try {
@@ -133,7 +167,7 @@ export default function QuoteAdjustments({
     if (!editingChargeId) return;
     const desc = editDescription.trim();
     const amt = parseFloat(editAmount);
-    if (!desc || isNaN(amt) || amt <= 0) return;
+    if (!desc || isNaN(amt) || amt === 0) return;
 
     try {
       const res = await fetch(`/api/quotes/${quoteId}/custom-charges/${editingChargeId}`, {
@@ -265,7 +299,7 @@ export default function QuoteAdjustments({
       <div className={wrapperClass}>
         {hasCharges && (
           <div className="p-4">
-            <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs</h4>
+            <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs / Credits</h4>
             <div className="space-y-1.5">
               {customCharges.map(charge => (
                 <div key={charge.id} className="flex justify-between text-sm">
@@ -274,7 +308,7 @@ export default function QuoteAdjustments({
                 </div>
               ))}
               <div className="flex justify-between text-sm font-medium pt-1.5 border-t border-gray-100">
-                <span className="text-gray-700">Additional costs total:</span>
+                <span className="text-gray-700">Additional costs / credits total:</span>
                 <span className="tabular-nums">{formatCurrency(customChargesTotal)}</span>
               </div>
             </div>
@@ -307,7 +341,21 @@ export default function QuoteAdjustments({
     <div className={editWrapperClass}>
       {/* Additional Costs Section */}
       <div className="p-4">
-        <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs</h4>
+        <h4 className="text-sm font-semibold text-gray-700 mb-3">Additional Costs / Credits</h4>
+
+        <div className="flex flex-wrap gap-1.5 mb-3">
+          {CUSTOM_CHARGE_PRESETS.map(preset => (
+            <button
+              key={preset.description}
+              type="button"
+              onClick={() => handlePresetCharge(preset.description, preset.amount)}
+              disabled={saving}
+              className="rounded-full border border-gray-200 bg-gray-50 px-2.5 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+            >
+              {preset.amount === 0 ? preset.description : `${preset.description} ${formatCurrency(preset.amount)}`}
+            </button>
+          ))}
+        </div>
 
         {/* Existing charges */}
         {customCharges.length > 0 && (
@@ -330,7 +378,6 @@ export default function QuoteAdjustments({
                         onChange={e => setEditAmount(e.target.value)}
                         className="w-24 text-sm border border-gray-300 rounded px-2 py-1 text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                         step="0.01"
-                        min="0.01"
                       />
                     </div>
                     <button
@@ -401,7 +448,7 @@ export default function QuoteAdjustments({
                 onFocus={() => {
                   if (suggestions.length > 0) setShowSuggestions(true);
                 }}
-                placeholder="e.g. Crane hire, Sealing treatment"
+                placeholder="e.g. Measure / travel charge, Manual adjustment"
                 className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                 autoFocus
               />
@@ -432,14 +479,13 @@ export default function QuoteAdjustments({
                   placeholder="0.00"
                   className="w-full text-sm border border-gray-300 rounded px-2 py-1.5 text-right focus:ring-1 focus:ring-blue-500 focus:border-blue-500"
                   step="0.01"
-                  min="0.01"
                 />
               </div>
             </div>
             <div className="flex gap-2 pt-1">
               <button
                 onClick={handleAddCharge}
-                disabled={saving || !descriptionInput.trim() || !amountInput || parseFloat(amountInput) <= 0}
+                disabled={saving || !descriptionInput.trim() || !amountInput || parseFloat(amountInput) === 0}
                 className="text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-3 py-1 rounded"
               >
                 {saving ? 'Adding...' : 'Add'}
