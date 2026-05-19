@@ -432,6 +432,11 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        relatedTo?: {
+          pieceName?: string | null;
+          relationshipType?: string | null;
+          joinPosition?: string | null;
+        } | null;
         cutouts?: Array<{ name?: string; type?: string; quantity?: number }>;
       }>}>; metadata?: { defaultThickness?: number } };
       const pieces: Array<{
@@ -448,6 +453,11 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        relatedTo?: {
+          pieceName?: string | null;
+          relationshipType?: string | null;
+          joinPosition?: string | null;
+        } | null;
         cutouts?: Array<{ name?: string; type?: string; quantity?: number }>;
       }> = [];
       for (const room of analysis.rooms || []) {
@@ -466,6 +476,7 @@ export default function DrawingUploadStep({
             edgeBottom: piece.edgeBottom || null,
             edgeLeft: piece.edgeLeft || null,
             edgeRight: piece.edgeRight || null,
+            relatedTo: piece.relatedTo ?? null,
             cutouts: piece.cutouts || [],
           });
         }

@@ -138,6 +138,8 @@ Northcoast-style quotes are built from physical pieces, not overall footprints:
 - If a drawing says two or three units are the same, expand them into separate physical pieces for each unit. Do not return "x2" or grouped summary rows.
 - If a run is split by joins, posts, appliances, or dimension segments, return the separate quote-ready segments shown by the drawing.
 - Put each cutout on the piece that physically contains it.
+- For waterfalls and splashbacks, set pieceType to WATERFALL or SPLASHBACK and include relatedTo with the parent piece name, relationshipType, and joinPosition (top, bottom, left, or right) when visible.
+- A mitred/build-up edge is an edge construction detail on a parent piece, not automatically a separate WATERFALL piece.
 
 ## DIMENSION SANITY CHECKS
 
@@ -183,11 +185,13 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
         {
           "pieceNumber": 1,
           "name": "Island Bench",
+          "pieceType": "ISLAND",
           "shape": "RECTANGLE",
           "length": 3600,
           "width": 900,
           "thickness": 20,
           "cutouts": [{"type": "COOKTOP", "quantity": 1}],
+          "relatedTo": null,
           "confidence": 0.9,
           "notes": "meaningful notes only — nothing generic"
         }

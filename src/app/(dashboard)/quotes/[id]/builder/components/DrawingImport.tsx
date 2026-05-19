@@ -61,6 +61,11 @@ interface ExtractedPiece {
   confidence: number;
   notes: string | null;
   cutouts: { type: string; quantity?: number }[];
+  relatedTo?: {
+    pieceName?: string | null;
+    relationshipType?: string | null;
+    joinPosition?: string | null;
+  } | null;
   isEditing: boolean;
   edgeSelections: EdgeSelections;
 }
@@ -84,6 +89,11 @@ interface AnalysisResult {
       width: number;
       thickness: number;
       cutouts: { type: string; quantity?: number }[];
+      relatedTo?: {
+        pieceName?: string | null;
+        relationshipType?: string | null;
+        joinPosition?: string | null;
+      } | null;
       notes: string | null;
       confidence: number;
     }[];
@@ -386,6 +396,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             confidence: piece.confidence || 0.5,
             notes: piece.notes || null,
             cutouts: piece.cutouts || [],
+            relatedTo: piece.relatedTo ?? null,
             isEditing: false,
             edgeSelections: getDefaultEdgeSelections(edgeTypes),
           });
@@ -561,6 +572,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
               type: c.type,
               quantity: c.quantity ?? 1,
             })),
+            relatedTo: p.relatedTo ?? null,
           })),
         }),
       });
