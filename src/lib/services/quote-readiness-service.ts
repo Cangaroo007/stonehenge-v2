@@ -80,6 +80,13 @@ export async function checkQuoteReadiness(
           },
         },
       },
+      custom_charges: {
+        orderBy: { sort_order: 'asc' },
+        select: {
+          description: true,
+          amount: true,
+        },
+      },
     },
   });
 
@@ -98,6 +105,9 @@ export async function checkQuoteReadiness(
   const allPieces = quote.quote_rooms.flatMap((r) => r.quote_pieces);
   const totalPieces = allPieces.length;
   const totalRooms = quote.quote_rooms.length;
+  const subtotal = toNumber(quote.subtotal);
+  const customCharges = quote.custom_charges || [];
+  const customChargeTotal = customCharges.reduce((sum, charge) => sum + toNumber(charge.amount), 0);
   const edgeIds = Array.from(new Set(
     allPieces
       .flatMap((p) => [p.edge_top, p.edge_bottom, p.edge_left, p.edge_right])
@@ -118,7 +128,6 @@ export async function checkQuoteReadiness(
   }
 
   // ── Check 1: Quote pricing calculated ──
-  const subtotal = toNumber(quote.subtotal);
   if (subtotal <= 0) {
     checks.push({
       id: 'pricing',
@@ -303,7 +312,55 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 9: PDF template exists ──
+  // ── Check 9: Installation mode confirmed ──
+  if (quote.installationIncluded === false) {
+    checks.push({
+      id: 'installation-mode',
+      label: 'Installation mode confirmed',
+      status: 'pass',
+      detail: 'Supply-only mode is enabled — installation labour is intentionally suppressed',
+    });
+  } else {
+    checks.push({
+      id: 'installation-mode',
+      label: 'Installation mode confirmed',
+      status: 'pass',
+      detail: 'Install included — installation labour is included in the quote total',
+    });
+  }
+
+  // ── Check 10: Manual charges and credits reviewed ──
+  const hasReviewCharge = customCharges.some((charge) =>
+    /travel|measure|site|setup|small|manual|commercial|adjust|credit|discount/i.test(charge.description),
+  );
+  const chargeOrCreditLabel = customCharges.length === 1 ? 'charge/credit' : 'charges/credits';
+  const isSmallJob = totalPieces > 0 && (totalPieces <= 2 || (subtotal > 0 && subtotal < 2500));
+  if (isSmallJob && !hasReviewCharge) {
+    checks.push({
+      id: 'manual-charges',
+      label: 'Manual charges and credits reviewed',
+      status: 'warn',
+      detail: 'This looks like a small/simple job and has no measure, travel, setup, credit, or manual adjustment line',
+      fix: 'Confirm this is intentional before issuing the quote, especially for supply-only, small vanity, regional, or special commercial jobs',
+      fixAction: 'Review Adjustments',
+    });
+  } else if (customCharges.length > 0) {
+    checks.push({
+      id: 'manual-charges',
+      label: 'Manual charges and credits reviewed',
+      status: 'pass',
+      detail: `${customCharges.length} additional ${chargeOrCreditLabel} included (${formatCurrency(customChargeTotal)} total)`,
+    });
+  } else {
+    checks.push({
+      id: 'manual-charges',
+      label: 'Manual charges and credits reviewed',
+      status: 'pass',
+      detail: 'No manual charges or credits added',
+    });
+  }
+
+  // ── Check 11: PDF template exists ──
   const template = await prisma.quote_templates.findFirst({
     where: {
       company_id: companyId,
