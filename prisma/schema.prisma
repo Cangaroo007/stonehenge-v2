@@ -473,6 +473,7 @@ model pricing_settings {
   id                               String                        @id
   organisation_id                  String                        @unique
   material_pricing_basis           MaterialPricingBasis          @default(PER_SLAB)
+  cutting_charge_mode              CuttingChargeMode             @default(FULL_PERIMETER)
   cutting_unit                     ServiceUnit                   @default(LINEAR_METRE)
   polishing_unit                   ServiceUnit                   @default(LINEAR_METRE)
   installation_unit                ServiceUnit                   @default(SQUARE_METRE)
@@ -1052,6 +1053,11 @@ enum CutoutRateCategory {
 enum MaterialPricingBasis {
   PER_SLAB
   PER_SQUARE_METRE
+}
+
+enum CuttingChargeMode {
+  FULL_PERIMETER
+  FINISHED_EDGES_ONLY
 }
 
 enum WaterfallPricingMethod {

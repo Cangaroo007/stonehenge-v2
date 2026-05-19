@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
     if (!settings) {
       return NextResponse.json({
         materialPricingBasis: 'PER_SLAB',
+        cuttingChargeMode: 'FULL_PERIMETER',
         cuttingUnit: 'LINEAR_METRE',
         polishingUnit: 'LINEAR_METRE',
         installationUnit: 'SQUARE_METRE',
@@ -60,6 +61,7 @@ export async function GET(request: NextRequest) {
       id: settings.id,
       organisationId: settings.organisation_id,
       materialPricingBasis: settings.material_pricing_basis,
+      cuttingChargeMode: settings.cutting_charge_mode ?? 'FULL_PERIMETER',
       cuttingUnit: settings.cutting_unit,
       polishingUnit: settings.polishing_unit,
       installationUnit: settings.installation_unit,
@@ -120,12 +122,20 @@ export async function PUT(request: NextRequest) {
 
     // Validate enum values
     const validMaterialBasis = ['PER_SLAB', 'PER_SQUARE_METRE'];
+    const validCuttingChargeModes = ['FULL_PERIMETER', 'FINISHED_EDGES_ONLY'];
     const validServiceUnits = ['LINEAR_METRE', 'SQUARE_METRE', 'FIXED', 'PER_SLAB', 'PER_KILOMETRE'];
     const validUnitSystems = ['METRIC', 'IMPERIAL'];
 
     if (body.materialPricingBasis && !validMaterialBasis.includes(body.materialPricingBasis)) {
       return NextResponse.json(
         { error: 'Invalid materialPricingBasis value' },
+        { status: 400 }
+      );
+    }
+
+    if (body.cuttingChargeMode && !validCuttingChargeModes.includes(body.cuttingChargeMode)) {
+      return NextResponse.json(
+        { error: 'Invalid cuttingChargeMode value' },
         { status: 400 }
       );
     }
@@ -239,6 +249,7 @@ export async function PUT(request: NextRequest) {
         where: { organisation_id: organisationId },
         data: {
           material_pricing_basis: body.materialPricingBasis,
+          cutting_charge_mode: body.cuttingChargeMode || undefined,
           cutting_unit: body.cuttingUnit,
           polishing_unit: body.polishingUnit,
           installation_unit: body.installationUnit,
@@ -276,6 +287,7 @@ export async function PUT(request: NextRequest) {
           id: crypto.randomUUID(),
           organisation_id: organisationId,
           material_pricing_basis: body.materialPricingBasis || 'PER_SLAB',
+          cutting_charge_mode: body.cuttingChargeMode || 'FULL_PERIMETER',
           cutting_unit: body.cuttingUnit || 'LINEAR_METRE',
           polishing_unit: body.polishingUnit || 'LINEAR_METRE',
           installation_unit: body.installationUnit || 'SQUARE_METRE',
@@ -309,6 +321,7 @@ export async function PUT(request: NextRequest) {
       id: settings.id,
       organisationId: settings.organisation_id,
       materialPricingBasis: settings.material_pricing_basis,
+      cuttingChargeMode: settings.cutting_charge_mode ?? 'FULL_PERIMETER',
       cuttingUnit: settings.cutting_unit,
       polishingUnit: settings.polishing_unit,
       installationUnit: settings.installation_unit,

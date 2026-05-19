@@ -7,6 +7,7 @@ interface PricingSettings {
   id?: string;
   organisationId: string;
   materialPricingBasis: 'PER_SLAB' | 'PER_SQUARE_METRE';
+  cuttingChargeMode: 'FULL_PERIMETER' | 'FINISHED_EDGES_ONLY';
   wasteFactorPercent: string;
   grainMatchingSurchargePercent: string;
   cuttingUnit: 'LINEAR_METRE' | 'SQUARE_METRE' | 'FIXED' | 'PER_SLAB' | 'PER_KILOMETRE';
@@ -36,6 +37,7 @@ export default function PricingSettingsPage() {
   const [settings, setSettings] = useState<PricingSettings>({
     organisationId: '',
     materialPricingBasis: 'PER_SLAB',
+    cuttingChargeMode: 'FULL_PERIMETER',
     wasteFactorPercent: '15.00',
     grainMatchingSurchargePercent: '15.00',
     cuttingUnit: 'LINEAR_METRE',
@@ -371,6 +373,40 @@ export default function PricingSettingsPage() {
             <p className="text-xs text-gray-500">
               Company-level labour multipliers for matching real quoting behaviour. Leave at 1.00 for standard rates.
             </p>
+          </div>
+
+          <div className="space-y-2">
+            <label className="block text-sm font-medium text-gray-700">
+              Cutting Charge Mode
+            </label>
+            <p className="text-xs text-gray-500">
+              Full perimeter is the auditable default. Finished edges only can approximate quote systems that charge commercial cutting length instead of every physical cut.
+            </p>
+            <div className="inline-flex rounded-lg border border-gray-200 bg-white p-1">
+              {[
+                { value: 'FULL_PERIMETER', label: 'Full perimeter' },
+                { value: 'FINISHED_EDGES_ONLY', label: 'Finished edges only' },
+              ].map((option) => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() =>
+                    setSettings({
+                      ...settings,
+                      cuttingChargeMode: option.value as PricingSettings['cuttingChargeMode'],
+                    })
+                  }
+                  className={cn(
+                    'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                    settings.cuttingChargeMode === option.value
+                      ? 'bg-primary-600 text-white'
+                      : 'text-gray-600 hover:bg-gray-50'
+                  )}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

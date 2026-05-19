@@ -510,6 +510,7 @@ export async function loadPricingContext(organisationId: string): Promise<Pricin
       pricingSettingsId: settings.id,
       organisationId: settings.organisation_id,
       materialPricingBasis: settings.material_pricing_basis,
+      cuttingChargeMode: settings.cutting_charge_mode ?? 'FULL_PERIMETER',
       cuttingUnit: settings.cutting_unit,
       polishingUnit: settings.polishing_unit,
       installationUnit: settings.installation_unit,
@@ -1544,6 +1545,24 @@ export async function calculateQuotePrice(
     );
     const cuttingPerimeterLm = defaultCuttingPerimeterLm;
     const cuttingSegments = defaultCuttingSegments;
+    const cuttingChargeMode = pricingContext.cuttingChargeMode ?? 'FULL_PERIMETER';
+    let modeAdjustedCuttingSegments = cuttingSegments;
+    let modeAdjustedCuttingPerimeterLm = cuttingPerimeterLm;
+
+    if (cuttingChargeMode === 'FINISHED_EDGES_ONLY') {
+      const finishedCutSegments = edges
+        .filter(edge => edge.isFinished && edge.length_mm > 0)
+        .map(edge => ({
+          lm: edge.length_mm / 1000,
+          kind: ((edge.effectiveThicknessMm ?? piece.thickness_mm) >= 40 && piece.thickness_mm < 40
+            ? 'BUILD_UP'
+            : 'NORMAL') as 'BUILD_UP' | 'NORMAL',
+          position: edge.position.toLowerCase(),
+          effectiveThicknessMm: edge.effectiveThicknessMm,
+        }));
+      modeAdjustedCuttingSegments = finishedCutSegments;
+      modeAdjustedCuttingPerimeterLm = undefined;
+    }
 
     enginePieces.push({
       id: String(piece.id),
@@ -1566,8 +1585,8 @@ export async function calculateQuotePrice(
       edges,
       cutouts: engineCutouts,
       // Shape geometry overrides for L/U pieces — RECTANGLE returns identical values
-      cuttingPerimeterLm,
-      cuttingSegments,
+      cuttingPerimeterLm: modeAdjustedCuttingPerimeterLm,
+      cuttingSegments: modeAdjustedCuttingSegments,
       areaSqm: isShapedPiece ? geometry.totalAreaSqm : undefined,
       finishedEdgesLm,
       stripLm,

@@ -3,7 +3,7 @@
  * Types for the quote pricing calculation service
  */
 
-import type { CurvedSurchargeMode, MaterialPricingBasis, ServiceUnit, WaterfallPricingMethod } from '@prisma/client';
+import type { CurvedSurchargeMode, CuttingChargeMode, MaterialPricingBasis, ServiceUnit, WaterfallPricingMethod } from '@prisma/client';
 
 export interface PricingOptions {
   customerId?: string;
@@ -17,6 +17,7 @@ export interface PricingContext {
   pricingSettingsId: string;
   organisationId: string;
   materialPricingBasis: MaterialPricingBasis;
+  cuttingChargeMode: CuttingChargeMode;
   cuttingUnit: ServiceUnit;
   polishingUnit: ServiceUnit;
   installationUnit: ServiceUnit;
