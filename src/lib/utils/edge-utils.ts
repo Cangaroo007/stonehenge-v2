@@ -71,7 +71,7 @@ export function edgeCode(name: string | null | undefined): string {
 export function edgeDisplayName(name: string | null | undefined): string {
   if (!name) return 'Raw / Unfinished';
   const lower = name.toLowerCase();
-  if (lower.includes('mitr')) return 'Mitred join';
+  if (lower.includes('mitr')) return 'Build-up mitre joint';
   return name;
 }
 

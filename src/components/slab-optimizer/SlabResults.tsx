@@ -93,7 +93,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
         </div>
       )}
 
-      {/* Lamination Summary */}
+      {/* Build-up strip summary */}
       {result.laminationSummary && result.laminationSummary.totalStrips > 0 && (
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
           <h4 className="font-medium text-blue-900 mb-3 flex items-center gap-2">
@@ -101,7 +101,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                     d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
             </svg>
-            Lamination Strips (40mm Build-Up)
+            Build-Up Strips (40mm)
           </h4>
           
           <div className="grid grid-cols-2 gap-4 mb-3">

@@ -223,7 +223,7 @@ function generateShapeName(shapeType: ShapeType, room: string): string {
 // ── Strip Width Constants ────────────────────────────────────────────────────
 
 const STRIP_WIDTH_DEFAULT = 60; // mm — standard/waterfall
-const STRIP_WIDTH_MITRE = 40;   // mm — mitre edges
+const STRIP_WIDTH_MITRE = 40;   // mm - build-up/drop-edge mitre joints
 
 function getDefaultStripWidthForEdge(edgeName: string): number {
   if (edgeName.toLowerCase().includes('mitre')) return STRIP_WIDTH_MITRE;
@@ -1350,10 +1350,10 @@ export default function InlinePieceEditor({
             {piece.lamination_method === 'MITRED' && (
               <div className="mt-3">
                 <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Build-Up Mitre Corner Treatment
+                  Build-Up Corner Treatment
                 </label>
                 <p className="text-xs text-gray-500 mb-2">
-                  How the top corner of the 45° mitre is finished.
+                  How the top corner of the build-up/drop-edge mitre joint is finished.
                 </p>
                 <div className="flex gap-2">
                   {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (
@@ -1507,10 +1507,10 @@ export default function InlinePieceEditor({
               {piece.lamination_method === 'MITRED' && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Mitre Corner Treatment
+                    Build-Up Corner Treatment
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    How the top corner of the 45° mitre is finished.
+                    How the top corner of the build-up/drop-edge mitre joint is finished.
                   </p>
                   <div className="flex gap-2">
                     {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (
@@ -1677,10 +1677,10 @@ export default function InlinePieceEditor({
               {piece.lamination_method === 'MITRED' && (
                 <div className="mt-3">
                   <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Mitre Corner Treatment
+                    Build-Up Corner Treatment
                   </label>
                   <p className="text-xs text-gray-500 mb-2">
-                    How the top corner of the 45° mitre is finished.
+                    How the top corner of the build-up/drop-edge mitre joint is finished.
                   </p>
                   <div className="flex gap-2">
                     {(['RAW', 'SQUARE_TOP', 'ROUND_TOP'] as const).map(treatment => (

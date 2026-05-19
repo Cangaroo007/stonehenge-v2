@@ -231,8 +231,8 @@ export const EDGE_PROFILE_NAMES: Record<string, string> = {
   'FE': 'Full Eased',
   'OG': 'Ogee',
   'BV': 'Bevel',
-  'M': 'Mitred join',
-  'MIT': 'Mitred join',
+  'M': 'Build-up mitre joint',
+  'MIT': 'Build-up mitre joint',
   'CML': 'Chamfer',
   'P': 'Polished',
   'WAT': 'Waterfall',
@@ -1488,8 +1488,9 @@ export default function PieceVisualEditor({
     const items: Array<{ code: string; name: string; colour: string }> = [];
     const seen = new Set<string>();
 
-    const addIfPresent = (id: string | null) => {
+    const addIfPresent = (id: string | null, side?: string) => {
       if (!id || seen.has(id)) return;
+      if (side && (attachedPieceTypes?.[side] || edgeListIncludes(noStripEdges, side))) return;
       seen.add(id);
       const name = resolveEdgeName(id);
       if (name) {
@@ -1497,10 +1498,10 @@ export default function PieceVisualEditor({
       }
     };
 
-    addIfPresent(edgeTop);
-    addIfPresent(edgeBottom);
-    addIfPresent(edgeLeft);
-    addIfPresent(edgeRight);
+    addIfPresent(edgeTop, 'top');
+    addIfPresent(edgeBottom, 'bottom');
+    addIfPresent(edgeLeft, 'left');
+    addIfPresent(edgeRight, 'right');
     // Include profiles from shape_config.edges for L/U shapes
     if (shapeConfigEdges) {
       for (const profileId of Object.values(shapeConfigEdges)) {
@@ -1510,10 +1511,10 @@ export default function PieceVisualEditor({
 
     const attachedTypes = new Set(Object.values(attachedPieceTypes ?? {}));
     if (attachedTypes.has('WATERFALL')) {
-      items.push({ code: 'WF', name: 'Waterfall join, not wall', colour: '#2563eb' });
+      items.push({ code: 'WF', name: 'Waterfall join, not wall edge', colour: '#2563eb' });
     }
     if (attachedTypes.has('SPLASHBACK')) {
-      items.push({ code: 'SB', name: 'Splashback join, not wall', colour: '#059669' });
+      items.push({ code: 'SB', name: 'Splashback join, not wall edge', colour: '#059669' });
     }
     if (ALL_SIDES.some(side => edgeListIncludes(noStripEdges, side) && !attachedPieceTypes?.[side])) {
       items.push({ code: 'WALL', name: 'Against wall', colour: '#78716c' });
@@ -1528,8 +1529,8 @@ export default function PieceVisualEditor({
 
   const getSuppressedEdgeLabel = useCallback((edgeId: string) => {
     const attachedType = attachedPieceTypes?.[edgeId];
-    if (attachedType === 'WATERFALL') return 'Waterfall join, not wall';
-    if (attachedType === 'SPLASHBACK') return 'Splashback join, not wall';
+    if (attachedType === 'WATERFALL') return 'Waterfall join, not wall edge';
+    if (attachedType === 'SPLASHBACK') return 'Splashback join, not wall edge';
     return 'Against wall';
   }, [attachedPieceTypes]);
 
@@ -1537,7 +1538,7 @@ export default function PieceVisualEditor({
     const attachedType = attachedPieceTypes?.[edgeId];
     if (attachedType === 'WATERFALL') return 'Waterfall join - return strip suppressed by relationship';
     if (attachedType === 'SPLASHBACK') return 'Splashback join - return strip suppressed by relationship';
-    return 'Wall edge - no profile or lamination strip';
+    return 'Wall edge - no visible profile or build-up strip';
   }, [attachedPieceTypes]);
 
   const getSuppressionDash = useCallback((edgeId: string) => (
@@ -1555,7 +1556,7 @@ export default function PieceVisualEditor({
       {/* ── Build-up construction note ────────────────────────────────── */}
       {isMitred && isEditMode && (
         <p className="text-xs text-gray-500 italic px-3 py-2">
-          Build-up construction uses mitred joins. Visible profile and corner treatment are managed separately.
+          Build-up/drop-edge construction uses mitre joints. Visible profile and corner treatment are managed separately.
         </p>
       )}
 
@@ -2297,7 +2298,7 @@ export default function PieceVisualEditor({
               </button>
               {edgeListIncludes(noStripEdges, popover.side) && (
                 <span className="ml-2 text-xs text-slate-400">
-                  {attachedPieceTypes?.[popover.side] ? 'Join edge' : 'No lamination'}
+                  {attachedPieceTypes?.[popover.side] ? 'Join edge' : 'No build-up strip'}
                 </span>
               )}
             </div>
@@ -2420,7 +2421,7 @@ export default function PieceVisualEditor({
               </button>
               {edgeListIncludes(noStripEdges, shapeEdgePopover.edgeId) && (
                 <span className="ml-2 text-xs text-slate-400">
-                  {attachedPieceTypes?.[shapeEdgePopover.edgeId] ? 'Join edge' : 'No lamination'}
+                  {attachedPieceTypes?.[shapeEdgePopover.edgeId] ? 'Join edge' : 'No build-up strip'}
                 </span>
               )}
             </div>

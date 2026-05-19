@@ -5211,9 +5211,9 @@ export default function QuoteDetailClient({
           const newPiece = pieceJson.piece ?? pieceJson;
           if (!newPiece?.id) return;
 
-          // 3. Create relationship. The server owns edge semantics: it finds the
-          // active mitred edge type, removes hidden build-ups, and suppresses both
-          // joining faces so pricing and UI stay consistent.
+          // 3. Create relationship. The server owns join semantics: it removes
+          // hidden build-ups and suppresses both joining faces without turning
+          // the visible edge profile into a legacy "mitred" edge.
           const relationshipRes = await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },

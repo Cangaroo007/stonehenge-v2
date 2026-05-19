@@ -524,7 +524,7 @@ export default function PieceForm({
             edgeBuildups={{}}
             edgeTypes={edgeTypes
               .filter(e => e.isActive !== false)
-              .map(e => ({ id: e.id, name: e.name }))}
+              .map(e => ({ id: e.id, name: e.name, isMitred: e.isMitred }))}
             onApplyProfile={(edgeIds, profileId) => {
               const sideMap: Record<string, keyof EdgeSelections> = {
                 top: 'edgeTop', bottom: 'edgeBottom',
@@ -556,7 +556,7 @@ export default function PieceForm({
           { side: 'Left', id: edgeSelections.edgeLeft, lengthMm: parseInt(widthMm) || 0 },
           { side: 'Right', id: edgeSelections.edgeRight, lengthMm: parseInt(widthMm) || 0 },
         ];
-        const mitreStrips = edgeEntries
+        const buildUpStrips = edgeEntries
           .filter(e => {
             if (!e.id) return false;
             const et = edgeTypes.find(t => t.id === e.id);
@@ -567,11 +567,11 @@ export default function PieceForm({
             return { side: e.side, lengthMm: e.lengthMm, stripWidth };
           });
 
-        if (mitreStrips.length === 0) return null;
+        if (buildUpStrips.length === 0) return null;
 
-        // Build lamination summary
-        const totalLm = mitreStrips.reduce((sum, s) => sum + s.lengthMm / 1000, 0);
-        const summaryText = `${thicknessMm}mm build-up \u2014 ${mitreStrips.length} strip${mitreStrips.length !== 1 ? 's' : ''} \u2014 ${totalLm.toFixed(2)} Lm`;
+        // Build-up strip summary
+        const totalLm = buildUpStrips.reduce((sum, s) => sum + s.lengthMm / 1000, 0);
+        const summaryText = `${thicknessMm}mm build-up \u2014 ${buildUpStrips.length} strip${buildUpStrips.length !== 1 ? 's' : ''} \u2014 ${totalLm.toFixed(2)} Lm`;
 
         return (
           <div className="bg-purple-50 border border-purple-200 rounded-lg overflow-hidden">
@@ -593,7 +593,7 @@ export default function PieceForm({
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                   </svg>
-                  Lamination Strips (Auto-Calculated)
+                  Build-Up Strips (Auto-Calculated)
                 </h4>
               </div>
             </button>
@@ -604,9 +604,9 @@ export default function PieceForm({
             ) : (
               <div className="px-3 pb-3 pt-1">
                 <div className="space-y-1 text-sm">
-                  {mitreStrips.map(strip => (
+                  {buildUpStrips.map(strip => (
                     <div key={strip.side} className="flex justify-between text-purple-700">
-                      <span>{strip.side} Mitre Strip:</span>
+                      <span>{strip.side} build-up strip:</span>
                       <span className="font-medium">
                         {strip.lengthMm} x {strip.stripWidth}mm
                         <span className="text-purple-500 text-xs ml-1">

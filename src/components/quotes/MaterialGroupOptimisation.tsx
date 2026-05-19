@@ -161,11 +161,11 @@ function MaterialGroupSection({
             </div>
           ))}
 
-          {/* Lamination summary for this group */}
+          {/* Build-up strip summary for this group */}
           {group.optimizationResult.laminationSummary && group.optimizationResult.laminationSummary.totalStrips > 0 && (
             <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <h4 className="text-sm font-medium text-blue-900 mb-1">
-                Lamination Strips ({group.optimizationResult.laminationSummary.totalStrips})
+                Build-Up Strips ({group.optimizationResult.laminationSummary.totalStrips})
               </h4>
               <div className="space-y-1">
                 {group.optimizationResult.laminationSummary.stripsByParent.map((parent) => (

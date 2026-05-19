@@ -505,7 +505,7 @@ export function SlabCanvas({
             </defs>
             <rect width="16" height="16" fill={`url(#${legendPatternId})`} />
           </svg>
-          <span>Lamination Strips (40mm+)</span>
+          <span>Build-Up Strips (40mm+)</span>
         </div>
         <div className="flex items-center gap-1.5">
           <div className="w-4 h-4 bg-blue-500 border-2 border-dashed border-white rounded-sm" style={{ borderColor: '#fff', outline: '1px solid #333' }}></div>

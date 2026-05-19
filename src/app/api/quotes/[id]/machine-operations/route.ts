@@ -98,7 +98,7 @@ export async function GET(
           !noStripEdges.has(side) && isFinishedEdge(edgeTypeId)
         );
         const hasExplicitBuildUps = hasObjectEntries(piece.edge_buildups);
-        const hasMitredEdges =
+        const hasBuildUpMitreWork =
           assignedEdges.some(({ edgeTypeId }) => isMitredEdge(edgeTypeId, edgeTypeById)) ||
           hasExplicitBuildUps ||
           piece.lamination_method === 'MITRED';
@@ -113,7 +113,7 @@ export async function GET(
 
         const operations = buildOperations({
           hasPolishedEdges,
-          hasMitredEdges,
+          hasBuildUpMitreWork,
           hasLamination,
           hasCutouts,
           cutoutCount,
@@ -152,7 +152,7 @@ interface MachineInfo {
 
 interface BuildOperationsArgs {
   hasPolishedEdges: boolean;
-  hasMitredEdges: boolean;
+  hasBuildUpMitreWork: boolean;
   hasLamination: boolean;
   hasCutouts: boolean;
   cutoutCount: number;
@@ -172,7 +172,7 @@ interface PieceOperation {
 
 function buildOperations({
   hasPolishedEdges,
-  hasMitredEdges,
+  hasBuildUpMitreWork,
   hasLamination,
   hasCutouts,
   cutoutCount,
@@ -209,8 +209,8 @@ function buildOperations({
     machineName: mitreMachine?.machineName ?? 'Unassigned',
     machineId: mitreMachine?.machineId ?? '',
     kerfMm: mitreMachine?.kerfMm ?? 0,
-    isApplicable: hasMitredEdges,
-    ...(!hasMitredEdges && { reason: 'No mitred edges' }),
+    isApplicable: hasBuildUpMitreWork,
+    ...(!hasBuildUpMitreWork && { reason: 'No build-up/drop-edge mitre work' }),
   });
 
   // LAMINATION
@@ -223,8 +223,8 @@ function buildOperations({
     isApplicable: hasLamination,
     ...(!hasLamination && {
       reason: thicknessMm < 40
-        ? `${thicknessMm}mm — no lamination`
-        : 'No lamination method set',
+        ? `${thicknessMm}mm - no build-up/drop-edge construction`
+        : 'No build-up/drop-edge construction set',
     }),
   });
 

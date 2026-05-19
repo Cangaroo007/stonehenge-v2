@@ -46,6 +46,14 @@ function materialPriceLabel(material: MaterialPickerMaterial): string {
     : `${formatCurrency(material.pricePerSqm)}/m²`;
 }
 
+function collectionDisplayLabel(
+  collectionName: string,
+  selectedMaterial: MaterialPickerMaterial | null
+): string {
+  const supplierName = selectedMaterial?.supplier?.name;
+  return supplierName ? `${supplierName} - ${collectionName}` : collectionName;
+}
+
 export default function MaterialPickerV2({
   materials,
   value,
@@ -175,7 +183,7 @@ export default function MaterialPickerV2({
       >
         <span className="truncate">
           {collectionOnly && collectionName
-            ? <span className="italic text-amber-600">{collectionName} (collection)</span>
+            ? <span className="italic text-amber-600">{collectionDisplayLabel(collectionName, selectedMaterial)} (collection)</span>
             : selectedMaterial
               ? `${selectedMaterial.name}${selectedMaterial.collection ? ` — ${selectedMaterial.collection}` : ''}`
               : placeholder}

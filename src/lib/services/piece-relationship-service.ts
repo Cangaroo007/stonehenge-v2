@@ -67,22 +67,6 @@ function removeEdgeBuildup(value: unknown, edge: EdgeName): Record<string, unkno
   return current;
 }
 
-async function getDefaultMitredEdgeId(tx: Prisma.TransactionClient): Promise<string | null> {
-  const edgeType = await tx.edge_types.findFirst({
-    where: {
-      isActive: true,
-      isMitred: true,
-    },
-    orderBy: [
-      { sortOrder: 'asc' },
-      { name: 'asc' },
-    ],
-    select: { id: true },
-  });
-
-  return edgeType?.id ?? null;
-}
-
 async function getMitredEdgeIds(tx: Prisma.TransactionClient): Promise<Set<string>> {
   const edgeTypes = await tx.edge_types.findMany({
     where: { isMitred: true },
@@ -135,8 +119,6 @@ export async function syncEdgeSemanticsForRelationship(
   const joinEdge = normaliseJoinEdge(input.joinPosition);
   if (!joinEdge) return;
 
-  const mitredEdgeId = await getDefaultMitredEdgeId(tx);
-
   const [parentPiece, childPiece] = await Promise.all([
     tx.quote_pieces.findUnique({
       where: { id: input.sourceId },
@@ -168,11 +150,6 @@ export async function syncEdgeSemanticsForRelationship(
     edge_buildups: removeEdgeBuildup(childPiece.edge_buildups, childJoinEdge) as unknown as Prisma.InputJsonValue,
     lamination_method: 'MITRED',
   };
-
-  if (mitredEdgeId) {
-    parentUpdate[EDGE_FIELD[joinEdge]] = mitredEdgeId;
-    childUpdate[EDGE_FIELD[childJoinEdge]] = mitredEdgeId;
-  }
 
   await Promise.all([
     tx.quote_pieces.update({
