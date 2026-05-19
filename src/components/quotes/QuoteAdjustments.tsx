@@ -7,8 +7,13 @@ import type { QuoteCustomCharge, QuoteDiscount, DiscountType, DiscountAppliesTo 
 const CUSTOM_CHARGE_PRESETS = [
   { description: 'Measure / travel charge', amount: 200 },
   { description: 'Regional measure / travel charge', amount: 300 },
+  { description: 'Extended travel / remote measure charge', amount: 400 },
   { description: 'Small job setup charge', amount: 200 },
+  { description: 'Additional install allowance', amount: 300 },
+  { description: 'Difficult access / site handling allowance', amount: 250 },
+  { description: 'Extra templating / site revisit', amount: 200 },
   { description: 'Manual commercial adjustment', amount: 0 },
+  { description: 'Manual credit / goodwill adjustment', amount: 0 },
 ] as const;
 
 interface QuoteAdjustmentsProps {

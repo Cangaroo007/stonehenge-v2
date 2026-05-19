@@ -4,6 +4,19 @@ import { requireAuth } from '@/lib/auth';
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_CUSTOM_CHARGE_SUGGESTIONS = [
+  'Measure / travel charge',
+  'Regional measure / travel charge',
+  'Extended travel / remote measure charge',
+  'Small job setup charge',
+  'Additional install allowance',
+  'Difficult access / site handling allowance',
+  'Extra templating / site revisit',
+  'Manual commercial adjustment',
+  'Manual credit / goodwill adjustment',
+  'Supply-only credit',
+];
+
 /**
  * GET /api/custom-charge-suggestions?q=cra
  * Autocomplete suggestions for custom charge descriptions.
@@ -33,7 +46,14 @@ export async function GET(request: NextRequest) {
     `;
 
     return NextResponse.json({
-      suggestions: suggestions.map(s => s.description),
+      suggestions: [
+        ...suggestions.map(s => s.description),
+        ...DEFAULT_CUSTOM_CHARGE_SUGGESTIONS.filter(s =>
+          s.toLowerCase().includes(query.toLowerCase())
+        ),
+      ].filter((suggestion, index, all) =>
+        suggestion && all.findIndex(s => s.toLowerCase() === suggestion.toLowerCase()) === index
+      ).slice(0, 10),
     });
   } catch (error) {
     console.error('Error fetching custom charge suggestions:', error);
