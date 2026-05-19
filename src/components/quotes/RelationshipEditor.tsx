@@ -117,9 +117,38 @@ export default function RelationshipEditor({
       const edge = normaliseRectEdgeSide(joinPosition);
       if (!edge) return false;
       const piece = allPieces.find(p => p.id === pieceId);
-      return edgeListIncludes(piece?.noStripEdges, edge);
+
+      if (!edgeListIncludes(piece?.noStripEdges, edge)) {
+        return false;
+      }
+
+      const isRelationshipSuppressedEdge = existingRelationships.some((rel) => {
+        if (rel.relationshipType !== 'WATERFALL' && rel.relationshipType !== 'SPLASHBACK') {
+          return false;
+        }
+        const relationshipEdge = normaliseRectEdgeSide(rel.joinPosition);
+        if (!relationshipEdge) return false;
+
+        if (rel.parentPieceId === pieceId) {
+          return relationshipEdge === edge;
+        }
+
+        if (rel.childPieceId === pieceId) {
+          const childJoinEdge = {
+            top: 'bottom',
+            bottom: 'top',
+            left: 'right',
+            right: 'left',
+          }[relationshipEdge];
+          return childJoinEdge === edge;
+        }
+
+        return false;
+      });
+
+      return !isRelationshipSuppressedEdge;
     },
-    [allPieces]
+    [allPieces, existingRelationships]
   );
 
   const isDuplicate = useCallback(

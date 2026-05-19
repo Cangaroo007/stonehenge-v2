@@ -167,7 +167,7 @@ export default function QuoteReadinessChecker({
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(true);
   const [checkedCount, setCheckedCount] = useState(0);
-  const [totalChecks, setTotalChecks] = useState(11); // estimated
+  const [totalChecks, setTotalChecks] = useState(12); // estimated
   const [error, setError] = useState<string | null>(null);
   const quoteLabel = formatQuoteLabel(quoteNumber);
 

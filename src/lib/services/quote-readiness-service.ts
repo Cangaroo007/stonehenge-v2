@@ -176,7 +176,27 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 3: Specific material colours confirmed ──
+  // ── Check 3: Catalogue material selected for slab logic ──
+  const piecesWithoutCatalogueMaterial = allPieces.filter((p) => !p.material_id);
+  if (piecesWithoutCatalogueMaterial.length > 0) {
+    checks.push({
+      id: 'material-catalogue',
+      label: 'Catalogue material selected for slab logic',
+      status: 'warn',
+      detail: `${piecesWithoutCatalogueMaterial.length} of ${totalPieces} piece${piecesWithoutCatalogueMaterial.length !== 1 ? 's are' : ' is'} using a typed/override material instead of a selected catalogue material`,
+      fix: 'Select the final material colour before relying on slab optimisation, or leave this as an intentional allowance/override',
+      fixAction: 'Review Materials',
+    });
+  } else if (totalPieces > 0) {
+    checks.push({
+      id: 'material-catalogue',
+      label: 'Catalogue material selected for slab logic',
+      status: 'pass',
+      detail: 'All pieces have selected catalogue materials for pricing and optimisation',
+    });
+  }
+
+  // ── Check 4: Specific material colours confirmed ──
   const collectionOnlyPieces = allPieces.filter((p) => p.material_collection_only);
   if (collectionOnlyPieces.length > 0) {
     const collections = new Set(collectionOnlyPieces.map((p) => p.material_collection_name || p.material_name).filter(Boolean));
@@ -197,7 +217,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 4: Customer selected ──
+  // ── Check 5: Customer selected ──
   if (!quote.customer_id || !quote.customers) {
     checks.push({
       id: 'customer',
@@ -216,7 +236,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 5: Quote contact assigned ──
+  // ── Check 6: Quote contact assigned ──
   if (!quote.contact_id || !quote.contact) {
     checks.push({
       id: 'contact',
@@ -235,7 +255,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 6: At least one piece exists ──
+  // ── Check 7: At least one piece exists ──
   if (totalPieces === 0) {
     checks.push({
       id: 'pieces',
@@ -254,7 +274,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 7: All pieces have dimensions ──
+  // ── Check 8: All pieces have dimensions ──
   const piecesWithoutDimensions = allPieces.filter(
     (p) => !p.length_mm || p.length_mm <= 0 || !p.width_mm || p.width_mm <= 0,
   );
@@ -276,7 +296,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 8: Edge profiles configured ──
+  // ── Check 9: Edge profiles configured ──
   const isRawEdge = (edgeId: string | null) => {
     if (!edgeId) return true;
     const edgeType = edgeTypeMap.get(edgeId);
@@ -312,7 +332,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 9: Installation mode confirmed ──
+  // ── Check 10: Installation mode confirmed ──
   if (quote.installationIncluded === false) {
     checks.push({
       id: 'installation-mode',
@@ -329,7 +349,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 10: Manual charges and credits reviewed ──
+  // ── Check 11: Manual charges and credits reviewed ──
   const hasReviewCharge = customCharges.some((charge) =>
     /travel|measure|site|setup|small|manual|commercial|adjust|credit|discount/i.test(charge.description),
   );
@@ -360,7 +380,7 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 11: PDF template exists ──
+  // ── Check 12: PDF template exists ──
   const template = await prisma.quote_templates.findFirst({
     where: {
       company_id: companyId,
