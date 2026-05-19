@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
-import { RelationshipType } from '@prisma/client';
+import { Prisma, RelationshipType } from '@prisma/client';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 
 interface ImportPieceData {
@@ -22,6 +23,8 @@ interface ImportPieceData {
   edgeBottom?: string;
   edgeLeft?: string;
   edgeRight?: string;
+  edgeBuildups?: Record<string, EdgeBuildupConfig | number | boolean | null>;
+  noStripEdges?: string[];
   relatedTo?: {
     pieceName?: string | null;
     relationshipType?: string | null;
@@ -35,6 +38,15 @@ interface ImportPieceData {
     quantity?: number;
   }>;
 }
+
+type RectEdgeKey = 'top' | 'bottom' | 'left' | 'right';
+
+type ImportEdgeType = {
+  id: string;
+  name: string;
+  code: string | null;
+  isMitred: boolean | null;
+};
 
 interface ImportRequest {
   pieces: ImportPieceData[];
@@ -138,6 +150,103 @@ function findRelationshipParent(
   return null;
 }
 
+function edgeLookupKey(value?: string | null): string {
+  return (value ?? '')
+    .trim()
+    .toLowerCase()
+    .replace(/[_-]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, '')
+    .replace(/\s+/g, ' ');
+}
+
+function buildEdgeTypeLookup(edgeTypes: ImportEdgeType[]): Map<string, ImportEdgeType> {
+  const lookup = new Map<string, ImportEdgeType>();
+  for (const edgeType of edgeTypes) {
+    for (const value of [edgeType.id, edgeType.name, edgeType.code]) {
+      const key = edgeLookupKey(value);
+      if (key) lookup.set(key, edgeType);
+    }
+  }
+  return lookup;
+}
+
+function isRawEdgeValue(value?: string | null): boolean {
+  const key = edgeLookupKey(value);
+  return !key || ['raw', 'none', 'null', 'unknown', 'wall', 'against wall'].includes(key);
+}
+
+function isBuildUpEdgeValue(value?: string | null): boolean {
+  const key = edgeLookupKey(value);
+  return /\b(mitre|miter|mitred|mitered|build up|buildup|drop edge|laminated|40mm|60mm)\b/.test(key);
+}
+
+function resolveVisibleEdgeId(
+  value: string | undefined,
+  edgeLookup: Map<string, ImportEdgeType>,
+  defaultBuildUpProfileId: string | null
+): string | null {
+  if (isRawEdgeValue(value)) return null;
+
+  const matched = edgeLookup.get(edgeLookupKey(value));
+  if (matched) {
+    // A mitred edge type represents construction/build-up, not the visible profile.
+    // Use the default visible profile and record the build-up separately.
+    return matched.isMitred ? defaultBuildUpProfileId : matched.id;
+  }
+
+  return isBuildUpEdgeValue(value) ? defaultBuildUpProfileId : null;
+}
+
+function normaliseImportedEdgeBuildups(piece: ImportPieceData): Record<string, EdgeBuildupConfig> | undefined {
+  const sides: RectEdgeKey[] = ['top', 'bottom', 'left', 'right'];
+  const rawBySide: Record<RectEdgeKey, string | undefined> = {
+    top: piece.edgeTop,
+    bottom: piece.edgeBottom,
+    left: piece.edgeLeft,
+    right: piece.edgeRight,
+  };
+  const output: Record<string, EdgeBuildupConfig> = {};
+
+  for (const side of sides) {
+    const explicit = piece.edgeBuildups?.[side];
+    if (explicit === false || explicit === null) continue;
+
+    if (typeof explicit === 'number') {
+      output[side] = { depth: Math.max(1, Math.round(explicit)), exposed: true, chargeCut: true, chargePolish: true };
+      continue;
+    }
+
+    if (explicit === true) {
+      output[side] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
+      continue;
+    }
+
+    if (explicit && typeof explicit === 'object') {
+      output[side] = {
+        depth: Math.max(1, Math.round(Number(explicit.depth) || 40)),
+        exposed: explicit.exposed ?? true,
+        chargeCut: explicit.chargeCut ?? true,
+        chargePolish: explicit.chargePolish ?? true,
+      };
+      continue;
+    }
+
+    if (isBuildUpEdgeValue(rawBySide[side])) {
+      output[side] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
+    }
+  }
+
+  return Object.keys(output).length > 0 ? output : undefined;
+}
+
+function normaliseNoStripEdges(edges?: string[]): string[] | undefined {
+  if (!Array.isArray(edges)) return undefined;
+  const normalised = edges
+    .map(edge => normaliseRectEdgeSide(edge))
+    .filter((edge): edge is RectEdgeKey => Boolean(edge));
+  return normalised.length > 0 ? Array.from(new Set(normalised)) : undefined;
+}
+
 // POST - Import multiple pieces from drawing analysis
 export async function POST(
   request: NextRequest,
@@ -172,13 +281,16 @@ export async function POST(
       );
     }
 
-    // Look up default edge type (Pencil Round) for pieces without edges
-    const defaultEdgeType = await prisma.edge_types.findFirst({
-      where: { category: 'polish', isActive: true },
+    const edgeTypes = await prisma.edge_types.findMany({
+      where: { isActive: true },
       orderBy: { sortOrder: 'asc' },
-      select: { id: true },
+      select: { id: true, name: true, code: true, isMitred: true },
     });
-    const defaultEdgeId = defaultEdgeType?.id ?? null;
+    const edgeLookup = buildEdgeTypeLookup(edgeTypes);
+    const defaultBuildUpProfileId =
+      edgeTypes.find(edgeType => /arris/i.test(edgeType.name) || /arr/i.test(edgeType.code ?? ''))?.id ??
+      edgeTypes.find(edgeType => !edgeType.isMitred)?.id ??
+      null;
 
     // Validate all pieces have required fields
     for (let i = 0; i < pieces.length; i++) {
@@ -291,6 +403,8 @@ export async function POST(
         // Calculate area
         const areaSqm = (lengthMm * widthMm) / 1_000_000;
 
+        const edgeBuildups = normaliseImportedEdgeBuildups(pieceData);
+        const importedNoStripEdges = normaliseNoStripEdges(pieceData.noStripEdges);
         const piece = await prisma.quote_pieces.create({
           data: {
             room_id: room.id,
@@ -311,10 +425,12 @@ export async function POST(
             sort_order: sortOrder++,
             cutouts,
             piece_type: pieceData.pieceType || null,
-            edge_top: pieceData.edgeTop || null,
-            edge_bottom: pieceData.edgeBottom || null,
-            edge_left: pieceData.edgeLeft || null,
-            edge_right: pieceData.edgeRight || null,
+            edge_top: resolveVisibleEdgeId(pieceData.edgeTop, edgeLookup, defaultBuildUpProfileId),
+            edge_bottom: resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
+            edge_left: resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
+            edge_right: resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
+            ...(edgeBuildups && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
+            ...(importedNoStripEdges && { no_strip_edges: importedNoStripEdges as unknown as Prisma.InputJsonValue }),
           },
         });
 

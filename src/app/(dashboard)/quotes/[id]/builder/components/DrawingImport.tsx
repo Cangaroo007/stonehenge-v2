@@ -66,6 +66,8 @@ interface ExtractedPiece {
     relationshipType?: string | null;
     joinPosition?: string | null;
   } | null;
+  edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
+  noStripEdges?: string[];
   isEditing: boolean;
   edgeSelections: EdgeSelections;
 }
@@ -89,6 +91,18 @@ interface AnalysisResult {
       width: number;
       thickness: number;
       cutouts: { type: string; quantity?: number }[];
+      edges?: {
+        top?: string | null;
+        bottom?: string | null;
+        left?: string | null;
+        right?: string | null;
+      };
+      edgeTop?: string | null;
+      edgeBottom?: string | null;
+      edgeLeft?: string | null;
+      edgeRight?: string | null;
+      edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
+      noStripEdges?: string[];
       relatedTo?: {
         pieceName?: string | null;
         relationshipType?: string | null;
@@ -383,6 +397,12 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       for (const room of analysisResult.rooms || []) {
         for (const piece of room.pieces || []) {
           const id = `extracted-${pieceIndex++}`;
+          const importedEdges: EdgeSelections = {
+            edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
+            edgeBottom: piece.edgeBottom ?? piece.edges?.bottom ?? null,
+            edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
+            edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
+          };
           pieces.push({
             id,
             pieceNumber: piece.pieceNumber || pieceIndex,
@@ -397,8 +417,10 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             notes: piece.notes || null,
             cutouts: piece.cutouts || [],
             relatedTo: piece.relatedTo ?? null,
+            edgeBuildups: piece.edgeBuildups,
+            noStripEdges: piece.noStripEdges,
             isEditing: false,
-            edgeSelections: getDefaultEdgeSelections(edgeTypes),
+            edgeSelections: importedEdges,
           });
         }
       }
@@ -441,7 +463,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       setStep('upload');
       setFile(null);
     }
-  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId, edgeTypes]);
+  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId]);
 
   // Handle drag events
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -567,6 +589,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             edgeBottom: p.edgeSelections.edgeBottom,
             edgeLeft: p.edgeSelections.edgeLeft,
             edgeRight: p.edgeSelections.edgeRight,
+            edgeBuildups: p.edgeBuildups,
+            noStripEdges: p.noStripEdges,
             pieceType: p.pieceType,
             cutouts: p.cutouts.map(c => ({
               type: c.type,

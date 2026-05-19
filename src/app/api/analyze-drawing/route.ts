@@ -126,6 +126,8 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Width in millimetres (null if unreadable)
 - Shape: RECTANGLE, L_SHAPE, U_SHAPE, or IRREGULAR
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
+- Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
+- Build-up/drop-edge/mitred construction by side when visible. This is separate from visible edge profile.
 
 ## FABRICATION CUT-LIST RULES
 
@@ -140,6 +142,8 @@ Northcoast-style quotes are built from physical pieces, not overall footprints:
 - Put each cutout on the piece that physically contains it.
 - For waterfalls and splashbacks, set pieceType to WATERFALL or SPLASHBACK and include relatedTo with the parent piece name, relationshipType, and joinPosition (top, bottom, left, or right) when visible.
 - A mitred/build-up edge is an edge construction detail on a parent piece, not automatically a separate WATERFALL piece.
+- Do not use "mitred" as a decorative edge profile. If a side is marked M, MIT, mitred, apron, drop edge, build-up, 40mm, or 60mm, record that side in edgeBuildups and keep the visible profile separate.
+- Only mark noStripEdges for true wall/concealed sides. Do not mark a waterfall/splashback join as a wall edge; the relationship handles that separately.
 
 ## DIMENSION SANITY CHECKS
 
@@ -191,6 +195,20 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
           "width": 900,
           "thickness": 20,
           "cutouts": [{"type": "COOKTOP", "quantity": 1}],
+          "edges": {
+            "top": null,
+            "bottom": "Arris",
+            "left": null,
+            "right": null
+          },
+          "edgeTop": null,
+          "edgeBottom": "Arris",
+          "edgeLeft": null,
+          "edgeRight": null,
+          "edgeBuildups": {
+            "bottom": { "depth": 40, "exposed": true, "chargeCut": true, "chargePolish": true }
+          },
+          "noStripEdges": ["top"],
           "relatedTo": null,
           "confidence": 0.9,
           "notes": "meaningful notes only — nothing generic"

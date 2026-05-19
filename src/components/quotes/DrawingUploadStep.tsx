@@ -432,6 +432,14 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        edges?: {
+          top?: string | null;
+          bottom?: string | null;
+          left?: string | null;
+          right?: string | null;
+        };
+        edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
+        noStripEdges?: string[];
         relatedTo?: {
           pieceName?: string | null;
           relationshipType?: string | null;
@@ -453,6 +461,8 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
+        noStripEdges?: string[];
         relatedTo?: {
           pieceName?: string | null;
           relationshipType?: string | null;
@@ -472,10 +482,12 @@ export default function DrawingUploadStep({
             pieceType: piece.pieceType || null,
             materialId: piece.materialId ?? null,
             material: piece.materialName || piece.material || null,
-            edgeTop: piece.edgeTop || null,
-            edgeBottom: piece.edgeBottom || null,
-            edgeLeft: piece.edgeLeft || null,
-            edgeRight: piece.edgeRight || null,
+            edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
+            edgeBottom: piece.edgeBottom ?? piece.edges?.bottom ?? null,
+            edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
+            edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
+            edgeBuildups: piece.edgeBuildups,
+            noStripEdges: piece.noStripEdges,
             relatedTo: piece.relatedTo ?? null,
             cutouts: piece.cutouts || [],
           });
