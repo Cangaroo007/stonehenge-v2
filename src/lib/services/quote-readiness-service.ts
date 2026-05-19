@@ -77,6 +77,17 @@ export async function checkQuoteReadiness(
         include: {
           quote_pieces: {
             orderBy: { sort_order: 'asc' },
+            include: {
+              sourceRelationships: {
+                select: {
+                  id: true,
+                  relation_type: true,
+                  relationship_type: true,
+                  target_piece_id: true,
+                  side: true,
+                },
+              },
+            },
           },
         },
       },
@@ -105,6 +116,12 @@ export async function checkQuoteReadiness(
   const allPieces = quote.quote_rooms.flatMap((r) => r.quote_pieces);
   const totalPieces = allPieces.length;
   const totalRooms = quote.quote_rooms.length;
+  const pieceRoomNameById = new Map<number, string>();
+  for (const room of quote.quote_rooms) {
+    for (const piece of room.quote_pieces) {
+      pieceRoomNameById.set(piece.id, room.name);
+    }
+  }
   const subtotal = toNumber(quote.subtotal);
   const customCharges = quote.custom_charges || [];
   const customChargeTotal = customCharges.reduce((sum, charge) => sum + toNumber(charge.amount), 0);
@@ -271,6 +288,55 @@ export async function checkQuoteReadiness(
       label: 'At least one piece exists',
       status: 'pass',
       detail: `${totalPieces} piece${totalPieces !== 1 ? 's' : ''} across ${totalRooms} room${totalRooms !== 1 ? 's' : ''}`,
+    });
+  }
+
+  const unassignedPieces = quote.quote_rooms.flatMap((room) =>
+    room.name.trim().toLowerCase() === 'unassigned' ? room.quote_pieces : [],
+  );
+  if (unassignedPieces.length > 0) {
+    checks.push({
+      id: 'piece-room-assignment',
+      label: 'Pieces assigned to real rooms',
+      status: 'warn',
+      detail: `${unassignedPieces.length} piece${unassignedPieces.length !== 1 ? 's are' : ' is'} still in Unassigned`,
+      fix: 'Move imported or manually added pieces into the correct room before issuing the quote',
+      fixAction: 'Review Rooms',
+    });
+  } else if (totalPieces > 0) {
+    checks.push({
+      id: 'piece-room-assignment',
+      label: 'Pieces assigned to real rooms',
+      status: 'pass',
+      detail: 'No pieces are sitting in Unassigned',
+    });
+  }
+
+  const roomBoundRelationshipTypes = new Set(['WATERFALL', 'SPLASHBACK', 'RETURN_END', 'END_PANEL']);
+  const crossRoomAttachments = allPieces.flatMap((piece) =>
+    (piece.sourceRelationships ?? []).filter((rel) => {
+      const relationshipType = String(rel.relationship_type ?? rel.relation_type ?? '').toUpperCase();
+      if (!roomBoundRelationshipTypes.has(relationshipType)) return false;
+      const sourceRoom = pieceRoomNameById.get(piece.id);
+      const targetRoom = pieceRoomNameById.get(rel.target_piece_id);
+      return Boolean(sourceRoom && targetRoom && sourceRoom !== targetRoom);
+    }),
+  );
+  if (crossRoomAttachments.length > 0) {
+    checks.push({
+      id: 'attached-piece-room-consistency',
+      label: 'Attached pieces stay in the same room',
+      status: 'warn',
+      detail: `${crossRoomAttachments.length} waterfall/splashback/return relationship${crossRoomAttachments.length !== 1 ? 's link' : ' links'} pieces across different rooms`,
+      fix: 'Move the attached piece into the same room as its parent, or detach/recreate the relationship if the cross-room link is intentional',
+      fixAction: 'Review Relationships',
+    });
+  } else if (totalPieces > 0) {
+    checks.push({
+      id: 'attached-piece-room-consistency',
+      label: 'Attached pieces stay in the same room',
+      status: 'pass',
+      detail: 'No room mismatch found on waterfall, splashback, return, or end-panel relationships',
     });
   }
 
