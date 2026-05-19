@@ -412,7 +412,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
-            room: room.name || 'Kitchen',
+            room: room.name || 'Unassigned',
             confidence: piece.confidence || 0.5,
             notes: piece.notes || null,
             cutouts: piece.cutouts || [],
@@ -633,7 +633,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       // Build analysis data from extracted pieces
       const roomMap: Record<string, typeof extractedPieces> = {};
       for (const piece of extractedPieces) {
-        const roomName = piece.room || 'Kitchen';
+        const roomName = piece.room || 'Unassigned';
         if (!roomMap[roomName]) roomMap[roomName] = [];
         roomMap[roomName].push(piece);
       }

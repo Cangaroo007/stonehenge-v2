@@ -135,7 +135,7 @@ export default function PieceForm({
     return t !== 20 && t !== 40 ? t.toString() : '';
   });
   const [materialId, setMaterialId] = useState<number | null>(piece?.materialId || null);
-  const [roomName, setRoomName] = useState(piece?.quote_rooms?.name || 'Kitchen');
+  const [roomName, setRoomName] = useState(piece?.quote_rooms?.name || 'Unassigned');
   const [machineProfileId, setMachineProfileId] = useState<string | null>(
     piece?.machineProfileId || defaultMachineId || null
   );
@@ -189,7 +189,7 @@ export default function PieceForm({
       setThicknessMode('20mm');
       setCustomThickness('');
       setMaterialId(null);
-      setRoomName('Kitchen');
+      setRoomName('Unassigned');
       setMachineProfileId(defaultMachineId || null);
       setEdgeSelections({
         edgeTop: null,

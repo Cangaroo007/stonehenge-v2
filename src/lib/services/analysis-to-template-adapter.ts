@@ -106,7 +106,7 @@ export function convertAnalysisToTemplate(
   // Group pieces by room
   const roomMap = new Map<string, ExtractedPiece[]>();
   for (const piece of analysisResult.pieces) {
-    const roomName = piece.room || 'Kitchen';
+    const roomName = piece.room || 'Unassigned';
     const existing = roomMap.get(roomName);
     if (existing) {
       existing.push(piece);

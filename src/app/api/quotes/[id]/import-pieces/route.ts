@@ -342,7 +342,7 @@ export async function POST(
     // Group pieces by room
     const piecesByRoom: Record<string, ImportPieceData[]> = {};
     for (const piece of pieces) {
-      const roomName = piece.room || 'Kitchen';
+      const roomName = piece.room || 'Unassigned';
       if (!piecesByRoom[roomName]) {
         piecesByRoom[roomName] = [];
       }

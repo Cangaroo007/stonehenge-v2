@@ -56,7 +56,7 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
 
     return {
       name: countertop.name || `${titleCase(scan.roomType)} benchtop ${index + 1}`,
-      roomName: titleCase(scan.roomType || 'Kitchen'),
+      roomName: titleCase(scan.roomType || 'Unassigned'),
       lengthMm: bounds.width,
       widthMm: bounds.height,
       thicknessMm: 20,

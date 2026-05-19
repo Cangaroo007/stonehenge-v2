@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
     // Build room creation data
     const roomsCreate = hasBodyRooms && body!.rooms!.length > 0
       ? body!.rooms!.map((room) => ({
-          name: room.name || 'Kitchen',
+          name: room.name || 'Unassigned',
           sort_order: room.sortOrder ?? 0,
           quote_pieces: {
             create: (room.pieces ?? []).map((piece) => ({

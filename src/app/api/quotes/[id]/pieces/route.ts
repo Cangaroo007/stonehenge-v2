@@ -185,7 +185,7 @@ export async function POST(
       materialId,
       materialName,
       roomId: requestedRoomId,
-      roomName = 'Kitchen',
+      roomName = 'Unassigned',
       edgeTop = tenantDefaultEdge,
       edgeBottom = tenantDefaultEdge,
       edgeLeft = tenantDefaultEdge,
