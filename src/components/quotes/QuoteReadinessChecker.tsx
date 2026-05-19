@@ -199,9 +199,9 @@ export default function QuoteReadinessChecker({
         } else {
           clearInterval(interval);
           setIsChecking(false);
-          // Auto-expand first failing check
-          const firstFail = validChecks.find((c) => c.status === 'fail');
-          if (firstFail) setExpandedId(firstFail.id);
+          // Auto-expand the first item that needs human attention.
+          const firstIssue = validChecks.find((c) => c.status === 'fail' || c.status === 'warn');
+          if (firstIssue) setExpandedId(firstIssue.id);
         }
       }, 100);
 
@@ -343,8 +343,10 @@ export default function QuoteReadinessChecker({
               </div>
             ) : (
               <div className="text-center">
-                <div className="text-[13px] text-green-700 font-medium mb-3">
-                  All checks passed — ready to generate
+                <div className={`text-[13px] font-medium mb-3 ${warnCount > 0 ? 'text-amber-700' : 'text-green-700'}`}>
+                  {warnCount > 0
+                    ? 'Ready to generate, but review warnings first'
+                    : 'All checks passed — ready to generate'}
                 </div>
                 <button
                   type="button"
@@ -357,7 +359,7 @@ export default function QuoteReadinessChecker({
                       <path d="M6 5.5H12M6 8H12M6 10.5H9" stroke="white" strokeWidth="1" strokeLinecap="round" />
                       <path d="M10.5 13L12.5 15L15 11" stroke="#4CAF50" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round" />
                     </svg>
-                    Generate PDF Quote
+                    {warnCount > 0 ? 'Generate PDF Quote Anyway' : 'Generate PDF Quote'}
                   </span>
                 </button>
               </div>
