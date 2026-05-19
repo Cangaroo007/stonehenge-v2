@@ -3,8 +3,14 @@ import { prisma } from '@/lib/db';
 
 export const dynamic = 'force-dynamic';
 
+function getBuildId(): string {
+  const railwayCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7);
+  return process.env.NEXT_PUBLIC_BUILD_ID ?? railwayCommit ?? 'dev';
+}
+
 export async function GET() {
   const environment = process.env.NODE_ENV || 'development';
+  const buildId = getBuildId();
   const configChecks = {
     jwtSecret: Boolean(process.env.JWT_SECRET),
     anthropicApiKey: Boolean(process.env.ANTHROPIC_API_KEY),
@@ -31,7 +37,7 @@ export async function GET() {
     return NextResponse.json(
       {
         status: missingRequired.length > 0 ? 'degraded' : 'ok',
-        buildId: process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev',
+        buildId,
         timestamp: new Date().toISOString(),
         database: 'connected',
         environment,
@@ -41,7 +47,7 @@ export async function GET() {
       {
         headers: {
           'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'X-Build-Id': process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev',
+          'X-Build-Id': buildId,
         },
       }
     );

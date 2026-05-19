@@ -11,6 +11,11 @@ const PUBLIC_API_ROUTES = [
 
 const COOKIE_NAME = 'stonehenge-token';
 
+function getBuildId(): string {
+  const railwayCommit = process.env.RAILWAY_GIT_COMMIT_SHA?.slice(0, 7);
+  return process.env.NEXT_PUBLIC_BUILD_ID ?? railwayCommit ?? 'dev';
+}
+
 function getJwtSecret(): Uint8Array | null {
   const secret = process.env.JWT_SECRET;
   if (secret) {
@@ -29,7 +34,7 @@ function addCacheHeaders(response: NextResponse) {
   response.headers.set('Pragma', 'no-cache');
   response.headers.set('Expires', '0');
   response.headers.set('Surrogate-Control', 'no-store');
-  response.headers.set('X-Build-Id', process.env.NEXT_PUBLIC_BUILD_ID ?? 'dev');
+  response.headers.set('X-Build-Id', getBuildId());
   return response;
 }
 
