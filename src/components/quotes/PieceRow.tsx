@@ -696,7 +696,7 @@ function PieceVisualEditorSection({
           edgeRight: edgeKey === 'edgeRight' ? profileId : fullPiece.edgeRight,
           cutouts: fullPiece.cutouts,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]
@@ -726,7 +726,7 @@ function PieceVisualEditorSection({
           edgeRight: fullPiece.edgeRight,
           cutouts: updatedCutouts,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]
@@ -760,7 +760,7 @@ function PieceVisualEditorSection({
           edgeRight: fullPiece.edgeRight,
           cutouts: updatedCutouts,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]
@@ -784,7 +784,7 @@ function PieceVisualEditorSection({
           edgeRight: edges.right !== undefined ? edges.right : fullPiece.edgeRight,
           cutouts: fullPiece.cutouts,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]
@@ -817,7 +817,7 @@ function PieceVisualEditorSection({
       onSavePiece(
         piece.id,
         { noStripEdges },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]
@@ -848,7 +848,7 @@ function PieceVisualEditorSection({
           cutouts: fullPiece.cutouts,
           shapeConfig: updatedConfig,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
     [fullPiece, onSavePiece, piece.id]

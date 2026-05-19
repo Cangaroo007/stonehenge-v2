@@ -877,7 +877,7 @@ export default function PartsSection({
     // Second click — confirmed, proceed
     setPromotingStripKey(null);
     try {
-      const roomName = rooms.find(r => r.quote_pieces.some(p => p.id === parentPiece.id))?.name ?? 'Kitchen';
+      const roomName = rooms.find(r => r.quote_pieces.some(p => p.id === parentPiece.id))?.name ?? 'Unassigned';
       const res = await fetch(`/api/quotes/${quoteId}/pieces`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },

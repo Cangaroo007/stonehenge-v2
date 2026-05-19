@@ -208,7 +208,7 @@ function RoundedRectIcon({ selected }: { selected: boolean }) {
 // ── Name generation helpers ──────────────────────────────────────────────────
 
 function generateShapeName(shapeType: ShapeType, room: string): string {
-  const roomLabel = room || 'Kitchen';
+  const roomLabel = room || 'Unassigned';
   switch (shapeType) {
     case 'L_SHAPE': return `L-Shaped ${roomLabel} Benchtop`;
     case 'U_SHAPE': return `U-Shaped ${roomLabel} Benchtop`;
@@ -487,7 +487,7 @@ export default function InlinePieceEditor({
   );
   const [mitredCornerTreatment, setMitredCornerTreatment] =
     useState<'RAW' | 'SQUARE_TOP' | 'ROUND_TOP'>('RAW');
-  const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Kitchen');
+  const [roomName, setRoomName] = useState(piece.quote_rooms?.name || 'Unassigned');
   const [localPieceType, setLocalPieceType] = useState<string>(
     piece.piece_type ?? 'BENCHTOP'
   );
@@ -589,7 +589,7 @@ export default function InlinePieceEditor({
     setMitredCornerTreatment(
       ((piece as unknown as Record<string, unknown>).mitredCornerTreatment as 'RAW' | 'SQUARE_TOP' | 'ROUND_TOP') ?? 'RAW'
     );
-    setRoomName(piece.quote_rooms?.name || 'Kitchen');
+    setRoomName(piece.quote_rooms?.name || 'Unassigned');
     setEdgeSelections({
       edgeTop: piece.edgeTop || null,
       edgeBottom: piece.edgeBottom || null,

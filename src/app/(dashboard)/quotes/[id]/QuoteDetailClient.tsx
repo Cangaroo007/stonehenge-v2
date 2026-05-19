@@ -1772,7 +1772,7 @@ export default function QuoteDetailClient({
         edgeRight: edgeKey === 'edgeRight' ? profileId : piece.edgeRight,
         cutouts: piece.cutouts || [],
       },
-      piece.quote_rooms?.name || 'Kitchen'
+      piece.quote_rooms?.name || 'Unassigned'
     );
   }, [effectivePieces, relationships, handleInlineSavePiece]);
 
@@ -1802,7 +1802,7 @@ export default function QuoteDetailClient({
         edgeRight: piece.edgeRight,
         cutouts: updatedCutouts,
       },
-      piece.quote_rooms?.name || 'Kitchen'
+      piece.quote_rooms?.name || 'Unassigned'
     );
   }, [effectivePieces, handleInlineSavePiece]);
 
@@ -1925,7 +1925,7 @@ export default function QuoteDetailClient({
             edgeRight: edgeKey === 'edgeRight' ? profileId : piece.edgeRight,
             cutouts: piece.cutouts || [],
           },
-          piece.quote_rooms?.name || 'Kitchen'
+          piece.quote_rooms?.name || 'Unassigned'
         );
         return;
       }
@@ -4174,7 +4174,7 @@ export default function QuoteDetailClient({
                   edgeLeft: null,
                   edgeRight: null,
                   cutouts: [],
-                  quote_rooms: { id: 0, name: addingInlinePieceRoom || roomNames[0] || 'Kitchen' },
+                  quote_rooms: { id: 0, name: addingInlinePieceRoom || roomNames[0] || 'Unassigned' },
                 } as InlinePieceData}
                 materials={materials}
                 edgeTypes={edgeTypes}

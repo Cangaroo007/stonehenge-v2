@@ -858,7 +858,7 @@ export default function QuickViewPieceRow({
           cutouts: fullPiece.cutouts,
           ...overrides,
         },
-        fullPiece.quote_rooms?.name || 'Kitchen'
+        fullPiece.quote_rooms?.name || 'Unassigned'
       );
     }, 500);
   }, [fullPiece, onSavePiece, piece.id, localEdges]);
@@ -886,7 +886,7 @@ export default function QuickViewPieceRow({
         cutouts: fullPiece.cutouts,
         ...overrides,
       },
-      fullPiece.quote_rooms?.name || 'Kitchen'
+      fullPiece.quote_rooms?.name || 'Unassigned'
     );
   }, [fullPiece, onSavePiece, piece.id, localEdges]);
 

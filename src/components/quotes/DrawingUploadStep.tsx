@@ -477,7 +477,7 @@ export default function DrawingUploadStep({
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
-            room: room.name || 'Kitchen',
+            room: room.name || 'Unassigned',
             notes: piece.notes || null,
             pieceType: piece.pieceType || null,
             materialId: piece.materialId ?? null,
