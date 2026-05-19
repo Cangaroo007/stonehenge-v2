@@ -148,7 +148,7 @@ const RELATION_LABELS: Record<string, string> = {
   WINDOW_SILL: 'Window Sill',
   MITRE_JOIN: 'Mitre Join',
   BUTT_JOIN: 'Butt Join',
-  LAMINATION: 'Lamination',
+  LAMINATION: 'Build-Up Strip',
   ISLAND: 'Island',
 };
 
@@ -966,7 +966,7 @@ export default function ExpandedPieceViewClient({
                   total={edge.total}
                 />
               ))}
-              {/* Lamination pricing removed — cost covered by edge profile rates */}
+              {/* Build-up pricing is covered by edge profile rates */}
               {breakdown.fabrication.cutouts.filter((c) => c.total > 0).map((cutout, idx) => (
                 <CostRow
                   key={`${cutout.cutoutTypeId}-${idx}`}

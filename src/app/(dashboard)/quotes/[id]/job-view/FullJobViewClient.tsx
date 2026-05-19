@@ -88,7 +88,7 @@ function groupLabel(group: PieceGroup): string {
     WINDOW_SILL: 'Window Sill',
     MITRE_JOIN: 'Mitre Join',
     BUTT_JOIN: 'Butt Join',
-    LAMINATION: 'Lamination',
+    LAMINATION: 'Build-Up Strip',
   };
 
   const parts: string[] = [];

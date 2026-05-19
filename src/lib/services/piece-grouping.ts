@@ -178,7 +178,12 @@ function inferRelationType(piece: QuotePieceInput): PieceRelationType {
   if (name.includes('return end') || name.includes('return_end') || name.includes('return')) return 'RETURN';
   if (name.includes('window sill') || name.includes('windowsill')) return 'WINDOW_SILL';
   if (name.includes('island')) return 'ISLAND';
-  if (name.includes('lamination') || name.includes('lam strip')) return 'LAMINATION';
+  if (
+    name.includes('build-up strip') ||
+    name.includes('buildup strip') ||
+    name.includes('lamination') ||
+    name.includes('lam strip')
+  ) return 'LAMINATION';
 
   return 'STANDALONE';
 }
@@ -281,7 +286,7 @@ function getSpatialPosition(
       return { x: 1, y: 0, rotation: 0, side: 'right' };
 
     case 'LAMINATION':
-      // Laminations are rendered as indicators on the parent, not separately
+      // Build-up strips are rendered as indicators on the parent, not separately.
       return { x: 0, y: 0, rotation: 0, side: null };
 
     case 'ISLAND':

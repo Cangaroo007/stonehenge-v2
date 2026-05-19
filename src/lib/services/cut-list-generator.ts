@@ -78,7 +78,7 @@ export function generateCutListCSV(
       p.slabIndex + 1,
       p.pieceId,
       `"${p.label.replace(/"/g, '""')}"`,
-      p.isLaminationStrip ? 'Lamination' : 'Main',
+      p.isLaminationStrip ? 'Build-Up Strip' : 'Main',
       parentName ? `"${parentName.replace(/"/g, '""')}"` : '',
       p.width,
       p.height,
@@ -101,11 +101,11 @@ export function generateCutListCSV(
     ['Generated', new Date().toISOString(), ...Array(headers.length - 2).fill('')],
   ];
 
-  // Add lamination summary if present
+  // Add build-up strip summary if present
   if (result.laminationSummary && result.laminationSummary.totalStrips > 0) {
     const laminationRows = [
       Array(headers.length).fill(''),
-      ['--- LAMINATION STRIPS ---', ...Array(headers.length - 1).fill('')],
+      ['--- BUILD-UP STRIPS ---', ...Array(headers.length - 1).fill('')],
       ['Total Strips', result.laminationSummary.totalStrips, ...Array(headers.length - 2).fill('')],
       ['Total Strip Area', `${result.laminationSummary.totalStripArea.toFixed(4)} m²`, ...Array(headers.length - 2).fill('')],
       Array(headers.length).fill(''),

@@ -62,7 +62,7 @@ const OPERATION_META: Record<string, { label: string; shortLabel: string }> = {
   INITIAL_CUT: { label: 'Initial Cut', shortLabel: 'Cut' },
   EDGE_POLISHING: { label: 'Edge Polishing', shortLabel: 'Polish' },
   MITRING: { label: 'Mitring', shortLabel: 'Mitre' },
-  LAMINATION: { label: 'Lamination', shortLabel: 'Laminate' },
+  LAMINATION: { label: 'Build-Up Strips', shortLabel: 'Build-Up' },
   CUTOUT: { label: 'Cutouts', shortLabel: 'Cutout' },
 };
 

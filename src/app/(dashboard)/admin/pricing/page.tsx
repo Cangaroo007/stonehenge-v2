@@ -52,7 +52,7 @@ const columnConfigs: Record<TabKey, Column[]> = {
     { key: 'stripType', label: 'Type' },
     { key: 'stripWidthMm', label: 'Strip Width', render: (v) => `${v ?? '-'}mm` },
     { key: 'visibleWidthMm', label: 'Visible Width', render: (v) => `${v ?? '-'}mm` },
-    { key: 'laminationWidthMm', label: 'Lamination Width', render: (v) => `${v ?? '-'}mm` },
+    { key: 'laminationWidthMm', label: 'Build-Up Width', render: (v) => `${v ?? '-'}mm` },
     { key: 'kerfLossMm', label: 'Kerf Loss', render: (v) => `${v ?? '-'}mm` },
     { key: 'isActive', label: 'Status', render: (v) => <StatusBadge active={v as boolean} /> },
   ],
@@ -121,7 +121,7 @@ function formatAdjustment(type: string, value: number): string {
 
 function formatUsageType(type: string): string {
   const labels: Record<string, string> = {
-    EDGE_LAMINATION: 'Edge Lamination',
+    EDGE_LAMINATION: 'Edge Build-Up',
     WATERFALL_STANDARD: 'Waterfall (Standard)',
     WATERFALL_EXTENDED: 'Waterfall (Extended)',
     APRON: 'Apron',

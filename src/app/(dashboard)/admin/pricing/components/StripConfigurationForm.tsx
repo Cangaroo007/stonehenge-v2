@@ -9,7 +9,7 @@ interface StripConfigurationFormProps {
 }
 
 const usageTypes = [
-  { value: 'EDGE_LAMINATION', label: 'Edge Lamination' },
+  { value: 'EDGE_LAMINATION', label: 'Edge Build-Up' },
   { value: 'WATERFALL_STANDARD', label: 'Waterfall (Standard)' },
   { value: 'WATERFALL_EXTENDED', label: 'Waterfall (Extended)' },
   { value: 'APRON', label: 'Apron' },
@@ -49,7 +49,7 @@ export default function StripConfigurationForm({ initialData, onSave, onCancel }
     }
 
     if (formData.laminationStripWidth < 10 || formData.laminationStripWidth > 200) {
-      newErrors.laminationStripWidth = 'Lamination width must be between 10mm and 200mm';
+      newErrors.laminationStripWidth = 'Build-up width must be between 10mm and 200mm';
     }
 
     if (formData.primaryStripWidth !== null && (formData.primaryStripWidth < 0 || formData.primaryStripWidth > 1000)) {
@@ -172,7 +172,7 @@ export default function StripConfigurationForm({ initialData, onSave, onCancel }
 
           <div>
             <label htmlFor="laminationStripWidth" className="block text-xs font-medium text-gray-600 mb-1">
-              Lamination (mm) *
+              Build-Up (mm) *
             </label>
             <input
               type="number"

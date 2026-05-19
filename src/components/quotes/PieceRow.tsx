@@ -1303,7 +1303,7 @@ export default function PieceRow({
             />
           ))}
 
-          {/* Lamination pricing removed — cost covered by edge profile rates */}
+          {/* Build-up pricing is covered by edge profile rates */}
 
           {/* Material cost — after fabrication items */}
           {breakdown.materials && breakdown.materials.total > 0 && (() => {

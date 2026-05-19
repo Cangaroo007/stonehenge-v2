@@ -2633,7 +2633,7 @@ export default function QuickViewPieceRow({
                   </div>
                 </div>
               ))}
-              {/* Lamination pricing removed — cost covered by edge profile rates */}
+              {/* Build-up pricing is covered by edge profile rates */}
               {/* Material cost — after fabrication */}
               {breakdown.materials && breakdown.materials.total > 0 && (() => {
                 const m = breakdown.materials;

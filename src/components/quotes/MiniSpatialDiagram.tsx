@@ -309,7 +309,7 @@ function PieceRect({
         {pieceIndex}
       </text>
 
-      {/* Lamination indicator */}
+      {/* Build-up indicator */}
       {isLaminated && (
         <text
           x={x + w / 2 + BADGE_SIZE / 2 + 4}

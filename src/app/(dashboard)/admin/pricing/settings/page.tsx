@@ -498,7 +498,7 @@ export default function PricingSettingsPage() {
 
         {/* Strip Promotion Threshold */}
         <div className="space-y-4">
-          <h3 className="text-sm font-medium text-gray-900">Lamination Strip Promotion</h3>
+          <h3 className="text-sm font-medium text-gray-900">Build-Up Strip Promotion</h3>
           <div className="space-y-2">
             <label htmlFor="stripToPieceThresholdMm" className="block text-sm font-medium text-gray-700">
               Strip Promotion Threshold (mm)

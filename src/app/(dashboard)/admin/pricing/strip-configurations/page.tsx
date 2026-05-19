@@ -151,7 +151,7 @@ export default function StripConfigurationsPage() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Lamination Width (mm)
+                    Build-Up Width (mm)
                     <span className="block text-gray-400 font-normal">Edge build-up depth</span>
                   </label>
                   <input

@@ -422,7 +422,7 @@ export default function PieceForm({
         </div>
         {thicknessMm > 20 && (
           <p className="mt-1.5 text-xs text-purple-600">
-            Laminated — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
+            Build-up — {Math.floor((thicknessMm - 20) / 20)} layer{Math.floor((thicknessMm - 20) / 20) !== 1 ? 's' : ''}
           </p>
         )}
         {thicknessMode === 'custom' && customThickness && parseInt(customThickness) >= 20 && parseInt(customThickness) % 20 !== 0 && (
