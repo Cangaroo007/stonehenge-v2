@@ -20,6 +20,14 @@ interface QuoteData {
   tax_amount: { toString(): string } | number;
   total: { toString(): string } | number;
   notes: string | null;
+  calculation_breakdown?: {
+    breakdown?: {
+      pieces?: Array<{
+        pieceId: number;
+        pieceTotal: number;
+      }>;
+    };
+  } | null;
   created_at: Date;
   valid_until: Date | null;
   customers: {
@@ -53,6 +61,14 @@ interface QuoteData {
       }>;
     }>;
   }>;
+}
+
+function buildPieceTotalMap(quote: QuoteData): Map<number, number> {
+  const pieceTotalMap = new Map<number, number>();
+  for (const pieceBreakdown of quote.calculation_breakdown?.breakdown?.pieces ?? []) {
+    pieceTotalMap.set(pieceBreakdown.pieceId, pieceBreakdown.pieceTotal ?? 0);
+  }
+  return pieceTotalMap;
 }
 
 interface CompanyInfo {
@@ -297,6 +313,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
   const taxAmount = typeof quote.tax_amount === 'number' ? quote.tax_amount : parseFloat(quote.tax_amount.toString());
   const total = typeof quote.total === 'number' ? quote.total : parseFloat(quote.total.toString());
   const taxRate = typeof quote.tax_rate === 'number' ? quote.tax_rate : parseFloat(quote.tax_rate.toString());
+  const pieceTotalMap = buildPieceTotalMap(quote);
 
   return (
     <Document>
@@ -444,7 +461,7 @@ export function QuotePDFDocument(quote: QuoteData, companyInfo: CompanyInfo) {
                   </View>
                 )}
                 <Text style={styles.pieceCost}>
-                  {formatCurrency(piece.total_cost)}
+                  {formatCurrency(pieceTotalMap.get(piece.id) ?? piece.total_cost)}
                 </Text>
               </View>
             ))}

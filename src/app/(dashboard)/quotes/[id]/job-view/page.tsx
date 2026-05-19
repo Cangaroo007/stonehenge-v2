@@ -43,6 +43,10 @@ export default async function FullJobViewPage({
   }
 
   const calcBreakdown = quote.calculation_breakdown as unknown as CalculationResult | null;
+  const pieceTotalMap = new Map<number, number>();
+  for (const pieceBreakdown of calcBreakdown?.breakdown?.pieces ?? []) {
+    pieceTotalMap.set(Number(pieceBreakdown.pieceId), pieceBreakdown.pieceTotal ?? 0);
+  }
 
   // Build serialised data for the client component
   const pieces = quote.quote_rooms.flatMap((room) =>
@@ -56,7 +60,7 @@ export default async function FullJobViewPage({
       areaSqm: Number(piece.area_sqm),
       materialCost: Number(piece.material_cost),
       featuresCost: Number(piece.features_cost),
-      totalCost: Number(piece.total_cost),
+      totalCost: pieceTotalMap.get(piece.id) ?? Number(piece.total_cost),
       edgeTop: piece.edge_top,
       edgeBottom: piece.edge_bottom,
       edgeLeft: piece.edge_left,
