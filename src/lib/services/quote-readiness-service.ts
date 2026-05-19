@@ -455,28 +455,43 @@ export async function checkQuoteReadiness(
     });
   }
 
-  // ── Check 12: PDF template exists ──
-  const template = await prisma.quote_templates.findFirst({
-    where: {
-      company_id: companyId,
-      is_default: true,
-      is_active: true,
-    },
-    select: { name: true },
-  });
+  // ── Check 12: PDF branding/template exists ──
+  const [template, company] = await Promise.all([
+    prisma.quote_templates.findFirst({
+      where: {
+        company_id: companyId,
+        is_default: true,
+        is_active: true,
+      },
+      select: { name: true },
+    }),
+    prisma.companies.findUnique({
+      where: { id: companyId },
+      select: { name: true, logo_storage_key: true },
+    }),
+  ]);
 
   if (!template) {
-    checks.push({
-      id: 'template',
-      label: 'PDF template selected',
-      status: 'warn',
-      detail: 'No default PDF template found — built-in defaults will be used',
-      fix: 'Set up a PDF template in Settings for branded quotes',
-    });
+    if (company?.logo_storage_key) {
+      checks.push({
+        id: 'template',
+        label: 'PDF branding available',
+        status: 'pass',
+        detail: `Using built-in Northcoast layout with ${company.name} logo`,
+      });
+    } else {
+      checks.push({
+        id: 'template',
+        label: 'PDF branding available',
+        status: 'warn',
+        detail: 'No default PDF template or company logo found — built-in defaults will be used',
+        fix: 'Set up a PDF template or upload a company logo in Settings for branded quotes',
+      });
+    }
   } else {
     checks.push({
       id: 'template',
-      label: 'PDF template selected',
+      label: 'PDF branding available',
       status: 'pass',
       detail: `Using '${template.name}'`,
     });
