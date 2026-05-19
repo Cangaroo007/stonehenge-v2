@@ -101,7 +101,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} 
                     d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
             </svg>
-            Build-Up Strips (40mm)
+            Build-Up Strips
           </h4>
           
           <div className="grid grid-cols-2 gap-4 mb-3">
@@ -132,7 +132,7 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
           </div>
           
           <p className="text-xs text-blue-600 mt-3">
-            ℹ️ Lamination strips are cut from the same slab material and glued underneath finished edges
+            Build-up strips are cut from the same slab material and fixed underneath finished edges
           </p>
         </div>
       )}
@@ -184,9 +184,9 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
             {/* Piece list for this slab */}
             <div className="mt-3 flex flex-wrap gap-2">
               {slab.placements.map((p, i) => {
-                const isLamination = p.isLaminationStrip === true;
-                const isFrontStrip = isLamination && p.stripSubType === 'FACE';
-                const isSupportBlock = isLamination && p.stripSubType === 'SUPPORT';
+                const isBuildUpStrip = p.isLaminationStrip === true;
+                const isFrontStrip = isBuildUpStrip && p.stripSubType === 'FACE';
+                const isSupportBlock = isBuildUpStrip && p.stripSubType === 'SUPPORT';
                 const isSegment = p.isSegment === true;
                 return (
                   <span
@@ -196,19 +196,19 @@ export function SlabResults({ result, slabWidth, slabHeight, edgeAllowanceMm = 0
                         ? 'bg-amber-200 text-amber-800 border border-amber-400'
                         : isSupportBlock
                         ? 'bg-orange-200 text-orange-800 border border-orange-400'
-                        : isLamination
+                        : isBuildUpStrip
                         ? 'bg-gray-300 text-gray-700 border border-gray-400'
                         : isSegment
                         ? 'text-white border-2 border-dashed border-white/50'
                         : 'text-white'
                     }`}
-                    style={isFrontStrip || isSupportBlock || isLamination ? {} : {
+                    style={isFrontStrip || isSupportBlock || isBuildUpStrip ? {} : {
                       backgroundColor: getColorForPlacement(p, groupColorMap)
                     }}
                   >
                     {isFrontStrip && '◈ '}
                     {isSupportBlock && '▣ '}
-                    {!isFrontStrip && !isSupportBlock && isLamination && '▦ '}
+                    {!isFrontStrip && !isSupportBlock && isBuildUpStrip && '▦ '}
                     {isSegment && '⊞ '}
                     {p.label} ({p.width}×{p.height})
                     {p.rotated && ' ↻'}

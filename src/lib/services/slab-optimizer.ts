@@ -25,12 +25,12 @@ interface Slab {
   freeRects: Rect[];
 }
 
-// Lamination strip constants — sourced from STRIP_CONFIGURATIONS (Northcoast Stone)
+// Build-up strip constants — sourced from STRIP_CONFIGURATIONS (Northcoast Stone)
 // These represent the strip width that must be cut from the slab (visible portion only).
 // Kerf is added separately during placement by the optimizer.
 const LAMINATION_STRIP_WIDTH_DEFAULT = STRIP_CONFIGURATIONS.STANDARD.visibleWidthMm; // 60mm
 const LAMINATION_STRIP_WIDTH_MITRE = STRIP_CONFIGURATIONS.STANDARD.laminationWidthMm; // 40mm
-const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need lamination
+const LAMINATION_THRESHOLD = 40; // mm - pieces >= 40mm need build-up strips in legacy mode
 const MIN_SEGMENT_MM = 200; // Minimum fabricable segment dimension (mm)
 
 /**
@@ -64,7 +64,7 @@ async function loadStripConfigs(companyId?: number): Promise<{
   }
 }
 
-// Internal type for pieces during optimization (includes lamination and segment data)
+// Internal type for pieces during optimization (includes build-up strip and segment data)
 type OptimizationPiece = OptimizationInput['pieces'][0] & {
   isLaminationStrip?: boolean;
   parentPieceId?: string;
@@ -145,7 +145,7 @@ function getStripWidthForEdge(
 }
 
 /**
- * Generates lamination strips for a 40mm+ piece.
+ * Generates build-up strips for a 40mm+ piece.
  * Strips are needed under each finished edge to create the thickness appearance.
  * Mitre strip width: ~40mm (kerf added separately by optimizer via pieceKerfWidth).
  * Standard/waterfall strip width: ~60mm (kerf added separately by optimizer).
@@ -183,7 +183,7 @@ function generateLaminationStrips(
       const finishedEdges = piece.finishedEdges;
       if (finishedEdges && !finishedEdges[edgeKey as keyof typeof finishedEdges]) continue;
 
-      // No edge build-up — fall back to legacy lamination logic for backwards compat
+      // No edge build-up — fall back to legacy build-up strip logic for backwards compat
       const edgeNames = piece.edgeTypeNames;
       const edgeName = edgeNames?.[edgeKey as keyof typeof edgeNames];
       const isMitreEdge = edgeName?.toLowerCase().includes('mitre') ?? false;
@@ -279,7 +279,7 @@ function generateLaminationStrips(
 }
 
 /**
- * Generates lamination strips for an L/U shaped piece using actual outer edge lengths.
+ * Generates build-up strips for an L/U shaped piece using actual outer edge lengths.
  * Called BEFORE decomposition so the parent piece still has its shape data.
  * Uses getFinishableEdgeLengthsMm() to get all finishable edge dimensions.
  *
@@ -397,10 +397,10 @@ function generateShapeStrips(
 }
 
 /**
- * Split any lamination strips that exceed the usable slab width into
+ * Split any build-up strips that exceed the usable slab width into
  * N placeable segments. Mirrors preprocessOversizePieces() logic but
  * is strip-specific. Strip part IDs use '-part-' (NOT '-seg-') so the
- * ghost strip filter in generateLaminationSummary does not exclude them.
+ * build-up summary filter in generateLaminationSummary does not exclude them.
  */
 function preprocessOversizeStrips(
   strips: OptimizationPiece[],
@@ -588,9 +588,9 @@ function preprocessOversizePieces(
       continue;
     }
 
-    // Skip lamination strips that are somehow oversize (shouldn't happen)
+    // Skip build-up strips that are somehow oversize (shouldn't happen)
     if (piece.isLaminationStrip) {
-      warnings.push(`Lamination strip "${piece.label}" exceeds slab dimensions — skipped`);
+      warnings.push(`Build-up strip "${piece.label}" exceeds slab dimensions — skipped`);
       continue;
     }
 
@@ -685,7 +685,7 @@ function preprocessOversizePieces(
       return finishedEdges ? finishedEdges[edge] !== false : true;
     };
 
-    // Helper: determine if an edge is a mitre edge (matches generateLaminationStrips logic)
+    // Helper: determine if an edge uses the build-up mitre process.
     const isMitreEdge = (name?: string): boolean => {
       if (!name) return false;
       return name.toLowerCase().includes('mitre');
@@ -704,16 +704,17 @@ function preprocessOversizePieces(
 
       if (buildup) {
         const depth = buildup.depth;
+        const slabThickness = piece.thickness ?? 20;
         const returnWidth = (piece.stripWidthOverrides as Record<string, number> | null)?.[edge]
           ?? stripConfigs?.standard
           ?? LAMINATION_STRIP_WIDTH_DEFAULT;
-        const supportWidth = depth - (2 * (piece.thickness ?? 20));
+        const supportWidth = depth - (2 * slabThickness);
 
         segmentStrips.push({
           id: `${segmentId}-front-${edge}`,
           width: isHorizontal ? lengthMm : depth,
           height: isHorizontal ? depth : lengthMm,
-          thickness: 20,
+          thickness: slabThickness,
           label: `${piece.label} (${segmentLabel} ${cap} front strip)`,
           isLaminationStrip: true,
           parentPieceId: piece.id,
@@ -726,7 +727,7 @@ function preprocessOversizePieces(
           id: `${segmentId}-return-${edge}`,
           width: isHorizontal ? lengthMm : returnWidth,
           height: isHorizontal ? returnWidth : lengthMm,
-          thickness: 20,
+          thickness: slabThickness,
           label: `${piece.label} (${segmentLabel} ${cap} return strip)`,
           isLaminationStrip: true,
           parentPieceId: piece.id,
@@ -740,7 +741,7 @@ function preprocessOversizePieces(
             id: `${segmentId}-support-${edge}`,
             width: isHorizontal ? lengthMm : supportWidth,
             height: isHorizontal ? supportWidth : lengthMm,
-            thickness: 20,
+            thickness: slabThickness,
             label: `${piece.label} (${segmentLabel} ${cap} support block)`,
             isLaminationStrip: true,
             parentPieceId: piece.id,
@@ -764,7 +765,7 @@ function preprocessOversizePieces(
         id: `${segmentId}-lam-${edge}`,
         width: isHorizontal ? lengthMm : stripW,
         height: isHorizontal ? stripW : lengthMm,
-        thickness: 20,
+        thickness: piece.thickness ?? 20,
         label: `${piece.label} (${segmentLabel} Strip-${cap}${edgeName ? ` ${edgeName}` : ''})`,
         isLaminationStrip: true,
         parentPieceId: piece.id,
@@ -885,7 +886,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // ── Step 1: Decompose L/U shapes into component rects ───────────────────
   // L/U shapes are decomposed FIRST, BEFORE oversize detection.
   // Each leg is a valid rectangle that goes through the oversize check independently.
-  // Lamination strips for L/U shapes are generated here using actual outer edge lengths
+  // Build-up strips for L/U shapes are generated here using actual outer edge lengths
   // (not bounding box dimensions) via getShapeEdgeLengths().
   // Rectangle pieces pass through unchanged.
   const decomposedPieces: OptimizationPiece[] = [];
@@ -898,7 +899,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
       continue;
     }
 
-    // Generate lamination strips for L/U shapes BEFORE decomposition.
+    // Generate build-up strips for L/U shapes BEFORE decomposition.
     // ALL edges get strips by default, minus any in noStripEdges (wall edges).
     const hasBuildupsU = Object.keys(piece.edgeBuildups ?? {}).length > 0;
     if (piece.thickness && (piece.thickness >= LAMINATION_THRESHOLD || hasBuildupsU)) {
@@ -912,7 +913,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
       shapeStrips.push(...strips);
       if (strips.length > 0) {
         logger.info(
-          `[Optimizer] Generated ${strips.length} lamination strip(s) for L/U shape "${piece.label}"`
+          `[Optimizer] Generated ${strips.length} build-up strip(s) for L/U shape "${piece.label}"`
         );
       }
     }
@@ -945,7 +946,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
         partLabel: rect.label,
         totalParts: rects.length,
         parentPieceId: piece.id,
-        // Clear finished edges — lamination strips already generated above for L/U shapes
+        // Clear finished edges — build-up strips already generated above for L/U shapes
         finishedEdges: undefined,
         edgeTypeNames: undefined,
         edgeBuildups: null,
@@ -983,7 +984,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // Group slab assignment map: groupId → slabIndex
   const groupSlabMap = new Map<string, number>();
 
-  // ── Step 2: Generate lamination strips for all 40mm+ pieces ───────────────
+  // ── Step 2: Generate build-up strips for all 40mm+ pieces ───────────────
   const allPieces: OptimizationPiece[] = [];
 
   // Build set of piece IDs that have been decomposed into segments
@@ -1004,7 +1005,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
     // Also skip original oversize pieces that were decomposed into segments.
     if (piece.isSegment || decomposedPieceIds.has(piece.id)) continue;
 
-    // Generate and add lamination strips for rectangle pieces.
+    // Generate and add build-up strips for rectangle pieces.
     // L/U shape strips were already generated in Step 1 (before decomposition)
     // using actual edge lengths from getShapeEdgeLengths().
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth, stripConfigs);
@@ -1019,7 +1020,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
 
   // Log for debugging (visible in server logs)
   if (allPieces.length > normalizedPieces.length) {
-    logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} lamination strips = ${allPieces.length} total`);
+    logger.info(`[Optimizer] Input: ${normalizedPieces.length} pieces + ${allPieces.length - normalizedPieces.length} build-up strips = ${allPieces.length} total`);
   }
 
   // ── Curved shape pre-processing ───────────────────────────────────────────────

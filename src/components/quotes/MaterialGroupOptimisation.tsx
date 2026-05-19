@@ -135,21 +135,21 @@ function MaterialGroupSection({
               {/* Piece tags for this slab */}
               <div className="mt-2 flex flex-wrap gap-1.5">
                 {slab.placements.map((p, i) => {
-                  const isLamination = p.isLaminationStrip === true;
+                  const isBuildUpStrip = p.isLaminationStrip === true;
                   const isSegment = p.isSegment === true;
                   return (
                     <span
                       key={`${p.pieceId}-${i}`}
                       className={`inline-flex items-center px-2 py-0.5 rounded text-xs ${
-                        isLamination
+                        isBuildUpStrip
                           ? 'bg-gray-300 text-gray-700 border border-gray-400'
                           : isSegment
                           ? 'text-white border-2 border-dashed border-white/50'
                           : 'text-white'
                       }`}
-                      style={isLamination ? {} : { backgroundColor: getColorForPlacement(p, groupColorMap) }}
+                      style={isBuildUpStrip ? {} : { backgroundColor: getColorForPlacement(p, groupColorMap) }}
                     >
-                      {isLamination && '\u25A6 '}
+                      {isBuildUpStrip && '\u25A6 '}
                       {isSegment && '\u229E '}
                       {p.label} ({p.width}&times;{p.height})
                       {p.rotated && ' \u21BB'}

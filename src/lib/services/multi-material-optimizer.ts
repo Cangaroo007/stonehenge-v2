@@ -41,11 +41,11 @@ export interface MultiMaterialPiece {
   grainMatched?: boolean;
   /** Extra edges from shape_config.edges (INNER, R-BTM, etc.) */
   shapeConfigEdges?: Record<string, string | null>;
-  /** Edges marked as wall edges — no lamination strip generated for these */
+  /** Edges marked as wall/join edges — no build-up strip generated for these */
   noStripEdges?: string[];
   /** Per-edge strip width overrides (mm) */
   stripWidthOverrides?: Record<string, number> | null;
-  /** Lamination method — 'MITRED' generates face + return strips */
+  /** Legacy build-up method — 'MITRED' generates face + return strips */
   laminationMethod?: string | null;
   /** Per-edge build-up config */
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;

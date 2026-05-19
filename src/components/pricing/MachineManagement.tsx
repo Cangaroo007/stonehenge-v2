@@ -30,7 +30,7 @@ const OPERATION_LABELS: Record<string, { label: string; description: string }> =
   INITIAL_CUT: { label: 'Initial Cut', description: 'Extract piece from slab' },
   EDGE_POLISHING: { label: 'Edge Polishing', description: 'Finish visible profile' },
   MITRING: { label: 'Mitring', description: '45-degree bevel cut' },
-  LAMINATION: { label: 'Lamination', description: 'Glue & stack drop-strips' },
+  LAMINATION: { label: 'Build-up bonding', description: 'Glue and stack drop-edge strips' },
   CUTOUT: { label: 'Cutouts/Features', description: 'Internal holes/sink extraction' },
 };
 

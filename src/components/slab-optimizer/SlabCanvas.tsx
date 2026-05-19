@@ -34,7 +34,7 @@ const PIECE_COLORS = [
   '#6366F1', // Indigo
 ];
 
-// Lamination strip colors
+// Build-up strip colors
 const LAMINATION_COLOR = '#D1D5DB'; // gray-300
 const LAMINATION_PATTERN_COLOR = '#9CA3AF'; // gray-400
 
@@ -300,7 +300,7 @@ export function SlabCanvas({
             />
           </pattern>
 
-          {/* Diagonal stripe pattern for lamination strips */}
+          {/* Diagonal stripe pattern for build-up strips */}
           <pattern
             id={laminationPatternId}
             width="8"
@@ -369,7 +369,7 @@ export function SlabCanvas({
           const isSegment = placement.isSegment === true;
           const isRotationLocked = !isLaminationStrip && isRotationLockedPlacement(placement);
 
-          // Look up cutouts for this piece (skip for lamination strips)
+          // Look up cutouts for this piece (skip for build-up strips)
           const cutouts = (!isLaminationStrip && pieceCutouts)
             ? pieceCutouts[placement.pieceId] ?? []
             : [];
