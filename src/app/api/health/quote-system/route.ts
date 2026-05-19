@@ -20,7 +20,10 @@ export async function GET() {
       where: { isActive: true },
     });
     const types = Array.from(new Set(rates.map((r) => r.serviceType)));
-    const required = ['CUTTING', 'POLISHING', 'INSTALLATION'] as const;
+    // Edge/polish pricing now lives on edge_type_category_rates, so POLISHING
+    // service rates are intentionally inactive. Keep this aligned with the
+    // quote validator and pricing calculator.
+    const required = ['CUTTING', 'INSTALLATION'] as const;
     const missing = required.filter((t) => !types.includes(t));
     checks.serviceRates =
       missing.length === 0
@@ -30,17 +33,25 @@ export async function GET() {
     checks.serviceRates = { status: 'failed', detail: 'Query failed' };
   }
 
-  // 3. Edge types exist
+  // 3. Edge types and category rates exist
   try {
-    const edgeTypes = await prisma.edge_types.findMany({
-      where: { isActive: true },
-    });
+    const [edgeTypes, edgeCategoryRateCount] = await Promise.all([
+      prisma.edge_types.findMany({
+        where: { isActive: true },
+      }),
+      prisma.edge_type_category_rates.count(),
+    ]);
     checks.edgeTypes =
       edgeTypes.length > 0
         ? { status: 'ok', detail: `${edgeTypes.length} active edge types` }
         : { status: 'empty', detail: 'No edge types configured' };
+    checks.edgeCategoryRates =
+      edgeCategoryRateCount > 0
+        ? { status: 'ok', detail: `${edgeCategoryRateCount} edge profile category rates` }
+        : { status: 'missing', detail: 'No edge profile category rates configured' };
   } catch {
     checks.edgeTypes = { status: 'failed', detail: 'Query failed' };
+    checks.edgeCategoryRates = { status: 'failed', detail: 'Query failed' };
   }
 
   // 4. Cutout types exist
