@@ -34,7 +34,7 @@ function uniqueNoStripEdges(edges: unknown): string[] {
 
 function removeEdgesFromRecord<T extends Record<string, unknown> | null | undefined>(
   value: T,
-  edges: RectEdgeSide[]
+  edges: string[]
 ): Record<string, unknown> | null | undefined {
   if (value == null) return value;
   if (typeof value !== 'object' || Array.isArray(value)) return value as Record<string, unknown>;
@@ -475,12 +475,20 @@ export async function PATCH(
       : relationshipJoinEdges.length > 0
         ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
         : undefined;
+    const suppressedEdges = cleanNoStripEdges ?? Array.from(new Set([
+      ...uniqueNoStripEdges(currentPiece.no_strip_edges),
+      ...relationshipJoinEdges,
+    ]));
     const cleanEdgeBuildups = edgeBuildups !== undefined
-      ? removeEdgesFromRecord(edgeBuildups as Record<string, unknown> | null, relationshipJoinEdges)
-      : undefined;
+      ? removeEdgesFromRecord(edgeBuildups as Record<string, unknown> | null, suppressedEdges)
+      : cleanNoStripEdges !== undefined
+        ? removeEdgesFromRecord(currentPiece.edge_buildups as Record<string, unknown> | null, suppressedEdges)
+        : undefined;
     const cleanStripWidthOverrides = stripWidthOverrides !== undefined
-      ? removeEdgesFromRecord(stripWidthOverrides as Record<string, unknown> | null, relationshipJoinEdges)
-      : undefined;
+      ? removeEdgesFromRecord(stripWidthOverrides as Record<string, unknown> | null, suppressedEdges)
+      : cleanNoStripEdges !== undefined
+        ? removeEdgesFromRecord(currentPiece.strip_width_overrides as Record<string, unknown> | null, suppressedEdges)
+        : undefined;
 
     // Update the piece
     const updatedPiece = await prisma.quote_pieces.update({
@@ -529,12 +537,12 @@ export async function PATCH(
         ...(scForCornersPatch?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPatch.corner_edge_br as string) ?? null }),
         // no_strip_edges: wall edges + relationship joins that don't need build-up strips
         ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
-        ...(edgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
+        ...(cleanEdgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(materialCollectionOnly !== undefined && { material_collection_only: materialCollectionOnly }),
         ...(materialCollectionName !== undefined && { material_collection_name: materialCollectionName }),
         ...(pieceType !== undefined && { piece_type: pieceType }),
         ...(edgeArcConfig !== undefined && { edge_arc_config: edgeArcConfig as unknown as Prisma.InputJsonValue }),
-        strip_width_overrides: stripWidthOverrides !== undefined
+        strip_width_overrides: cleanStripWidthOverrides !== undefined
           ? cleanStripWidthOverrides as unknown as Prisma.InputJsonValue
           : undefined,
       },
@@ -866,12 +874,20 @@ export async function PUT(
       : relationshipJoinEdges.length > 0
         ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
         : undefined;
+    const suppressedEdges = cleanNoStripEdges ?? Array.from(new Set([
+      ...uniqueNoStripEdges(currentPiece.no_strip_edges),
+      ...relationshipJoinEdges,
+    ]));
     const cleanEdgeBuildups = putEdgeBuildups !== undefined
-      ? removeEdgesFromRecord(putEdgeBuildups as Record<string, unknown> | null, relationshipJoinEdges)
-      : undefined;
+      ? removeEdgesFromRecord(putEdgeBuildups as Record<string, unknown> | null, suppressedEdges)
+      : cleanNoStripEdges !== undefined
+        ? removeEdgesFromRecord(currentPiece.edge_buildups as Record<string, unknown> | null, suppressedEdges)
+        : undefined;
     const cleanStripWidthOverrides = putStripWidthOverrides !== undefined
-      ? removeEdgesFromRecord(putStripWidthOverrides as Record<string, unknown> | null, relationshipJoinEdges)
-      : undefined;
+      ? removeEdgesFromRecord(putStripWidthOverrides as Record<string, unknown> | null, suppressedEdges)
+      : cleanNoStripEdges !== undefined
+        ? removeEdgesFromRecord(currentPiece.strip_width_overrides as Record<string, unknown> | null, suppressedEdges)
+        : undefined;
 
     // Update the piece
     const piece = await prisma.quote_pieces.update({
@@ -920,9 +936,9 @@ export async function PUT(
         ...(scForCornersPut?.corner_edge_br !== undefined && { corner_edge_br: (scForCornersPut.corner_edge_br as string) ?? null }),
         // no_strip_edges: wall edges + relationship joins that don't need build-up strips
         ...(cleanNoStripEdges !== undefined && { no_strip_edges: cleanNoStripEdges as unknown as Prisma.InputJsonValue }),
-        ...(putEdgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
+        ...(cleanEdgeBuildups !== undefined && { edge_buildups: cleanEdgeBuildups as unknown as Prisma.InputJsonValue }),
         ...(putEdgeArcConfig !== undefined && { edge_arc_config: putEdgeArcConfig as unknown as Prisma.InputJsonValue }),
-        ...(putStripWidthOverrides !== undefined && {
+        ...(cleanStripWidthOverrides !== undefined && {
           strip_width_overrides: cleanStripWidthOverrides as unknown as Prisma.InputJsonValue,
         }),
         ...(putPieceType !== undefined && { piece_type: putPieceType }),

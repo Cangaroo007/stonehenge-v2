@@ -633,6 +633,9 @@ export default function QuickViewPieceRow({
   const [localEdgeBuildups, setLocalEdgeBuildups] = useState<Record<string, EdgeBuildupConfig>>(
     (piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}
   );
+  const [localNoStripEdges, setLocalNoStripEdges] = useState<string[]>(
+    (piece.noStripEdges as string[]) ?? []
+  );
   const [buildupSaveState, setBuildupSaveState] = useState<'idle' | 'saving' | 'saved'>('idle');
   // Local edge profile state — updated optimistically before API response.
   // Prevents race condition where rapid clicks read stale fullPiece prop.
@@ -678,13 +681,14 @@ export default function QuickViewPieceRow({
       piece.overrideFabricationCost != null ? String(piece.overrideFabricationCost) : ''
     );
     setLocalEdgeBuildups((piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {});
+    setLocalNoStripEdges((piece.noStripEdges as string[]) ?? []);
     setLocalEdges({
       edgeTop: piece.edgeTop ?? null,
       edgeBottom: piece.edgeBottom ?? null,
       edgeLeft: piece.edgeLeft ?? null,
       edgeRight: piece.edgeRight ?? null,
     });
-  }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
+  }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.noStripEdges, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -787,11 +791,11 @@ export default function QuickViewPieceRow({
     if (attachedType === 'SPLASHBACK') {
       return { code: 'SB', colour: '#059669', label: 'Splashback join, not a wall edge' };
     }
-    if (edgeListIncludes(piece.noStripEdges, side)) {
+    if (edgeListIncludes(localNoStripEdges, side)) {
       return { code: 'WALL', colour: '#78716c', label: 'Against wall' };
     }
     return null;
-  }, [attachedPieceTypes, piece.noStripEdges]);
+  }, [attachedPieceTypes, localNoStripEdges]);
 
   const resolvedEdgeTypes = useMemo(() => {
     if (editData?.edgeTypes && editData.edgeTypes.length > 0) {
@@ -1024,7 +1028,7 @@ export default function QuickViewPieceRow({
   }, [quoteId, piece.id, piece.lengthMm, piece.widthMm, piece.thicknessMm, piece.materialName, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.roomName, localOverrideFabCost, onSavePiece]);
 
   const handleEdgeBuildup = useCallback((edge: string, active: boolean, depth = 40) => {
-    if (attachedPieceTypes?.[edge] || edgeListIncludes(piece.noStripEdges, edge)) {
+    if (attachedPieceTypes?.[edge] || edgeListIncludes(localNoStripEdges, edge)) {
       return;
     }
 
@@ -1041,7 +1045,7 @@ export default function QuickViewPieceRow({
       delete next[edge];
     }
     void saveEdgeBuildups(next);
-  }, [attachedPieceTypes, localEdgeBuildups, piece.noStripEdges, saveEdgeBuildups]);
+  }, [attachedPieceTypes, localEdgeBuildups, localNoStripEdges, saveEdgeBuildups]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
@@ -1157,8 +1161,17 @@ export default function QuickViewPieceRow({
 
   // Handler for shape_config edges (INNER, R-BTM, etc.) — merges into shape_config.edges
   const handleNoStripEdgesChange = useCallback((noStripEdges: string[]) => {
-    savePieceImmediate({ noStripEdges });
-  }, [savePieceImmediate]);
+    const nextBuildups = { ...localEdgeBuildups };
+    for (const edge of noStripEdges) {
+      delete nextBuildups[edge];
+    }
+    setLocalNoStripEdges(noStripEdges);
+    setLocalEdgeBuildups(nextBuildups);
+    savePieceImmediate({
+      noStripEdges,
+      edgeBuildups: Object.keys(nextBuildups).length > 0 ? nextBuildups : null,
+    });
+  }, [localEdgeBuildups, savePieceImmediate]);
 
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
     if (!fullPiece || !onSavePiece) return;
@@ -1697,7 +1710,7 @@ export default function QuickViewPieceRow({
                   type="button"
                   onClick={(e) => {
                     e.stopPropagation();
-                    const wallEdges = piece.noStripEdges ?? [];
+                    const wallEdges = localNoStripEdges;
                     const next: Record<string, EdgeBuildupConfig> = {};
                     (['top', 'bottom', 'left', 'right'] as const).forEach(edge => {
                       if (!edgeListIncludes(wallEdges, edge) && !attachedPieceTypes?.[edge]) {
@@ -1713,7 +1726,7 @@ export default function QuickViewPieceRow({
               </div>
               <div className="flex gap-1 flex-wrap">
                 {(['top','bottom','left','right'] as const).map(edge => {
-                  const isWall = edgeListIncludes(piece.noStripEdges, edge);
+                  const isWall = edgeListIncludes(localNoStripEdges, edge);
                   const attachedType = attachedPieceTypes?.[edge];
                   const isSuppressed = isWall || Boolean(attachedType);
                   const buildup = localEdgeBuildups[edge];
@@ -2367,7 +2380,7 @@ export default function QuickViewPieceRow({
                   }
                   return fullPiece?.edgeArcConfig ?? undefined;
                 })()}
-                noStripEdges={(piece.noStripEdges as string[]) ?? []}
+                noStripEdges={localNoStripEdges}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
                 edgeBuildups={localEdgeBuildups}
                 attachedPieceTypes={attachedPieceTypes}
@@ -2454,7 +2467,11 @@ export default function QuickViewPieceRow({
                   const active = depth !== null;
                   const depthValue = depth ?? 40;
 
-                  for (const edgeId of edgeIds) {
+                  const editableEdgeIds = edgeIds.filter(edgeId =>
+                    !attachedPieceTypes?.[edgeId] && !edgeListIncludes(localNoStripEdges, edgeId)
+                  );
+
+                  for (const edgeId of editableEdgeIds) {
                     if (active) {
                       next[edgeId] = {
                         ...(next[edgeId] ?? {}),
@@ -2470,10 +2487,10 @@ export default function QuickViewPieceRow({
                 }}
                 onAttachWaterfall={(edgeId) => onAddWaterfall?.(edgeId)}
                 onAttachSplashback={(edgeId) => onAddSplashback?.(edgeId)}
-                noStripEdges={(piece.noStripEdges as string[]) ?? []}
+                noStripEdges={localNoStripEdges}
                 attachedPieceTypes={attachedPieceTypes}
                 onToggleWallEdge={(edgeId) => {
-                  const current = (piece.noStripEdges as string[]) ?? [];
+                  const current = localNoStripEdges;
                   const target = edgeId.toLowerCase();
                   const isAlreadyWall = current.some(id => String(id).toLowerCase() === target);
                   const updated = isAlreadyWall
