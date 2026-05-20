@@ -5230,28 +5230,37 @@ export default function QuoteDetailClient({
             }),
           });
           const pieceJson = await pieceRes.json();
+          if (!pieceRes.ok) {
+            throw new Error(pieceJson?.error || `Failed to create ${type === 'WATERFALL' ? 'waterfall' : 'splashback'} piece`);
+          }
           const newPiece = pieceJson.piece ?? pieceJson;
           if (!newPiece?.id) return;
 
-          // 3. Create relationship. The server owns join semantics: it removes
-          // hidden build-ups and suppresses both joining faces without turning
-          // the visible edge profile into a legacy "mitred" edge.
-          const relationshipRes = await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              sourcePieceId: parseInt(parentPieceId),
-              targetPieceId: newPiece.id,
-              relationType: type,
-              side: selectedEdge,
-              grainMatch: false,
-              positionMm: positionMm ?? null,
-              positionReference: positionReference ?? null,
-              coverageMm: coverageMm ?? null,
-            }),
-          });
-          if (!relationshipRes.ok) {
-            throw new Error('Failed to create relationship for attached piece');
+          try {
+            // 3. Create relationship. The server owns join semantics: it removes
+            // hidden build-ups and suppresses both joining faces without turning
+            // the visible edge profile into a legacy "mitred" edge.
+            const relationshipRes = await fetch(`/api/quotes/${quoteId}/piece-relationships`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                sourcePieceId: parseInt(parentPieceId),
+                targetPieceId: newPiece.id,
+                relationType: type,
+                side: selectedEdge,
+                grainMatch: false,
+                positionMm: positionMm ?? null,
+                positionReference: positionReference ?? null,
+                coverageMm: coverageMm ?? null,
+              }),
+            });
+            if (!relationshipRes.ok) {
+              const relationshipError = await relationshipRes.json().catch(() => null);
+              throw new Error(relationshipError?.error || 'Failed to create relationship for attached piece');
+            }
+          } catch (relationshipError) {
+            await fetch(`/api/quotes/${quoteId}/pieces/${newPiece.id}`, { method: 'DELETE' }).catch(() => undefined);
+            throw relationshipError;
           }
 
           // 4. Refresh quote
