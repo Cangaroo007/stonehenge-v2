@@ -133,7 +133,7 @@ export interface QuickViewPieceRowProps {
   onMachineChange?: (pieceId: number, operationType: string, machineId: string) => void;
   fullPiece?: InlinePieceData;
   editData?: InlineEditData;
-  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void;
+  onSavePiece?: (pieceId: number, data: Record<string, unknown>, roomName: string) => void | Promise<void>;
   savingPiece?: boolean;
   onDelete?: (pieceId: number) => void;
   onDuplicate?: (pieceId: number) => void;
@@ -269,8 +269,7 @@ function AccordionStripWidths({
       if (!res.ok) throw new Error('Failed to fetch pieces');
       const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, EdgeBuildupConfig> | null }> = await res.json();
       const targets = allPieces.filter(p =>
-        (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
-        p.id !== piece.id
+        p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0
       );
       const overridePayload = Object.keys(overrides).length > 0 ? overrides : null;
       for (const target of targets) {
@@ -866,12 +865,12 @@ export default function QuickViewPieceRow({
   // ── Immediate save (no debounce, for dropdowns/selectors) ───────────────
   // Same minimum viable data guard as savePiece.
   const savePieceImmediate = useCallback((overrides: Record<string, unknown>) => {
-    if (!fullPiece || !onSavePiece) return;
+    if (!fullPiece || !onSavePiece) return Promise.resolve();
     const mergedLength = (overrides.lengthMm as number) ?? fullPiece.lengthMm;
     const mergedWidth = (overrides.widthMm as number) ?? fullPiece.widthMm;
-    if (mergedLength <= 0 || mergedWidth <= 0) return;
+    if (mergedLength <= 0 || mergedWidth <= 0) return Promise.resolve();
     if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
-    onSavePiece(
+    return Promise.resolve(onSavePiece(
       piece.id,
       {
         lengthMm: fullPiece.lengthMm,
@@ -887,8 +886,18 @@ export default function QuickViewPieceRow({
         ...overrides,
       },
       fullPiece.quote_rooms?.name || 'Unassigned'
-    );
+    ));
   }, [fullPiece, onSavePiece, piece.id, localEdges]);
+
+  const saveEdgeBuildups = useCallback(async (next: Record<string, EdgeBuildupConfig>) => {
+    setLocalEdgeBuildups(next);
+    setBuildupSaveState('saving');
+    await savePieceImmediate({
+      edgeBuildups: Object.keys(next).length > 0 ? next : null,
+    });
+    setBuildupSaveState('saved');
+    setTimeout(() => setBuildupSaveState('idle'), 2000);
+  }, [savePieceImmediate]);
 
   // ── Dimension handlers ──────────────────────────────────────────────────
   // onChange: update local state only — no save
@@ -1031,14 +1040,8 @@ export default function QuickViewPieceRow({
     } else {
       delete next[edge];
     }
-    setLocalEdgeBuildups(next);
-    setBuildupSaveState('saving');
-    savePieceImmediate({
-      edgeBuildups: Object.keys(next).length > 0 ? next : null,
-    });
-    setBuildupSaveState('saved');
-    setTimeout(() => setBuildupSaveState('idle'), 2000);
-  }, [attachedPieceTypes, localEdgeBuildups, piece.noStripEdges, savePieceImmediate]);
+    void saveEdgeBuildups(next);
+  }, [attachedPieceTypes, localEdgeBuildups, piece.noStripEdges, saveEdgeBuildups]);
 
   const calculatedPricePerSqm = useMemo(() => {
     const price = parseFloat(newMat.pricePerSlab);
@@ -1701,11 +1704,7 @@ export default function QuickViewPieceRow({
                         next[edge] = { depth: 40, exposed: true, chargeCut: true, chargePolish: true };
                       }
                     });
-                    setLocalEdgeBuildups(next);
-                    setBuildupSaveState('saving');
-                    savePieceImmediate({ edgeBuildups: next });
-                    setBuildupSaveState('saved');
-                    setTimeout(() => setBuildupSaveState('idle'), 2000);
+                    void saveEdgeBuildups(next);
                   }}
                   className="text-xs text-primary-600 hover:underline"
                 >
@@ -2370,7 +2369,7 @@ export default function QuickViewPieceRow({
                 })()}
                 noStripEdges={(piece.noStripEdges as string[]) ?? []}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
-                edgeBuildups={(piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}}
+                edgeBuildups={localEdgeBuildups}
                 attachedPieceTypes={attachedPieceTypes}
                 externalSelectedEdgeIds={isEditMode ? selectedEdgeIds : undefined}
                 onEdgeClick={isEditMode ? (edgeId) => {
@@ -2392,7 +2391,7 @@ export default function QuickViewPieceRow({
                 selectedEdgeIds={selectedEdgeIds}
                 onSelectionChange={setSelectedEdgeIds}
                 edgeProfiles={edgePanelProfiles}
-                edgeBuildups={(piece.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? {}}
+                edgeBuildups={localEdgeBuildups}
                 edgeTypes={(editData?.edgeTypes ?? []).map(et => ({ id: et.id, name: et.name, isMitred: et.isMitred }))}
                 onApplyProfile={(edgeIds, profileId) => {
                   // Atomic multi-edge profile save — one savePieceImmediate call.
@@ -2467,13 +2466,7 @@ export default function QuickViewPieceRow({
                     }
                   }
 
-                  setLocalEdgeBuildups(next);
-                  setBuildupSaveState('saving');
-                  savePieceImmediate({
-                    edgeBuildups: Object.keys(next).length > 0 ? next : null,
-                  });
-                  setBuildupSaveState('saved');
-                  setTimeout(() => setBuildupSaveState('idle'), 2000);
+                  void saveEdgeBuildups(next);
                 }}
                 onAttachWaterfall={(edgeId) => onAddWaterfall?.(edgeId)}
                 onAttachSplashback={(edgeId) => onAddSplashback?.(edgeId)}
@@ -2488,10 +2481,15 @@ export default function QuickViewPieceRow({
                     : [...current, edgeId];
                   handleNoStripEdgesChange(updated);
                 }}
-                disabled={!isEditMode}
-              />
-            </div>
-          )}
+	                disabled={!isEditMode}
+	              />
+	              {buildupSaveState !== 'idle' && (
+	                <div className="mt-2 text-xs text-gray-500">
+	                  {buildupSaveState === 'saving' ? 'Saving build-up changes...' : 'Build-up changes saved'}
+	                </div>
+	              )}
+	            </div>
+	          )}
 
           {/* Relationships (edit mode only) */}
           {mode === 'edit' && quoteIdStr && relationships && allPiecesForRelationships && onRelationshipChange && (
@@ -2536,10 +2534,25 @@ export default function QuickViewPieceRow({
                       {breakdown.fabrication.cutting.quantity.toFixed(2)} {unitShort(breakdown.fabrication.cutting.unit)} &times; {formatCurrency(breakdown.fabrication.cutting.rate)} {unitLabel(breakdown.fabrication.cutting.unit)}
                     </span>
                     <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.cutting.total)}</span>
-                  </div>
-                </div>
-              )}
-              {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
+	                  </div>
+	                </div>
+	              )}
+	              {breakdown.fabrication.cutting.items?.filter(item => item.total > 0).map((item, idx) => (
+	                <div key={`cutting-item-${idx}`} className="flex items-center justify-between pl-3 text-[11px] text-gray-500">
+	                  <span>
+	                    {item.kind === 'BUILD_UP' ? 'Build-up cutting' : 'Normal cutting'}
+	                    {item.side ? `: ${humaniseEdgeName(item.side)}` : ''}
+	                    {item.kind === 'BUILD_UP' ? ` (${item.effectiveThicknessMm}mm)` : ''}
+	                  </span>
+	                  <div className="flex items-center gap-2">
+	                    <span className="text-gray-400">
+	                      {item.quantity.toFixed(2)} {unitShort(item.unit)} &times; {formatCurrency(item.rate)} {unitLabel(item.unit)}
+	                    </span>
+	                    <span className="tabular-nums">{formatCurrency(item.total)}</span>
+	                  </div>
+	                </div>
+	              ))}
+	              {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {/* Curved Cutting */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
                 <div className="flex items-center justify-between text-xs text-gray-600">
@@ -2556,21 +2569,25 @@ export default function QuickViewPieceRow({
               {/* Edge Profiles — one row per distinct edge type, Lm × rate shown */}
               {breakdown.fabrication.edges && breakdown.fabrication.edges.length > 0 && (() => {
                 // Group edges by name, summing lm and cost across all sides
-                const grouped = breakdown.fabrication.edges.reduce<
-                  Record<string, { name: string; lm: number; rate: number; total: number }>
-                >((acc, e) => {
-                  const key = e.edgeTypeName;
-                  if (!acc[key]) {
-                    acc[key] = { name: e.edgeTypeName, lm: 0, rate: e.rate, total: 0 };
-                  }
-                  acc[key].lm += e.linearMeters;
-                  acc[key].total += e.total;
+	                const grouped = breakdown.fabrication.edges.reduce<
+	                  Record<string, { name: string; lm: number; rate: number; total: number; buildupDepth?: number }>
+	                >((acc, e) => {
+	                  const buildupDepth = localEdgeBuildups[e.side]?.depth;
+	                  const key = `${e.edgeTypeName}:${e.rate}:${buildupDepth ?? 'standard'}`;
+	                  if (!acc[key]) {
+	                    acc[key] = { name: e.edgeTypeName, lm: 0, rate: e.rate, total: 0, buildupDepth };
+	                  }
+	                  acc[key].lm += e.linearMeters;
+	                  acc[key].total += e.total;
                   return acc;
                 }, {});
 
                 return Object.values(grouped).map((group, idx) => (
                   <div key={`edge-profile-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
-                    <span>Edge Profile: {edgeDisplayName(group.name)}</span>
+	                    <span>
+	                      Edge Profile: {edgeDisplayName(group.name)}
+	                      {group.buildupDepth ? ` (${group.buildupDepth}mm build-up)` : ''}
+	                    </span>
                     <div className="flex items-center gap-2">
                       <span className="text-[11px] text-gray-400">
                         {group.lm.toFixed(2)} Lm &times; {formatCurrency(group.rate)} per Lm
