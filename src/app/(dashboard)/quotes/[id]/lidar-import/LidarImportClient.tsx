@@ -24,6 +24,8 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
   const [scans, setScans] = useState<LidarScanSummary[]>([]);
   const [loading, setLoading] = useState(true);
   const [importingScanId, setImportingScanId] = useState<string | null>(null);
+  const [importingCustom, setImportingCustom] = useState(false);
+  const [customScanJson, setCustomScanJson] = useState('');
   const [replaceExisting, setReplaceExisting] = useState(false);
 
   useEffect(() => {
@@ -97,6 +99,61 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
     }
   }
 
+  async function importCustomScan() {
+    if (!customScanJson.trim()) {
+      toast.error('Paste LiDAR JSON first');
+      return;
+    }
+
+    let parsedScan: unknown;
+    try {
+      parsedScan = JSON.parse(customScanJson);
+    } catch {
+      toast.error('LiDAR JSON is not valid JSON');
+      return;
+    }
+
+    setImportingCustom(true);
+    trackClarityEvent('lidar_import_started', {
+      quoteId,
+      scanId: 'custom-json',
+      replaceExisting,
+    });
+    try {
+      const response = await fetch(`/api/quotes/${quoteId}/lidar-import`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scan: parsedScan, replaceExisting }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to import LiDAR scan');
+      }
+
+      const warningText = Array.isArray(data.warnings) && data.warnings.length > 0
+        ? ` (${data.warnings.length} warning${data.warnings.length === 1 ? '' : 's'})`
+        : '';
+      toast.success(`Imported ${data.imported?.length ?? 0} piece${warningText}`);
+      trackClarityEvent('lidar_import_completed', {
+        quoteId,
+        scanId: data.scanId ?? 'custom-json',
+        importedPieces: data.imported?.length ?? 0,
+        warningCount: Array.isArray(data.warnings) ? data.warnings.length : 0,
+      });
+      router.push(`/quotes/${quoteId}?mode=edit`);
+      router.refresh();
+    } catch (error) {
+      trackClarityEvent('quote_error', {
+        quoteId,
+        area: 'lidar_import_custom',
+        message: error instanceof Error ? error.message : 'Failed to import LiDAR scan',
+      });
+      toast.error(error instanceof Error ? error.message : 'Failed to import LiDAR scan');
+    } finally {
+      setImportingCustom(false);
+    }
+  }
+
   return (
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <div className="flex items-center justify-between gap-4">
@@ -127,6 +184,33 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
         />
         Replace existing rooms and pieces in this quote before importing
       </label>
+
+      <div className="rounded-lg border border-gray-200 bg-white p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h2 className="font-semibold text-gray-900">Import LiDAR JSON</h2>
+            <p className="mt-1 text-sm text-gray-500">
+              Paste an exported scan with room dimensions, countertop vertices, walls, appliances, and exposure hints.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={importCustomScan}
+            disabled={importingCustom || !customScanJson.trim()}
+            className="btn-primary text-sm disabled:opacity-60"
+          >
+            {importingCustom ? 'Importing...' : 'Import JSON'}
+          </button>
+        </div>
+        <textarea
+          value={customScanJson}
+          onChange={(event) => setCustomScanJson(event.target.value)}
+          rows={8}
+          spellCheck={false}
+          placeholder='{"scanId":"site-scan-001","capturedAt":"2026-05-20T10:00:00+10:00","roomType":"kitchen","dimensions":{"widthMm":4200,"depthMm":3000,"ceilingHeightMm":2700},"walls":[],"countertops":[{"vertices":[{"x":0,"y":0},{"x":2400,"y":0},{"x":2400,"y":600},{"x":0,"y":600}],"heightFromFloorMm":900}],"appliances":[]}'
+          className="mt-4 w-full rounded-lg border border-gray-200 px-3 py-2 font-mono text-xs text-gray-700 focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500"
+        />
+      </div>
 
       {loading ? (
         <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
-import { getMockLidarScan, listMockLidarScans } from '@/lib/lidar/mock-scans';
+import { getMockLidarScan, listMockLidarScans, type LidarScan } from '@/lib/lidar/mock-scans';
 import { convertLidarScanToQuotePieces, toPrismaJson } from '@/lib/services/lidar-scan-converter';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
@@ -12,6 +12,46 @@ async function recalculateQuote(quoteId: number) {
     where: { id: quoteId },
     data: buildQuotePricingUpdate(calcResult),
   });
+}
+
+function isPoint(value: unknown): value is { x: number; y: number } {
+  return !!value &&
+    typeof value === 'object' &&
+    typeof (value as { x?: unknown }).x === 'number' &&
+    typeof (value as { y?: unknown }).y === 'number';
+}
+
+function isLidarScan(value: unknown): value is LidarScan {
+  if (!value || typeof value !== 'object') return false;
+  const scan = value as Partial<LidarScan>;
+  return typeof scan.scanId === 'string' &&
+    typeof scan.capturedAt === 'string' &&
+    typeof scan.roomType === 'string' &&
+    !!scan.dimensions &&
+    typeof scan.dimensions.widthMm === 'number' &&
+    typeof scan.dimensions.depthMm === 'number' &&
+    typeof scan.dimensions.ceilingHeightMm === 'number' &&
+    Array.isArray(scan.walls) &&
+    Array.isArray(scan.countertops) &&
+    scan.countertops.length > 0 &&
+    scan.countertops.every(countertop =>
+      Array.isArray(countertop.vertices) &&
+      countertop.vertices.length >= 3 &&
+      countertop.vertices.every(isPoint)
+    ) &&
+    Array.isArray(scan.appliances);
+}
+
+function parseCustomScan(value: unknown): LidarScan | null {
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value);
+      return isLidarScan(parsed) ? parsed : null;
+    } catch {
+      return null;
+    }
+  }
+  return isLidarScan(value) ? value : null;
 }
 
 export async function GET(
@@ -63,12 +103,16 @@ export async function POST(
 
     const body = await request.json();
     const scanId = typeof body.scanId === 'string' ? body.scanId : '';
+    const customScan = parseCustomScan(body.scan ?? body.scanJson);
     const materialId = body.materialId ? Number(body.materialId) : null;
     const replaceExisting = Boolean(body.replaceExisting);
 
-    const scan = getMockLidarScan(scanId);
+    const scan = customScan ?? getMockLidarScan(scanId);
     if (!scan) {
-      return NextResponse.json({ error: 'Unknown LiDAR scan fixture' }, { status: 404 });
+      return NextResponse.json(
+        { error: customScan === null && (body.scan || body.scanJson) ? 'Invalid LiDAR scan JSON' : 'Unknown LiDAR scan fixture' },
+        { status: 400 }
+      );
     }
 
     const material = materialId
