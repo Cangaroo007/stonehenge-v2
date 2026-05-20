@@ -2526,32 +2526,47 @@ export default function QuickViewPieceRow({
             <div className="px-4 pb-4 pt-3 space-y-1.5">
               <p className="text-[10px] font-medium text-gray-400 uppercase tracking-wider mb-1">Cost Breakdown</p>
               {/* Cutting */}
-              {breakdown.fabrication.cutting.total > 0 && (
-                <div className="flex items-center justify-between text-xs text-gray-600">
-                  <span>Cutting</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-[11px] text-gray-400">
-                      {breakdown.fabrication.cutting.quantity.toFixed(2)} {unitShort(breakdown.fabrication.cutting.unit)} &times; {formatCurrency(breakdown.fabrication.cutting.rate)} {unitLabel(breakdown.fabrication.cutting.unit)}
-                    </span>
-                    <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.cutting.total)}</span>
-	                  </div>
-	                </div>
-	              )}
-	              {breakdown.fabrication.cutting.items?.filter(item => item.total > 0).map((item, idx) => (
-	                <div key={`cutting-item-${idx}`} className="flex items-center justify-between pl-3 text-[11px] text-gray-500">
-	                  <span>
-	                    {item.kind === 'BUILD_UP' ? 'Build-up cutting' : 'Normal cutting'}
-	                    {item.side ? `: ${humaniseEdgeName(item.side)}` : ''}
-	                    {item.kind === 'BUILD_UP' ? ` (${item.effectiveThicknessMm}mm)` : ''}
-	                  </span>
-	                  <div className="flex items-center gap-2">
-	                    <span className="text-gray-400">
-	                      {item.quantity.toFixed(2)} {unitShort(item.unit)} &times; {formatCurrency(item.rate)} {unitLabel(item.unit)}
-	                    </span>
-	                    <span className="tabular-nums">{formatCurrency(item.total)}</span>
-	                  </div>
-	                </div>
-	              ))}
+              {breakdown.fabrication.cutting.total > 0 && (() => {
+                const cuttingItems = breakdown.fabrication.cutting.items?.filter(item => item.total > 0) ?? [];
+
+                if (cuttingItems.length > 0) {
+                  return (
+                    <>
+                      {cuttingItems.map((item, idx) => (
+                        <div key={`cutting-item-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
+                          <span>
+                            {item.kind === 'BUILD_UP' ? 'Build-up cutting' : 'Normal cutting'}
+                            {item.side ? `: ${humaniseEdgeName(item.side)}` : ''}
+                            {item.kind === 'BUILD_UP' ? ` (${item.effectiveThicknessMm}mm)` : ''}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] text-gray-400">
+                              {item.quantity.toFixed(2)} {unitShort(item.unit)} &times; {formatCurrency(item.rate)} {unitLabel(item.unit)}
+                            </span>
+                            <span className="font-medium tabular-nums">{formatCurrency(item.total)}</span>
+                          </div>
+                        </div>
+                      ))}
+                      <div className="flex items-center justify-between border-t border-dashed border-gray-200 pt-1 text-[11px] text-gray-400">
+                        <span>Cutting total</span>
+                        <span className="tabular-nums">{formatCurrency(breakdown.fabrication.cutting.total)}</span>
+                      </div>
+                    </>
+                  );
+                }
+
+                return (
+                  <div className="flex items-center justify-between text-xs text-gray-600">
+                    <span>Cutting</span>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px] text-gray-400">
+                        {breakdown.fabrication.cutting.quantity.toFixed(2)} {unitShort(breakdown.fabrication.cutting.unit)} &times; {formatCurrency(breakdown.fabrication.cutting.rate)} {unitLabel(breakdown.fabrication.cutting.unit)}
+                      </span>
+                      <span className="font-medium tabular-nums">{formatCurrency(breakdown.fabrication.cutting.total)}</span>
+                    </div>
+                  </div>
+                );
+              })()}
 	              {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {/* Curved Cutting */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
