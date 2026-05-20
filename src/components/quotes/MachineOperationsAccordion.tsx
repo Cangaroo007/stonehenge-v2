@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import Link from 'next/link';
 
 // ── Types ────────────────────────────────────────────────────────────────────
@@ -43,6 +43,14 @@ interface MachineOperationsAccordionProps {
   quoteId: string;
   pieces: Array<{
     id: number;
+    thicknessMm?: number | null;
+    edgeTop?: string | null;
+    edgeBottom?: string | null;
+    edgeLeft?: string | null;
+    edgeRight?: string | null;
+    edgeBuildups?: unknown;
+    noStripEdges?: unknown;
+    laminationMethod?: string | null;
     cutouts?: Array<{ quantity?: number; count?: number }>;
   }>;
   mode: 'view' | 'edit';
@@ -77,6 +85,7 @@ export default function MachineOperationsAccordion({
   const [loading, setLoading] = useState(true);
   const [machineOps, setMachineOps] = useState<MachineOperationsResponse | null>(null);
   const [defaults, setDefaults] = useState<MachineDefault[]>([]);
+  const piecesKey = useMemo(() => JSON.stringify(pieces), [pieces]);
 
   // Fetch machine operations for this quote
   useEffect(() => {
@@ -108,7 +117,7 @@ export default function MachineOperationsAccordion({
 
     fetchData();
     return () => { cancelled = true; };
-  }, [quoteId]);
+  }, [quoteId, piecesKey]);
 
   // Loading skeleton
   if (loading) {

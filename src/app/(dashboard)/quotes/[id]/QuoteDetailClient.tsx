@@ -3807,13 +3807,24 @@ export default function QuoteDetailClient({
         )}
 
         {/* Machine Operations */}
-        <MachineOperationsAccordion
-          quoteId={quoteIdStr}
-          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
-            room.quote_pieces.map(p => ({ id: p.id }))
-          )}
-          mode="view"
-        />
+	        <MachineOperationsAccordion
+	          quoteId={quoteIdStr}
+	          pieces={(serverData.quote_rooms ?? []).flatMap(room =>
+	            room.quote_pieces.map(p => ({
+	              id: p.id,
+	              thicknessMm: p.thickness_mm,
+	              edgeTop: p.edge_top,
+	              edgeBottom: p.edge_bottom,
+	              edgeLeft: p.edge_left,
+	              edgeRight: p.edge_right,
+	              edgeBuildups: p.edge_buildups,
+	              noStripEdges: p.no_strip_edges,
+	              laminationMethod: (p as unknown as { lamination_method?: string | null }).lamination_method,
+	              cutouts: (p as unknown as { cutouts?: PieceCutout[] }).cutouts,
+	            }))
+	          )}
+	          mode="view"
+	        />
 
         {/* Signature Section */}
         <QuoteSignatureSection
@@ -4766,11 +4777,22 @@ export default function QuoteDetailClient({
         )}
 
         {/* Machine Operations */}
-        <MachineOperationsAccordion
-          quoteId={quoteIdStr}
-          pieces={effectivePieces.map(p => ({ id: p.id }))}
-          mode="edit"
-        />
+	        <MachineOperationsAccordion
+	          quoteId={quoteIdStr}
+	          pieces={effectivePieces.map(p => ({
+	            id: p.id,
+	            thicknessMm: p.thicknessMm,
+	            edgeTop: p.edgeTop,
+	            edgeBottom: p.edgeBottom,
+	            edgeLeft: p.edgeLeft,
+	            edgeRight: p.edgeRight,
+	            edgeBuildups: p.edgeBuildups,
+	            noStripEdges: p.noStripEdges,
+	            laminationMethod: (p as unknown as { laminationMethod?: string | null }).laminationMethod,
+	            cutouts: p.cutouts,
+	          }))}
+	          mode="edit"
+	        />
 
         {/* Option Comparison Summary — shown when 2+ options exist */}
         {quoteOptions.options.length >= 2 && (
