@@ -18,6 +18,8 @@ interface ExtractedPiece {
   materialId?: number | null;
   materialName?: string | null;
   shape?: string;
+  shapeConfig?: Record<string, unknown> | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   length: number;
   width: number;
   thickness: number;
@@ -79,7 +81,11 @@ const SHAPE_LABELS: Record<string, string> = {
   L_SHAPE: 'L-Shape',
   U_SHAPE: 'U-Shape',
   IRREGULAR: 'Irregular',
+  RADIUS_END: 'Radius End',
+  ROUNDED_RECT: 'Rounded Rect',
   ROUNDED_RECTANGLE: 'Rounded Rect',
+  FULL_CIRCLE: 'Full Circle',
+  CONCAVE_ARC: 'Concave Arc',
 };
 
 export function DrawingReviewStage({

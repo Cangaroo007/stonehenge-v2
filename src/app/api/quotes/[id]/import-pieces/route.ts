@@ -19,6 +19,10 @@ interface ImportPieceData {
   materialId?: number | null;
   material?: string;
   notes?: string;
+  shape?: string | null;
+  shapeType?: string | null;
+  shapeConfig?: Record<string, unknown> | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   edgeTop?: string;
   edgeBottom?: string;
   edgeLeft?: string;
@@ -195,6 +199,21 @@ function resolveVisibleEdgeId(
   }
 
   return isBuildUpEdgeValue(value) ? defaultBuildUpProfileId : null;
+}
+
+function resolveArcEdgeConfig(
+  arcConfig: Record<string, string | null>,
+  edgeLookup: Map<string, ImportEdgeType>
+): Record<string, string | null> {
+  const output: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(arcConfig)) {
+    if (isRawEdgeValue(value)) {
+      output[key] = null;
+      continue;
+    }
+    output[key] = edgeLookup.get(edgeLookupKey(value))?.id ?? value;
+  }
+  return output;
 }
 
 function normaliseImportedEdgeBuildups(piece: ImportPieceData): Record<string, EdgeBuildupConfig> | undefined {
@@ -429,6 +448,9 @@ export async function POST(
             edge_bottom: resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
             edge_left: resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
             edge_right: resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
+            shape_type: pieceData.shapeType || pieceData.shape || 'RECTANGLE',
+            ...(pieceData.shapeConfig && { shape_config: pieceData.shapeConfig as unknown as Prisma.InputJsonValue }),
+            ...(pieceData.edgeArcConfig && { edge_arc_config: resolveArcEdgeConfig(pieceData.edgeArcConfig, edgeLookup) as unknown as Prisma.InputJsonValue }),
             ...(edgeBuildups && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
             ...(importedNoStripEdges && { no_strip_edges: importedNoStripEdges as unknown as Prisma.InputJsonValue }),
           },

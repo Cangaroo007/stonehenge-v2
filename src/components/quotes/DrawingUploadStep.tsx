@@ -432,6 +432,9 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        shape?: string | null;
+        shapeConfig?: Record<string, unknown> | null;
+        edgeArcConfig?: Record<string, string | null> | null;
         edges?: {
           top?: string | null;
           bottom?: string | null;
@@ -461,6 +464,9 @@ export default function DrawingUploadStep({
         edgeBottom?: string | null;
         edgeLeft?: string | null;
         edgeRight?: string | null;
+        shape?: string | null;
+        shapeConfig?: Record<string, unknown> | null;
+        edgeArcConfig?: Record<string, string | null> | null;
         edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
         noStripEdges?: string[];
         relatedTo?: {
@@ -477,6 +483,9 @@ export default function DrawingUploadStep({
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysis.metadata?.defaultThickness || 20,
+            shape: piece.shape ?? null,
+            shapeConfig: piece.shapeConfig ?? null,
+            edgeArcConfig: piece.edgeArcConfig ?? null,
             room: room.name || 'Unassigned',
             notes: piece.notes || null,
             pieceType: piece.pieceType || null,

@@ -132,10 +132,15 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Room/area label
 - Length in millimetres (null if unreadable)
 - Width in millimetres (null if unreadable)
-- Shape: RECTANGLE, L_SHAPE, U_SHAPE, or IRREGULAR
+- Shape: RECTANGLE, L_SHAPE, U_SHAPE, RADIUS_END, ROUNDED_RECT, FULL_CIRCLE, CONCAVE_ARC, or IRREGULAR
+- Shape config when non-rectangular:
+  - RADIUS_END: shapeConfig = { "shape": "RADIUS_END", "length_mm": number, "width_mm": number, "radius_mm": number, "curved_ends": "ONE" | "BOTH" }
+  - ROUNDED_RECT: shapeConfig = { "shape": "ROUNDED_RECT", "length_mm": number, "width_mm": number, "corner_radius_mm": number, "individual_corners": false }
+  - L_SHAPE/U_SHAPE: include leg dimensions only when clearly readable; otherwise split into physical rectangular runs or ask.
 - Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 - Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
+- Curved/radius edge finish when visible: use edgeArcConfig, e.g. { "arc_end": "Pencil Round" } for a one-ended radius piece.
 - Build-up/drop-edge/mitred construction by side when visible. This is separate from visible edge profile.
 
 ## FABRICATION CUT-LIST RULES
@@ -147,6 +152,7 @@ Northcoast-style quotes are built from physical pieces, not overall footprints:
 - A kitchen drawn as a U-shape is usually three straight pieces unless the drawing explicitly labels it as one fabricated shaped piece.
 - Islands, vanities, laundries, WIP benches, powder-room tops, waterfalls, panels, splashbacks, drop fronts, and loose returns are separate quote pieces.
 - If a drawing says two or three units are the same, expand them into separate physical pieces for each unit. Do not return "x2" or grouped summary rows.
+- If a drawing says x4 or similar, create four physical pieces, but ask whether cutouts and edge finishes repeat on every piece.
 - If a run is split by joins, posts, appliances, or dimension segments, return the separate quote-ready segments shown by the drawing.
 - Put each cutout on the piece that physically contains it.
 - For waterfalls and splashbacks, set pieceType to WATERFALL or SPLASHBACK and include relatedTo with the parent piece name, relationshipType, and joinPosition (top, bottom, left, or right) when visible.
@@ -154,6 +160,25 @@ Northcoast-style quotes are built from physical pieces, not overall footprints:
 - Do not use "mitred" as a decorative edge profile. If a side is marked M, MIT, mitred, apron, drop edge, build-up, 40mm, or 60mm, record that side in edgeBuildups and keep the visible profile separate.
 - Only mark noStripEdges for true wall/concealed sides. Do not mark a waterfall/splashback join as a wall edge; the relationship handles that separately.
 - Exclude cabinetry-only or laminate-only items from quote-ready stone pieces unless the document explicitly says that top is stone. Mention excluded joinery/laminate items in warnings or metadata.
+
+## SPECIAL GEOMETRY AND POLYGON RULES
+
+Never silently flatten special geometry into a rectangle.
+- Rounded or semicircular terminal ends are RADIUS_END pieces, not rectangles. If the end is clearly semicircular and no radius is labelled, infer radius as half the piece width, mark confidence below 0.85, and ask the user to confirm.
+- Rounded ends, curved bars, radius corners, posts, notches, angled returns, bow fronts, and irregular outlines affect cutting, edge finishing, slab yield, and visual review.
+- If the exact geometry is visible but not dimensioned, return the best supported shape plus clarification questions. Do not hide the issue in notes only.
+- If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
+- If a piece has angled or irregular runs and you cannot produce a supported shapeConfig, set shape to IRREGULAR, confidence below 0.85, and ask for LiDAR/site measure or polygon trace before final pricing.
+- For any RADIUS_END piece, put straight edge profiles in edgeTop/edgeBottom/edgeLeft/edgeRight and curved edge profile in edgeArcConfig.arc_end.
+
+## SCOPE FLAGS THAT CHANGE PRICING
+
+Look for these words and preserve them as explicit notes/questions:
+- "separate price" means preserve as a separate quote line or option.
+- "supply only" means installation should be suppressed or explicitly flagged.
+- "offcut rack" means material is not final until the offcut colour/slab is selected.
+- "40mm" is ambiguous: ask whether it means 40mm mitred build-up on a 20mm slab, selected-edge build-up, or actual 40mm material.
+- Fixture labels without models/templates are provisional only. Fabrication requires templates and positions.
 
 ## MATERIAL AND FINISH RULES
 
@@ -178,6 +203,7 @@ Architectural drawings are often to scale. Use this carefully:
 
 Before returning JSON, audit your own pieces:
 - Do not use the full bounding rectangle of an L/U/kitchen footprint as one piece dimension.
+- Do not use a rectangular placeholder for a visible curve, radius end, angled return, post notch, or irregular piece. Use supported shapeConfig or ask for polygon/LiDAR review.
 - A normal wall benchtop is commonly around 500-900mm deep. If width is much larger, explain why in notes or split the shape.
 - Large values such as 3000 x 2757 or 5914 x 3346 are usually footprint envelopes, not quoteable stone pieces. Split them into the visible runs if dimensions are shown.
 - If you can read multiple run dimensions along one outline, each run should normally become a separate piece.
@@ -196,6 +222,7 @@ Generate a clarificationQuestions array for ANY value with confidence below 0.85
 Rules for questions:
 - CRITICAL priority: missing or null dimensions (length, width), piece count
   uncertainty
+- CRITICAL priority: visible special geometry that was inferred or cannot be represented confidently, including radius ends, post cutouts, angled runs, waterfalls, and joins.
 - IMPORTANT priority: cutout type ambiguity, edge finish uncertainty,
   thickness unknown
 - NICE_TO_KNOW priority: room assignment, material if not specified
@@ -222,6 +249,7 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
           "name": "Island Bench",
           "pieceType": "ISLAND",
           "shape": "RECTANGLE",
+          "shapeConfig": null,
           "materialName": "Stone Ambassador",
           "length": 3600,
           "width": 900,
@@ -237,6 +265,7 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
           "edgeBottom": "Arris",
           "edgeLeft": null,
           "edgeRight": null,
+          "edgeArcConfig": null,
           "edgeBuildups": {
             "bottom": { "depth": 40, "exposed": true, "chargeCut": true, "chargePolish": true }
           },

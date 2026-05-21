@@ -56,6 +56,8 @@ interface ExtractedPiece {
   materialId?: number | null;
   materialName?: string | null;
   shape?: string;
+  shapeConfig?: Record<string, unknown> | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   length: number;
   width: number;
   thickness: number;
@@ -103,6 +105,8 @@ interface AnalysisResult {
       edgeBottom?: string | null;
       edgeLeft?: string | null;
       edgeRight?: string | null;
+      shapeConfig?: Record<string, unknown> | null;
+      edgeArcConfig?: Record<string, string | null> | null;
       edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
       noStripEdges?: string[];
       materialId?: number | null;
@@ -435,6 +439,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             materialId: piece.materialId ?? matchedMaterial?.id ?? null,
             materialName: piece.materialName ?? piece.material ?? matchedMaterial?.name ?? null,
             shape: piece.shape || undefined,
+            shapeConfig: piece.shapeConfig ?? null,
+            edgeArcConfig: piece.edgeArcConfig ?? null,
             length: piece.length || 0,
             width: piece.width || 0,
             thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
@@ -609,6 +615,9 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             length: p.length,
             width: p.width,
             thickness: p.thickness,
+            shape: p.shape,
+            shapeConfig: p.shapeConfig ?? null,
+            edgeArcConfig: p.edgeArcConfig ?? null,
             room: p.room,
             notes: p.notes,
             edgeTop: p.edgeSelections.edgeTop,
