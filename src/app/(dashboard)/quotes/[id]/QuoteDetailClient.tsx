@@ -3564,6 +3564,7 @@ export default function QuoteDetailClient({
                                 edge_left: p.edge_left,
                                 edge_right: p.edge_right,
                                 noStripEdges: ((p as Record<string, unknown>).noStripEdges as string[] ?? (p as Record<string, unknown>).no_strip_edges as string[]) ?? [],
+                                edgeBuildups: ((p as Record<string, unknown>).edgeBuildups as Record<string, EdgeBuildupConfig> ?? (p as Record<string, unknown>).edge_buildups as Record<string, EdgeBuildupConfig>) ?? null,
                                 piece_features: p.piece_features,
                               };
                             })}
@@ -4324,6 +4325,7 @@ export default function QuoteDetailClient({
                         edge_left: p.edgeLeft,
                         edge_right: p.edgeRight,
                         noStripEdges: (p.noStripEdges as string[]) ?? [],
+                        edgeBuildups: (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
                         piece_features: p.cutouts?.map(c => ({
                           id: 0,
                           name: cutoutTypeNameById.get(c.cutoutTypeId) ?? c.cutoutTypeId,
@@ -4431,7 +4433,7 @@ export default function QuoteDetailClient({
                             selectedPieceIds={selectedPieceIds}
                             onPieceMultiSelect={handlePieceMultiSelect}
                             onContextMenu={handleContextMenu}
-                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories }))}
+                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories, isMitred: e.isMitred }))}
                             onPieceEdgeChange={handlePieceEdgeChange}
                             cutoutTypes={cutoutTypes}
                             onPieceCutoutAdd={handlePieceCutoutAdd}

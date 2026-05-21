@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -17,6 +18,7 @@ interface PieceData {
   cutouts?: Array<{ type: string; quantity: number }>;
   laminationMethod?: string | null;
   mitredCornerTreatment?: string | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }
 
 export interface SuppressedEdgeDisplay {
@@ -109,6 +111,25 @@ function edgeProfileDisplayName(profile: string | null | undefined): string {
   return profile;
 }
 
+function buildUpCode(profile: string | null | undefined, buildup: EdgeBuildupConfig | undefined): string {
+  const code = edgeCode(profile);
+  return buildup ? `${code} ${buildup.depth}mm` : code;
+}
+
+function buildUpSummary(edgeBuildups: Record<string, EdgeBuildupConfig> | null | undefined): string | null {
+  if (!edgeBuildups) return null;
+  const parts = (['top', 'bottom', 'left', 'right'] as const)
+    .map(side => {
+      const buildup = edgeBuildups[side];
+      if (!buildup) return null;
+      return `${side[0].toUpperCase()} ${buildup.depth}mm`;
+    })
+    .filter((part): part is string => Boolean(part));
+  if (parts.length === 0) return null;
+  if (parts.length > 2) return `${parts.length} edges`;
+  return parts.join(' / ');
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RoomPieceSVG({
@@ -140,6 +161,11 @@ export default function RoomPieceSVG({
   const bottomEdge = getEdgeProfile(piece.edges, 'bottom');
   const leftEdge = getEdgeProfile(piece.edges, 'left');
   const rightEdge = getEdgeProfile(piece.edges, 'right');
+  const topBuildup = piece.edgeBuildups?.top;
+  const bottomBuildup = piece.edgeBuildups?.bottom;
+  const leftBuildup = piece.edgeBuildups?.left;
+  const rightBuildup = piece.edgeBuildups?.right;
+  const pieceBuildUpSummary = buildUpSummary(piece.edgeBuildups);
   const topSuppression = suppressedEdges?.top;
   const bottomSuppression = suppressedEdges?.bottom;
   const leftSuppression = suppressedEdges?.left;
@@ -392,7 +418,7 @@ export default function RoomPieceSVG({
                   style={{ pointerEvents: 'none' }}
                 >
                   <title>{topSuppression?.label ?? edgeProfileDisplayName(topEdge)}</title>
-                  {topSuppression?.code ?? edgeCode(topEdge)}
+                  {topSuppression?.code ?? buildUpCode(topEdge, topBuildup)}
                 </text>
               )}
               {/* Bottom edge label */}
@@ -407,7 +433,7 @@ export default function RoomPieceSVG({
                   style={{ pointerEvents: 'none' }}
                 >
                   <title>{bottomSuppression?.label ?? edgeProfileDisplayName(bottomEdge)}</title>
-                  {bottomSuppression?.code ?? edgeCode(bottomEdge)}
+                  {bottomSuppression?.code ?? buildUpCode(bottomEdge, bottomBuildup)}
                 </text>
               )}
               {/* Left edge label */}
@@ -423,7 +449,7 @@ export default function RoomPieceSVG({
                   transform={`rotate(-90, ${x - 6}, ${y + h / 2})`}
                 >
                   <title>{leftSuppression?.label ?? edgeProfileDisplayName(leftEdge)}</title>
-                  {leftSuppression?.code ?? edgeCode(leftEdge)}
+                  {leftSuppression?.code ?? buildUpCode(leftEdge, leftBuildup)}
                 </text>
               )}
               {/* Right edge label */}
@@ -439,7 +465,7 @@ export default function RoomPieceSVG({
                   transform={`rotate(90, ${x + w + 6}, ${y + h / 2})`}
                 >
                   <title>{rightSuppression?.label ?? edgeProfileDisplayName(rightEdge)}</title>
-                  {rightSuppression?.code ?? edgeCode(rightEdge)}
+                  {rightSuppression?.code ?? buildUpCode(rightEdge, rightBuildup)}
                 </text>
               )}
             </>
@@ -496,7 +522,7 @@ export default function RoomPieceSVG({
       )}
 
       {/* Build-up construction badge */}
-      {piece.laminationMethod === 'MITRED' && w > 50 && h > 36 && (
+      {(piece.laminationMethod === 'MITRED' || pieceBuildUpSummary) && w > 50 && h > 36 && (
         <text
           x={x + w / 2}
           y={y + h / 2 + 22}
@@ -504,7 +530,8 @@ export default function RoomPieceSVG({
           dominantBaseline="central"
           style={{ fontSize: '9px', fill: '#92400e', pointerEvents: 'none' }}
         >
-          {piece.mitredCornerTreatment === 'SQUARE_TOP' ? 'Build-up SQ'
+          {pieceBuildUpSummary ? `Build-up ${pieceBuildUpSummary}`
+            : piece.mitredCornerTreatment === 'SQUARE_TOP' ? 'Build-up SQ'
             : piece.mitredCornerTreatment === 'ROUND_TOP' ? 'Build-up RD'
             : 'Build-up'}
         </text>

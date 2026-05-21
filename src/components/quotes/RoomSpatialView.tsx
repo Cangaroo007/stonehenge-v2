@@ -13,6 +13,7 @@ import type { Placement } from '@/types/slab-optimization';
 import RelationshipConnector from './RelationshipConnector';
 import type { EdgeScope } from './EdgeProfilePopover';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
+import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -36,6 +37,7 @@ interface QuotePiece {
   edge_left: string | null;
   edge_right: string | null;
   noStripEdges?: string[] | null;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   piece_features?: Array<{ id: number; name: string; quantity: number }>;
   cutouts?: unknown;
   materialName?: string | null;
@@ -50,6 +52,7 @@ interface EdgeProfileOption {
   name: string;
   /** Fabrication categories with configured (non-zero) rates */
   configuredCategories?: string[];
+  isMitred?: boolean;
 }
 
 interface MaterialOption {
@@ -534,6 +537,16 @@ export default function RoomSpatialView({
 
   // ── Quick Edge mode state — always-on in edit mode ──
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
+  const visibleEdgeProfiles = useMemo(
+    () => edgeProfiles.filter(profile => !profile.isMitred),
+    [edgeProfiles]
+  );
+
+  useEffect(() => {
+    if (quickEdgeProfileId && !visibleEdgeProfiles.some(profile => profile.id === quickEdgeProfileId)) {
+      setQuickEdgeProfileId(null);
+    }
+  }, [quickEdgeProfileId, visibleEdgeProfiles]);
 
   const getSuppressedEdgeDisplay = useCallback((piece: QuotePiece, side: string): SuppressedEdgeDisplay | null => {
     const normalisedSide = normaliseRectEdgeSide(side);
@@ -944,7 +957,7 @@ export default function RoomSpatialView({
       {renderRoomNotes()}
 
       {/* Edge profile palette — always visible in edit mode */}
-      {mode === 'edit' && edgeProfiles.length > 0 && onPieceEdgeChange && (
+      {mode === 'edit' && visibleEdgeProfiles.length > 0 && onPieceEdgeChange && (
         <div className="flex items-center gap-1 mb-2 px-1 py-1.5 bg-blue-50 border border-blue-200 rounded-md flex-wrap">
           <button
             onClick={() => setQuickEdgeProfileId(null)}
@@ -956,7 +969,7 @@ export default function RoomSpatialView({
           >
             Raw
           </button>
-          {edgeProfiles.map(ep => (
+          {visibleEdgeProfiles.map(ep => (
             <button
               key={ep.id}
               onClick={() => setQuickEdgeProfileId(ep.id)}
@@ -1078,6 +1091,7 @@ export default function RoomSpatialView({
                 })),
                 laminationMethod: piece.lamination_method,
                 mitredCornerTreatment: piece.mitred_corner_treatment,
+                edgeBuildups: piece.edgeBuildups,
               }}
               position={pos}
               scale={layout.scale}
@@ -1327,7 +1341,7 @@ export default function RoomSpatialView({
                               toast.error('Use the relationship or wall-edge controls for this edge');
                               return;
                             }
-                            if (onPieceEdgeChange && edgeProfiles.length > 0) {
+                            if (onPieceEdgeChange && visibleEdgeProfiles.length > 0) {
                               handleEdgeClick(pieceIdStr, side);
                             }
                           }}
