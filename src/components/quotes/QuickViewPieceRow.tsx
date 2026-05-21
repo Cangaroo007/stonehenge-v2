@@ -1198,15 +1198,26 @@ export default function QuickViewPieceRow({
   }, [isEditMode, quickEdgeProfileId, savePieceImmediate]);
 
   // ── Cutout handlers ─────────────────────────────────────────────────────
-  const handleCutoutAdd = useCallback((cutoutTypeId: string) => {
+  const handleCutoutAdd = useCallback((cutoutTypeId: string, quantity = 1) => {
     if (!fullPiece) return;
     const newCutout: PieceCutout = {
       id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
       cutoutTypeId,
-      quantity: 1,
+      quantity: Math.max(1, quantity),
     };
     const updatedCutouts = [...(fullPiece.cutouts || []), newCutout];
     savePieceImmediate({ cutouts: updatedCutouts });
+    setShowCutoutPopover(false);
+  }, [fullPiece, savePieceImmediate]);
+
+  const handleCutoutsAdd = useCallback((cutoutsToAdd: Array<{ cutoutTypeId: string; quantity: number }>) => {
+    if (!fullPiece || cutoutsToAdd.length === 0) return;
+    const newCutouts: PieceCutout[] = cutoutsToAdd.map(({ cutoutTypeId, quantity }, index) => ({
+      id: `cut_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+      cutoutTypeId,
+      quantity: Math.max(1, quantity),
+    }));
+    savePieceImmediate({ cutouts: [...(fullPiece.cutouts || []), ...newCutouts] });
     setShowCutoutPopover(false);
   }, [fullPiece, savePieceImmediate]);
 
@@ -2440,6 +2451,7 @@ export default function QuickViewPieceRow({
                 onEdgeChange={isEditMode ? handleEdgeChange : undefined}
                 onEdgesChange={isEditMode ? handleEdgesChange : undefined}
                 onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
+                onCutoutsAdd={isEditMode ? handleCutoutsAdd : undefined}
                 onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
                 cutoutTypes={editData?.cutoutTypes ?? []}
                 onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}

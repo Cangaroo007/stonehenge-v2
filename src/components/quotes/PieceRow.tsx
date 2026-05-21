@@ -704,12 +704,12 @@ function PieceVisualEditorSection({
 
   // Cutout add handler
   const handleCutoutAdd = useCallback(
-    (cutoutTypeId: string) => {
+    (cutoutTypeId: string, quantity = 1) => {
       if (!fullPiece || !onSavePiece) return;
       const newCutout: PieceCutout = {
         id: `cut_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         cutoutTypeId,
-        quantity: 1,
+        quantity: Math.max(1, quantity),
       };
       const updatedCutouts = [...(fullPiece.cutouts || []), newCutout];
       onSavePiece(
@@ -725,6 +725,34 @@ function PieceVisualEditorSection({
           edgeLeft: fullPiece.edgeLeft,
           edgeRight: fullPiece.edgeRight,
           cutouts: updatedCutouts,
+        },
+        fullPiece.quote_rooms?.name || 'Unassigned'
+      );
+    },
+    [fullPiece, onSavePiece, piece.id]
+  );
+
+  const handleCutoutsAdd = useCallback(
+    (cutoutsToAdd: Array<{ cutoutTypeId: string; quantity: number }>) => {
+      if (!fullPiece || !onSavePiece || cutoutsToAdd.length === 0) return;
+      const newCutouts: PieceCutout[] = cutoutsToAdd.map(({ cutoutTypeId, quantity }, index) => ({
+        id: `cut_${Date.now()}_${index}_${Math.random().toString(36).substr(2, 9)}`,
+        cutoutTypeId,
+        quantity: Math.max(1, quantity),
+      }));
+      onSavePiece(
+        piece.id,
+        {
+          lengthMm: fullPiece.lengthMm,
+          widthMm: fullPiece.widthMm,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId,
+          materialName: fullPiece.materialName,
+          edgeTop: fullPiece.edgeTop,
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts: [...(fullPiece.cutouts || []), ...newCutouts],
         },
         fullPiece.quote_rooms?.name || 'Unassigned'
       );
@@ -871,6 +899,7 @@ function PieceVisualEditorSection({
         onEdgeChange={isEditMode ? handleEdgeChange : undefined}
         onEdgesChange={isEditMode ? handleEdgesChange : undefined}
         onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
+        onCutoutsAdd={isEditMode ? handleCutoutsAdd : undefined}
         onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
         cutoutTypes={editData?.cutoutTypes ?? []}
         onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}

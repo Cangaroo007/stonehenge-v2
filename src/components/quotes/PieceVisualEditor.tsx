@@ -138,13 +138,16 @@ export interface PieceVisualEditorProps {
   onEdgesChange?: (edges: { top?: string | null; bottom?: string | null; left?: string | null; right?: string | null }) => void;
 
   /** Called to add a cutout (edit mode) */
-  onCutoutAdd?: (cutoutTypeId: string) => void;
+  onCutoutAdd?: (cutoutTypeId: string, quantity?: number) => void;
+
+  /** Called to add several cutouts in a single save (edit mode) */
+  onCutoutsAdd?: (cutouts: Array<{ cutoutTypeId: string; quantity: number }>) => void;
 
   /** Called to remove a cutout (edit mode) */
   onCutoutRemove?: (cutoutId: string) => void;
 
   /** Available cutout types for the add dialog */
-  cutoutTypes?: Array<{ id: string; name: string; baseRate: number }>;
+  cutoutTypes?: Array<{ id: string; name: string; baseRate: number; isActive?: boolean; sortOrder?: number }>;
 
   /** Callback for bulk apply — applies edges to scope */
   onBulkApply?: (
@@ -262,6 +265,7 @@ export default function PieceVisualEditor({
   onEdgeChange,
   onEdgesChange,
   onCutoutAdd,
+  onCutoutsAdd,
   onCutoutRemove,
   cutoutTypes = [],
   onBulkApply,
@@ -684,11 +688,16 @@ export default function PieceVisualEditor({
   );
 
   const handleCutoutAddClick = useCallback(
-    (cutoutTypeId: string) => {
-      if (onCutoutAdd) onCutoutAdd(cutoutTypeId);
+    (cutoutsToAdd: Array<{ cutoutTypeId: string; quantity: number }>) => {
+      if (cutoutsToAdd.length === 0) return;
+      if (onCutoutsAdd) {
+        onCutoutsAdd(cutoutsToAdd);
+      } else if (onCutoutAdd) {
+        cutoutsToAdd.forEach(({ cutoutTypeId, quantity }) => onCutoutAdd(cutoutTypeId, quantity));
+      }
       setShowCutoutDialog(false);
     },
-    [onCutoutAdd]
+    [onCutoutAdd, onCutoutsAdd]
   );
 
   const handleWallEdgeToggle = useCallback((edgeKey: string) => {
@@ -2596,7 +2605,7 @@ export default function PieceVisualEditor({
               ? 'Quick Edge mode \u2014 click any edge to apply selected profile'
               : 'Click edge to edit. Shift+click to multi-select.'}
           </span>
-          {onCutoutAdd && cutoutTypes.length > 0 && (
+          {(onCutoutAdd || onCutoutsAdd) && cutoutTypes.length > 0 && (
             <div className="relative">
               <button
                 onClick={(e) => {
@@ -2876,11 +2885,33 @@ function CutoutAddDialogInline({
   onAdd,
   onClose,
 }: {
-  cutoutTypes: Array<{ id: string; name: string; baseRate: number }>;
-  onAdd: (cutoutTypeId: string) => void;
+  cutoutTypes: Array<{ id: string; name: string; baseRate: number; isActive?: boolean; sortOrder?: number }>;
+  onAdd: (cutouts: Array<{ cutoutTypeId: string; quantity: number }>) => void;
   onClose: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const [checkedTypes, setCheckedTypes] = useState<Record<string, { checked: boolean; quantity: number }>>({});
+
+  const activeCutoutTypes = useMemo(
+    () => cutoutTypes
+      .filter((ct) => ct.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
+    [cutoutTypes]
+  );
+
+  const selectedCount = Object.values(checkedTypes).filter((entry) => entry.checked).length;
+
+  const handleAddSelected = () => {
+    const selected = Object.entries(checkedTypes)
+      .filter(([, entry]) => entry.checked)
+      .map(([cutoutTypeId, entry]) => ({
+        cutoutTypeId,
+        quantity: Math.max(1, entry.quantity || 1),
+      }));
+
+    if (selected.length === 0) return;
+    onAdd(selected);
+  };
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -2895,24 +2926,85 @@ function CutoutAddDialogInline({
   return (
     <div
       ref={ref}
-      className="bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[200px]"
+      className="bg-white border border-gray-200 rounded-lg shadow-lg min-w-[340px] overflow-hidden"
     >
-      <div className="px-3 py-1.5 text-xs font-semibold text-gray-500 border-b border-gray-100">
-        Select Cutout Type
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="text-xs font-semibold text-gray-600">Add Cutouts</div>
+        <div className="text-[11px] text-gray-400">Select one or more and set quantity.</div>
       </div>
-      <div className="max-h-[180px] overflow-y-auto">
-        {cutoutTypes.map((ct) => (
-          <button
-            key={ct.id}
-            onClick={(e) => {
-              e.stopPropagation();
-              onAdd(ct.id);
-            }}
-            className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colors"
-          >
-            {ct.name}
-          </button>
-        ))}
+      <div className="max-h-[260px] overflow-y-auto divide-y divide-gray-100">
+        {activeCutoutTypes.map((ct) => {
+          const entry = checkedTypes[ct.id];
+          const isChecked = entry?.checked ?? false;
+          const quantity = entry?.quantity ?? 1;
+
+          return (
+            <div
+              key={ct.id}
+              className={`flex items-center gap-3 px-3 py-2 ${isChecked ? 'bg-primary-50' : 'bg-white'}`}
+            >
+              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => {
+                    setCheckedTypes((prev) => ({
+                      ...prev,
+                      [ct.id]: {
+                        checked: e.target.checked,
+                        quantity: prev[ct.id]?.quantity ?? 1,
+                      },
+                    }));
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="truncate text-xs font-medium text-gray-800">{ct.name}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">
+                  {new Intl.NumberFormat('en-AU', { style: 'currency', currency: 'AUD' }).format(Number(ct.baseRate))}
+                </span>
+              </label>
+              <label className="flex items-center gap-1 text-[11px] text-gray-500">
+                Qty
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => {
+                    const nextQuantity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                    setCheckedTypes((prev) => ({
+                      ...prev,
+                      [ct.id]: {
+                        checked: prev[ct.id]?.checked ?? isChecked,
+                        quantity: nextQuantity,
+                      },
+                    }));
+                  }}
+                  className="w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-xs focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-2 border-t border-gray-100 p-3">
+        <button
+          type="button"
+          onClick={handleAddSelected}
+          disabled={selectedCount === 0}
+          className="flex-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Add Selected
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
       </div>
     </div>
   );
