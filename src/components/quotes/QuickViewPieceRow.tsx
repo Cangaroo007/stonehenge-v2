@@ -2211,7 +2211,7 @@ export default function QuickViewPieceRow({
                   Raw
                 </button>
                 {editData.edgeTypes
-                  .filter(et => et.isActive !== false)
+                  .filter(et => et.isActive !== false && !et.isMitred)
                   .map(et => (
                     <button
                       key={et.id}
