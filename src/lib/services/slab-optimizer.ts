@@ -180,6 +180,8 @@ function generateLaminationStrips(
 
     const buildup = edgeBuildups[edgeKey];
     if (!buildup) {
+      if (hasEdgeBuildups) continue;
+
       const finishedEdges = piece.finishedEdges;
       if (finishedEdges && !finishedEdges[edgeKey as keyof typeof finishedEdges]) continue;
 

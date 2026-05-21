@@ -69,6 +69,49 @@ describe('optimizeSlabs', () => {
     expect(strips.map(strip => strip.position)).toEqual(['top']);
   });
 
+  it('does not add legacy finished-edge strips when explicit build-ups are present', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 3200,
+      slabHeight: 1600,
+      kerfWidth: 5,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'bench',
+          label: 'Bench',
+          width: 1000,
+          height: 600,
+          thickness: 20,
+          finishedEdges: {
+            top: true,
+            bottom: true,
+            left: true,
+            right: true,
+          },
+          edgeTypeNames: {
+            top: 'Arris',
+            bottom: 'Arris',
+            left: 'Arris',
+            right: 'Arris',
+          },
+          edgeBuildups: {
+            top: { depth: 40, exposed: true, chargeCut: true, chargePolish: true },
+            right: { depth: 40, exposed: true, chargeCut: true, chargePolish: true },
+          },
+        },
+      ],
+    });
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+
+    expect(strips.map(strip => `${strip.position}:${strip.stripSubType}`)).toEqual([
+      'top:FACE',
+      'top:RETURN',
+      'right:FACE',
+      'right:RETURN',
+    ]);
+  });
+
   it('uses explicit build-up semantics for shaped pieces without adding every shape edge', async () => {
     const result = await optimizeSlabs({
       slabWidth: 3200,

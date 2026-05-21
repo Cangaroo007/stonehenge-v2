@@ -82,6 +82,44 @@ function edgeListIncludes(edges: string[] | null | undefined, edgeId: string): b
   return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
 }
 
+function getReturnStripEdges({
+  edgeSelections,
+  shapeType,
+  edgeBuildups,
+  noStripEdges,
+  includeLegacyProfileEdges = false,
+}: {
+  edgeSelections: EdgeSelections;
+  shapeType: ShapeType;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
+  noStripEdges?: string[] | null;
+  includeLegacyProfileEdges?: boolean;
+}): string[] {
+  const buildUpEdges = edgeBuildups
+    ? Object.entries(edgeBuildups)
+      .filter(([, cfg]) => (cfg?.depth ?? 0) > 0)
+      .map(([edge]) => edge)
+    : [];
+
+  const hasExplicitBuildups = buildUpEdges.length > 0;
+  let edges: string[] = [];
+
+  if (hasExplicitBuildups) {
+    edges = buildUpEdges;
+  } else if (shapeType === 'L_SHAPE') {
+    edges = ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
+  } else if (shapeType === 'U_SHAPE') {
+    edges = ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
+  } else if (includeLegacyProfileEdges) {
+    if (edgeSelections.edgeTop) edges.push('top');
+    if (edgeSelections.edgeBottom) edges.push('bottom');
+    if (edgeSelections.edgeLeft) edges.push('left');
+    if (edgeSelections.edgeRight) edges.push('right');
+  }
+
+  return edges.filter((edge) => !edgeListIncludes(noStripEdges, edge));
+}
+
 export interface InlinePieceEditorProps {
   piece: InlinePieceData;
   materials: Material[];
@@ -235,30 +273,16 @@ function getStripEdges(
   shapeType: ShapeType,
   edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null },
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null,
+  noStripEdges?: string[] | null,
+  includeLegacyProfileEdges = true,
 ): string[] {
-  if (shapeType === 'RECTANGLE') {
-    const edges: string[] = [];
-    if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
-    if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
-    if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
-    if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
-    return edges;
-  }
-  if (shapeType === 'L_SHAPE') {
-    // L-shape: 6 possible edges
-    return ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
-  }
-  if (shapeType === 'U_SHAPE') {
-    // U-shape: 8 possible edges
-    return ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
-  }
-  // For other shapes, include edges that have an edge profile or a build-up
-  const edges: string[] = [];
-  if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
-  if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
-  if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
-  if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
-  return edges;
+  return getReturnStripEdges({
+    edgeSelections,
+    shapeType,
+    edgeBuildups,
+    noStripEdges,
+    includeLegacyProfileEdges,
+  });
 }
 
 function humaniseEdgeName(edge: string): string {
@@ -286,7 +310,13 @@ function PerEdgeStripWidthTable({
   onStripWidthChange?: () => void;
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }) {
-  const edges = getStripEdges(shapeType, edgeSelections, edgeBuildups);
+  const edges = getStripEdges(
+    shapeType,
+    edgeSelections,
+    edgeBuildups,
+    piece.noStripEdges,
+    piece.thicknessMm >= 40 || piece.lamination_method === 'LAMINATED' || piece.lamination_method === 'MITRED'
+  );
   const [applyingAll, setApplyingAll] = useState(false);
   const [applyMessage, setApplyMessage] = useState<string | null>(null);
 
@@ -342,11 +372,26 @@ function PerEdgeStripWidthTable({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, EdgeBuildupConfig> | null }> = await res.json();
+      const allPieces: Array<{ id: number; thicknessMm: number; laminationMethod?: string | null; edgeTop?: string | null; edgeBottom?: string | null; edgeLeft?: string | null; edgeRight?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; noStripEdges?: string[] | null; shapeType?: ShapeType | null }> = await res.json();
       const targets = allPieces.filter(p =>
-        (p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0) &&
-        p.id !== piece.id
+        getReturnStripEdges({
+          edgeSelections: {
+            edgeTop: p.edgeTop ?? null,
+            edgeBottom: p.edgeBottom ?? null,
+            edgeLeft: p.edgeLeft ?? null,
+            edgeRight: p.edgeRight ?? null,
+          },
+          shapeType: (p.shapeType ?? 'RECTANGLE') as ShapeType,
+          edgeBuildups: p.edgeBuildups,
+          noStripEdges: p.noStripEdges,
+          includeLegacyProfileEdges: p.thicknessMm >= 40 || p.laminationMethod === 'LAMINATED' || p.laminationMethod === 'MITRED',
+        }).length > 0
       );
+      if (targets.length === 0) {
+        setApplyMessage('No build-up/return strip edges found to update');
+        setTimeout(() => setApplyMessage(null), 4000);
+        return;
+      }
       const overridePayload = Object.keys(stripWidthOverrides).length > 0 ? stripWidthOverrides : null;
 
       // Sequential PATCHes to avoid rate limiting
@@ -1502,6 +1547,7 @@ export default function InlinePieceEditor({
                   setStripWidthOverrides={setStripWidthOverrides}
                   quoteId={quoteId}
                   onStripWidthChange={onStripWidthChange}
+                  edgeBuildups={edgeBuildups}
                 />
               )}
               {piece.lamination_method === 'MITRED' && (
@@ -1672,6 +1718,7 @@ export default function InlinePieceEditor({
                   setStripWidthOverrides={setStripWidthOverrides}
                   quoteId={quoteId}
                   onStripWidthChange={onStripWidthChange}
+                  edgeBuildups={edgeBuildups}
                 />
               )}
               {piece.lamination_method === 'MITRED' && (

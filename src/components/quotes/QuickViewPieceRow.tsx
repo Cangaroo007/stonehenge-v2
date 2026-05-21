@@ -123,6 +123,44 @@ function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean 
   return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
 }
 
+function getReturnStripEdges({
+  edgeSelections,
+  shapeType,
+  edgeBuildups,
+  noStripEdges,
+  includeLegacyProfileEdges = false,
+}: {
+  edgeSelections: { edgeTop: string | null; edgeBottom: string | null; edgeLeft: string | null; edgeRight: string | null };
+  shapeType: ShapeType;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
+  noStripEdges?: string[] | null;
+  includeLegacyProfileEdges?: boolean;
+}): string[] {
+  const buildUpEdges = edgeBuildups
+    ? Object.entries(edgeBuildups)
+      .filter(([, cfg]) => (cfg?.depth ?? 0) > 0)
+      .map(([edge]) => edge)
+    : [];
+
+  const hasExplicitBuildups = buildUpEdges.length > 0;
+  let edges: string[] = [];
+
+  if (hasExplicitBuildups) {
+    edges = buildUpEdges;
+  } else if (shapeType === 'L_SHAPE') {
+    edges = ['top', 'left', 'r_top', 'inner', 'r_btm', 'bottom'];
+  } else if (shapeType === 'U_SHAPE') {
+    edges = ['top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right'];
+  } else if (includeLegacyProfileEdges) {
+    if (edgeSelections.edgeTop) edges.push('top');
+    if (edgeSelections.edgeBottom) edges.push('bottom');
+    if (edgeSelections.edgeLeft) edges.push('left');
+    if (edgeSelections.edgeRight) edges.push('right');
+  }
+
+  return edges.filter((edge) => !edgeListIncludes(noStripEdges ?? undefined, edge));
+}
+
 export interface QuickViewPieceRowProps {
   pieceNumber?: number;
   piece: PieceData;
@@ -210,18 +248,13 @@ function AccordionStripWidths({
   onStripWidthChange?: () => void;
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 }) {
-  // Derive which edges generate strips — include edges with edge profile OR build-up
-  const edges: string[] = [];
-  if (shapeType === 'RECTANGLE') {
-    if (edgeSelections.edgeTop || (edgeBuildups?.top?.depth ?? 0) > 0) edges.push('top');
-    if (edgeSelections.edgeBottom || (edgeBuildups?.bottom?.depth ?? 0) > 0) edges.push('bottom');
-    if (edgeSelections.edgeLeft || (edgeBuildups?.left?.depth ?? 0) > 0) edges.push('left');
-    if (edgeSelections.edgeRight || (edgeBuildups?.right?.depth ?? 0) > 0) edges.push('right');
-  } else if (shapeType === 'L_SHAPE') {
-    edges.push('top', 'left', 'r_top', 'inner', 'r_btm', 'bottom');
-  } else if (shapeType === 'U_SHAPE') {
-    edges.push('top_left', 'outer_left', 'inner_left', 'bottom', 'back_inner', 'top_right', 'outer_right', 'inner_right');
-  }
+  const edges = getReturnStripEdges({
+    edgeSelections,
+    shapeType,
+    edgeBuildups,
+    noStripEdges: piece.noStripEdges,
+    includeLegacyProfileEdges: piece.thicknessMm >= 40 || piece.lamination_method === 'LAMINATED' || piece.lamination_method === 'MITRED',
+  });
 
   const [overrides, setOverrides] = useState<Record<string, number>>(
     (piece.stripWidthOverrides as unknown as Record<string, number>) ?? {}
@@ -267,10 +300,26 @@ function AccordionStripWidths({
     try {
       const res = await fetch(`/api/quotes/${quoteId}/pieces`);
       if (!res.ok) throw new Error('Failed to fetch pieces');
-      const allPieces: Array<{ id: number; thicknessMm: number; edgeBuildups?: Record<string, EdgeBuildupConfig> | null }> = await res.json();
+      const allPieces: Array<{ id: number; thicknessMm: number; laminationMethod?: string | null; edgeTop?: string | null; edgeBottom?: string | null; edgeLeft?: string | null; edgeRight?: string | null; edgeBuildups?: Record<string, EdgeBuildupConfig> | null; noStripEdges?: string[] | null; shapeType?: ShapeType | null }> = await res.json();
       const targets = allPieces.filter(p =>
-        p.thicknessMm >= 40 || Object.keys(p.edgeBuildups ?? {}).length > 0
+        getReturnStripEdges({
+          edgeSelections: {
+            edgeTop: p.edgeTop ?? null,
+            edgeBottom: p.edgeBottom ?? null,
+            edgeLeft: p.edgeLeft ?? null,
+            edgeRight: p.edgeRight ?? null,
+          },
+          shapeType: (p.shapeType ?? 'RECTANGLE') as ShapeType,
+          edgeBuildups: p.edgeBuildups,
+          noStripEdges: p.noStripEdges,
+          includeLegacyProfileEdges: p.thicknessMm >= 40 || p.laminationMethod === 'LAMINATED' || p.laminationMethod === 'MITRED',
+        }).length > 0
       );
+      if (targets.length === 0) {
+        setApplyMessage('No build-up/return strip edges found to update');
+        setTimeout(() => setApplyMessage(null), 4000);
+        return;
+      }
       const overridePayload = Object.keys(overrides).length > 0 ? overrides : null;
       for (const target of targets) {
         await fetch(`/api/quotes/${quoteId}/pieces/${target.id}`, {
@@ -2522,9 +2571,9 @@ export default function QuickViewPieceRow({
           )}
 
           {/* Per-edge strip width overrides (edit mode, 40mm+ pieces or pieces with edge buildups) */}
-          {mode === 'edit' && quoteIdStr && fullPiece && (fullPiece.thicknessMm >= 40 || Object.keys(fullPiece.edgeBuildups ?? {}).length > 0) && (
+          {mode === 'edit' && quoteIdStr && fullPiece && (fullPiece.thicknessMm >= 40 || Object.keys(localEdgeBuildups).length > 0) && (
             <AccordionStripWidths
-              piece={fullPiece}
+              piece={{ ...fullPiece, edgeBuildups: localEdgeBuildups, noStripEdges: localNoStripEdges }}
               quoteId={quoteIdStr}
               edgeSelections={{
                 edgeTop: fullPiece.edgeTop,
@@ -2534,7 +2583,7 @@ export default function QuickViewPieceRow({
               }}
               shapeType={(piece.shapeType ?? 'RECTANGLE') as ShapeType}
               onStripWidthChange={onStripWidthChange}
-              edgeBuildups={fullPiece.edgeBuildups as Record<string, EdgeBuildupConfig> | null}
+              edgeBuildups={localEdgeBuildups}
             />
           )}
 
