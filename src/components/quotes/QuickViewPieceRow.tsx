@@ -104,6 +104,7 @@ interface PieceData {
   edgeBottom: string | null;
   edgeLeft: string | null;
   edgeRight: string | null;
+  edgeArcConfig?: Record<string, string | null> | null;
   roomName?: string;
   shapeType?: string | null;
   shapeConfig?: Record<string, unknown> | null;
@@ -116,6 +117,27 @@ interface PieceData {
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   materialCollectionOnly?: boolean;
   materialCollectionName?: string | null;
+}
+
+function normaliseArcEdgeConfig(
+  config: Record<string, string | null> | null | undefined
+): Record<string, string | null> {
+  const normalised = { ...(config ?? {}) };
+
+  if (normalised.arc_end == null && normalised.arc_end_end != null) {
+    normalised.arc_end = normalised.arc_end_end;
+  }
+  if (normalised.arc_left == null && normalised.arc_end_start != null) {
+    normalised.arc_left = normalised.arc_end_start;
+  }
+  if (normalised.perimeter == null && normalised.arc_body != null) {
+    normalised.perimeter = normalised.arc_body;
+  }
+  if (normalised.arc_body == null && normalised.perimeter != null) {
+    normalised.arc_body = normalised.perimeter;
+  }
+
+  return normalised;
 }
 
 function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
@@ -797,11 +819,14 @@ export default function QuickViewPieceRow({
     if (piece.shapeType === 'RADIUS_END' || piece.shapeType === 'FULL_CIRCLE' ||
         piece.shapeType === 'CONCAVE_ARC' || piece.shapeType === 'ROUNDED_RECT') {
       // Arc/corner edges come from edgeArcConfig; straight edges from rect fields
-      const arcProfiles = (fullPiece?.edgeArcConfig as Record<string, string | null>) ?? {};
+      const arcProfiles = normaliseArcEdgeConfig(
+        (fullPiece?.edgeArcConfig as Record<string, string | null> | null | undefined) ??
+        piece.edgeArcConfig
+      );
       return { ...rectProfiles, ...arcProfiles };
     }
     return rectProfiles;
-  }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, fullPiece?.edgeArcConfig]);
+  }, [piece.shapeType, piece.shapeConfig, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.edgeArcConfig, fullPiece?.edgeArcConfig]);
 
   // Map of edge side → attached piece type — used by PieceVisualEditor for WF/SB labels
   const attachedPieceTypes = useMemo(() => {
@@ -1960,7 +1985,10 @@ export default function QuickViewPieceRow({
                   const bothEnds = cfg.curved_ends === 'BOTH';
 
                   // Read arc_end profile from edgeArcConfig (camelCase from API)
-                  const arcConfig = fullPiece?.edgeArcConfig as Record<string, string | null> | null | undefined;
+                  const arcConfig = normaliseArcEdgeConfig(
+                    (fullPiece?.edgeArcConfig as Record<string, string | null> | null | undefined) ??
+                    piece.edgeArcConfig
+                  );
                   const arcEndId = arcConfig?.arc_end ?? null;
                   const arcName = resolveEdgeName(arcEndId);
                   const arcIsFinished = !!arcEndId;
@@ -2427,7 +2455,10 @@ export default function QuickViewPieceRow({
                     const sc = (fullPiece?.shapeConfig as { edges?: Record<string, string | null> } | null | undefined);
                     return sc?.edges ?? undefined;
                   }
-                  return fullPiece?.edgeArcConfig ?? undefined;
+                  return normaliseArcEdgeConfig(
+                    (fullPiece?.edgeArcConfig as Record<string, string | null> | null | undefined) ??
+                    piece.edgeArcConfig
+                  );
                 })()}
                 noStripEdges={localNoStripEdges}
                 onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}

@@ -3456,6 +3456,7 @@ export default function QuoteDetailClient({
                         edgeBottom: piece.edge_bottom ?? null,
                         edgeLeft: piece.edge_left ?? null,
                         edgeRight: piece.edge_right ?? null,
+                        edgeArcConfig: ((piece as unknown as { edge_arc_config?: Record<string, string | null> | null }).edge_arc_config) ?? null,
                         roomName: piece.roomName,
                         shapeType: piece.shape_type ?? 'RECTANGLE',
                         shapeConfig: piece.shape_config ?? null,
