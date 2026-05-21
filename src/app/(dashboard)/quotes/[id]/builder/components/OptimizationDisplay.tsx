@@ -418,6 +418,14 @@ export function OptimizationDisplay({
           <p className="text-xs mt-1 text-gray-400">
             The layout calculates automatically when pieces are saved
           </p>
+          <button
+            type="button"
+            onClick={handleRecalculate}
+            disabled={isRecalculating || isOptimising}
+            className="mt-4 px-3 py-1.5 text-sm font-medium rounded border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isRecalculating ? 'Running...' : 'Run slab optimisation'}
+          </button>
         </div>
       </div>
     );
