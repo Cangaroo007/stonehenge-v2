@@ -15,6 +15,8 @@ interface ExtractedPiece {
   id: string;
   pieceNumber: number;
   name: string;
+  materialId?: number | null;
+  materialName?: string | null;
   shape?: string;
   length: number;
   width: number;
@@ -178,14 +180,17 @@ export function DrawingReviewStage({
     });
   }, [fireCorrection]);
 
-  // Apply material to all pieces
-  const applyMaterialToAll = useCallback((materialName: string) => {
-    if (!materialName) return;
+  // Apply material to all pieces as an explicit bulk action. Individual rows
+  // remain editable because mixed-material jobs are common.
+  const applyMaterialToAll = useCallback((materialIdRaw: string) => {
+    const materialId = Number(materialIdRaw);
+    const material = catalogue.materials.find(m => m.id === materialId);
+    if (!material) return;
     setPieces(prev => prev.map(p => {
-      fireCorrection('MATERIAL', 'material', p.notes, materialName, p.confidence);
-      return { ...p, notes: p.notes ? `${p.notes} | Material: ${materialName}` : `Material: ${materialName}` };
+      fireCorrection('MATERIAL', 'material', p.materialName ?? null, material.name, p.confidence);
+      return { ...p, materialId: material.id, materialName: material.name };
     }));
-  }, [fireCorrection]);
+  }, [catalogue.materials, fireCorrection]);
 
   // Apply thickness to all pieces
   const applyThicknessToAll = useCallback((thickness: number) => {
@@ -263,9 +268,9 @@ export function DrawingReviewStage({
         {pieces.length} piece{pieces.length !== 1 ? 's' : ''} across {roomGroups.length} room{roomGroups.length !== 1 ? 's' : ''}
       </p>
 
-      {/* Apply to all pieces controls */}
+      {/* Bulk defaults. These are convenience actions only; row-level material can differ. */}
       <div className="flex items-center gap-4 mb-4 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
-        <span className="text-sm font-medium text-zinc-700">Apply to all:</span>
+        <span className="text-sm font-medium text-zinc-700">Bulk defaults:</span>
         <div className="flex items-center gap-2">
           <label className="text-sm text-zinc-600">Material</label>
           <select
@@ -278,7 +283,7 @@ export function DrawingReviewStage({
           >
             <option value="">Select...</option>
             {catalogue.materials.map(m => (
-              <option key={m.id} value={m.name}>
+              <option key={m.id} value={m.id}>
                 {m.name}{m.collection ? ` (${m.collection})` : ''}
               </option>
             ))}
@@ -314,6 +319,7 @@ export function DrawingReviewStage({
                   <th className="px-3 py-2 text-left font-medium">#</th>
                   <th className="px-3 py-2 text-left font-medium">Name</th>
                   <th className="px-3 py-2 text-left font-medium">Shape</th>
+                  <th className="px-3 py-2 text-left font-medium">Material</th>
                   <th className="px-3 py-2 text-left font-medium">Length</th>
                   <th className="px-3 py-2 text-left font-medium">Width</th>
                   <th className="px-3 py-2 text-left font-medium">Thickness</th>
@@ -356,6 +362,30 @@ export function DrawingReviewStage({
                         ) : (
                           <span className="text-zinc-400">—</span>
                         )}
+                      </td>
+
+                      {/* Material — per-piece editable */}
+                      <td className="px-3 py-2 min-w-[180px]">
+                        <select
+                          value={piece.materialId ?? ''}
+                          onChange={(e) => {
+                            const nextId = e.target.value ? Number(e.target.value) : null;
+                            const nextMaterial = nextId ? catalogue.materials.find(m => m.id === nextId) : null;
+                            fireCorrection('MATERIAL', 'material', piece.materialName ?? null, nextMaterial?.name ?? null, piece.confidence);
+                            setPieces(prev => prev.map(p => p.id === piece.id
+                              ? { ...p, materialId: nextId, materialName: nextMaterial?.name ?? null }
+                              : p
+                            ));
+                          }}
+                          className="w-full px-1 py-0.5 border border-zinc-300 rounded text-xs bg-white focus:outline-none focus:border-primary-500"
+                        >
+                          <option value="">{piece.materialName || 'Select...'}</option>
+                          {catalogue.materials.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.name}{m.collection ? ` (${m.collection})` : ''}
+                            </option>
+                          ))}
+                        </select>
                       </td>
 
                       {/* Length — confidence-coloured */}

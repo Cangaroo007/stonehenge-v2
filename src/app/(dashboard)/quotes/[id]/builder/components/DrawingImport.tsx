@@ -53,6 +53,8 @@ interface ExtractedPiece {
   pieceNumber: number;
   name: string;
   pieceType?: string;
+  materialId?: number | null;
+  materialName?: string | null;
   shape?: string;
   length: number;
   width: number;
@@ -103,6 +105,9 @@ interface AnalysisResult {
       edgeRight?: string | null;
       edgeBuildups?: Record<string, { depth: number; exposed?: boolean; chargeCut?: boolean; chargePolish?: boolean } | number | boolean | null>;
       noStripEdges?: string[];
+      materialId?: number | null;
+      material?: string | null;
+      materialName?: string | null;
       relatedTo?: {
         pieceName?: string | null;
         relationshipType?: string | null;
@@ -195,6 +200,24 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   // R2 storage states
   const [uploadProgress, setUploadProgress] = useState<UploadProgress>('idle');
   const [uploadResult, setUploadResult] = useState<UploadResult | null>(null);
+
+  const resolveCatalogueMaterial = useCallback((materialName?: string | null) => {
+    if (!materialName) return null;
+    const normalise = (value: string) => value
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    const wanted = normalise(materialName);
+    if (!wanted) return null;
+    return catalogue.materials.find(material => {
+      const full = material.collection ? `${material.name} ${material.collection}` : material.name;
+      const materialKey = normalise(full);
+      const nameKey = normalise(material.name);
+      return materialKey === wanted || nameKey === wanted || wanted.includes(nameKey) || materialKey.includes(wanted);
+    }) ?? null;
+  }, [catalogue.materials]);
 
   // Compress image if needed
   const compressImageIfNeeded = useCallback(async (file: File): Promise<File> => {
@@ -397,6 +420,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       for (const room of analysisResult.rooms || []) {
         for (const piece of room.pieces || []) {
           const id = `extracted-${pieceIndex++}`;
+          const matchedMaterial = resolveCatalogueMaterial(piece.materialName ?? piece.material);
           const importedEdges: EdgeSelections = {
             edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
             edgeBottom: piece.edgeBottom ?? piece.edges?.bottom ?? null,
@@ -408,6 +432,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             pieceNumber: piece.pieceNumber || pieceIndex,
             name: piece.name || `Piece ${pieceIndex}`,
             pieceType: piece.pieceType || undefined,
+            materialId: piece.materialId ?? matchedMaterial?.id ?? null,
+            materialName: piece.materialName ?? piece.material ?? matchedMaterial?.name ?? null,
             shape: piece.shape || undefined,
             length: piece.length || 0,
             width: piece.width || 0,
@@ -463,7 +489,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       setStep('upload');
       setFile(null);
     }
-  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId]);
+  }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId, resolveCatalogueMaterial]);
 
   // Handle drag events
   const handleDrag = useCallback((e: React.DragEvent) => {
@@ -592,6 +618,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             edgeBuildups: p.edgeBuildups,
             noStripEdges: p.noStripEdges,
             pieceType: p.pieceType,
+            materialId: p.materialId ?? null,
+            material: p.materialName ?? null,
             cutouts: p.cutouts.map(c => ({
               type: c.type,
               quantity: c.quantity ?? 1,

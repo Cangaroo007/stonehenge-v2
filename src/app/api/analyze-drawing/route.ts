@@ -115,9 +115,17 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 
 ## WHAT TO EXTRACT
 
+### Page-by-page source review:
+- Inspect every page in the uploaded document before extracting pieces.
+- Treat specification/scope pages as equal priority to drawings. They often contain material, thickness, finish, apron/build-up and exclusion notes that are not repeated on plan pages.
+- Return pageReview notes in metadata or warnings summarising what each page contributed, especially when a page changes material/thickness/finish assumptions.
+- Do not stop after finding a floor plan. If later pages contain joinery notes, colour legends, finish schedules or marked-up screenshots, apply those details to the pieces.
+
 ### Job Metadata (if visible):
 - Job Number
 - Default Thickness (usually 20mm or 40mm)
+- Drawing scale, if visible, such as 1:100 or 1:50
+- Colour legend or scope legend, if visible, such as blue = stone and orange = laminate
 
 ### For Each Quote-Ready Stone Piece:
 - Piece number if marked
@@ -125,6 +133,7 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Length in millimetres (null if unreadable)
 - Width in millimetres (null if unreadable)
 - Shape: RECTANGLE, L_SHAPE, U_SHAPE, or IRREGULAR
+- Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 - Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
 - Build-up/drop-edge/mitred construction by side when visible. This is separate from visible edge profile.
@@ -144,6 +153,26 @@ Northcoast-style quotes are built from physical pieces, not overall footprints:
 - A mitred/build-up edge is an edge construction detail on a parent piece, not automatically a separate WATERFALL piece.
 - Do not use "mitred" as a decorative edge profile. If a side is marked M, MIT, mitred, apron, drop edge, build-up, 40mm, or 60mm, record that side in edgeBuildups and keep the visible profile separate.
 - Only mark noStripEdges for true wall/concealed sides. Do not mark a waterfall/splashback join as a wall edge; the relationship handles that separately.
+- Exclude cabinetry-only or laminate-only items from quote-ready stone pieces unless the document explicitly says that top is stone. Mention excluded joinery/laminate items in warnings or metadata.
+
+## MATERIAL AND FINISH RULES
+
+Materials can vary by room and by piece. Never assume every extracted piece uses the same material.
+- Apply material from the most specific source available: piece label > room note > colour legend > specification page > project default.
+- If the document says "20mm Stone Ambassador with 40mm mitred apron", set thickness to 20 and set exposed front/visible apron sides in edgeBuildups with depth 40.
+- If the document says a coloured area is "STONE 20MM", only apply stone material/thickness to that colour group.
+- If another coloured area is laminate, melamine, polytec, carcass, robe, linen, doors, drawers, shelves or cabinetry, do not create stone quote pieces for it unless a stone top is explicitly called out.
+- If a room has stone but the exact catalogue material is not visible, set materialName to the visible generic text such as "20mm Stone" or "Stone Ambassador" and ask a material clarification question for that piece or room.
+- Ask material questions per piece/room when materials differ. Do not ask "What material should be used for all benchtops?" unless the document explicitly states one material for all stone pieces.
+
+## SCALE AND DIMENSION RULES
+
+Architectural drawings are often to scale. Use this carefully:
+- If a scale is visible, record it in metadata.drawingScale.
+- Prefer printed dimension strings over measuring from the page.
+- If printed dimensions are not available but scale is visible and the piece outline is clear, estimate dimensions from the scaled drawing only when you can anchor against a known nearby dimension or standard cabinet depth. Mark confidence below 0.85 and include the source in notes.
+- When a dimension is inferred from scale, say so in notes. Do not present it as a directly read dimension.
+- If the plan only shows room dimensions, do not use the full room size as benchtop size. Use room dimensions only as context for scale and placement.
 
 ## DIMENSION SANITY CHECKS
 
@@ -180,7 +209,9 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
   "drawingType": "cad_professional" | "job_sheet" | "hand_drawn" | "architectural",
   "metadata": {
     "jobNumber": "string or null",
-    "defaultThickness": 20
+    "defaultThickness": 20,
+    "drawingScale": "1:100 or null",
+    "pageReview": ["Page 1: floor plan and colour-coded stone/laminate legend", "Page 2: joinery scope with material/thickness/apron notes"]
   },
   "rooms": [
     {
@@ -191,6 +222,7 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
           "name": "Island Bench",
           "pieceType": "ISLAND",
           "shape": "RECTANGLE",
+          "materialName": "Stone Ambassador",
           "length": 3600,
           "width": 900,
           "thickness": 20,
@@ -425,7 +457,7 @@ export async function POST(request: NextRequest) {
     logger.info('[Analyze] Calling Claude API...');
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
-      max_tokens: 4096,
+      max_tokens: 8192,
       system: buildSystemPrompt(catalogue, learningRules, learningExamples),
       messages: [
         {
@@ -434,7 +466,7 @@ export async function POST(request: NextRequest) {
             fileContentBlock,
             {
               type: 'text',
-              text: 'Analyze this stone fabrication drawing and extract all piece specifications. Return only valid JSON.',
+              text: 'Analyze this complete multi-page stone/joinery document. First inspect every page, including floor plans, marked-up colour legends, specifications and scope notes. Then extract quote-ready stone pieces only, with per-piece material/thickness/build-up/cutout/edge details. Use scale and visible dimensions where defensible, mark inferred dimensions clearly, and return only valid JSON.',
             },
           ],
         },
