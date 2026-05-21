@@ -340,6 +340,17 @@ export function getShapeEdgeLengths(
       left_mm: leftLeg.width_mm,
     };
   }
+  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+    const radiusMm = Math.max(Number(shapeConfig.radius_mm) || 0, 0);
+    const curvedEnds = shapeConfig.curved_ends === 'BOTH' ? 2 : 1;
+    const straightLengthMm = Math.max(length_mm - (curvedEnds * radiusMm), 0);
+    return {
+      top_mm: straightLengthMm,
+      bottom_mm: straightLengthMm,
+      left_mm: curvedEnds === 1 ? width_mm : 0,
+      right_mm: 0,
+    };
+  }
   // RECTANGLE — same as the default formula
   return {
     top_mm: length_mm,
@@ -377,7 +388,9 @@ export function getCuttingPerimeterLm(
     const r = Number(shapeC?.radius_mm) || 0;
     const ends = shapeC?.curved_ends === 'BOTH' ? 2 : 1;
     const arcPerim = Math.PI * r * ends;
-    const straightPerim = fallbackLengthMm; // two long edges (flat end is join face)
+    const straightLengthMm = Math.max(fallbackLengthMm - (ends * r), 0);
+    const flatEndPerim = ends === 1 ? fallbackWidthMm : 0;
+    const straightPerim = 2 * straightLengthMm + flatEndPerim;
     return (straightPerim + arcPerim) / 1000;
   }
 
@@ -493,6 +506,33 @@ export function getShapeGeometry(
   if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
     return calculateUShapeGeometry(shapeConfig);
   }
+  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+    return {
+      totalAreaSqm: computeRadiusEndArea(shapeConfig) / 1_000_000,
+      cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
+      cornerJoins: 0,
+      boundingLength_mm: length_mm,
+      boundingWidth_mm: width_mm,
+    };
+  }
+  if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') {
+    return {
+      totalAreaSqm: computeFullCircleArea(shapeConfig) / 1_000_000,
+      cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
+      cornerJoins: 0,
+      boundingLength_mm: length_mm,
+      boundingWidth_mm: width_mm,
+    };
+  }
+  if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') {
+    return {
+      totalAreaSqm: computeConcaveArcArea(shapeConfig) / 1_000_000,
+      cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
+      cornerJoins: 0,
+      boundingLength_mm: length_mm,
+      boundingWidth_mm: width_mm,
+    };
+  }
   // RECTANGLE fallback
   return {
     totalAreaSqm: (length_mm * width_mm) / 1_000_000,
@@ -513,7 +553,7 @@ export function getShapeGeometry(
  */
 export function computeRadiusEndArea(config: RadiusEndConfig): number {
   const boundingArea = config.length_mm * config.width_mm;
-  const wastePerEnd = config.radius_mm * config.radius_mm * (Math.PI / 2 - 1);
+  const wastePerEnd = config.radius_mm * config.radius_mm * (2 - Math.PI / 2);
   const curvedEndCount = config.curved_ends === 'BOTH' ? 2 : 1;
   return boundingArea - wastePerEnd * curvedEndCount;
 }

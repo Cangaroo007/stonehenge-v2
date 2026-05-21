@@ -282,7 +282,7 @@ export interface PiecePricingBreakdown {
       total: number;
     };
     edges: Array<{
-      side: 'top' | 'bottom' | 'left' | 'right';
+      side: string;
       edgeTypeId: string;
       edgeTypeName: string;
       lengthMm: number;

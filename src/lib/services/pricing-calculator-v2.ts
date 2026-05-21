@@ -167,6 +167,28 @@ function calcArcLengthM(shapeType: string, shapeConfig: unknown): number {
   }
 }
 
+function mapArcEdgeConfigForEngine(
+  arcConfig: ArcEdgeConfig | Record<string, string | null> | null | undefined,
+  edgeTypeIdMap: Map<string, number>
+): ArcEdgeConfig | null {
+  if (!arcConfig) return null;
+
+  const mapped: Record<string, string | null> = {};
+  for (const [key, value] of Object.entries(arcConfig)) {
+    if (!value) {
+      mapped[key] = null;
+      continue;
+    }
+    const numericId = edgeTypeIdMap.get(value);
+    mapped[key] = numericId ? String(numericId) : value;
+  }
+
+  if (mapped.arc_end && !mapped.arc_end_end) mapped.arc_end_end = mapped.arc_end;
+  if (mapped.arc_left && !mapped.arc_end_start) mapped.arc_end_start = mapped.arc_left;
+
+  return mapped as ArcEdgeConfig;
+}
+
 /**
  * Enhanced pricing calculation result
  */
@@ -1387,13 +1409,13 @@ export async function calculateQuotePrice(
       return { cutoutType: ct?.name ?? c.type ?? c.typeId ?? 'Cutout', quantity: c.quantity || 1 };
     });
 
-    // For L/U shapes, pass shape geometry overrides to the engine
-    const isShapedPiece = geometry.cornerJoins > 0;
-
     // Compute shape-aware edge lengths per position (L/U shapes use actual
     // segment lengths instead of bounding-box dimensions)
     const shapeType = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
     const shapeConfig = piece.shape_config as unknown as ShapeConfig;
+    const isCurvedPiece = isCurvedShape(shapeType);
+    // For non-rectangular pieces, pass shape geometry overrides to the engine.
+    const isShapedPiece = geometry.cornerJoins > 0 || isCurvedPiece;
     const edgeLengths = getShapeEdgeLengths(shapeType, shapeConfig, piece.length_mm, piece.width_mm);
 
     // Detect deactivated edge types — piece has edge assigned but type not in active list
@@ -1635,7 +1657,10 @@ export async function calculateQuotePrice(
       arcLengthLm: isCurvedShape((piece as any).shape_type)
         ? calcArcLengthM((piece as any).shape_type!, (piece as any).shape_config)
         : undefined,
-      arcEdgeConfig: (piece.edge_arc_config as unknown as ArcEdgeConfig) ?? null,
+      arcEdgeConfig: mapArcEdgeConfigForEngine(
+        (piece.edge_arc_config as unknown as ArcEdgeConfig) ?? null,
+        edgeTypeIdMap
+      ),
     });
   }
 
@@ -2240,9 +2265,7 @@ export async function calculateQuotePrice(
 
     const edgeBreakdowns: PiecePricingBreakdown['fabrication']['edges'] = ep.edgeProfiles.items.map(item => {
       const dbEdgeType = edgeTypeReverseMap.get(item.edgeTypeId);
-      const side = item.position && ['TOP', 'BOTTOM', 'LEFT', 'RIGHT'].includes(item.position)
-        ? item.position.toLowerCase() as 'top' | 'bottom' | 'left' | 'right'
-        : 'top';
+      const side = item.position ? item.position.toLowerCase() : 'edge';
       return {
         side,
         edgeTypeId: dbEdgeType?.id ?? String(item.edgeTypeId),
