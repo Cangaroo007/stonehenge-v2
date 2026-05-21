@@ -1,4 +1,4 @@
-import { calculateQuote, ruleCutting } from './pricing-rules-engine'
+import { calculateQuote, ruleCutting, ruleCutouts } from './pricing-rules-engine'
 
 // ─── Shared Fixtures ─────────────────────────────────────────────────────────
 
@@ -151,4 +151,34 @@ test('uses edge effective thickness for built-up edge profile rates', () => {
   expect(result.pieces[0].edgeProfiles.items[0].effectiveThicknessMm).toBe(40)
   expect(result.pieces[0].edgeProfiles.items[1].rate).toBe(40.00)
   expect(result.pieces[0].edgeProfiles.items[1].effectiveThicknessMm).toBe(20)
+})
+
+test('charges every Q23114-style cutout that maps to a priced type', () => {
+  const cutouts = ruleCutouts(
+    makePiece({
+      cutouts: [
+        { cutoutType: 'Undermount Sink', quantity: 1 },
+        { cutoutType: 'Cooktop Cutout', quantity: 1 },
+        { cutoutType: 'Custom Cutout', quantity: 1 },
+      ],
+    }),
+    [
+      { cutoutType: 'Undermount Sink', fabricationCategory: 'ENGINEERED', rate: 320 },
+      { cutoutType: 'Cooktop Cutout', fabricationCategory: 'ENGINEERED', rate: 65 },
+      { cutoutType: 'Custom Cutout', fabricationCategory: 'ENGINEERED', rate: 65 },
+    ],
+    'ENGINEERED'
+  )
+
+  expect(cutouts.items).toHaveLength(3)
+  expect(cutouts.items.every(item => item.rate > 0)).toBe(true)
+  expect(cutouts.cost).toBe(450)
+})
+
+test('throws instead of pricing an unresolved generic cutout at zero', () => {
+  expect(() => ruleCutouts(
+    makePiece({ cutouts: [{ cutoutType: 'Cutout', quantity: 1 }] }),
+    [{ cutoutType: 'Cooktop Cutout', fabricationCategory: 'ENGINEERED', rate: 65 }],
+    'ENGINEERED'
+  )).toThrow(/No CUTOUT rate configured/)
 })

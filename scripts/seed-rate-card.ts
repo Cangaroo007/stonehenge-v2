@@ -74,6 +74,9 @@ const CUTOUT_RATES: Record<string, Record<string, number>> = {
   'ct-powerpoint': { // Powerpoint Cutout (same rates as GPO)
     ENGINEERED: 25, NATURAL_HARD: 28, NATURAL_SOFT: 27, NATURAL_PREMIUM: 34, SINTERED: 30,
   },
+  'ct-custom-cutout': { // Custom Cutout (post, column, notch, pipe, other standard cutout)
+    ENGINEERED: 65, NATURAL_HARD: 75, NATURAL_SOFT: 72, NATURAL_PREMIUM: 88, SINTERED: 80,
+  },
   'ct-drainer-grooves': { // Drainer Grooves (per set)
     ENGINEERED: 150, NATURAL_HARD: 168, NATURAL_SOFT: 162, NATURAL_PREMIUM: 203, SINTERED: 185,
   },
@@ -161,6 +164,38 @@ async function main() {
     }
   }
 
+  // Ensure post/column/notch aliases have a real priced target.
+  console.log('\n=== ENSURING CUSTOM CUTOUT TYPE ===');
+  const existingCustomCutout = await prisma.cutout_types.findFirst({
+    where: { name: { equals: 'Custom Cutout', mode: 'insensitive' } },
+    select: { id: true },
+  });
+  const customCutoutId = existingCustomCutout?.id ?? 'ct-custom-cutout';
+  await prisma.cutout_types.upsert({
+    where: { id: customCutoutId },
+    update: {
+      name: 'Custom Cutout',
+      description: 'Post, column, notch, pipe, or other standard custom cutout',
+      baseRate: 65,
+      sortOrder: 10,
+      isActive: true,
+    },
+    create: {
+      id: customCutoutId,
+      name: 'Custom Cutout',
+      description: 'Post, column, notch, pipe, or other standard custom cutout',
+      baseRate: 65,
+      sortOrder: 10,
+      isActive: true,
+      updatedAt: new Date(),
+    },
+  });
+  if (customCutoutId !== 'ct-custom-cutout') {
+    CUTOUT_RATES[customCutoutId] = CUTOUT_RATES['ct-custom-cutout'];
+    delete CUTOUT_RATES['ct-custom-cutout'];
+  }
+  console.log(`  Custom Cutout ready (${customCutoutId})`);
+
   // 2. Upsert cutout category rates
   console.log('\n=== CUTOUT CATEGORY RATES ===');
   for (const [cutoutTypeId, categories] of Object.entries(CUTOUT_RATES)) {
@@ -214,6 +249,21 @@ async function main() {
     }
     await prisma.cutout_types.update({ where: { id }, data: { isActive: false } });
     console.log(`  Deactivated: "${ct.name}" (${id})`);
+  }
+  const genericCutouts = await prisma.cutout_types.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { name: { equals: 'Cutout', mode: 'insensitive' } },
+        { name: { equals: 'Generic Cutout', mode: 'insensitive' } },
+        { name: { equals: 'Other', mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, name: true },
+  });
+  for (const ct of genericCutouts) {
+    await prisma.cutout_types.update({ where: { id: ct.id }, data: { isActive: false } });
+    console.log(`  Deactivated generic cutout: "${ct.name}" (${ct.id})`);
   }
 
   console.log('\nDone! Rate card data seeded successfully.');

@@ -5,6 +5,16 @@ import type { CalculationResult } from '@/lib/types/pricing';
 
 type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
 
+const BLOCKING_PRICING_CODES = new Set([
+  'CUTTING',
+  'INSTALLATION',
+  'CUTOUT',
+  'CUTOUT_CATEGORY_RATE',
+  'UNPRICED_GENERIC_CUTOUT',
+  'EDGE_CATEGORY_RATE',
+  'ENGINE_RATE',
+]);
+
 interface QuoteActionsProps {
   quoteId: string;
   quoteStatus: string;
@@ -33,6 +43,11 @@ export default function QuoteActions({
   const [isSending, setIsSending] = useState(false);
   const [pdfView, setPdfView] = useState<PdfViewMode>('default');
   const menuRef = useRef<HTMLDivElement>(null);
+  const pricingBlockers = calculation?.missingRates?.filter(rate => BLOCKING_PRICING_CODES.has(rate.code)) ?? [];
+  const hasPricingBlockers = pricingBlockers.length > 0;
+  const pricingBlockerTitle = hasPricingBlockers
+    ? 'Resolve missing or zero-rate pricing items before previewing or sending'
+    : '';
 
   // Close menu when clicking outside
   useEffect(() => {
@@ -47,6 +62,10 @@ export default function QuoteActions({
 
   // Handle PDF preview — use readiness checker if available, else direct open
   const handlePreviewPdf = async () => {
+    if (hasPricingBlockers) {
+      alert('Resolve missing or zero-rate pricing items before previewing the PDF.');
+      return;
+    }
     if (onPreviewPdf) {
       onPreviewPdf(pdfView);
       return;
@@ -64,6 +83,10 @@ export default function QuoteActions({
 
   // Handle send to customer (placeholder)
   const handleSendToCustomer = async () => {
+    if (hasPricingBlockers) {
+      alert('Resolve missing or zero-rate pricing items before sending this quote.');
+      return;
+    }
     setIsSending(true);
     try {
       // Placeholder - future email integration
@@ -180,8 +203,9 @@ export default function QuoteActions({
         </select>
         <button
           onClick={handlePreviewPdf}
-          disabled={isPreviewLoading}
+          disabled={isPreviewLoading || hasPricingBlockers}
           className="btn-secondary flex items-center gap-2"
+          title={pricingBlockerTitle}
         >
           {isPreviewLoading ? (
             <>
@@ -205,9 +229,9 @@ export default function QuoteActions({
       {/* Send to Customer Button */}
       <button
         onClick={handleSendToCustomer}
-        disabled={isSending || quoteStatus === 'draft'}
+        disabled={isSending || quoteStatus === 'draft' || hasPricingBlockers}
         className="btn-primary flex items-center gap-2"
-        title={quoteStatus === 'draft' ? 'Save and preview before sending' : ''}
+        title={pricingBlockerTitle || (quoteStatus === 'draft' ? 'Save and preview before sending' : '')}
       >
         {isSending ? (
           <>

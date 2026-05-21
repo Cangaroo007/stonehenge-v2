@@ -62,6 +62,166 @@ const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
 
 const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
 
+export type CutoutTypeLookup = {
+  id: string;
+  name: string;
+  baseRate?: unknown;
+};
+
+export type CutoutResolution =
+  | { ok: true; cutoutType: CutoutTypeLookup; source: 'id' | 'name' | 'alias' }
+  | { ok: false; code: 'CUTOUT' | 'UNPRICED_GENERIC_CUTOUT'; label: string; reason: string };
+
+const GENERIC_CUTOUT_KEYS = new Set([
+  'cutout',
+  'cut out',
+  'cut-out',
+  'generic cutout',
+  'generic cut out',
+  'other',
+]);
+
+const CUTOUT_ALIAS_RULES: Array<{ aliases: string[]; preferredNames: string[] }> = [
+  {
+    aliases: ['flush cooktop', 'flush hotplate', 'flush mount cooktop', 'flush mount hotplate'],
+    preferredNames: ['Flush Mount Cooktop'],
+  },
+  {
+    aliases: ['cooktop', 'hotplate', 'hp', 'ct', 'hob', 'stove'],
+    preferredNames: ['Cooktop Cutout', 'Cooktop / Hotplate', 'Cooktop/Hotplate', 'Hotplate Cutout'],
+  },
+  {
+    aliases: ['undermount', 'under mount', 'u mount', 'u m sink', 'um sink'],
+    preferredNames: ['Undermount Sink', 'Undermount Sink Cutout'],
+  },
+  {
+    aliases: ['drop in sink', 'drop-in sink', 'inset sink', 'top mount sink', 'topmount sink'],
+    preferredNames: ['Drop-in Sink', 'Drop-in Sink Cutout'],
+  },
+  {
+    aliases: ['basin', 'vanity'],
+    preferredNames: ['Basin', 'Drop-in Basin', 'Basin Cutout'],
+  },
+  {
+    aliases: ['tap hole', 'tap', 'taphole', 'mixer'],
+    preferredNames: ['Tap Hole'],
+  },
+  {
+    aliases: ['gpo', 'powerpoint', 'power point', 'power outlet', 'electrical'],
+    preferredNames: ['GPO / Powerpoint', 'Powerpoint Cutout', 'GPO/Powerpoint'],
+  },
+  {
+    aliases: ['drainer', 'groove', 'grooves'],
+    preferredNames: ['Drainer Grooves'],
+  },
+  {
+    aliases: ['post', 'column', 'pillar', 'notch', 'pipe', 'custom', 'accessory'],
+    preferredNames: ['Post', 'Post Cutout', 'Post / Custom Cutout', 'Custom Cutout'],
+  },
+];
+
+function normalizeCutoutKey(value: unknown): string {
+  if (value === null || value === undefined) return '';
+  return String(value)
+    .toLowerCase()
+    .replace(/[&/_.-]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function cutoutAliasMatches(key: string, alias: string): boolean {
+  const normalizedAlias = normalizeCutoutKey(alias);
+  if (!normalizedAlias) return false;
+  if (normalizedAlias.length <= 2) {
+    return new RegExp(`(^| )${normalizedAlias}( |$)`).test(key);
+  }
+  return key.includes(normalizedAlias);
+}
+
+function isGenericCutoutLabel(value: unknown): boolean {
+  return GENERIC_CUTOUT_KEYS.has(normalizeCutoutKey(value));
+}
+
+function firstCutoutLabel(cutout: Record<string, unknown>): string {
+  for (const value of [cutout.name, cutout.type, cutout.cutoutType, cutout.typeName, cutout.cutoutTypeId, cutout.typeId]) {
+    if (value !== null && value !== undefined && String(value).trim()) {
+      return String(value).trim();
+    }
+  }
+  return 'Cutout';
+}
+
+export function buildCutoutTypeResolver(cutoutTypes: CutoutTypeLookup[]) {
+  const byId = new Map(cutoutTypes.map(cutoutType => [cutoutType.id, cutoutType]));
+  const byNameKey = new Map(cutoutTypes.map(cutoutType => [normalizeCutoutKey(cutoutType.name), cutoutType]));
+
+  const findPreferred = (preferredNames: string[]) => {
+    for (const preferredName of preferredNames) {
+      const match = byNameKey.get(normalizeCutoutKey(preferredName));
+      if (match && !isGenericCutoutLabel(match.name)) return match;
+    }
+    return null;
+  };
+
+  return (cutout: Record<string, unknown>): CutoutResolution => {
+    const id = typeof cutout.cutoutTypeId === 'string'
+      ? cutout.cutoutTypeId
+      : typeof cutout.typeId === 'string'
+      ? cutout.typeId
+      : null;
+    const idMatch = id ? byId.get(id) : null;
+    if (idMatch) {
+      if (isGenericCutoutLabel(idMatch.name)) {
+        return {
+          ok: false,
+          code: 'UNPRICED_GENERIC_CUTOUT',
+          label: idMatch.name,
+          reason: `Generic cutout type "${idMatch.name}" must be mapped to a priced cutout type before quoting.`,
+        };
+      }
+      return { ok: true, cutoutType: idMatch, source: 'id' };
+    }
+
+    const label = firstCutoutLabel(cutout);
+    const labelKey = normalizeCutoutKey(label);
+    const nameMatch = byNameKey.get(labelKey);
+    if (nameMatch) {
+      if (isGenericCutoutLabel(nameMatch.name)) {
+        return {
+          ok: false,
+          code: 'UNPRICED_GENERIC_CUTOUT',
+          label: nameMatch.name,
+          reason: `Generic cutout type "${nameMatch.name}" must be mapped to a priced cutout type before quoting.`,
+        };
+      }
+      return { ok: true, cutoutType: nameMatch, source: 'name' };
+    }
+
+    for (const rule of CUTOUT_ALIAS_RULES) {
+      if (!rule.aliases.some(alias => cutoutAliasMatches(labelKey, alias))) continue;
+      const preferred = findPreferred(rule.preferredNames);
+      if (preferred) return { ok: true, cutoutType: preferred, source: 'alias' };
+    }
+
+    if (isGenericCutoutLabel(label)) {
+      return {
+        ok: false,
+        code: 'UNPRICED_GENERIC_CUTOUT',
+        label,
+        reason: `Generic cutout "${label}" must be mapped to cooktop, sink, tap, GPO, or custom cutout before quoting.`,
+      };
+    }
+
+    return {
+      ok: false,
+      code: 'CUTOUT',
+      label,
+      reason: `Cutout type "${label}" is deactivated, missing, or has no supported pricing alias.`,
+    };
+  };
+}
+
 /** Margin resolution result — tracks which source provided the margin */
 export interface MarginResolution {
   effectiveMarginPercent: number;
@@ -192,11 +352,56 @@ function mapArcEdgeConfigForEngine(
 /**
  * Enhanced pricing calculation result
  */
-interface MissingRate {
+export interface MissingRate {
   code: string;
   pieceId: string;
   pieceName: string;
   description: string;
+}
+
+const BLOCKING_MISSING_RATE_CODES = new Set([
+  'CUTTING',
+  'INSTALLATION',
+  'CUTOUT',
+  'CUTOUT_CATEGORY_RATE',
+  'UNPRICED_GENERIC_CUTOUT',
+  'EDGE_CATEGORY_RATE',
+  'ENGINE_RATE',
+]);
+
+export class QuotePricingBlockedError extends Error {
+  readonly code = 'QUOTE_PRICING_BLOCKED';
+  readonly missingRates: MissingRate[];
+
+  constructor(missingRates: MissingRate[]) {
+    super(
+      `Quote pricing is blocked by ${missingRates.length} missing or zero-rate pricing item${missingRates.length === 1 ? '' : 's'}.`
+    );
+    this.name = 'QuotePricingBlockedError';
+    this.missingRates = missingRates;
+  }
+}
+
+export function isQuotePricingBlockedError(error: unknown): error is QuotePricingBlockedError {
+  return error instanceof QuotePricingBlockedError ||
+    (
+      typeof error === 'object' &&
+      error !== null &&
+      'code' in error &&
+      (error as { code?: unknown }).code === 'QUOTE_PRICING_BLOCKED' &&
+      Array.isArray((error as { missingRates?: unknown }).missingRates)
+    );
+}
+
+export function isBlockingMissingRate(rate: Pick<MissingRate, 'code'>): boolean {
+  return BLOCKING_MISSING_RATE_CODES.has(rate.code);
+}
+
+function assertNoBlockingMissingRates(missingRates: MissingRate[]): void {
+  const blockingRates = missingRates.filter(isBlockingMissingRate);
+  if (blockingRates.length > 0) {
+    throw new QuotePricingBlockedError(blockingRates);
+  }
 }
 
 type PricingOverrideRecord = {
@@ -1309,6 +1514,19 @@ export async function calculateQuotePrice(
 
   // Convert cutout category rates to engine format
   const cutoutTypeNameMap = new Map<string, string>();
+  const activePieceFabricationCategories = new Set<string>(
+    quote.quote_rooms
+      .flatMap(room => room.quote_pieces)
+      .map(piece =>
+        (piece.materials as unknown as { fabrication_category?: string } | null)
+          ?.fabrication_category ?? 'ENGINEERED'
+      )
+  );
+  for (const rate of serviceRates) {
+    if (rate.fabricationCategory) {
+      activePieceFabricationCategories.add(rate.fabricationCategory as string);
+    }
+  }
   for (const ct of cutoutTypes) {
     cutoutTypeNameMap.set(ct.id, ct.name);
   }
@@ -1317,6 +1535,20 @@ export async function calculateQuotePrice(
     fabricationCategory: r.fabricationCategory as string,
     rate: typeof r.rate === 'number' ? r.rate : (r.rate as { toNumber: () => number }).toNumber(),
   }));
+  const engineCutoutRateKeys = new Set(
+    engineCutoutRates.map(rate => `${rate.cutoutType}::${rate.fabricationCategory}`)
+  );
+  for (const ct of cutoutTypes) {
+    const baseRate = Number(ct.baseRate);
+    if (!Number.isFinite(baseRate) || baseRate <= 0 || isGenericCutoutLabel(ct.name)) continue;
+    for (const fabricationCategory of Array.from(activePieceFabricationCategories)) {
+      const key = `${ct.name}::${fabricationCategory}`;
+      if (engineCutoutRateKeys.has(key)) continue;
+      engineCutoutRates.push({ cutoutType: ct.name, fabricationCategory, rate: baseRate });
+      engineCutoutRateKeys.add(key);
+    }
+  }
+  const resolveCutoutTypeForPricing = buildCutoutTypeResolver(cutoutTypes);
 
   // Build engine pieces with oversize detection via cut plan
   const enginePieces: EnginePiece[] = [];
@@ -1396,18 +1628,25 @@ export async function calculateQuotePrice(
     const cutoutsArray = Array.isArray(piece.cutouts)
       ? piece.cutouts
       : (typeof piece.cutouts === 'string' ? JSON.parse(piece.cutouts as string) : []);
-    const engineCutouts: EngineCutout[] = cutoutsArray.map((c: any) => {
-      const ct = cutoutTypes.find((t: any) => t.id === c.cutoutTypeId || t.id === c.typeId || t.name === c.type || t.name === c.name);
-      if (!ct && (c.cutoutTypeId || c.typeId || c.type)) {
+    const resolvedCutouts: EngineCutout[] = cutoutsArray.map((c: any): EngineCutout | null => {
+      const resolution = resolveCutoutTypeForPricing(c);
+      if (!resolution.ok) {
         missingRates.push({
-          code: 'CUTOUT',
+          code: resolution.code,
           pieceId: String(piece.id),
           pieceName: piece.name || piece.description || `Piece ${piece.id}`,
-          description: `Cutout type "${c.cutoutTypeId || c.typeId || c.type}" is deactivated or missing — cutout rate will be $0`,
+          description: resolution.reason,
         });
+        return null;
       }
-      return { cutoutType: ct?.name ?? c.type ?? c.typeId ?? 'Cutout', quantity: c.quantity || 1 };
-    });
+      return { cutoutType: resolution.cutoutType.name, quantity: c.quantity || 1 };
+    }).filter((cutout: EngineCutout | null): cutout is EngineCutout => cutout !== null);
+    const engineCutouts: EngineCutout[] = Array.from(
+      resolvedCutouts.reduce((grouped, cutout) => {
+        grouped.set(cutout.cutoutType, (grouped.get(cutout.cutoutType) ?? 0) + cutout.quantity);
+        return grouped;
+      }, new Map<string, number>())
+    ).map(([cutoutType, quantity]) => ({ cutoutType, quantity }));
 
     // Compute shape-aware edge lengths per position (L/U shapes use actual
     // segment lengths instead of bounding-box dimensions)
@@ -1664,6 +1903,8 @@ export async function calculateQuotePrice(
     });
   }
 
+  assertNoBlockingMissingRates(missingRates);
+
   // Assemble engine input and call the pricing rules engine
   const engineInput: PricingEngineInput = {
     settings: {
@@ -1691,39 +1932,16 @@ export async function calculateQuotePrice(
   try {
     engineResult = calculateEngineQuote(engineInput);
   } catch (engineError) {
-    // Engine threw on a missing service rate for the fabrication category.
-    // Record the error and build a zeroed-out result so the calculator continues.
     const errMsg = engineError instanceof Error ? engineError.message : String(engineError);
-    missingRates.push({
-      code: 'ENGINE_RATE',
-      pieceId: 'all',
-      pieceName: 'All pieces',
-      description: errMsg,
-    });
-    // Build zeroed-out engine result so downstream code can continue
-    engineResult = {
-      pieces: enginePieces.map(ep => ({
-        id: ep.id,
-        name: ep.name,
-        cutting: { lm: 0, ratePerLm: 0, cost: 0 },
-        edgeProfiles: { lm: 0, cost: 0, items: [] },
-        curvedCutting: null,
-        cutouts: { cost: 0, items: [] },
-        join: null,
-        grainSurcharge: null,
-        installation: { area_sqm: 0, ratePerSqm: 0, cost: 0 },
-        subtotal: 0,
-      })),
-      material: { slabCount: 0, pricePerSlab: 0, cost: 0 },
-      fabricationSubtotal: 0,
-      installationSubtotal: 0,
-      deliveryCost: 0,
-      templatingCost: 0,
-      subtotalExGst: 0,
-      gstRate: pricingContext.gstRate,
-      gstAmount: 0,
-      totalIncGst: 0,
-    };
+    throw new QuotePricingBlockedError([
+      ...missingRates.filter(isBlockingMissingRate),
+      {
+        code: 'ENGINE_RATE',
+        pieceId: 'all',
+        pieceName: 'All pieces',
+        description: errMsg,
+      },
+    ]);
   }
 
   const quoteLevelLmOverrides = pricingOverrides.filter(o =>
@@ -2001,6 +2219,8 @@ export async function calculateQuotePrice(
       }
     }
   }
+
+  assertNoBlockingMissingRates(missingRates);
 
   const cuttingLabourMultiplier = pricingContext.cuttingLabourMultiplier ?? 1;
   const edgeFinishLabourMultiplier = pricingContext.edgeFinishLabourMultiplier ?? 1;

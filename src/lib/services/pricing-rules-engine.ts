@@ -328,7 +328,13 @@ export function ruleCutouts(
     const rateRow = cutoutRates.find(
       r => r.cutoutType === cutout.cutoutType && r.fabricationCategory === category
     )
-    const rate = rateRow?.rate ?? 0
+    if (!rateRow || rateRow.rate <= 0) {
+      throw new Error(
+        `[PricingEngine] No CUTOUT rate configured for "${cutout.cutoutType}" in category "${category}". ` +
+        `Map the cutout to a priced type or configure it in Pricing Admin -> Cutouts before quoting.`
+      )
+    }
+    const rate = rateRow.rate
     items.push({ type: cutout.cutoutType, qty: cutout.quantity, rate, cost: cutout.quantity * rate })
   }
   return { cost: items.reduce((s, i) => s + i.cost, 0), items }

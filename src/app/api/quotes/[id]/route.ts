@@ -5,7 +5,7 @@ import { requireAuth } from '@/lib/auth';
 import { createQuoteVersion, createQuoteSnapshot } from '@/lib/services/quote-version-service';
 import { checkAndRecordQuoteChanges } from '@/lib/services/buyer-change-tracker';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
-import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { calculateQuotePrice, isQuotePricingBlockedError } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 
 interface RoomData {
@@ -418,6 +418,10 @@ export async function PUT(
         data.material_margin_source !== undefined ||
         data.slabDimensionOverrides !== undefined;
 
+      if (data.status === 'sent') {
+        await recalculateQuote(quoteId);
+      }
+
       const quote = await prisma.quotes.update({
         where: { id: quoteId },
         data: updateFields,
@@ -583,6 +587,16 @@ export async function PUT(
     return NextResponse.json({ error: 'No valid update data provided' }, { status: 400 });
   } catch (error) {
     console.error('Error updating quote:', error);
+    if (isQuotePricingBlockedError(error)) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: error.code,
+          missingRates: error.missingRates,
+        },
+        { status: 409 }
+      );
+    }
     return NextResponse.json({ error: 'Failed to update quote' }, { status: 500 });
   }
 }

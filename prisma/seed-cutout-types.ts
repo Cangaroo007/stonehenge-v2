@@ -15,7 +15,8 @@ async function seedCutoutTypes() {
     { name: 'Basin', description: 'Basin cutout', baseRate: 95.00, sortOrder: 6 },
     { name: 'Tap Hole', description: 'Single tap hole', baseRate: 35.00, sortOrder: 7 },
     { name: 'GPO / Powerpoint', description: 'Cutout for electrical outlet', baseRate: 45.00, sortOrder: 8 },
-    { name: 'Drainer Grooves', description: 'Drainer grooves', baseRate: 150.00, sortOrder: 9 }
+    { name: 'Drainer Grooves', description: 'Drainer grooves', baseRate: 150.00, sortOrder: 9 },
+    { id: 'ct-custom-cutout', name: 'Custom Cutout', description: 'Post, column, notch, pipe, or other standard custom cutout', baseRate: 65.00, sortOrder: 10 }
   ];
 
   for (const cutoutType of cutoutTypes) {
@@ -30,7 +31,7 @@ async function seedCutoutTypes() {
         updatedAt: new Date()
       },
       create: {
-        id: crypto.randomUUID(),
+        id: cutoutType.id ?? crypto.randomUUID(),
         name: cutoutType.name,
         description: cutoutType.description,
         baseRate: cutoutType.baseRate,

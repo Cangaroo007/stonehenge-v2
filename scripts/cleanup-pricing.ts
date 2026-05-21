@@ -50,7 +50,31 @@ async function main() {
     console.log('  ct-hotplate not found');
   }
 
-  // 3. Summary
+  // 3. Deactivate generic cutout entries that can price real work at $0
+  console.log('\n=== DEACTIVATING GENERIC CUTOUT ENTRIES ===');
+  const genericCutouts = await prisma.cutout_types.findMany({
+    where: {
+      isActive: true,
+      OR: [
+        { name: { equals: 'Cutout', mode: 'insensitive' } },
+        { name: { equals: 'Generic Cutout', mode: 'insensitive' } },
+        { name: { equals: 'Other', mode: 'insensitive' } },
+      ],
+    },
+    select: { id: true, name: true },
+  });
+  for (const cutout of genericCutouts) {
+    await prisma.cutout_types.update({
+      where: { id: cutout.id },
+      data: { isActive: false },
+    });
+    console.log(`  Deactivated: "${cutout.name}" (${cutout.id})`);
+  }
+  if (genericCutouts.length === 0) {
+    console.log('  No active generic cutout entries found.');
+  }
+
+  // 4. Summary
   console.log('\n=== ACTIVE COUNTS ===');
   const activeEdges = await prisma.edge_types.count({ where: { isActive: true } });
   const activeCutouts = await prisma.cutout_types.count({ where: { isActive: true } });

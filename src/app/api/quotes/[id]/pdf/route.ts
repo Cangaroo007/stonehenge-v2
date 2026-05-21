@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
+import { calculateQuotePrice, isQuotePricingBlockedError } from '@/lib/services/pricing-calculator-v2';
+import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { assembleQuotePdfData } from '@/lib/services/quote-pdf-service';
 import { renderQuotePdf } from '@/lib/services/quote-pdf-renderer';
 import type { PdfTemplateSettings } from '@/lib/services/quote-pdf-renderer';
@@ -32,7 +34,27 @@ export async function GET(
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
     }
 
-    // Assemble PDF data (readiness checker validates pricing client-side)
+    try {
+      const pricingResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: buildQuotePricingUpdate(pricingResult),
+      });
+    } catch (pricingError) {
+      if (isQuotePricingBlockedError(pricingError)) {
+        return NextResponse.json(
+          {
+            error: pricingError.message,
+            code: pricingError.code,
+            missingRates: pricingError.missingRates,
+          },
+          { status: 409 }
+        );
+      }
+      throw pricingError;
+    }
+
+    // Assemble PDF data only after server-side pricing readiness passes.
     let data;
     try {
       data = await assembleQuotePdfData(quoteId);

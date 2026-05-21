@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
+import { calculateQuotePrice, isQuotePricingBlockedError } from '@/lib/services/pricing-calculator-v2';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import prisma from '@/lib/db';
 import type { PricingOptions } from '@/lib/types/pricing';
@@ -116,6 +116,17 @@ export async function POST(
 
     // Handle specific error types
     if (error instanceof Error) {
+      if (isQuotePricingBlockedError(error)) {
+        return NextResponse.json(
+          {
+            error: error.message,
+            code: error.code,
+            missingRates: error.missingRates,
+          },
+          { status: 409 }
+        );
+      }
+
       if (error.message === 'Quote not found') {
         return NextResponse.json(
           { error: 'Quote not found' },

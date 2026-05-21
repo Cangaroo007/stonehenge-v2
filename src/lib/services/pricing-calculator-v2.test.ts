@@ -1,4 +1,4 @@
-import { buildRectCuttingSegmentsForPricing, calculateMaterialCost } from './pricing-calculator-v2';
+import { buildCutoutTypeResolver, buildRectCuttingSegmentsForPricing, calculateMaterialCost } from './pricing-calculator-v2';
 
 const decimal = (value: number) => ({ toNumber: () => value });
 
@@ -117,6 +117,56 @@ describe('calculateMaterialCost', () => {
 
     expect(result.subtotal).toBe(548.4);
     expect(result.byMaterial?.[0]?.totalCost).toBe(324);
+  });
+});
+
+describe('buildCutoutTypeResolver', () => {
+  const resolve = buildCutoutTypeResolver([
+    { id: 'ct-cooktop', name: 'Cooktop Cutout', baseRate: 65 },
+    { id: 'ct-custom-cutout', name: 'Custom Cutout', baseRate: 65 },
+    { id: 'ct-undermount', name: 'Undermount Sink', baseRate: 320 },
+  ]);
+
+  it('normalises cooktop/hotplate aliases to the priced cooktop type', () => {
+    const result = resolve({ type: 'HP cutout', quantity: 1 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.cutoutType.name).toBe('Cooktop Cutout');
+    }
+  });
+
+  it('normalises post and column cutouts to the priced custom type', () => {
+    const result = resolve({ type: 'Post cutout', quantity: 1 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.cutoutType.name).toBe('Custom Cutout');
+    }
+  });
+
+  it('prefers a dedicated Post cutout type over cooktop or legacy custom aliases', () => {
+    const resolveWithPost = buildCutoutTypeResolver([
+      { id: 'ct-cooktop', name: 'Cooktop Cutout', baseRate: 450 },
+      { id: 'ct-post', name: 'Post', baseRate: 25 },
+      { id: 'ct-undermount', name: 'Undermount Sink', baseRate: 320 },
+    ]);
+
+    const result = resolveWithPost({ type: 'Post cutout', quantity: 1 });
+
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.cutoutType.name).toBe('Post');
+    }
+  });
+
+  it('rejects unresolved generic cutouts instead of letting them price at zero', () => {
+    const result = resolve({ type: 'Cutout', quantity: 1 });
+
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.code).toBe('UNPRICED_GENERIC_CUTOUT');
+    }
   });
 });
 

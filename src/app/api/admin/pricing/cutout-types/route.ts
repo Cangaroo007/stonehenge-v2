@@ -2,6 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth } from '@/lib/auth';
 
+function isGenericCutoutName(name: unknown): boolean {
+  const normalized = String(name ?? '')
+    .toLowerCase()
+    .replace(/[&/_.-]+/g, ' ')
+    .replace(/[^a-z0-9 ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return ['cutout', 'cut out', 'generic cutout', 'generic cut out', 'other'].includes(normalized);
+}
+
 export async function GET() {
   try {
     const auth = await requireAuth();
@@ -51,6 +61,13 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await request.json();
+
+    if (isGenericCutoutName(data.name)) {
+      return NextResponse.json(
+        { error: 'Generic cutout types are not allowed. Use a priced type such as Cooktop Cutout, Tap Hole, GPO / Powerpoint, or Custom Cutout.' },
+        { status: 400 }
+      );
+    }
 
     // Check for duplicate cutout type names (case-insensitive)
     const existingCutoutType = await prisma.cutout_types.findFirst({
