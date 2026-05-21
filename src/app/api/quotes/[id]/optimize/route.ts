@@ -19,6 +19,7 @@ const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
 };
 
 const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
+const OPTIMIZER_SCHEMA_VERSION = 2;
 
 /**
  * Fetch operation-specific kerfs from machine_operation_defaults.
@@ -187,6 +188,11 @@ export async function GET(
       where: { quoteId },
       orderBy: { updatedAt: 'desc' },
     });
+
+    const placements = optimization?.placements as { optimizerSchemaVersion?: number } | null | undefined;
+    if (optimization && placements?.optimizerSchemaVersion !== OPTIMIZER_SCHEMA_VERSION) {
+      return NextResponse.json(null);
+    }
 
     return NextResponse.json(optimization);
   } catch (error) {
@@ -652,6 +658,7 @@ export async function POST(
           ),
           wastePercent: multiResult.overallWastePercentage,
           placements: {
+            optimizerSchemaVersion: OPTIMIZER_SCHEMA_VERSION,
             items: allPlacements,
             unplacedPieces: allUnplaced,
             warnings: allWarnings,
@@ -803,6 +810,7 @@ export async function POST(
         totalWaste: result.totalWasteArea,
         wastePercent: result.wastePercent,
         placements: {
+          optimizerSchemaVersion: OPTIMIZER_SCHEMA_VERSION,
           items: result.placements,
           unplacedPieces: result.unplacedPieces,
           warnings: result.warnings || [],
