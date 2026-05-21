@@ -471,6 +471,14 @@ export default function PieceVisualEditor({
     () => ({ top: edgeTop, bottom: edgeBottom, left: edgeLeft, right: edgeRight }),
     [edgeTop, edgeBottom, edgeLeft, edgeRight]
   );
+  const visibleEdgeTypes = useMemo(
+    () => edgeTypes.filter((edgeType) => !edgeType.isMitred),
+    [edgeTypes]
+  );
+  const visibleRecentProfiles = useMemo(
+    () => recentProfiles.filter((profileId) => visibleEdgeTypes.some((edgeType) => edgeType.id === profileId)),
+    [recentProfiles, visibleEdgeTypes]
+  );
 
   // ── SVG sizing ────────────────────────────────────────────────────────
 
@@ -568,15 +576,15 @@ export default function PieceVisualEditor({
 
   const applyProfileByIndex = useCallback(
     (index: number) => {
-      if (index < 0 || index >= edgeTypes.length) return;
-      const profile = edgeTypes[index];
+      if (index < 0 || index >= visibleEdgeTypes.length) return;
+      const profile = visibleEdgeTypes[index];
       if (editMode === 'quickEdge') {
         setQuickEdgeProfile(profile.id);
       } else if (selectedEdges.size > 0) {
         applyProfileToSelected(profile.id);
       }
     },
-    [edgeTypes, editMode, selectedEdges.size, applyProfileToSelected]
+    [visibleEdgeTypes, editMode, selectedEdges.size, applyProfileToSelected]
   );
 
   // ── Handlers ──────────────────────────────────────────────────────────
@@ -1599,7 +1607,7 @@ export default function PieceVisualEditor({
             >
               <option value="">Pick profile...</option>
               <option value="">Raw (no finish)</option>
-              {edgeTypes.filter(et => !et.isMitred).map((et, idx) => (
+              {visibleEdgeTypes.map((et, idx) => (
                 <option key={et.id} value={et.id}>
                   {idx + 1}. {edgeDisplayName(et.name)}
                 </option>
@@ -1727,10 +1735,10 @@ export default function PieceVisualEditor({
 
 
       {/* ── Recents Strip (Quick Edge mode, above SVG) ─────────────── */}
-      {isEditMode && editMode === 'quickEdge' && recentProfiles.length > 0 && (
+      {isEditMode && editMode === 'quickEdge' && visibleRecentProfiles.length > 0 && (
         <div className="flex items-center gap-1 mb-1 px-1">
           <span className="text-[9px] text-gray-400 mr-0.5">Recent:</span>
-          {recentProfiles.map((profileId) => {
+          {visibleRecentProfiles.map((profileId) => {
             const et = edgeTypes.find((e) => e.id === profileId);
             if (!et) return null;
             const isActive = quickEdgeProfile === profileId;
@@ -2488,7 +2496,7 @@ export default function PieceVisualEditor({
           >
             <option value="">Choose profile...</option>
             <option value="__raw__">Raw (no finish)</option>
-            {edgeTypes.filter(et => !et.isMitred).map((et) => (
+            {visibleEdgeTypes.map((et) => (
               <option key={et.id} value={et.id}>{edgeDisplayName(et.name)}</option>
             ))}
           </select>
