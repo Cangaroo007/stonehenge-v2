@@ -2601,7 +2601,7 @@ export default function QuickViewPieceRow({
                       {cuttingItems.map((item, idx) => (
                         <div key={`cutting-item-${idx}`} className="flex items-center justify-between text-xs text-gray-600">
                           <span>
-                            {item.kind === 'BUILD_UP' ? 'Build-up cutting' : 'Normal cutting'}
+                            {item.kind === 'BUILD_UP' ? 'Mitre/build-up cutting' : 'Normal cutting'}
                             {item.side ? `: ${humaniseEdgeName(item.side)}` : ''}
                             {item.kind === 'BUILD_UP' ? ` (${item.effectiveThicknessMm}mm)` : ''}
                           </span>

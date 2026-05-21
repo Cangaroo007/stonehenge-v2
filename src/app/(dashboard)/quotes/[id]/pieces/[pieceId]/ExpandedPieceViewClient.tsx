@@ -159,6 +159,10 @@ const RELATION_ARROWS: Record<string, string> = {
   bottom: '\u2193',
 };
 
+function humaniseEdgeName(edge: string): string {
+  return edge.charAt(0).toUpperCase() + edge.slice(1);
+}
+
 // ── Component ────────────────────────────────────────────────────────────────
 
 export default function ExpandedPieceViewClient({
@@ -942,13 +946,37 @@ export default function ExpandedPieceViewClient({
                   <div className="border-t border-gray-100 my-1" />
                 </>
               )}
-              {breakdown.fabrication.cutting.total > 0 && (
-                <CostRow
-                  label="Cutting"
-                  formula={`${breakdown.fabrication.cutting.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.cutting.unit)} \u00D7 ${formatCurrency(breakdown.fabrication.cutting.rate)}`}
-                  total={breakdown.fabrication.cutting.total}
-                />
-              )}
+              {breakdown.fabrication.cutting.total > 0 && (() => {
+                const cuttingItems = breakdown.fabrication.cutting.items?.filter(item => item.total > 0) ?? [];
+
+                if (cuttingItems.length > 0) {
+                  return (
+                    <>
+                      {cuttingItems.map((item, idx) => (
+                        <CostRow
+                          key={`cutting-item-${idx}`}
+                          label={`${item.kind === 'BUILD_UP' ? 'Mitre/build-up cutting' : 'Normal cutting'}${item.side ? `: ${humaniseEdgeName(item.side)}` : ''}${item.kind === 'BUILD_UP' ? ` (${item.effectiveThicknessMm}mm)` : ''}`}
+                          formula={`${item.quantity.toFixed(2)} ${unitShort(item.unit)} \u00D7 ${formatCurrency(item.rate)} ${unitLabel(item.unit)}`}
+                          total={item.total}
+                        />
+                      ))}
+                      <CostRow
+                        label="Cutting total"
+                        formula={`${breakdown.fabrication.cutting.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.cutting.unit)} total`}
+                        total={breakdown.fabrication.cutting.total}
+                      />
+                    </>
+                  );
+                }
+
+                return (
+                  <CostRow
+                    label="Cutting"
+                    formula={`${breakdown.fabrication.cutting.quantity.toFixed(2)} ${unitShort(breakdown.fabrication.cutting.unit)} \u00D7 ${formatCurrency(breakdown.fabrication.cutting.rate)} ${unitLabel(breakdown.fabrication.cutting.unit)}`}
+                    total={breakdown.fabrication.cutting.total}
+                  />
+                );
+              })()}
               {/* POLISHING REMOVED — deliberate pricing decision (March 2026) */}
               {breakdown.fabrication.curvedCutting && breakdown.fabrication.curvedCutting.cost > 0 && (
                 <CostRow
@@ -1159,6 +1187,16 @@ function unitShort(unit: string): string {
     case 'SQUARE_METRE': return 'm\u00B2';
     case 'FIXED': return '';
     case 'PER_SLAB': return 'slab';
+    default: return unit;
+  }
+}
+
+function unitLabel(unit: string): string {
+  switch (unit) {
+    case 'LINEAR_METRE': return 'per Lm';
+    case 'SQUARE_METRE': return 'per m\u00B2';
+    case 'FIXED': return 'fixed';
+    case 'PER_SLAB': return 'per slab';
     default: return unit;
   }
 }

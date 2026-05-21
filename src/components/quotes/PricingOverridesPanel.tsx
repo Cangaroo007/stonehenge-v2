@@ -39,7 +39,7 @@ interface PricingOverridesPanelProps {
 
 const CATEGORY_OPTIONS = [
   ['NORMAL_CUT', 'Normal cutting LM'],
-  ['MITRE_CUT', 'Build-up cutting LM'],
+  ['MITRE_CUT', 'Mitre/build-up cutting LM'],
   ['NORMAL_POLISH', 'Visible edge finish LM'],
   ['MITRE_POLISH', 'Build-up edge finish LM'],
   ['CUTOUT', 'Cutouts'],
@@ -72,11 +72,11 @@ const PRESET_OPTIONS = [
     reason: 'Manual chargeable build-up edge finish LM',
   },
   {
-    label: 'Set build-up cutting LM',
+    label: 'Set mitre/build-up cutting LM',
     category: 'MITRE_CUT',
     overrideType: 'LM',
     value: '',
-    reason: 'Manual chargeable build-up cutting LM',
+    reason: 'Manual chargeable mitre/build-up cutting LM',
   },
   {
     label: '+20% cutouts',
