@@ -34,6 +34,7 @@ interface DrawingReviewStageProps {
   catalogue: DrawingCatalogue;
   onConfirm: (pieces: ExtractedPiece[]) => void;
   onBack?: () => void;
+  onCancel?: () => void;
   quoteId?: number;
   drawingId?: string;
   analysisId?: number;
@@ -86,6 +87,7 @@ export function DrawingReviewStage({
   catalogue,
   onConfirm,
   onBack,
+  onCancel,
   quoteId,
   drawingId,
   analysisId,
@@ -248,20 +250,33 @@ export function DrawingReviewStage({
   return (
     <div className="p-6">
       {/* Header */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="flex items-start justify-between gap-4 mb-2">
         <div>
           <h2 className="text-lg font-semibold">Review Extracted Pieces</h2>
           <p className="text-sm text-zinc-600">
             Check each piece before importing. Edit anything that looks wrong.
           </p>
         </div>
-        <button
-          onClick={() => onConfirm(pieces)}
-          disabled={!canConfirm}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${buttonClass}`}
-        >
-          {buttonLabel}
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => onConfirm(pieces)}
+            disabled={!canConfirm}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${buttonClass}`}
+          >
+            {buttonLabel}
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="w-9 h-9 rounded-lg border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 transition-colors"
+              aria-label="Close drawing import review"
+              title="Close without importing"
+            >
+              ×
+            </button>
+          )}
+        </div>
       </div>
 
       <p className="text-xs text-zinc-500 mb-4">
@@ -566,12 +581,19 @@ export function DrawingReviewStage({
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex justify-between">
-        {onBack && (
-          <button onClick={onBack} className="btn-secondary">
-            ← Back to Questions
-          </button>
-        )}
+      <div className="mt-6 flex justify-between gap-3">
+        <div className="flex items-center gap-3">
+          {onBack && (
+            <button onClick={onBack} className="btn-secondary">
+              ← Back to Questions
+            </button>
+          )}
+          {onCancel && (
+            <button onClick={onCancel} className="btn-secondary">
+              Cancel import
+            </button>
+          )}
+        </div>
         <div className="ml-auto">
           <button
             onClick={() => onConfirm(pieces)}

@@ -1341,6 +1341,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
               handleImport(confirmedPieces);
             }}
             onBack={() => setStep('clarification')}
+            onCancel={onClose}
             quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
             drawingId={clarificationDrawingId}
             analysisId={clarificationAnalysisId}
