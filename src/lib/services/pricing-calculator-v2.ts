@@ -299,6 +299,58 @@ function syncCuttingAggregate(cutting: PiecePricingResult['cutting']): void {
   cutting.ratePerLm = cutting.lm > 0 ? cutting.cost / cutting.lm : 0;
 }
 
+export function buildRectCuttingSegmentsForPricing({
+  pieceLengthMm,
+  pieceWidthMm,
+  pieceThicknessMm,
+  edgeBuildups,
+  relationshipJoinEdges,
+  chargeableEdgeConfig,
+}: {
+  pieceLengthMm: number;
+  pieceWidthMm: number;
+  pieceThicknessMm: number;
+  edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
+  relationshipJoinEdges?: RectEdgeSide[];
+  chargeableEdgeConfig?: Record<string, EdgeBuildupConfig>;
+}): NonNullable<EnginePiece['cuttingSegments']> | undefined {
+  const rectEdgeLengths: Record<RectEdgeSide, number> = {
+    top: pieceLengthMm ?? 0,
+    bottom: pieceLengthMm ?? 0,
+    left: pieceWidthMm ?? 0,
+    right: pieceWidthMm ?? 0,
+  };
+  const buildUpConfig = edgeBuildups ?? {};
+  const joinEdges = new Set(relationshipJoinEdges ?? []);
+  const cutConfig = chargeableEdgeConfig ?? buildUpConfig;
+  const hasExplicitSegments =
+    Object.keys(buildUpConfig).length > 0 ||
+    joinEdges.size > 0 ||
+    Object.values(cutConfig).some(cfg => cfg?.chargeCut === false);
+
+  if (!hasExplicitSegments) return undefined;
+
+  return Object.entries(rectEdgeLengths)
+    .filter(([key, mm]) => mm > 0 && cutConfig[key]?.chargeCut !== false)
+    .map(([key, mm]) => {
+      const side = key as RectEdgeSide;
+      const buildup = buildUpConfig[side];
+      const isRelationshipMitreJoin = joinEdges.has(side);
+      const effectiveThicknessMm = buildup?.depth != null
+        ? Math.max(pieceThicknessMm, buildup.depth)
+        : isRelationshipMitreJoin
+          ? Math.max(pieceThicknessMm, 40)
+          : undefined;
+
+      return {
+        lm: mm / 1000,
+        kind: (buildup || isRelationshipMitreJoin ? 'BUILD_UP' : 'NORMAL') as 'BUILD_UP' | 'NORMAL',
+        position: side,
+        effectiveThicknessMm,
+      };
+    });
+}
+
 function cuttingItemMatchesOverride(
   override: PricingOverrideRecord,
   item: NonNullable<PiecePricingResult['cutting']['items']>[number]
@@ -1508,27 +1560,15 @@ export async function calculateQuotePrice(
     }
 
     let defaultCuttingSegments: EnginePiece['cuttingSegments'];
-    if (!isPromotedStrip && !isShapedPiece && Object.keys(chargeableEdgeConfig).length > 0) {
-      const rectEdgeLengths: Record<string, number> = {
-        top: piece.length_mm ?? 0,
-        bottom: piece.length_mm ?? 0,
-        left: piece.width_mm ?? 0,
-        right: piece.width_mm ?? 0,
-      };
-
-      defaultCuttingSegments = Object.entries(rectEdgeLengths)
-        .filter(([key, mm]) => mm > 0 && chargeableEdgeConfig[key]?.chargeCut !== false)
-        .map(([key, mm]) => {
-          const buildup = chargeableEdgeConfig[key];
-          return {
-            lm: mm / 1000,
-            kind: buildup ? 'BUILD_UP' as const : 'NORMAL' as const,
-            position: key,
-            effectiveThicknessMm: buildup?.depth != null
-              ? Math.max(piece.thickness_mm, buildup.depth)
-              : undefined,
-          };
-        });
+    if (!isPromotedStrip && !isShapedPiece) {
+      defaultCuttingSegments = buildRectCuttingSegmentsForPricing({
+        pieceLengthMm: piece.length_mm ?? 0,
+        pieceWidthMm: piece.width_mm ?? 0,
+        pieceThicknessMm: piece.thickness_mm,
+        edgeBuildups: piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig> | null,
+        relationshipJoinEdges,
+        chargeableEdgeConfig,
+      });
     }
 
     const defaultCuttingPerimeterLm = chargeableCuttingPerimeterLm ?? (

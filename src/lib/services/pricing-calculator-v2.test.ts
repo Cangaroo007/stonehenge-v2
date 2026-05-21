@@ -1,4 +1,4 @@
-import { calculateMaterialCost } from './pricing-calculator-v2';
+import { buildRectCuttingSegmentsForPricing, calculateMaterialCost } from './pricing-calculator-v2';
 
 const decimal = (value: number) => ({ toNumber: () => value });
 
@@ -117,5 +117,39 @@ describe('calculateMaterialCost', () => {
 
     expect(result.subtotal).toBe(548.4);
     expect(result.byMaterial?.[0]?.totalCost).toBe(324);
+  });
+});
+
+describe('buildRectCuttingSegmentsForPricing', () => {
+  it('charges relationship mitre joins at the build-up cutting rate while leaving other edges normal', () => {
+    const segments = buildRectCuttingSegmentsForPricing({
+      pieceLengthMm: 1000,
+      pieceWidthMm: 600,
+      pieceThicknessMm: 20,
+      relationshipJoinEdges: ['left'],
+    });
+
+    expect(segments).toEqual([
+      { lm: 1, kind: 'NORMAL', position: 'top', effectiveThicknessMm: undefined },
+      { lm: 1, kind: 'NORMAL', position: 'bottom', effectiveThicknessMm: undefined },
+      { lm: 0.6, kind: 'BUILD_UP', position: 'left', effectiveThicknessMm: 40 },
+      { lm: 0.6, kind: 'NORMAL', position: 'right', effectiveThicknessMm: undefined },
+    ]);
+  });
+
+  it('charges the adjoining splashback or waterfall join edge independently', () => {
+    const segments = buildRectCuttingSegmentsForPricing({
+      pieceLengthMm: 600,
+      pieceWidthMm: 600,
+      pieceThicknessMm: 20,
+      relationshipJoinEdges: ['right'],
+    });
+
+    const right = segments?.find(segment => segment.position === 'right');
+    expect(right).toMatchObject({
+      lm: 0.6,
+      kind: 'BUILD_UP',
+      effectiveThicknessMm: 40,
+    });
   });
 });
