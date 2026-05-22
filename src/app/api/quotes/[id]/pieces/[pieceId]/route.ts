@@ -68,6 +68,30 @@ function removeEdgesFromRecord<T extends Record<string, unknown> | null | undefi
   return Object.keys(next).length > 0 ? next : null;
 }
 
+function isCanonicalPolygonPiece(piece: { shape_type?: string | null; shape_config?: unknown }): boolean {
+  return piece.shape_type === 'POLYGON' || isCanonicalPolygonShapeConfig(piece.shape_config);
+}
+
+function attemptsCanonicalPolygonDowngrade(
+  data: { shapeType?: unknown; shapeConfig?: unknown },
+  currentPiece: { shape_type?: string | null; shape_config?: unknown }
+): boolean {
+  if (!isCanonicalPolygonPiece(currentPiece)) return false;
+
+  const hasShapeType = Object.prototype.hasOwnProperty.call(data, 'shapeType');
+  const hasShapeConfig = Object.prototype.hasOwnProperty.call(data, 'shapeConfig');
+
+  if (hasShapeType && data.shapeType !== undefined && data.shapeType !== 'POLYGON') {
+    return true;
+  }
+
+  if (hasShapeConfig && data.shapeConfig !== undefined && !isCanonicalPolygonShapeConfig(data.shapeConfig)) {
+    return true;
+  }
+
+  return false;
+}
+
 async function getRelationshipJoinEdgesForPiece(pieceId: number): Promise<RectEdgeSide[]> {
   const relationships = await prisma.piece_relationships.findMany({
     where: {
@@ -384,6 +408,13 @@ export async function PATCH(
     // Verify piece belongs to the requested quote
     if (currentPiece.quote_rooms.quote_id !== quoteId) {
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
+    if (attemptsCanonicalPolygonDowngrade(data, currentPiece)) {
+      return NextResponse.json(
+        { error: 'Canonical polygon pieces must be edited through the spatial geometry editor.' },
+        { status: 400 }
+      );
     }
 
     let previousSnapshot: QuoteSnapshot | null = null;
@@ -807,6 +838,13 @@ export async function PUT(
     // Verify piece belongs to the requested quote
     if (currentPiece.quote_rooms.quote_id !== quoteId) {
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
+    if (attemptsCanonicalPolygonDowngrade(data, currentPiece)) {
+      return NextResponse.json(
+        { error: 'Canonical polygon pieces must be edited through the spatial geometry editor.' },
+        { status: 400 }
+      );
     }
 
     let previousSnapshot: QuoteSnapshot | null = null;

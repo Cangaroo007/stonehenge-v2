@@ -1035,7 +1035,8 @@ export default function PieceRow({
   const [showGrainWarning, setShowGrainWarning] = useState(false);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
   const pieceTotal = breakdown?.pieceTotal ?? 0;
-  const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece;
+  const usesSpatialGeometry = shouldUseSpatialGeometryEditor(piece);
+  const canInlineEdit = mode === 'edit' && fullPiece && editData && onSavePiece && !usesSpatialGeometry;
   const attachedPieceTypes = useMemo(() => {
     if (!relationships) return undefined;
     const map: Record<string, 'WATERFALL' | 'SPLASHBACK'> = {};

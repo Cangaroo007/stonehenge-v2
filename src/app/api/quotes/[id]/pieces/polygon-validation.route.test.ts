@@ -3,6 +3,7 @@ import { protoPieceToV2Patch, v2PieceToProtoPiece } from '@/lib/services/proto-g
 
 let POST: typeof import('./route').POST;
 let PATCH: typeof import('./[pieceId]/route').PATCH;
+let PUT: typeof import('./[pieceId]/route').PUT;
 let IMPORT_POST: typeof import('../import-pieces/route').POST;
 
 const mockPrisma = {
@@ -73,7 +74,7 @@ jest.mock('@/lib/services/piece-relationship-service', () => ({
 describe('piece polygon route validation', () => {
   beforeAll(() => {
     ({ POST } = require('./route'));
-    ({ PATCH } = require('./[pieceId]/route'));
+    ({ PATCH, PUT } = require('./[pieceId]/route'));
     ({ POST: IMPORT_POST } = require('../import-pieces/route'));
   });
 
@@ -156,40 +157,7 @@ describe('piece polygon route validation', () => {
 
   it('keeps canonical edge ids and metadata stable through PATCH normalization', async () => {
     const patch = validPolygonPatch();
-    const currentPiece = {
-      id: 88,
-      room_id: 5,
-      quote_rooms: { id: 5, name: 'Kitchen', quote_id: 42 },
-      name: 'Canonical vanity',
-      description: null,
-      length_mm: 9999,
-      width_mm: 8888,
-      thickness_mm: 20,
-      material_id: null,
-      material_name: null,
-      edge_top: 'stale-top',
-      edge_right: 'stale-right',
-      edge_bottom: 'stale-bottom',
-      edge_left: 'stale-left',
-      cutouts: [],
-      lamination_method: 'NONE',
-      shape_type: 'POLYGON',
-      shape_config: patch.shape_config,
-      no_strip_edges: [],
-      edge_buildups: null,
-      strip_width_overrides: null,
-      piece_type: 'BENCHTOP',
-      features_cost: { toNumber: () => 0 },
-      requiresGrainMatch: false,
-      override_material_cost: null,
-      override_slab_price: null,
-      override_fabrication_cost: null,
-      material_collection_only: false,
-      material_collection_name: null,
-      sort_order: 0,
-      edge_arc_config: null,
-      mitred_corner_treatment: 'RAW',
-    };
+    const currentPiece = canonicalCurrentPiece(patch);
     mockPrisma.quote_pieces.findUnique.mockResolvedValue(currentPiece);
     mockPrisma.quote_pieces.update.mockImplementation(async ({ data, include }) => ({
       ...currentPiece,
@@ -223,6 +191,47 @@ describe('piece polygon route validation', () => {
       v2EdgeTypeId: 'arris-edge',
     });
     expect(updateData.shape_config.outerRing.edges).toEqual(patch.shape_config.outerRing.edges);
+  });
+
+  it('rejects PATCH attempts to downgrade a canonical polygon to a rectangle', async () => {
+    const patch = validPolygonPatch();
+    mockPrisma.quote_pieces.findUnique.mockResolvedValue(canonicalCurrentPiece(patch));
+
+    const response = await PATCH(jsonRequest({
+      shapeType: 'RECTANGLE',
+      shapeConfig: null,
+      lengthMm: 1200,
+      widthMm: 500,
+    }), {
+      params: Promise.resolve({ id: '42', pieceId: '88' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Canonical polygon pieces must be edited through the spatial geometry editor.',
+    });
+    expect(mockPrisma.quote_pieces.update).not.toHaveBeenCalled();
+  });
+
+  it('rejects PUT attempts to downgrade a canonical polygon to legacy shape config', async () => {
+    const patch = validPolygonPatch();
+    mockPrisma.quote_pieces.findUnique.mockResolvedValue(canonicalCurrentPiece(patch));
+
+    const response = await PUT(jsonRequest({
+      name: 'Legacy radius',
+      shapeType: 'ROUNDED_RECT',
+      shapeConfig: { radiusEnd: 'right' },
+      lengthMm: 1200,
+      widthMm: 500,
+    }), {
+      params: Promise.resolve({ id: '42', pieceId: '88' }),
+    });
+
+    expect(response.status).toBe(400);
+    await expect(response.json()).resolves.toMatchObject({
+      error: 'Canonical polygon pieces must be edited through the spatial geometry editor.',
+    });
+    expect(mockPrisma.quote_pieces.update).not.toHaveBeenCalled();
   });
 
   it('rejects invalid canonical polygons during drawing import before creating pieces', async () => {
@@ -273,4 +282,41 @@ function validPolygonPatch() {
     edge_buildups: {},
     cutouts: [],
   }));
+}
+
+function canonicalCurrentPiece(patch = validPolygonPatch()) {
+  return {
+    id: 88,
+    room_id: 5,
+    quote_rooms: { id: 5, name: 'Kitchen', quote_id: 42 },
+    name: 'Canonical vanity',
+    description: null,
+    length_mm: 9999,
+    width_mm: 8888,
+    thickness_mm: 20,
+    material_id: null,
+    material_name: null,
+    edge_top: 'stale-top',
+    edge_right: 'stale-right',
+    edge_bottom: 'stale-bottom',
+    edge_left: 'stale-left',
+    cutouts: [],
+    lamination_method: 'NONE',
+    shape_type: 'POLYGON',
+    shape_config: patch.shape_config,
+    no_strip_edges: [],
+    edge_buildups: null,
+    strip_width_overrides: null,
+    piece_type: 'BENCHTOP',
+    features_cost: { toNumber: () => 0 },
+    requiresGrainMatch: false,
+    override_material_cost: null,
+    override_slab_price: null,
+    override_fabrication_cost: null,
+    material_collection_only: false,
+    material_collection_name: null,
+    sort_order: 0,
+    edge_arc_config: null,
+    mitred_corner_treatment: 'RAW',
+  };
 }
