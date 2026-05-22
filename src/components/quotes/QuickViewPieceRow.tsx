@@ -29,6 +29,7 @@ import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
+import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
@@ -579,6 +580,11 @@ function getMiniShapeEdges(
 // ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
 function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
   const cfg = piece.shapeConfig as unknown as Record<string, unknown>;
+  const canonicalPolygon = getCanonicalPolygonConfig(piece.shapeConfig);
+
+  if (canonicalPolygon) {
+    return `${polygonDimensionLabel(canonicalPolygon)} · ${polygonMetricLabel(canonicalPolygon)}`;
+  }
 
   if (piece.shapeType === 'L_SHAPE' && cfg?.leg1 && cfg?.leg2) {
     const leg1 = cfg.leg1 as { length_mm: number; width_mm: number };
@@ -636,6 +642,134 @@ function unitLabel(unit: string): string {
     case 'PER_SLAB': return 'per slab';
     default: return unit;
   }
+}
+
+function CutoutAddDialogInline({
+  cutoutTypes,
+  onAdd,
+  onClose,
+}: {
+  cutoutTypes: Array<{ id: string; name: string; baseRate: number; isActive?: boolean; sortOrder?: number }>;
+  onAdd: (cutouts: Array<{ cutoutTypeId: string; quantity: number }>) => void;
+  onClose: () => void;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const [checkedTypes, setCheckedTypes] = useState<Record<string, { checked: boolean; quantity: number }>>({});
+
+  const activeCutoutTypes = useMemo(
+    () => cutoutTypes
+      .filter((ct) => ct.isActive !== false)
+      .sort((a, b) => (a.sortOrder ?? 0) - (b.sortOrder ?? 0) || a.name.localeCompare(b.name)),
+    [cutoutTypes],
+  );
+
+  const selectedCount = Object.values(checkedTypes).filter((entry) => entry.checked).length;
+
+  const handleAddSelected = () => {
+    const selected = Object.entries(checkedTypes)
+      .filter(([, entry]) => entry.checked)
+      .map(([cutoutTypeId, entry]) => ({
+        cutoutTypeId,
+        quantity: Math.max(1, entry.quantity || 1),
+      }));
+
+    if (selected.length === 0) return;
+    onAdd(selected);
+  };
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        onClose();
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [onClose]);
+
+  return (
+    <div
+      ref={ref}
+      className="bg-white border border-gray-200 rounded-lg shadow-lg min-w-[340px] overflow-hidden"
+    >
+      <div className="px-3 py-2 border-b border-gray-100">
+        <div className="text-xs font-semibold text-gray-600">Add Cutouts</div>
+        <div className="text-[11px] text-gray-400">Select one or more and set quantity.</div>
+      </div>
+      <div className="max-h-[260px] overflow-y-auto divide-y divide-gray-100">
+        {activeCutoutTypes.map((ct) => {
+          const entry = checkedTypes[ct.id];
+          const isChecked = entry?.checked ?? false;
+          const quantity = entry?.quantity ?? 1;
+
+          return (
+            <div
+              key={ct.id}
+              className={`flex items-center gap-3 px-3 py-2 ${isChecked ? 'bg-primary-50' : 'bg-white'}`}
+            >
+              <label className="flex min-w-0 flex-1 items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={isChecked}
+                  onChange={(e) => {
+                    setCheckedTypes((prev) => ({
+                      ...prev,
+                      [ct.id]: {
+                        checked: e.target.checked,
+                        quantity: prev[ct.id]?.quantity ?? 1,
+                      },
+                    }));
+                  }}
+                  className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                />
+                <span className="truncate text-xs font-medium text-gray-800">{ct.name}</span>
+                <span className="shrink-0 text-[11px] text-gray-400">{formatCurrency(Number(ct.baseRate))}</span>
+              </label>
+              <label className="flex items-center gap-1 text-[11px] text-gray-500">
+                Qty
+                <input
+                  type="number"
+                  min="1"
+                  value={quantity}
+                  onChange={(e) => {
+                    const nextQuantity = Math.max(1, parseInt(e.target.value, 10) || 1);
+                    setCheckedTypes((prev) => ({
+                      ...prev,
+                      [ct.id]: {
+                        checked: prev[ct.id]?.checked ?? isChecked,
+                        quantity: nextQuantity,
+                      },
+                    }));
+                  }}
+                  className="w-14 rounded border border-gray-300 px-1 py-0.5 text-center text-xs focus:border-primary-500 focus:ring-1 focus:ring-primary-500"
+                />
+              </label>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex gap-2 border-t border-gray-100 p-3">
+        <button
+          type="button"
+          onClick={handleAddSelected}
+          disabled={selectedCount === 0}
+          className="flex-1 rounded bg-primary-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-primary-700 disabled:cursor-not-allowed disabled:opacity-50"
+        >
+          Add Selected
+        </button>
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onClose();
+          }}
+          className="flex-1 rounded border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  );
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
@@ -1393,6 +1527,13 @@ export default function QuickViewPieceRow({
     if (!edgeId) return undefined;
     return resolvedEdgeTypes.find(e => e.id === edgeId)?.name;
   }, [resolvedEdgeTypes]);
+
+  const polygonEdgeSummaryText = useMemo(() => {
+    const canonicalPolygon = getCanonicalPolygonConfig(piece.shapeConfig);
+    if (!canonicalPolygon) return '';
+    const edgeNameMap = new Map(resolvedEdgeTypes.map((edge) => [edge.id, edge.name]));
+    return polygonEdgeSummary(canonicalPolygon, edgeNameMap);
+  }, [piece.shapeConfig, resolvedEdgeTypes]);
 
   // ── Join position for oversize accordion ────────────────────────────────
   const joinAtMm = useMemo(() => {
@@ -2314,18 +2455,22 @@ export default function QuickViewPieceRow({
             {!isEditMode && (
               <div className="flex items-center gap-1.5 text-xs text-gray-500 mb-1 flex-wrap">
                 <span className="text-gray-400">Edges:</span>
-                {sides.map(side => {
-                  const edgeId = resolvedEdges[edgeKeyMap[side]];
-                  const name = resolveEdgeName(edgeId);
-                  const colour = edgeColour(name);
-                  const code = edgeCode(name);
-                  return (
-                    <span key={side} className="inline-flex items-center gap-0.5">
-                      <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colour }} />
-                      <span>{side.charAt(0).toUpperCase()}:{code}</span>
-                    </span>
-                  );
-                })}
+                {polygonEdgeSummaryText ? (
+                  <span>{polygonEdgeSummaryText}</span>
+                ) : (
+                  sides.map(side => {
+                    const edgeId = resolvedEdges[edgeKeyMap[side]];
+                    const name = resolveEdgeName(edgeId);
+                    const colour = edgeColour(name);
+                    const code = edgeCode(name);
+                    return (
+                      <span key={side} className="inline-flex items-center gap-0.5">
+                        <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ backgroundColor: colour }} />
+                        <span>{side.charAt(0).toUpperCase()}:{code}</span>
+                      </span>
+                    );
+                  })
+                )}
               </div>
             )}
 
@@ -2364,17 +2509,12 @@ export default function QuickViewPieceRow({
                     + Add Cutout
                   </button>
                   {showCutoutPopover && (
-                    <div className="absolute left-0 top-6 z-50 bg-white border border-gray-200 rounded-lg shadow-lg py-1 min-w-[180px] max-h-[200px] overflow-y-auto">
-                      {editData.cutoutTypes.filter(ct => ct.isActive).map(ct => (
-                        <button
-                          key={ct.id}
-                          onClick={() => handleCutoutAdd(ct.id)}
-                          className="w-full text-left px-3 py-1.5 text-xs text-gray-700 hover:bg-gray-50 transition-colours flex justify-between"
-                        >
-                          <span>{ct.name}</span>
-                          <span className="text-gray-400 ml-2">{formatCurrency(ct.baseRate)}</span>
-                        </button>
-                      ))}
+                    <div className="absolute left-0 top-6 z-50">
+                      <CutoutAddDialogInline
+                        cutoutTypes={editData.cutoutTypes}
+                        onAdd={handleCutoutsAdd}
+                        onClose={() => setShowCutoutPopover(false)}
+                      />
                     </div>
                   )}
                 </div>

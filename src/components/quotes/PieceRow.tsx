@@ -15,12 +15,18 @@ import type { EdgeScope } from './EdgeProfilePopover';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
+import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 
 type AttachedPieceTypes = Record<string, 'WATERFALL' | 'SPLASHBACK'> | undefined;
 
 // ── Piece dimension label (shows leg dims for L/U shapes) ───────────────────
 function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): string {
   const cfg = piece.shapeConfig as unknown as Record<string, unknown>;
+  const canonicalPolygon = getCanonicalPolygonConfig(piece.shapeConfig);
+
+  if (canonicalPolygon) {
+    return `${polygonDimensionLabel(canonicalPolygon)} · ${polygonMetricLabel(canonicalPolygon)}`;
+  }
 
   if (piece.shapeType === 'L_SHAPE' && cfg?.leg1 && cfg?.leg2) {
     const leg1 = cfg.leg1 as { length_mm: number; width_mm: number };
@@ -1000,6 +1006,18 @@ export default function PieceRow({
   // Collapsed state display values
   const displayName = getDisplayName(piece);
   const edgeEntries = getEdgeSummaryEntries(piece, breakdown, editData?.edgeTypes, attachedPieceTypes);
+  const polygonEdgeSummaryText = useMemo(() => {
+    const canonicalPolygon = getCanonicalPolygonConfig(piece.shapeConfig);
+    if (!canonicalPolygon) return '';
+    const edgeNameMap = new Map<string, string>();
+    for (const edgeType of editData?.edgeTypes ?? []) {
+      edgeNameMap.set(edgeType.id, edgeType.name);
+    }
+    for (const edge of breakdown?.fabrication?.edges ?? []) {
+      edgeNameMap.set(edge.edgeTypeId, edge.edgeTypeName);
+    }
+    return polygonEdgeSummary(canonicalPolygon, edgeNameMap);
+  }, [piece.shapeConfig, editData?.edgeTypes, breakdown?.fabrication?.edges]);
   const cutoutSummary = getCutoutSummaryText(fullPiece, breakdown, editData?.cutoutTypes);
   const fullDescription = getFullDescription(piece);
 
@@ -1094,9 +1112,11 @@ export default function PieceRow({
               )}
             </div>
             {/* Line 3: Edges (colour dots) · Cutouts (only if any) */}
-            {(edgeEntries.length > 0 || cutoutSummary) && (
+            {(polygonEdgeSummaryText || edgeEntries.length > 0 || cutoutSummary) && (
               <div className="flex items-center gap-1 text-xs text-gray-500 mt-0.5 flex-wrap">
-                {edgeEntries.length > 0 && (
+                {polygonEdgeSummaryText ? (
+                  <span>Edges: {polygonEdgeSummaryText}</span>
+                ) : edgeEntries.length > 0 && (
                   <span className="inline-flex items-center gap-1.5 flex-wrap">
                     <span>Edges:</span>
                     {edgeEntries.map(entry => (
@@ -1110,7 +1130,7 @@ export default function PieceRow({
                     ))}
                   </span>
                 )}
-                {edgeEntries.length > 0 && cutoutSummary && <span className="text-gray-300">&middot;</span>}
+                {(polygonEdgeSummaryText || edgeEntries.length > 0) && cutoutSummary && <span className="text-gray-300">&middot;</span>}
                 {cutoutSummary && <span>Cutouts: {cutoutSummary}</span>}
               </div>
             )}
