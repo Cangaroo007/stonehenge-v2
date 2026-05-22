@@ -33,7 +33,7 @@ import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, p
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
-import SpatialPieceEditModal from './SpatialPieceEditModal';
+import SpatialPieceEditModal, { type SpatialCutoutPatch } from './SpatialPieceEditModal';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -1175,6 +1175,7 @@ export default function QuickViewPieceRow({
     shapeConfig: import('@/lib/types/shapes').CanonicalPolygonShapeConfig,
     lengthMm: number,
     widthMm: number,
+    cutouts: SpatialCutoutPatch[],
   ) => {
     setLocalLength(lengthMm);
     setLocalWidth(widthMm);
@@ -1182,6 +1183,7 @@ export default function QuickViewPieceRow({
     await savePieceImmediate({
       lengthMm,
       widthMm,
+      cutouts,
       shapeType: 'POLYGON',
       shapeConfig,
     });

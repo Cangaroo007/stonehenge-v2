@@ -3,6 +3,14 @@
 import V2PrototypeSpatialEditor from '@/proto-editor/V2PrototypeSpatialEditor';
 import type { CanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 
+export interface SpatialCutoutPatch {
+  type: string;
+  name: string;
+  quantity: number;
+  positionXMm?: number;
+  positionYMm?: number;
+}
+
 interface SpatialEditablePiece {
   id: number | string;
   name: string;
@@ -26,7 +34,40 @@ interface SpatialPieceEditModalProps {
     shapeConfig: CanonicalPolygonShapeConfig,
     lengthMm: number,
     widthMm: number,
+    cutouts: SpatialCutoutPatch[],
   ) => void | Promise<void>;
+}
+
+function featureToCutout(feature: unknown): SpatialCutoutPatch | null {
+  if (!feature || typeof feature !== 'object') return null;
+  const candidate = feature as {
+    kind?: string;
+    position?: { x?: number; y?: number };
+  };
+
+  const labelByKind: Record<string, string> = {
+    'undermount-sink': 'Undermount Sink',
+    'overmount-sink': 'Drop-in Sink',
+    'cooktop-cutout': 'Cooktop / Hotplate',
+    'tap-hole': 'Tap Hole',
+    'custom-cutout': 'Custom Cutout',
+  };
+  const label = candidate.kind ? labelByKind[candidate.kind] : null;
+  if (!label) return null;
+
+  return {
+    type: label,
+    name: label,
+    quantity: 1,
+    ...(Number.isFinite(candidate.position?.x) ? { positionXMm: Number(candidate.position?.x) } : {}),
+    ...(Number.isFinite(candidate.position?.y) ? { positionYMm: Number(candidate.position?.y) } : {}),
+  };
+}
+
+function cutoutsFromShapeConfig(shapeConfig: CanonicalPolygonShapeConfig): SpatialCutoutPatch[] {
+  return shapeConfig.features
+    .map(featureToCutout)
+    .filter((cutout): cutout is SpatialCutoutPatch => Boolean(cutout));
 }
 
 export default function SpatialPieceEditModal({
@@ -74,7 +115,7 @@ export default function SpatialPieceEditModal({
             }}
             onCancel={onClose}
             onSave={async (_pieceId, shapeConfig, lengthMm, widthMm) => {
-              await onSave(shapeConfig, lengthMm, widthMm);
+              await onSave(shapeConfig, lengthMm, widthMm, cutoutsFromShapeConfig(shapeConfig));
               onClose();
             }}
           />

@@ -7,6 +7,7 @@ import type {
   EdgeExposure,
   EdgeId,
   EdgeProfile,
+  Feature,
   FeatureId,
   Piece,
   Vertex,
@@ -77,6 +78,14 @@ const EXPOSURE_OPTIONS: Array<{ value: EdgeExposure; label: string }> = [
   { value: 'wall', label: 'Wall' },
   { value: 'join', label: 'Join' },
   { value: 'concealed', label: 'Concealed' },
+];
+
+const FEATURE_TOOLS: Array<{ kind: Feature['kind']; label: string }> = [
+  { kind: 'undermount-sink', label: 'Undermount sink' },
+  { kind: 'overmount-sink', label: 'Drop-in sink' },
+  { kind: 'cooktop-cutout', label: 'Cooktop' },
+  { kind: 'tap-hole', label: 'Tap hole' },
+  { kind: 'custom-cutout', label: 'Custom cutout' },
 ];
 
 function safeKey(value: string): string {
@@ -254,6 +263,11 @@ export default function V2PrototypeSpatialEditor({
   }, [editor, selectedEdge]);
 
   const selectedFeatureId = editor.state.selectedFeatureId;
+  const activeToolKind = editor.state.toolMode.kind;
+  const activeFeatureKind = activeToolKind === 'feature-place'
+    ? editor.state.toolMode.featureKind
+    : null;
+  const isPostToolActive = activeToolKind === 'structural-place' && editor.state.toolMode.shape === 'rectangle';
 
   return (
     <div className="flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
@@ -377,6 +391,49 @@ export default function V2PrototypeSpatialEditor({
               ) : (
                 <p className="mt-2 text-xs text-zinc-500">Click an edge on the canvas to edit profile or wall/join exposure.</p>
               )}
+            </div>
+
+            <div className="rounded-lg border border-zinc-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-zinc-800">Add cutouts</p>
+                {activeToolKind !== 'select' && (
+                  <button
+                    type="button"
+                    onClick={() => editor.setToolMode({ kind: 'select' })}
+                    className="text-xs font-medium text-zinc-500 hover:text-zinc-900"
+                  >
+                    Cancel tool
+                  </button>
+                )}
+              </div>
+              <p className="mt-1 text-xs text-zinc-500">Choose a cutout, then click inside the stone.</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {FEATURE_TOOLS.map(tool => (
+                  <button
+                    key={tool.kind}
+                    type="button"
+                    onClick={() => editor.setToolMode(
+                      activeFeatureKind === tool.kind
+                        ? { kind: 'select' }
+                        : { kind: 'feature-place', featureKind: tool.kind }
+                    )}
+                    className={activeFeatureKind === tool.kind ? 'btn-primary' : 'btn-secondary'}
+                  >
+                    {tool.label}
+                  </button>
+                ))}
+                <button
+                  type="button"
+                  onClick={() => editor.setToolMode(
+                    isPostToolActive
+                      ? { kind: 'select' }
+                      : { kind: 'structural-place', shape: 'rectangle', widthMm: 120, depthMm: 120 }
+                  )}
+                  className={isPostToolActive ? 'btn-primary' : 'btn-secondary'}
+                >
+                  Post cutout
+                </button>
+              </div>
             </div>
 
             <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">

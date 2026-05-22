@@ -16,7 +16,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
-import SpatialPieceEditModal from './SpatialPieceEditModal';
+import SpatialPieceEditModal, { type SpatialCutoutPatch } from './SpatialPieceEditModal';
 
 type AttachedPieceTypes = Record<string, 'WATERFALL' | 'SPLASHBACK'> | undefined;
 
@@ -904,6 +904,7 @@ function PieceVisualEditorSection({
     shapeConfig: import('@/lib/types/shapes').CanonicalPolygonShapeConfig,
     lengthMm: number,
     widthMm: number,
+    cutouts: SpatialCutoutPatch[],
   ) => {
     if (!fullPiece || !onSavePiece) return;
     await Promise.resolve(onSavePiece(
@@ -915,13 +916,13 @@ function PieceVisualEditorSection({
         materialId: fullPiece.materialId,
         materialName: fullPiece.materialName,
         edgeTop: fullPiece.edgeTop,
-        edgeBottom: fullPiece.edgeBottom,
-        edgeLeft: fullPiece.edgeLeft,
-        edgeRight: fullPiece.edgeRight,
-        cutouts: fullPiece.cutouts,
-        shapeType: 'POLYGON',
-        shapeConfig,
-      },
+          edgeBottom: fullPiece.edgeBottom,
+          edgeLeft: fullPiece.edgeLeft,
+          edgeRight: fullPiece.edgeRight,
+          cutouts,
+          shapeType: 'POLYGON',
+          shapeConfig,
+        },
       fullPiece.quote_rooms?.name || 'Unassigned'
     ));
   }, [fullPiece, onSavePiece, piece.id]);
