@@ -29,11 +29,11 @@ import MaterialPickerV2 from './MaterialPickerV2';
 import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import type { LShapeConfig, UShapeConfig, RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig, ShapeType } from '@/lib/types/shapes';
-import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
+import { buildPolygonRenderModel, getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
-import SpatialPieceEditModal, { type SpatialCutoutPatch } from './SpatialPieceEditModal';
+import SpatialPieceEditorPanel, { type SpatialCutoutPatch } from './SpatialPieceEditorPanel';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -145,6 +145,10 @@ function normaliseArcEdgeConfig(
 function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
   const target = edgeId.toLowerCase();
   return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
+}
+
+function shouldUseSpatialGeometryEditor(piece: { shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): boolean {
+  return !!getCanonicalPolygonConfig(piece.shapeConfig) || (!!piece.shapeType && piece.shapeType !== 'RECTANGLE');
 }
 
 function getReturnStripEdges({
@@ -807,6 +811,10 @@ export default function QuickViewPieceRow({
   onMaterialsRefresh,
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
+  const useSpatialGeometryEditor = shouldUseSpatialGeometryEditor({
+    shapeType: piece.shapeType,
+    shapeConfig: (piece.shapeConfig ?? null) as Record<string, unknown> | null,
+  });
 
   // ── Local state ─────────────────────────────────────────────────────────
   const [localLength, setLocalLength] = useState(piece.lengthMm);
@@ -817,7 +825,6 @@ export default function QuickViewPieceRow({
   const [editingName, setEditingName] = useState(false);
   const [localName, setLocalName] = useState(piece.name);
   const [accordionOpen, setAccordionOpen] = useState(false);
-  const [spatialEditorOpen, setSpatialEditorOpen] = useState(false);
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [flashEdge, setFlashEdge] = useState<string | null>(null);
@@ -895,7 +902,8 @@ export default function QuickViewPieceRow({
       edgeLeft: piece.edgeLeft ?? null,
       edgeRight: piece.edgeRight ?? null,
     });
-  }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.noStripEdges, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight]);
+    setLocalShapeConfig(piece.shapeConfig ?? null);
+  }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.noStripEdges, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.shapeConfig]);
 
   const pieceTotal = breakdown?.pieceTotal ?? 0;
   const isOversize = breakdown?.oversize?.isOversize ?? false;
@@ -1532,6 +1540,15 @@ export default function QuickViewPieceRow({
     return { w, h, x: (MINI_W - w) / 2, y: (MINI_H - h) / 2 };
   }, [piece.lengthMm, piece.widthMm, relationshipLabel]);
 
+  const miniPolygonPreview = useMemo(
+    () => buildPolygonRenderModel(localShapeConfig ?? piece.shapeConfig, {
+      width: MINI_W,
+      height: MINI_H,
+      padding: 10,
+    }),
+    [localShapeConfig, piece.shapeConfig]
+  );
+
   const miniEdgeDefs = useMemo(() => {
     const { x, y, w, h } = miniLayout;
     return {
@@ -1635,7 +1652,7 @@ export default function QuickViewPieceRow({
           {/* Summary content — always visible above expanded diagram */}
           <div className="contents">
           {/* Dimension inputs — shape-aware */}
-          {isEditMode ? (
+          {isEditMode && !useSpatialGeometryEditor ? (
             <>
               {/* Rectangle: standard length × width inputs */}
               {(!piece.shapeType || piece.shapeType === 'RECTANGLE') && (
@@ -1951,7 +1968,7 @@ export default function QuickViewPieceRow({
 
           {/* Edge Build-Up edit UI (edit mode only — rectangular and other shapes) */}
           {/* L/U shapes use EdgePanel in expanded view instead */}
-          {isEditMode && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
+          {isEditMode && !useSpatialGeometryEditor && piece.shapeType !== 'L_SHAPE' && piece.shapeType !== 'U_SHAPE' && (
             <div className="w-full mt-2">
               <div className="flex items-center justify-between mb-1">
                 <div className="flex items-center gap-2">
@@ -2148,6 +2165,23 @@ export default function QuickViewPieceRow({
 
               {/* Piece shape — L/U polygon or rectangle */}
               {(() => {
+                if (miniPolygonPreview) {
+                  return (
+                    <g>
+                      <path d={miniPolygonPreview.outerPath} fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1} />
+                      {miniPolygonPreview.innerPaths.map((path, idx) => (
+                        <path key={idx} d={path} fill="white" stroke="#e5e7eb" strokeWidth={0.75} />
+                      ))}
+                      {miniPolygonPreview.features.map(feature => (
+                        feature.kind === 'tap-hole'
+                          ? <circle key={feature.id} cx={feature.x} cy={feature.y} r={feature.radius} fill="none" stroke="#9ca3af" strokeWidth={0.75} />
+                          : feature.outline
+                            ? <polygon key={feature.id} points={feature.outline} fill="none" stroke="#9ca3af" strokeWidth={0.75} strokeDasharray="2 1.5" />
+                            : <rect key={feature.id} x={feature.x - feature.width / 2} y={feature.y - feature.height / 2} width={feature.width} height={feature.height} fill="none" stroke="#9ca3af" strokeWidth={0.75} strokeDasharray="2 1.5" />
+                      ))}
+                    </g>
+                  );
+                }
                 const shapePath = getMiniShapePath(piece.shapeType, piece.shapeConfig, miniLayout.x, miniLayout.y, miniLayout.w, miniLayout.h);
                 return shapePath
                   ? <path d={shapePath} fill="#f5f5f5" stroke="#e5e7eb" strokeWidth={1} />
@@ -2156,6 +2190,36 @@ export default function QuickViewPieceRow({
 
               {/* Edges — L/U shapes use polygon segments; rectangles use bounding box */}
               {(() => {
+                if (miniPolygonPreview) {
+                  return miniPolygonPreview.edges.map(edge => {
+                    const edgeId = edge.id;
+                    const colour = edge.exposure === 'exposed' ? edgeColour(edge.profile) : '#9ca3af';
+                    const isFlashing = flashEdge === edgeId;
+                    return (
+                      <g key={edgeId}>
+                        <line
+                          x1={edge.x1}
+                          y1={edge.y1}
+                          x2={edge.x2}
+                          y2={edge.y2}
+                          stroke={isFlashing ? '#22c55e' : colour}
+                          strokeWidth={isFlashing ? 3 : 2}
+                          strokeDasharray={edge.exposure === 'exposed' ? undefined : '3 2'}
+                        />
+                        <text
+                          x={edge.midX}
+                          y={edge.midY - 4}
+                          textAnchor="middle"
+                          dominantBaseline="middle"
+                          className="select-none text-[6px] font-semibold"
+                          fill={colour}
+                        >
+                          {edge.label}
+                        </text>
+                      </g>
+                    );
+                  });
+                }
                 const shapeEdges = getMiniShapeEdges(
                   piece.shapeType,
                   piece.shapeConfig as Record<string, unknown> | null | undefined,
@@ -2243,7 +2307,7 @@ export default function QuickViewPieceRow({
                               strokeWidth={isFlashing ? 3 : (isFinished ? 2 : 0.75)}
                               strokeDasharray={isFinished ? undefined : '2 1.5'}
                             />
-                            {isEditMode && (
+                            {isEditMode && !useSpatialGeometryEditor && (
                               <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
                                 stroke="transparent" strokeWidth={EDGE_HIT}
                                 style={{ cursor: 'pointer' }}
@@ -2268,7 +2332,7 @@ export default function QuickViewPieceRow({
                           strokeWidth={arcFlashing ? 3 : (arcIsFinished ? 2 : 0.75)}
                           strokeDasharray={arcIsFinished ? undefined : '2 1.5'}
                         />
-                        {isEditMode && (
+                        {isEditMode && !useSpatialGeometryEditor && (
                           <path d={rightArcPath} fill="none"
                             stroke="transparent" strokeWidth={EDGE_HIT}
                             style={{ cursor: 'pointer' }}
@@ -2290,7 +2354,7 @@ export default function QuickViewPieceRow({
                             strokeWidth={leftArcFlashing ? 3 : (leftArcIsFinished ? 2 : 0.75)}
                             strokeDasharray={leftArcIsFinished ? undefined : '2 1.5'}
                           />
-                          {isEditMode && (
+                          {isEditMode && !useSpatialGeometryEditor && (
                             <path d={leftArcPath} fill="none"
                               stroke="transparent" strokeWidth={EDGE_HIT}
                               style={{ cursor: 'pointer' }}
@@ -2330,7 +2394,7 @@ export default function QuickViewPieceRow({
                           strokeWidth={isFlashing ? 3 : selectedEdgeIds.includes(seg.side) ? 2.5 : (isFinished ? 2 : 0.75)}
                           strokeDasharray={isFinished ? undefined : '2 1.5'}
                         />
-                        {isEditMode && (
+                        {isEditMode && !useSpatialGeometryEditor && (
                           <line
                             x1={seg.x1} y1={seg.y1} x2={seg.x2} y2={seg.y2}
                             stroke="transparent"
@@ -2369,7 +2433,7 @@ export default function QuickViewPieceRow({
                   const isFinished = !suppressed && !!edgeId;
                   const colour = suppressed?.colour ?? edgeColour(name);
                   const code = suppressed?.code ?? edgeCode(name);
-                  const isHovered = hoveredEdge === side && isEditMode;
+                  const isHovered = hoveredEdge === side && isEditMode && !useSpatialGeometryEditor;
                   const isFlashing = flashEdge === side;
 
                   return (
@@ -2387,7 +2451,7 @@ export default function QuickViewPieceRow({
                         strokeDasharray={suppressed?.code === 'WALL' ? '4 2' : (isFinished || suppressed ? undefined : '2 1.5')}
                         className={isFlashing ? 'qv-edge-flash' : undefined}
                       />
-                      {isEditMode && (
+                      {isEditMode && !useSpatialGeometryEditor && (
                         <line x1={def.x1} y1={def.y1} x2={def.x2} y2={def.y2}
                           stroke="transparent" strokeWidth={EDGE_HIT}
                           style={{ cursor: 'pointer' }}
@@ -2413,6 +2477,16 @@ export default function QuickViewPieceRow({
 
           {/* Quick Edge selector + cutouts */}
           <div className="flex-1 min-w-0">
+            {isEditMode && useSpatialGeometryEditor && (
+              <button
+                type="button"
+                onClick={() => setAccordionOpen(true)}
+                className="mb-1 inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[10px] font-medium text-blue-700 hover:bg-blue-100"
+                title="Open the expanded spatial editor"
+              >
+                See expanded view to edit geometry
+              </button>
+            )}
             {/* Profile selector for compact preset bar */}
             {isEditMode && (!piece.shapeType || piece.shapeType === 'RECTANGLE') && editData?.edgeTypes && (
               <div className="flex flex-wrap items-center gap-1 mb-1">
@@ -2505,7 +2579,7 @@ export default function QuickViewPieceRow({
                   className="inline-flex items-center gap-0.5 px-1.5 py-0.5 text-[10px] font-medium bg-amber-50 text-amber-700 border border-amber-200 rounded"
                 >
                   {cutoutLabel(c.typeName)} &times;{c.quantity}
-                  {isEditMode && (
+                  {isEditMode && !useSpatialGeometryEditor && (
                     <button
                       onClick={() => handleCutoutRemove(c.id)}
                       className="text-amber-400 hover:text-red-500 ml-0.5"
@@ -2520,7 +2594,7 @@ export default function QuickViewPieceRow({
                 <span className="text-[10px] text-gray-300">No cutouts</span>
               )}
               {/* Add cutout button */}
-              {isEditMode && editData?.cutoutTypes && editData.cutoutTypes.filter(ct => ct.isActive).length > 0 && (
+              {isEditMode && !useSpatialGeometryEditor && editData?.cutoutTypes && editData.cutoutTypes.filter(ct => ct.isActive).length > 0 && (
                 <div className="relative" ref={cutoutRef}>
                   <button
                     onClick={() => setShowCutoutPopover(!showCutoutPopover)}
@@ -2609,28 +2683,38 @@ export default function QuickViewPieceRow({
       {/* ══════════════ ACCORDION (Full View) ══════════════ */}
       {accordionOpen && (
         <div className="border-t border-gray-100">
-          {isEditMode && fullPiece && (
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
-              <div>
-                <p className="text-sm font-semibold text-gray-900">Spatial geometry</p>
-                <p className="text-xs text-gray-500">
-                  Use this for angled joins, splayed corners, radius ends, curves, and non-rectangular pieces.
-                </p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setSpatialEditorOpen(true)}
-                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-              >
-                Spatial edit
-              </button>
-            </div>
-          )}
-
-          {/* Full PieceVisualEditor SVG */}
           <PieceEditorErrorBoundary pieceName={piece.name}>
-            <div className="px-4 py-3 border-b border-gray-100 min-h-[320px]">
-              <PieceVisualEditor
+            {useSpatialGeometryEditor && isEditMode && fullPiece ? (
+              <div className="border-b border-gray-100 bg-blue-50/30 px-4 py-3">
+                <div className="mb-3">
+                  <p className="text-sm font-semibold text-blue-950">Spatial geometry editor</p>
+                  <p className="text-xs text-blue-700">
+                    This canvas is the source of truth for shape, edge metadata, cutouts, wall/join exposure, and pricing geometry.
+                  </p>
+                </div>
+                <SpatialPieceEditorPanel
+                  piece={{
+                    id: piece.id,
+                    name: piece.name,
+                    lengthMm: localLength,
+                    widthMm: localWidth,
+                    thicknessMm: fullPiece.thicknessMm,
+                    materialId: fullPiece.materialId ?? null,
+                    materialName: fullPiece.materialName ?? piece.materialName ?? null,
+                    shapeType: piece.shapeType ?? 'RECTANGLE',
+                    shapeConfig: localShapeConfig ?? piece.shapeConfig ?? null,
+                    edgeTop: localEdges.edgeTop,
+                    edgeBottom: localEdges.edgeBottom,
+                    edgeLeft: localEdges.edgeLeft,
+                    edgeRight: localEdges.edgeRight,
+                  }}
+                  onCancel={() => undefined}
+                  onSave={handleSpatialGeometrySave}
+                />
+              </div>
+            ) : (
+              <div className="px-4 py-3 border-b border-gray-100 min-h-[320px]">
+                <PieceVisualEditor
                 lengthMm={piece.lengthMm}
                 widthMm={piece.widthMm}
                 edgeTop={resolvedEdges.edgeTop}
@@ -2686,11 +2770,12 @@ export default function QuickViewPieceRow({
                   );
                 } : undefined}
               />
-            </div>
+              </div>
+            )}
           </PieceEditorErrorBoundary>
 
-          {/* EdgePanel — unified edge interaction for all shapes (expanded view only) */}
-          {isEditMode && (
+          {/* EdgePanel — rectangle/simple-shape editing only; complex geometry edits live in the spatial canvas */}
+          {isEditMode && !useSpatialGeometryEditor && (
             <div className="px-4 pb-3 pt-2 border-b border-gray-100">
               <EdgePanel
                 allEdgeIds={allEdgeIds}
@@ -3089,28 +3174,6 @@ export default function QuickViewPieceRow({
         </div>
       )}
     </div>
-
-    {spatialEditorOpen && isEditMode && fullPiece && (
-      <SpatialPieceEditModal
-        piece={{
-          id: piece.id,
-          name: piece.name,
-          lengthMm: localLength,
-          widthMm: localWidth,
-          thicknessMm: fullPiece.thicknessMm,
-          materialId: fullPiece.materialId ?? null,
-          materialName: fullPiece.materialName ?? piece.materialName ?? null,
-          shapeType: piece.shapeType ?? 'RECTANGLE',
-          shapeConfig: localShapeConfig ?? piece.shapeConfig ?? null,
-          edgeTop: localEdges.edgeTop,
-          edgeBottom: localEdges.edgeBottom,
-          edgeLeft: localEdges.edgeLeft,
-          edgeRight: localEdges.edgeRight,
-        }}
-        onClose={() => setSpatialEditorOpen(false)}
-        onSave={handleSpatialGeometrySave}
-      />
-    )}
 
     {/* Quick-add material modal */}
     {showNewMaterialModal && (

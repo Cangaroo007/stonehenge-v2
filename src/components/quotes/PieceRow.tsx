@@ -16,7 +16,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
-import SpatialPieceEditModal, { type SpatialCutoutPatch } from './SpatialPieceEditModal';
+import SpatialPieceEditorPanel, { type SpatialCutoutPatch } from './SpatialPieceEditorPanel';
 
 type AttachedPieceTypes = Record<string, 'WATERFALL' | 'SPLASHBACK'> | undefined;
 
@@ -49,6 +49,10 @@ function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shap
 function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean {
   const target = edgeId.toLowerCase();
   return (edges ?? []).some(edge => String(edge).toLowerCase() === target);
+}
+
+function shouldUseSpatialGeometryEditor(piece: { shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): boolean {
+  return !!getCanonicalPolygonConfig(piece.shapeConfig) || (!!piece.shapeType && piece.shapeType !== 'RECTANGLE');
 }
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -577,7 +581,7 @@ function PieceVisualEditorSection({
   relationships?: PieceRelationshipData[];
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
-  const [spatialEditorOpen, setSpatialEditorOpen] = useState(false);
+  const useSpatialGeometryEditor = shouldUseSpatialGeometryEditor(piece);
 
   // In view mode, piece edge IDs may be null because serverData doesn't include them.
   // Extract edge IDs from the breakdown (which stores edgeTypeId per side).
@@ -929,62 +933,15 @@ function PieceVisualEditorSection({
 
   return (
     <div className="px-4 py-3 border-t border-gray-100">
-      {isEditMode && fullPiece && (
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
-          <div>
-            <p className="text-sm font-semibold text-blue-950">Spatial geometry</p>
-            <p className="text-xs text-blue-700">Use for angled joins, radius ends, curves, notches, and true polygon editing.</p>
+      {useSpatialGeometryEditor && isEditMode && fullPiece ? (
+        <div className="rounded-xl border border-blue-100 bg-blue-50/40 p-3">
+          <div className="mb-3">
+            <p className="text-sm font-semibold text-blue-950">Spatial geometry editor</p>
+            <p className="text-xs text-blue-700">
+              This is the source of truth for angled pieces, radius ends, curves, notches, edge metadata, and cutouts.
+            </p>
           </div>
-          <button
-            type="button"
-            onClick={() => setSpatialEditorOpen(true)}
-            className="rounded-md border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
-          >
-            Spatial edit
-          </button>
-        </div>
-      )}
-      <PieceVisualEditor
-        lengthMm={piece.lengthMm}
-        widthMm={piece.widthMm}
-        edgeTop={resolvedEdges.edgeTop}
-        edgeBottom={resolvedEdges.edgeBottom}
-        edgeLeft={resolvedEdges.edgeLeft}
-        edgeRight={resolvedEdges.edgeRight}
-        edgeTypes={resolvedEdgeTypes}
-        cutouts={displayCutouts}
-        joinAtMm={joinAtMm}
-        isEditMode={isEditMode}
-        isMitred={isMitred}
-        onEdgeChange={isEditMode ? handleEdgeChange : undefined}
-        onEdgesChange={isEditMode ? handleEdgesChange : undefined}
-        onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
-        onCutoutsAdd={isEditMode ? handleCutoutsAdd : undefined}
-        onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
-        cutoutTypes={editData?.cutoutTypes ?? []}
-        onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
-        roomName={piece.roomName}
-        roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
-        onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
-        shapeType={(piece.shapeType as import('@/lib/types/shapes').ShapeType | undefined) ?? undefined}
-        shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
-        onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
-        shapeConfigEdges={(() => {
-          const cfg = piece.shapeConfig as unknown as Record<string, unknown> | null | undefined;
-          if (piece.shapeType === 'POLYGON') {
-            const edges = (cfg?.edges as Record<string, { v2EdgeTypeId?: string | null }> | undefined) ?? {};
-            return Object.fromEntries(
-              Object.entries(edges).map(([edgeId, edge]) => [edgeId, edge.v2EdgeTypeId ?? null])
-            );
-          }
-          return (cfg?.edges as Record<string, string | null> | undefined) ?? undefined;
-        })()}
-        noStripEdges={(piece.noStripEdges as string[]) ?? []}
-        onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
-        attachedPieceTypes={attachedPieceTypes}
-      />
-      {spatialEditorOpen && isEditMode && fullPiece && (
-        <SpatialPieceEditModal
+          <SpatialPieceEditorPanel
           piece={{
             id: piece.id,
             name: piece.name,
@@ -1000,8 +957,49 @@ function PieceVisualEditorSection({
             edgeLeft: fullPiece.edgeLeft,
             edgeRight: fullPiece.edgeRight,
           }}
-          onClose={() => setSpatialEditorOpen(false)}
+          onCancel={() => undefined}
           onSave={handleSpatialGeometrySave}
+        />
+        </div>
+      ) : (
+        <PieceVisualEditor
+          lengthMm={piece.lengthMm}
+          widthMm={piece.widthMm}
+          edgeTop={resolvedEdges.edgeTop}
+          edgeBottom={resolvedEdges.edgeBottom}
+          edgeLeft={resolvedEdges.edgeLeft}
+          edgeRight={resolvedEdges.edgeRight}
+          edgeTypes={resolvedEdgeTypes}
+          cutouts={displayCutouts}
+          joinAtMm={joinAtMm}
+          isEditMode={isEditMode}
+          isMitred={isMitred}
+          onEdgeChange={isEditMode ? handleEdgeChange : undefined}
+          onEdgesChange={isEditMode ? handleEdgesChange : undefined}
+          onCutoutAdd={isEditMode ? handleCutoutAdd : undefined}
+          onCutoutsAdd={isEditMode ? handleCutoutsAdd : undefined}
+          onCutoutRemove={isEditMode ? handleCutoutRemove : undefined}
+          cutoutTypes={editData?.cutoutTypes ?? []}
+          onBulkApply={isEditMode && onBulkEdgeApply ? handleBulkApply : undefined}
+          roomName={piece.roomName}
+          roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
+          onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
+          shapeType={(piece.shapeType as import('@/lib/types/shapes').ShapeType | undefined) ?? undefined}
+          shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
+          onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
+          shapeConfigEdges={(() => {
+            const cfg = piece.shapeConfig as unknown as Record<string, unknown> | null | undefined;
+            if (piece.shapeType === 'POLYGON') {
+              const edges = (cfg?.edges as Record<string, { v2EdgeTypeId?: string | null }> | undefined) ?? {};
+              return Object.fromEntries(
+                Object.entries(edges).map(([edgeId, edge]) => [edgeId, edge.v2EdgeTypeId ?? null])
+              );
+            }
+            return (cfg?.edges as Record<string, string | null> | undefined) ?? undefined;
+          })()}
+          noStripEdges={(piece.noStripEdges as string[]) ?? []}
+          onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
+          attachedPieceTypes={attachedPieceTypes}
         />
       )}
     </div>
