@@ -53,6 +53,9 @@ export function convertLidarScanToQuotePieces(
     }
 
     const bounds = getBounds(countertop.vertices);
+    const countertopAppliances = scan.appliances.filter(appliance =>
+      appliance.confidence >= 0.7 && applianceBelongsToCountertop(appliance, countertop.vertices),
+    );
     const noStripEdges = inferNoStripEdges(scan, countertop.vertices);
     const canonicalShape = buildCanonicalPolygonFromScan(
       scan,
@@ -60,6 +63,7 @@ export function convertLidarScanToQuotePieces(
       index,
       noStripEdges,
       options.edgeTypeIdForExposedEdges ?? null,
+      countertopAppliances,
     );
 
     return {
@@ -73,14 +77,12 @@ export function convertLidarScanToQuotePieces(
       shapeType: 'POLYGON' as ShapeType,
       shapeConfig: canonicalShape as ShapeConfig,
       noStripEdges,
-      cutouts: scan.appliances
-        .filter(appliance => appliance.confidence >= 0.7)
-        .map(cutoutFromAppliance),
+      cutouts: countertopAppliances.map(cutoutFromAppliance),
       source: {
         scanId: scan.scanId,
         countertopIndex: index,
         vertexCount: countertop.vertices.length,
-        applianceCount: scan.appliances.length,
+        applianceCount: countertopAppliances.length,
       },
     };
   });
@@ -141,6 +143,7 @@ function buildCanonicalPolygonFromScan(
   countertopIndex: number,
   noStripEdges: EdgeSide[],
   edgeTypeIdForExposedEdges: string | null,
+  appliances: LidarAppliance[],
 ): CanonicalPolygonShapeConfig {
   const pieceKey = `${scan.scanId}-${countertopIndex}`;
   const vertices: Vertex[] = points.map((point, index) => ({
@@ -176,11 +179,41 @@ function buildCanonicalPolygonFromScan(
     edges,
     outerRing,
     innerRings: [],
-    features: scan.appliances
-      .filter(appliance => appliance.confidence >= 0.7)
-      .map((appliance, index) => featureFromAppliance(scan.scanId, appliance, index)),
+    features: appliances.map((appliance, index) => featureFromAppliance(scan.scanId, appliance, index)),
   };
   return protoPieceToCanonicalGeometrySnapshot(protoPiece);
+}
+
+function applianceBelongsToCountertop(appliance: LidarAppliance, vertices: LidarPoint[]): boolean {
+  const center = {
+    x: appliance.boundingBox.x + appliance.boundingBox.widthMm / 2,
+    y: appliance.boundingBox.y + appliance.boundingBox.depthMm / 2,
+  };
+
+  if (pointInPolygon(center, vertices)) {
+    return true;
+  }
+
+  const bounds = getBounds(vertices);
+  const toleranceMm = 25;
+  return center.x >= bounds.minX - toleranceMm &&
+    center.x <= bounds.maxX + toleranceMm &&
+    center.y >= bounds.minY - toleranceMm &&
+    center.y <= bounds.maxY + toleranceMm;
+}
+
+function pointInPolygon(point: LidarPoint, vertices: LidarPoint[]): boolean {
+  let inside = false;
+  for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+    const xi = vertices[i].x;
+    const yi = vertices[i].y;
+    const xj = vertices[j].x;
+    const yj = vertices[j].y;
+    const intersects = ((yi > point.y) !== (yj > point.y)) &&
+      (point.x < ((xj - xi) * (point.y - yi)) / (yj - yi || 1e-9) + xi);
+    if (intersects) inside = !inside;
+  }
+  return inside;
 }
 
 function inferCardinalSide(start: LidarPoint, end: LidarPoint): EdgeSide {
