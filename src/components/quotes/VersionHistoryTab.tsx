@@ -8,17 +8,17 @@ import type { ChangeSummary, SnapshotForDiff } from '@/lib/quote-version-diff';
 import { generateDetailedChangeSummary } from '@/lib/quote-version-diff';
 
 interface Version {
-  id: number;
+  id: string;
   version: number;
   changeType: string;
   changeReason: string | null;
   changeSummary: string | null;
-  changedBy: { id: number; name: string; email: string };
+  changedBy: { id: number; name: string | null; email: string } | null;
   changedAt: string;
   rolledBackFromVersion: number | null;
-  subtotal: string;
-  totalAmount: string;
-  pieceCount: number;
+  subtotal: string | null;
+  totalAmount: string | null;
+  pieceCount: number | null;
   isCurrent: boolean;
   snapshotData: SnapshotForDiff | null;
 }
@@ -53,8 +53,8 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
   const [versions, setVersions] = useState<Version[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentVersion, setCurrentVersion] = useState<number>(0);
-  const [expandedId, setExpandedId] = useState<number | null>(null);
-  const [diffData, setDiffData] = useState<Record<number, ChangeSummary | 'loading' | 'initial' | 'error'>>({});
+  const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [diffData, setDiffData] = useState<Record<string, ChangeSummary | 'loading' | 'initial' | 'error'>>({});
   const [showRollbackConfirm, setShowRollbackConfirm] = useState<number | null>(null);
   const [rollbackReason, setRollbackReason] = useState('');
   const [rolling, setRolling] = useState(false);
@@ -64,8 +64,8 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
       const response = await fetch(`/api/quotes/${quoteId}/versions`);
       if (!response.ok) throw new Error('Failed to fetch');
       const data = await response.json();
-      setVersions(data.versions);
-      setCurrentVersion(data.quote.currentVersion);
+      setVersions(Array.isArray(data.versions) ? data.versions : []);
+      setCurrentVersion(Number(data.quote?.currentVersion ?? 0));
     } catch (error) {
       console.error('Error:', error);
       toast.error('Failed to load version history');
@@ -78,7 +78,7 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
     fetchVersions();
   }, [fetchVersions]);
 
-  const handleToggleExpand = (versionId: number, versionNumber: number) => {
+  const handleToggleExpand = (versionId: string, versionNumber: number) => {
     if (expandedId === versionId) {
       setExpandedId(null);
       return;
@@ -242,9 +242,9 @@ export default function VersionHistoryTab({ quoteId, mode = 'view', onVersionSel
 
                   {/* Stats row */}
                   <div className="flex gap-4 text-sm text-gray-500 mb-3">
-                    <span>{version.pieceCount} pieces</span>
-                    <span>Total: ${parseFloat(version.totalAmount).toFixed(2)}</span>
-                    <span>By: {version.changedBy.name}</span>
+                    <span>{version.pieceCount ?? 0} pieces</span>
+                    <span>Total: ${Number(version.totalAmount ?? 0).toFixed(2)}</span>
+                    <span>By: {version.changedBy?.name || version.changedBy?.email || 'System'}</span>
                   </div>
 
                   {/* Actions */}

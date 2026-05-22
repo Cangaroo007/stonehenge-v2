@@ -6,6 +6,12 @@ import { getShapeGeometry } from '@/lib/types/shapes';
 import type { Prisma } from '@prisma/client';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
+import {
+  createQuoteSnapshot,
+  createQuoteVersion,
+  type QuoteSnapshot,
+  type QuoteChangeType,
+} from '@/lib/services/quote-version-service';
 
 async function recalculateQuote(quoteId: number) {
   const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
@@ -13,6 +19,21 @@ async function recalculateQuote(quoteId: number) {
     where: { id: quoteId },
     data: buildQuotePricingUpdate(calcResult),
   });
+}
+
+async function recordQuoteVersionSafely(
+  quoteId: number,
+  userId: number,
+  changeType: QuoteChangeType,
+  previousSnapshot: QuoteSnapshot | null,
+  reason?: string
+) {
+  if (!previousSnapshot) return;
+  try {
+    await createQuoteVersion(quoteId, userId, changeType, reason, previousSnapshot);
+  } catch (versionError) {
+    console.error('Error creating quote version (non-blocking):', versionError);
+  }
 }
 
 // GET - List all pieces for a quote
@@ -168,6 +189,13 @@ export async function POST(
     const quoteCheck = await verifyQuoteOwnership(quoteId, auth.user.companyId);
     if (!quoteCheck) {
       return NextResponse.json({ error: 'Quote not found' }, { status: 404 });
+    }
+
+    let previousSnapshot: QuoteSnapshot | null = null;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch (snapshotError) {
+      console.error('Error creating pre-piece-add snapshot (non-blocking):', snapshotError);
     }
 
     const data = await request.json();
@@ -471,6 +499,7 @@ export async function POST(
       where: { quoteId },
     });
     await recalculateQuote(quoteId);
+    await recordQuoteVersionSafely(quoteId, auth.user.id, 'UPDATED', previousSnapshot, `Added piece "${name}"`);
 
     const pieceAny = piece as any;
     return NextResponse.json({

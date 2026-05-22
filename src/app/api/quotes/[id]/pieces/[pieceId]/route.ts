@@ -6,6 +6,12 @@ import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+import {
+  createQuoteSnapshot,
+  createQuoteVersion,
+  type QuoteSnapshot,
+  type QuoteChangeType,
+} from '@/lib/services/quote-version-service';
 
 const decimalOrNull = (value: unknown) => value == null ? null : Number(value);
 const EDGE_JOIN_RELATIONSHIP_TYPES = new Set(['WATERFALL', 'SPLASHBACK']);
@@ -15,6 +21,21 @@ const OPPOSITE_EDGE: Record<RectEdgeSide, RectEdgeSide> = {
   left: 'right',
   right: 'left',
 };
+
+async function recordQuoteVersionSafely(
+  quoteId: number,
+  userId: number,
+  changeType: QuoteChangeType,
+  previousSnapshot: QuoteSnapshot | null,
+  reason?: string
+) {
+  if (!previousSnapshot) return;
+  try {
+    await createQuoteVersion(quoteId, userId, changeType, reason, previousSnapshot);
+  } catch (versionError) {
+    console.error('Error creating quote version (non-blocking):', versionError);
+  }
+}
 
 function uniqueNoStripEdges(edges: unknown): string[] {
   if (!Array.isArray(edges)) return [];
@@ -362,6 +383,13 @@ export async function PATCH(
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
     }
 
+    let previousSnapshot: QuoteSnapshot | null = null;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch (snapshotError) {
+      console.error('Error creating pre-piece-update snapshot (non-blocking):', snapshotError);
+    }
+
     if (materialId !== undefined && materialId !== null) {
       const material = await prisma.materials.findFirst({
         where: {
@@ -607,6 +635,8 @@ export async function PATCH(
       ) ?? null;
     }
 
+    await recordQuoteVersionSafely(quoteId, authResult.user.id, 'UPDATED', previousSnapshot, `Updated piece "${updatedPiece.name}"`);
+
     const pu = updatedPiece as unknown as Record<string, unknown>;
     return NextResponse.json({
       ...updatedPiece,
@@ -721,6 +751,13 @@ export async function PUT(
     // Verify piece belongs to the requested quote
     if (currentPiece.quote_rooms.quote_id !== quoteId) {
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
+    }
+
+    let previousSnapshot: QuoteSnapshot | null = null;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch (snapshotError) {
+      console.error('Error creating pre-piece-put snapshot (non-blocking):', snapshotError);
     }
 
     if (materialId !== undefined && materialId !== null) {
@@ -966,6 +1003,18 @@ export async function PUT(
       });
     }
 
+    try {
+      const calcResult = await calculateQuotePrice(String(quoteId), { forceRecalculate: true });
+      await prisma.quotes.update({
+        where: { id: quoteId },
+        data: buildQuotePricingUpdate(calcResult),
+      });
+    } catch (recalcError) {
+      console.error('Post-PUT recalculation failed:', recalcError);
+    }
+
+    await recordQuoteVersionSafely(quoteId, auth.user.id, 'UPDATED', previousSnapshot, `Updated piece "${piece.name}"`);
+
     const pu = piece as any;
     return NextResponse.json({
       ...piece,
@@ -1050,7 +1099,15 @@ export async function DELETE(
       return NextResponse.json({ error: 'Piece not found in this quote' }, { status: 404 });
     }
 
+    let previousSnapshot: QuoteSnapshot | null = null;
+    try {
+      previousSnapshot = await createQuoteSnapshot(quoteId);
+    } catch (snapshotError) {
+      console.error('Error creating pre-piece-delete snapshot (non-blocking):', snapshotError);
+    }
+
     const roomId = piece.room_id;
+    const deletedPieceName = piece.name;
 
     // If this is a promoted strip, restore the parent piece's edge
     // by removing this edge from the parent's no_strip_edges array
@@ -1102,6 +1159,8 @@ export async function DELETE(
     } catch (recalcError) {
       console.error('Post-DELETE recalculation failed:', recalcError);
     }
+
+    await recordQuoteVersionSafely(quoteId, auth.user.id, 'UPDATED', previousSnapshot, `Deleted piece "${deletedPieceName}"`);
 
     return NextResponse.json({ success: true });
   } catch (error) {

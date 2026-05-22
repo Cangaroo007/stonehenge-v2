@@ -29,7 +29,7 @@ export async function GET(
 
     const quote = await prisma.quotes.findUnique({
       where: { id: quoteId },
-      select: { id: true, quote_number: true },
+      select: { id: true, quote_number: true, revision: true },
     });
 
     if (!quote) {
@@ -55,6 +55,7 @@ export async function GET(
       quote: {
         id: quote.id,
         quote_number: quote.quote_number,
+        currentVersion: quote.revision,
       },
       versions: versions.map((v: VersionWithUser) => ({
         id: v.id,
@@ -69,7 +70,7 @@ export async function GET(
         tax_amount: v.tax_amount,
         totalAmount: v.totalAmount,
         pieceCount: v.pieceCount,
-        isCurrent: false,
+        isCurrent: v.version === quote.revision,
         snapshotData: v.snapshotData ?? null,
       })),
     });
