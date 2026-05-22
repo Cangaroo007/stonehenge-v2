@@ -33,7 +33,7 @@ interface DrawingImportProps {
   quoteId: string;
   customerId: number;
   edgeTypes: EdgeType[];
-  onImportComplete: (count: number) => void;
+  onImportComplete: (count: number) => void | Promise<void>;
   onDrawingsSaved?: () => void;
   onClose: () => void;
   /** Pre-fill projectId when used within a unit block project context */
@@ -721,7 +721,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       }
 
       const result = await response.json();
-      onImportComplete(result.count);
+      await onImportComplete(result.count);
 
     } catch (err) {
       logger.error('[DrawingImport] Import error:', err);

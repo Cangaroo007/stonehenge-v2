@@ -647,8 +647,10 @@ export default function QuoteDetailClient({
       setEditQuote(data);
       setRooms(data.rooms || []);
       setPieces(flattenPieces(data.rooms || []));
+      return data;
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load quote');
+      return null;
     }
   }, [quoteIdStr, flattenPieces]);
 
@@ -2404,12 +2406,22 @@ export default function QuoteDetailClient({
       quoteId: quoteIdStr,
       importedPieces: count,
     });
-    await fetchQuote();
+    const refreshedQuote = await fetchQuote();
+    const refreshedPieceCount = refreshedQuote?.rooms?.reduce(
+      (sum: number, room: QuoteRoom) => sum + (room.pieces?.length ?? 0),
+      0
+    ) ?? 0;
     triggerRecalculate();
     triggerOptimise();
     markAsChanged();
     setImportSuccessMessage(`Imported ${count} piece${count !== 1 ? 's' : ''} from drawing`);
     setTimeout(() => setImportSuccessMessage(null), 5000);
+
+    if (count > 0 && refreshedPieceCount === 0) {
+      window.setTimeout(() => {
+        window.location.reload();
+      }, 250);
+    }
   }, [quoteIdStr, fetchQuote, triggerRecalculate, triggerOptimise, markAsChanged]);
 
   const handleTemplateApplied = useCallback(async (piecesCreated: number, templateName: string) => {
