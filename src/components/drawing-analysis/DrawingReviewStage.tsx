@@ -19,6 +19,7 @@ interface ExtractedPiece {
   id: string;
   pieceNumber: number;
   name: string;
+  sourceDrawingId?: string;
   materialId?: number | null;
   materialName?: string | null;
   shape?: string;
@@ -179,7 +180,7 @@ function PolygonTraceModal({
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,30%)_minmax(0,1fr)] gap-0 overflow-auto">
           <div className="p-5 bg-zinc-50 border-r border-zinc-200">
             <DrawingSourcePreview
-              drawingId={drawingId}
+              drawingId={piece.sourceDrawingId ?? drawingId}
               quoteId={quoteId}
               activePiece={piece}
               questions={[]}
@@ -409,7 +410,9 @@ export function DrawingReviewStage({
 }: DrawingReviewStageProps) {
   const [pieces, setPieces] = useState<ExtractedPiece[]>(initialPieces);
   const [editingCutouts, setEditingCutouts] = useState<string | null>(null);
-  const [tracePieceId, setTracePieceId] = useState<string | null>(null);
+  const [tracePieceId, setTracePieceId] = useState<string | null>(
+    initialPieces.find(piece => piece.shape === 'POLYGON' || piece.shape === 'IRREGULAR' || hasIncompleteGeometry(piece))?.id ?? null
+  );
   const [spotlightPieceId, setSpotlightPieceId] = useState<string | null>(
     initialPieces.find(piece => pieceNeedsReview(piece, clarificationQuestions))?.id ?? initialPieces[0]?.id ?? null
   );
@@ -642,7 +645,7 @@ export function DrawingReviewStage({
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] gap-4">
         <div className="space-y-3">
           <DrawingSourcePreview
-            drawingId={drawingId}
+            drawingId={spotlightPiece?.sourceDrawingId ?? drawingId}
             quoteId={quoteId}
             activePiece={spotlightPiece}
             questions={clarificationQuestions}
@@ -1030,7 +1033,7 @@ export function DrawingReviewStage({
         <PolygonTraceModal
           piece={tracePiece}
           quoteId={quoteId}
-          drawingId={drawingId}
+          drawingId={tracePiece.sourceDrawingId ?? drawingId}
           onSave={applyTracedGeometry}
           onClose={() => setTracePieceId(null)}
         />

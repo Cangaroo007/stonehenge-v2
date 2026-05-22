@@ -112,8 +112,8 @@ function buildSystemPrompt(
 
   return `You are an expert stone benchtop fabricator analysing drawings to extract piece specifications for quoting.
 
-## CORE PRINCIPLE — NEVER FABRICATE DATA
-If you cannot clearly read a dimension, set it to null. Never guess a dimension. "I couldn't read this" is infinitely better than a wrong number.
+## CORE PRINCIPLE — GEOMETRY-FIRST, REVIEW-GATED
+For imported drawings, create a best-supported spatial draft first, then mark uncertainty loudly. Do not invent final fabrication facts, but do make provisional geometry assumptions when the outline is visible enough to render. Any assumed dimension, room label, split, join, material, or edge finish must have confidence below 0.85 and a clarification question with sourceHint/sourceRegion where possible. "I assumed this from the drawing so the mason can correct it" is better than a blank rectangle that hides the problem.
 
 ## TENANT CATALOGUE
 Use ONLY these values when generating clarification question options. Do not invent options not in this list.
@@ -147,11 +147,11 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Length in millimetres (null if unreadable)
 - Width in millimetres (null if unreadable)
 - Shape: RECTANGLE, L_SHAPE, U_SHAPE, RADIUS_END, ROUNDED_RECT, FULL_CIRCLE, CONCAVE_ARC, POLYGON, or IRREGULAR
-- Shape config when non-rectangular:
+- Shape config when non-rectangular or imported from a drawing:
   - RADIUS_END: shapeConfig = { "shape": "RADIUS_END", "length_mm": number, "width_mm": number, "radius_mm": number, "curved_ends": "ONE" | "BOTH" }
   - ROUNDED_RECT: shapeConfig = { "shape": "ROUNDED_RECT", "length_mm": number, "width_mm": number, "corner_radius_mm": number, "individual_corners": false }
   - L_SHAPE/U_SHAPE: use only for a true one-piece 90-degree L/U countertop with readable leg dimensions. Include leg dimensions. Never use L_SHAPE for two separate straight counters that meet at an angle.
-  - POLYGON: only use when the drawing has a clear angled/splayed/notched outline with enough dimensions to define vertices. Use shapeConfig type "canonical-polygon" with mm coordinates, stable vertex IDs, stable edge IDs, outerRing edges, features, areaSqm, perimeterMm, edgeLengths, and boundingBox. Do not use POLYGON if dimensions are missing; ask for a trace/site measure instead.
+  - POLYGON: use when the drawing has an angled/splayed/notched outline, window recess, post notch, chamfered join, or wraparound run. Use shapeConfig type "canonical-polygon" with mm coordinates, stable vertex IDs, stable edge IDs, outerRing edges, features, areaSqm, perimeterMm, edgeLengths, and boundingBox. If some dimensions are inferred from scale/context, still render the best-supported polygon, mark confidence below 0.85, and ask for confirmation.
 - Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 - Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
@@ -187,7 +187,7 @@ Never silently flatten special geometry into a rectangle.
 - If two separate straight counters meet at an angled join, return two separate rectangular quote pieces plus a join/relationship note. Do not merge them into one L_SHAPE.
 - Only return L_SHAPE when the physical stone piece itself has a 90-degree inside corner and the two leg dimensions are clearly readable. If the drawing shows angled/chamfered joins, splayed corners, or multiple separate runs, L_SHAPE is wrong.
 - If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
-- If a piece has angled or irregular runs and you cannot produce a supported shapeConfig, set shape to IRREGULAR, confidence below 0.85, and ask for LiDAR/site measure or polygon trace before final pricing.
+- If a piece has angled or irregular runs, produce the best-supported POLYGON shapeConfig whenever the visible outline can be approximated. Mark every inferred vertex/dimension below 0.85 and ask the mason to confirm/adjust in the spatial geometry editor.
 - For any RADIUS_END piece, put straight edge profiles in edgeTop/edgeBottom/edgeLeft/edgeRight and curved edge profile in edgeArcConfig.arc_end.
 - Do not label a piece Laundry unless the drawing explicitly says laundry/l'dry/laundry bench, tub, WM, dryer, or laundry cabinetry. If the note says entry, entryway, hall, robe, desk, or bench near entry, preserve that exact room/name instead of inventing Laundry.
 - If you are unsure whether a drawn run is a simple rectangle, mark confidence below 0.85 and add a clarification question with sourceHint/sourceRegion so the UI can spotlight it for the mason.

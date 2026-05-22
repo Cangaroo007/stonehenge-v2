@@ -53,6 +53,7 @@ interface ExtractedPiece {
   id: string;
   pieceNumber: number;
   name: string;
+  sourceDrawingId?: string;
   pieceType?: string;
   materialId?: number | null;
   materialName?: string | null;
@@ -76,6 +77,29 @@ interface ExtractedPiece {
   isEditing: boolean;
   edgeSelections: EdgeSelections;
 }
+
+type CanonicalPolygonConfig = {
+  type: 'canonical-polygon';
+  vertices: Record<string, { id: string; x: number; y: number }>;
+  edges: Record<string, {
+    id: string;
+    start: string;
+    end: string;
+    profile: string;
+    finish: string;
+    exposure: string;
+    generatedBy?: string;
+    v2EdgeSide?: string;
+    v2EdgeTypeId?: string | null;
+  }>;
+  outerRing: { edges: string[]; orientation: 'ccw' | 'cw' };
+  innerRings: [];
+  features: unknown[];
+  areaSqm: number;
+  perimeterMm: number;
+  edgeLengths: Array<{ edgeId: string; lengthMm: number; v2EdgeSide?: string; v2EdgeTypeId?: string | null }>;
+  boundingBox: { minX: number; minY: number; maxX: number; maxY: number; lengthMm: number; widthMm: number };
+};
 
 interface AnalysisResult {
   success: boolean;
@@ -147,6 +171,144 @@ const NULL_EDGE_SELECTIONS: EdgeSelections = {
   edgeLeft: null,
   edgeRight: null,
 };
+
+function isCanonicalPolygonConfig(value: unknown): value is CanonicalPolygonConfig {
+  return !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'canonical-polygon';
+}
+
+function polygonArea(points: Array<{ x: number; y: number }>): number {
+  if (points.length < 3) return 0;
+  let sum = 0;
+  for (let index = 0; index < points.length; index++) {
+    const current = points[index];
+    const next = points[(index + 1) % points.length];
+    sum += current.x * next.y - next.x * current.y;
+  }
+  return Math.abs(sum) / 2;
+}
+
+function distanceMm(a: { x: number; y: number }, b: { x: number; y: number }): number {
+  return Math.hypot(b.x - a.x, b.y - a.y);
+}
+
+function seedDrawingPolygonConfig(pieceId: string, piece: {
+  length: number;
+  width: number;
+  shape?: string;
+  edgeSelections: EdgeSelections;
+}): CanonicalPolygonConfig | null {
+  if (!piece.length || !piece.width) return null;
+
+  const length = Math.max(Math.round(piece.length), 1);
+  const width = Math.max(Math.round(piece.width), 1);
+  const shape = (piece.shape ?? 'RECTANGLE').toUpperCase();
+  const key = pieceId.replace(/[^a-z0-9_-]/gi, '-');
+  const points = (() => {
+    if (shape === 'L_SHAPE') {
+      const leg = Math.max(Math.round(length * 0.45), Math.min(600, length));
+      const returnDepth = Math.max(Math.round(width * 0.6), Math.min(300, width));
+      return [
+        { x: 0, y: 0 },
+        { x: length, y: 0 },
+        { x: length, y: width },
+        { x: leg, y: width },
+        { x: leg, y: width + returnDepth },
+        { x: 0, y: width + returnDepth },
+      ];
+    }
+
+    if (shape === 'U_SHAPE') {
+      const leg = Math.max(Math.round(length * 0.25), Math.min(350, length));
+      const returnDepth = Math.max(Math.round(width * 0.65), Math.min(300, width));
+      return [
+        { x: 0, y: 0 },
+        { x: length, y: 0 },
+        { x: length, y: width + returnDepth },
+        { x: length - leg, y: width + returnDepth },
+        { x: length - leg, y: width },
+        { x: leg, y: width },
+        { x: leg, y: width + returnDepth },
+        { x: 0, y: width + returnDepth },
+      ];
+    }
+
+    if (shape === 'IRREGULAR' || shape === 'POLYGON') {
+      const chamfer = Math.max(Math.min(Math.round(width * 0.5), Math.round(length * 0.25)), 120);
+      return [
+        { x: 0, y: 0 },
+        { x: length, y: 0 },
+        { x: length, y: Math.max(width - chamfer, 1) },
+        { x: Math.max(length - chamfer, 1), y: width },
+        { x: 0, y: width },
+      ];
+    }
+
+    return [
+      { x: 0, y: 0 },
+      { x: length, y: 0 },
+      { x: length, y: width },
+      { x: 0, y: width },
+    ];
+  })();
+
+  const vertices = Object.fromEntries(points.map((point, index) => [
+    `${key}-v${index}`,
+    { id: `${key}-v${index}`, x: point.x, y: point.y },
+  ]));
+  const edgeSideByIndex = ['top', 'right', 'bottom', 'left'];
+  const edgeTypeBySide: Record<string, string | null> = {
+    top: piece.edgeSelections.edgeTop,
+    right: piece.edgeSelections.edgeRight,
+    bottom: piece.edgeSelections.edgeBottom,
+    left: piece.edgeSelections.edgeLeft,
+  };
+  const edges = Object.fromEntries(points.map((point, index) => {
+    const side = edgeSideByIndex[index] ?? `edge-${index + 1}`;
+    const edgeId = `${key}-e${index}`;
+    const nextIndex = (index + 1) % points.length;
+    const edgeType = edgeTypeBySide[side] ?? null;
+    return [edgeId, {
+      id: edgeId,
+      start: `${key}-v${index}`,
+      end: `${key}-v${nextIndex}`,
+      profile: edgeType ? 'pencil-round' : 'raw',
+      finish: edgeType ? 'polished' : 'unfinished',
+      exposure: 'exposed',
+      generatedBy: 'import',
+      v2EdgeSide: side,
+      v2EdgeTypeId: edgeType,
+    }];
+  }));
+  const edgeLengths = points.map((point, index) => {
+    const edgeId = `${key}-e${index}`;
+    const side = edgeSideByIndex[index] ?? `edge-${index + 1}`;
+    return {
+      edgeId,
+      lengthMm: Math.round(distanceMm(point, points[(index + 1) % points.length]) * 10) / 10,
+      v2EdgeSide: side,
+      v2EdgeTypeId: edgeTypeBySide[side] ?? null,
+    };
+  });
+  const xs = points.map(point => point.x);
+  const ys = points.map(point => point.y);
+  const minX = Math.min(...xs);
+  const minY = Math.min(...ys);
+  const maxX = Math.max(...xs);
+  const maxY = Math.max(...ys);
+
+  return {
+    type: 'canonical-polygon',
+    vertices,
+    edges,
+    outerRing: { edges: edgeLengths.map(edge => edge.edgeId), orientation: 'ccw' },
+    innerRings: [],
+    features: [],
+    areaSqm: Math.round((polygonArea(points) / 1_000_000) * 10_000) / 10_000,
+    perimeterMm: Math.round(edgeLengths.reduce((sum, edge) => sum + edge.lengthMm, 0) * 10) / 10,
+    edgeLengths,
+    boundingBox: { minX, minY, maxX, maxY, lengthMm: maxX - minX, widthMm: maxY - minY },
+  };
+}
 
 /**
  * Returns default edge selections using the first "polish" category edge type
@@ -358,6 +520,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     const allWarnings: string[] = [];
     let pieceIndex = 0;
     let lastClarificationQuestions: ClarificationQuestion[] = [];
+    const allClarificationQuestions: ClarificationQuestion[] = [];
     let lastClarificationDrawingId: string | undefined;
     let lastClarificationAnalysisId: number | undefined;
     let firstSavedDrawingId: string | undefined;
@@ -467,6 +630,10 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           // panel is intentionally single-document; multi-file imports go to review
           // with warnings so users can correct everything in one place.
           const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
+          allClarificationQuestions.push(...cQuestions.map(question => ({
+            ...question,
+            id: `${fileIndex}-${question.id}`,
+          })));
           const requiresReview = data.requiresReview === true && cQuestions.length > 0;
           if (requiresReview) {
             if (isMultiFile) {
@@ -499,15 +666,29 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                 edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
                 edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
               };
+              const seededShapeConfig = piece.shapeConfig ?? (
+                ['RECTANGLE', 'L_SHAPE', 'U_SHAPE', 'IRREGULAR', 'POLYGON'].includes((piece.shape ?? '').toUpperCase())
+                  ? seedDrawingPolygonConfig(id, {
+                      length: piece.length || 0,
+                      width: piece.width || 0,
+                      shape: piece.shape,
+                      edgeSelections: importedEdges,
+                    })
+                  : null
+              );
+              const seededShape = isCanonicalPolygonConfig(seededShapeConfig)
+                ? 'POLYGON'
+                : piece.shape || undefined;
               allPieces.push({
                 id,
                 pieceNumber: piece.pieceNumber || currentPieceIndex + 1,
                 name: piece.name || `Piece ${currentPieceIndex + 1}`,
+                sourceDrawingId: savedDrawingId,
                 pieceType: piece.pieceType || undefined,
                 materialId: piece.materialId ?? matchedMaterial?.id ?? null,
                 materialName: piece.materialName ?? piece.material ?? matchedMaterial?.name ?? null,
-                shape: piece.shape || undefined,
-                shapeConfig: piece.shapeConfig ?? null,
+                shape: seededShape,
+                shapeConfig: seededShapeConfig,
                 edgeArcConfig: piece.edgeArcConfig ?? null,
                 length: piece.length || 0,
                 width: piece.width || 0,
@@ -559,6 +740,9 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
       setExtractedPieces(allPieces);
       setWarnings(allWarnings);
+      if (allClarificationQuestions.length > 0) {
+        setClarificationQuestions(allClarificationQuestions);
+      }
 
       // Auto-select high confidence pieces (>= 70%)
       const highConfidenceIds = new Set(
