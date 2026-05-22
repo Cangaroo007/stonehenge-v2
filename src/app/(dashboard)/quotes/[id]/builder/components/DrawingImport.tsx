@@ -180,6 +180,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   // Clarification state
   const [clarificationQuestions, setClarificationQuestions] = useState<ClarificationQuestion[]>([]);
   const [clarificationDrawingId, setClarificationDrawingId] = useState<string | undefined>();
+  const [reviewDrawingId, setReviewDrawingId] = useState<string | undefined>();
   const [clarificationAnalysisId, setClarificationAnalysisId] = useState<number | undefined>();
   const [catalogue, setCatalogue] = useState<DrawingCatalogue>({ materials: [], edgeTypes: [], cutoutTypes: [] });
 
@@ -338,6 +339,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     setWarnings([]);
     setClarificationQuestions([]);
     setClarificationDrawingId(undefined);
+    setReviewDrawingId(undefined);
     setClarificationAnalysisId(undefined);
     setIsRoughDrawing(false);
     setRoughDrawingMessage(null);
@@ -358,6 +360,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     let lastClarificationQuestions: ClarificationQuestion[] = [];
     let lastClarificationDrawingId: string | undefined;
     let lastClarificationAnalysisId: number | undefined;
+    let firstSavedDrawingId: string | undefined;
     let shouldShowClarification = false;
 
     try {
@@ -442,7 +445,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           setUploadProgress('saving');
 
           // Step 3: Save drawing record with analysis data
-          await saveDrawingRecord(storedUploadResult, analysisResult as unknown as Record<string, unknown>);
+          const savedDrawing = await saveDrawingRecord(storedUploadResult, analysisResult as unknown as Record<string, unknown>);
+          const savedDrawingId = typeof savedDrawing?.id === 'string' ? savedDrawing.id : undefined;
+          if (savedDrawingId && !firstSavedDrawingId) {
+            firstSavedDrawingId = savedDrawingId;
+          }
           setAnalysisSteps(prev => prev.map((s, i) => i === 4 ? { ...s, done: true } : s));
           setAnalysisProgress(Math.round(((fileIndex + 1) / validSelectedFiles.length) * 100));
           setUploadProgress('complete');
@@ -466,7 +473,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
               allWarnings.push(`${selectedFile.name}: AI returned ${cQuestions.length} clarification question${cQuestions.length === 1 ? '' : 's'}; review the highlighted pieces before importing.`);
             } else {
               lastClarificationQuestions = cQuestions;
-              lastClarificationDrawingId = data.analysis?.drawingId ?? data.analysis?.id ?? undefined;
+              lastClarificationDrawingId = savedDrawingId;
               lastClarificationAnalysisId =
                 typeof data.analysis?.analysisId === 'number' ? data.analysis.analysisId
                 : typeof data.analysis?.id === 'number' ? data.analysis.id
@@ -530,7 +537,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           // If upload succeeded but analysis failed, still save the drawing.
           if (storedUploadResult && !analysisResult) {
             try {
-              await saveDrawingRecord(storedUploadResult);
+              const savedDrawing = await saveDrawingRecord(storedUploadResult);
+              const savedDrawingId = typeof savedDrawing?.id === 'string' ? savedDrawing.id : undefined;
+              if (savedDrawingId && !firstSavedDrawingId) {
+                firstSavedDrawingId = savedDrawingId;
+              }
               onDrawingsSaved?.();
             } catch (saveErr) {
               logger.error('[DrawingImport] Failed to save drawing after analysis error:', saveErr);
@@ -559,9 +570,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       if (shouldShowClarification) {
         setClarificationQuestions(lastClarificationQuestions);
         setClarificationDrawingId(lastClarificationDrawingId);
+        setReviewDrawingId(lastClarificationDrawingId ?? firstSavedDrawingId);
         setClarificationAnalysisId(lastClarificationAnalysisId);
         setStep('clarification');
       } else {
+        setReviewDrawingId(firstSavedDrawingId);
         setStep('review');
       }
 
@@ -1425,7 +1438,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-[96vw] w-full max-h-[90vh] overflow-auto">
         {step === 'upload' && renderUploadStep()}
         {step === 'analyzing' && renderAnalyzingStep()}
         {step === 'clarification' && (
@@ -1473,7 +1486,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             onBack={() => setStep('clarification')}
             onCancel={onClose}
             quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
-            drawingId={clarificationDrawingId}
+            drawingId={reviewDrawingId ?? clarificationDrawingId}
             analysisId={clarificationAnalysisId}
             isImporting={isImporting}
             importError={error}

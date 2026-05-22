@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback, useEffect } from 'react';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
 import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
@@ -43,6 +43,13 @@ interface DrawingReviewStageProps {
   analysisId?: number;
   isImporting?: boolean;
   importError?: string | null;
+}
+
+interface DrawingDetails {
+  id: string;
+  filename: string;
+  mimeType: string;
+  url: string;
 }
 
 function confidenceLevel(c: number): 'high' | 'amber' | 'red' {
@@ -90,6 +97,122 @@ const SHAPE_LABELS: Record<string, string> = {
   FULL_CIRCLE: 'Full Circle',
   CONCAVE_ARC: 'Concave Arc',
 };
+
+function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quoteId?: number }) {
+  const [details, setDetails] = useState<DrawingDetails | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!drawingId) {
+      setDetails(null);
+      setError(null);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoading(true);
+    setError(null);
+
+    fetch(`/api/drawings/${drawingId}/details`)
+      .then(async response => {
+        if (!response.ok) {
+          const body = await response.json().catch(() => ({}));
+          throw new Error(body.error || 'Could not load drawing preview');
+        }
+        return response.json();
+      })
+      .then(data => {
+        if (!cancelled) {
+          setDetails(data as DrawingDetails);
+        }
+      })
+      .catch(err => {
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not load drawing preview');
+        }
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setIsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [drawingId]);
+
+  const isPdf = details?.mimeType?.includes('pdf') || details?.filename?.toLowerCase().endsWith('.pdf');
+  const isImage = details?.mimeType?.startsWith('image/');
+
+  return (
+    <aside className="lg:sticky lg:top-0 h-[520px] lg:h-[calc(90vh-190px)] min-h-[420px] rounded-lg border border-zinc-200 bg-zinc-50 overflow-hidden flex flex-col">
+      <div className="px-3 py-2 border-b border-zinc-200 bg-white flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Source Drawing</p>
+          <p className="text-sm font-medium text-zinc-800 truncate">
+            {details?.filename || (drawingId ? 'Loading drawing...' : 'No drawing linked')}
+          </p>
+        </div>
+        {quoteId && drawingId && (
+          <a
+            href={`/quotes/${quoteId}/drawings/${drawingId}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="shrink-0 text-xs font-medium text-primary-600 hover:text-primary-700"
+          >
+            Open
+          </a>
+        )}
+      </div>
+
+      <div className="flex-1 bg-zinc-100">
+        {isLoading && (
+          <div className="h-full flex items-center justify-center text-sm text-zinc-500">
+            Loading drawing preview...
+          </div>
+        )}
+
+        {!isLoading && error && (
+          <div className="h-full flex items-center justify-center p-4 text-center text-sm text-red-600">
+            {error}
+          </div>
+        )}
+
+        {!isLoading && !error && !drawingId && (
+          <div className="h-full flex items-center justify-center p-4 text-center text-sm text-zinc-500">
+            The source drawing was not linked to this review. Open the quote drawings panel to cross-check the file.
+          </div>
+        )}
+
+        {!isLoading && !error && details && isPdf && (
+          <iframe
+            title={details.filename}
+            src={`${details.url}#view=FitH`}
+            className="w-full h-full border-0 bg-white"
+          />
+        )}
+
+        {!isLoading && !error && details && isImage && (
+          <div className="h-full w-full overflow-auto bg-white">
+            <img
+              src={details.url}
+              alt={details.filename}
+              className="max-w-none min-w-full h-auto"
+            />
+          </div>
+        )}
+
+        {!isLoading && !error && details && !isPdf && !isImage && (
+          <div className="h-full flex items-center justify-center p-4 text-center text-sm text-zinc-500">
+            Preview is not available for this file type. Use Open to view the source drawing.
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+}
 
 export function DrawingReviewStage({
   pieces: initialPieces,
@@ -303,43 +426,47 @@ export function DrawingReviewStage({
         </div>
       )}
 
-      {/* Bulk defaults. These are convenience actions only; row-level material can differ. */}
-      <div className="flex items-center gap-4 mb-4 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
-        <span className="text-sm font-medium text-zinc-700">Bulk defaults:</span>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-zinc-600">Material</label>
-          <MaterialPickerV2
-            materials={pickerMaterials}
-            value={null}
-            onChange={(materialId) => applyMaterialToAll(materialId)}
-            placeholder="Select material"
-          />
-        </div>
-        <div className="flex items-center gap-2">
-          <label className="text-sm text-zinc-600">Thickness</label>
-          <div className="inline-flex rounded-lg border border-zinc-300 overflow-hidden">
-            <button
-              onClick={() => applyThicknessToAll(20)}
-              className="px-3 py-1 text-sm hover:bg-zinc-100 transition-colors"
-            >
-              20mm
-            </button>
-            <button
-              onClick={() => applyThicknessToAll(40)}
-              className="px-3 py-1 text-sm border-l border-zinc-300 hover:bg-zinc-100 transition-colors"
-            >
-              40mm
-            </button>
-          </div>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] gap-4">
+        <DrawingSourcePreview drawingId={drawingId} quoteId={quoteId} />
 
-      {/* Per-room sections */}
-      {roomGroups.map(group => (
-        <div key={group.name} className="mb-6">
-          <h3 className="text-sm font-semibold text-zinc-800 mb-2 px-1">{group.name}</h3>
-          <div className="overflow-x-auto border border-zinc-200 rounded-lg">
-            <table className="w-full min-w-[980px] text-sm">
+        <div className="min-w-0">
+          {/* Bulk defaults. These are convenience actions only; row-level material can differ. */}
+          <div className="flex flex-wrap items-center gap-4 mb-4 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
+            <span className="text-sm font-medium text-zinc-700">Bulk defaults:</span>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-zinc-600">Material</label>
+              <MaterialPickerV2
+                materials={pickerMaterials}
+                value={null}
+                onChange={(materialId) => applyMaterialToAll(materialId)}
+                placeholder="Select material"
+              />
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-sm text-zinc-600">Thickness</label>
+              <div className="inline-flex rounded-lg border border-zinc-300 overflow-hidden">
+                <button
+                  onClick={() => applyThicknessToAll(20)}
+                  className="px-3 py-1 text-sm hover:bg-zinc-100 transition-colors"
+                >
+                  20mm
+                </button>
+                <button
+                  onClick={() => applyThicknessToAll(40)}
+                  className="px-3 py-1 text-sm border-l border-zinc-300 hover:bg-zinc-100 transition-colors"
+                >
+                  40mm
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Per-room sections */}
+          {roomGroups.map(group => (
+            <div key={group.name} className="mb-6">
+              <h3 className="text-sm font-semibold text-zinc-800 mb-2 px-1">{group.name}</h3>
+              <div className="overflow-x-auto border border-zinc-200 rounded-lg">
+                <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="bg-zinc-50 text-zinc-600 text-xs uppercase tracking-wider">
                   <th className="px-3 py-2 text-left font-medium">#</th>
@@ -562,10 +689,12 @@ export function DrawingReviewStage({
                   );
                 })}
               </tbody>
-            </table>
-          </div>
+                </table>
+              </div>
+            </div>
+          ))}
         </div>
-      ))}
+      </div>
 
       {/* Confidence legend */}
       <div className="mt-4 flex items-center gap-4 text-xs text-zinc-500">
