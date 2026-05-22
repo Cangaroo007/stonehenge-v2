@@ -655,6 +655,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           }
 
           // Transform analysis results to ExtractedPiece format
+          const piecesBeforeThisFile = allPieces.length;
           for (const room of analysisResult.rooms || []) {
             for (const piece of room.pieces || []) {
               const currentPieceIndex = pieceIndex++;
@@ -704,6 +705,17 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                 edgeSelections: importedEdges,
               });
             }
+          }
+
+          const filePieceCount = allPieces.length - piecesBeforeThisFile;
+          if (filePieceCount === 0) {
+            allWarnings.push(
+              `${selectedFile.name}: AI extracted 0 pieces from this file. Re-open the source drawing and run spatial review; this file may need manual tracing or a stronger interpretation pass.`
+            );
+          } else if (isMultiFile) {
+            allWarnings.push(
+              `${selectedFile.name}: AI extracted ${filePieceCount} piece${filePieceCount === 1 ? '' : 's'} from this file.`
+            );
           }
 
           allWarnings.push(...(analysisResult.warnings || []).map(warning =>

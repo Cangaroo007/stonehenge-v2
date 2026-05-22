@@ -144,6 +144,12 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 
 ## WHAT TO EXTRACT
 
+### File coverage:
+- Treat the current uploaded file as a source drawing that must be accounted for, even when it is part of a multi-file quote package.
+- If the file contains any stone-relevant plan, sketch, elevation, marked-up page, or schedule, return the pieces/specs from that file. Do not assume another uploaded file will cover it.
+- If you genuinely find zero quote-ready stone pieces, return a warning explaining exactly why, e.g. "No stone pieces found: this page is cabinetry elevations only" or "No tops found: file is colour selection only".
+- If a file contains multiple drawings/pages, inspect each page and mention every page in metadata.pageReview. A page with no extracted pieces still needs a pageReview reason.
+
 ### Page-by-page source review:
 - Inspect every page in the uploaded document before extracting pieces.
 - Treat specification/scope pages as equal priority to drawings. They often contain material, thickness, finish, apron/build-up and exclusion notes that are not repeated on plan pages.
@@ -250,6 +256,7 @@ Before returning JSON, audit your own pieces:
 - If you cannot determine the split, return the uncertain dimensions as null and ask clarification questions rather than guessing.
 - If a piece name says L-Shape but the visible corner is angled/splayed, rename or model it as a polygon. The shape label should describe the geometry, not force it into an L_SHAPE.
 - A polygon with only four right-angle vertices is probably a missed angled/chamfered detail. Re-check the source before returning it for any piece whose drawing shows angled joins, diagonal connectors, or handwritten angle arcs.
+- If the current file has visible benchtops but your output has zero pieces, your extraction is incomplete. Re-read the file and produce at least a provisional spatial draft with clarification questions.
 
 ### Confidence Scoring:
 - 0.9–1.0: Clear dimension line, no ambiguity
