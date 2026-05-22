@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
+import Image from 'next/image';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
 import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
@@ -270,11 +271,13 @@ function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quot
         )}
 
         {!isLoading && !error && details && isImage && (
-          <div className="h-full w-full overflow-auto bg-white">
-            <img
+          <div className="relative h-full w-full overflow-auto bg-white">
+            <Image
               src={details.url}
               alt={details.filename}
-              className="max-w-none min-w-full h-auto"
+              fill
+              unoptimized
+              className="object-contain"
             />
           </div>
         )}

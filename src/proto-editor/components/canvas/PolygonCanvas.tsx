@@ -475,7 +475,7 @@ export default function PolygonCanvas(props: PolygonCanvasProps) {
       if (arc) out.set(vId, arc);
     }
     return out;
-  }, [piece.outerRing.edges, piece.edges, piece.vertices, verticesById]);
+  }, [piece.outerRing.edges, piece.edges, verticesById]);
 
   const polygonPoints = useMemo(() => {
     const flat: number[] = [];
@@ -516,7 +516,7 @@ export default function PolygonCanvas(props: PolygonCanvasProps) {
   // the piece in place without changing its identity.
   const joinLineAnnotations = useMemo(
     () => computeJoinLineAnnotations(piece),
-    [piece, piece.vertices, piece.edges, piece.outerRing.edges],
+    [piece],
   );
 
   // Round 16 (Fix 4 + Fix 7) — curve helpers. A "smooth-curve" outer-ring

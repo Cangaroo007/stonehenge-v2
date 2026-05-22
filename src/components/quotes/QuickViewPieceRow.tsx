@@ -33,6 +33,7 @@ import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, p
 import RelationshipEditor from './RelationshipEditor';
 import EdgePanel from '@/components/quotes/EdgePanel';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import SpatialPieceEditModal from './SpatialPieceEditModal';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -816,6 +817,7 @@ export default function QuickViewPieceRow({
   const [editingName, setEditingName] = useState(false);
   const [localName, setLocalName] = useState(piece.name);
   const [accordionOpen, setAccordionOpen] = useState(false);
+  const [spatialEditorOpen, setSpatialEditorOpen] = useState(false);
   const [quickEdgeProfileId, setQuickEdgeProfileId] = useState<string | null>(null);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
   const [flashEdge, setFlashEdge] = useState<string | null>(null);
@@ -1168,6 +1170,22 @@ export default function QuickViewPieceRow({
       }
     }
   }, [piece.shapeType, savePiece]);
+
+  const handleSpatialGeometrySave = useCallback(async (
+    shapeConfig: import('@/lib/types/shapes').CanonicalPolygonShapeConfig,
+    lengthMm: number,
+    widthMm: number,
+  ) => {
+    setLocalLength(lengthMm);
+    setLocalWidth(widthMm);
+    setLocalShapeConfig(shapeConfig as unknown as Record<string, unknown>);
+    await savePieceImmediate({
+      lengthMm,
+      widthMm,
+      shapeType: 'POLYGON',
+      shapeConfig,
+    });
+  }, [savePieceImmediate]);
 
   // ── Name handler ────────────────────────────────────────────────────────
   const handleNameSave = useCallback(() => {
@@ -2589,6 +2607,24 @@ export default function QuickViewPieceRow({
       {/* ══════════════ ACCORDION (Full View) ══════════════ */}
       {accordionOpen && (
         <div className="border-t border-gray-100">
+          {isEditMode && fullPiece && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 px-4 py-3">
+              <div>
+                <p className="text-sm font-semibold text-gray-900">Spatial geometry</p>
+                <p className="text-xs text-gray-500">
+                  Use this for angled joins, splayed corners, radius ends, curves, and non-rectangular pieces.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setSpatialEditorOpen(true)}
+                className="rounded-md border border-blue-200 bg-blue-50 px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+              >
+                Spatial edit
+              </button>
+            </div>
+          )}
+
           {/* Full PieceVisualEditor SVG */}
           <PieceEditorErrorBoundary pieceName={piece.name}>
             <div className="px-4 py-3 border-b border-gray-100 min-h-[320px]">
@@ -3051,6 +3087,28 @@ export default function QuickViewPieceRow({
         </div>
       )}
     </div>
+
+    {spatialEditorOpen && isEditMode && fullPiece && (
+      <SpatialPieceEditModal
+        piece={{
+          id: piece.id,
+          name: piece.name,
+          lengthMm: localLength,
+          widthMm: localWidth,
+          thicknessMm: fullPiece.thicknessMm,
+          materialId: fullPiece.materialId ?? null,
+          materialName: fullPiece.materialName ?? piece.materialName ?? null,
+          shapeType: piece.shapeType ?? 'RECTANGLE',
+          shapeConfig: localShapeConfig ?? piece.shapeConfig ?? null,
+          edgeTop: localEdges.edgeTop,
+          edgeBottom: localEdges.edgeBottom,
+          edgeLeft: localEdges.edgeLeft,
+          edgeRight: localEdges.edgeRight,
+        }}
+        onClose={() => setSpatialEditorOpen(false)}
+        onSave={handleSpatialGeometrySave}
+      />
+    )}
 
     {/* Quick-add material modal */}
     {showNewMaterialModal && (

@@ -16,6 +16,7 @@ import type { PieceRelationshipData } from '@/lib/types/piece-relationship';
 import RelationshipEditor from './RelationshipEditor';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import { getCanonicalPolygonConfig, polygonDimensionLabel, polygonEdgeSummary, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
+import SpatialPieceEditModal from './SpatialPieceEditModal';
 
 type AttachedPieceTypes = Record<string, 'WATERFALL' | 'SPLASHBACK'> | undefined;
 
@@ -576,6 +577,7 @@ function PieceVisualEditorSection({
   relationships?: PieceRelationshipData[];
 }) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
+  const [spatialEditorOpen, setSpatialEditorOpen] = useState(false);
 
   // In view mode, piece edge IDs may be null because serverData doesn't include them.
   // Extract edge IDs from the breakdown (which stores edgeTypeId per side).
@@ -898,8 +900,49 @@ function PieceVisualEditorSection({
     [fullPiece, onSavePiece, piece.id, piece.shapeType]
   );
 
+  const handleSpatialGeometrySave = useCallback(async (
+    shapeConfig: import('@/lib/types/shapes').CanonicalPolygonShapeConfig,
+    lengthMm: number,
+    widthMm: number,
+  ) => {
+    if (!fullPiece || !onSavePiece) return;
+    await Promise.resolve(onSavePiece(
+      piece.id,
+      {
+        lengthMm,
+        widthMm,
+        thicknessMm: fullPiece.thicknessMm,
+        materialId: fullPiece.materialId,
+        materialName: fullPiece.materialName,
+        edgeTop: fullPiece.edgeTop,
+        edgeBottom: fullPiece.edgeBottom,
+        edgeLeft: fullPiece.edgeLeft,
+        edgeRight: fullPiece.edgeRight,
+        cutouts: fullPiece.cutouts,
+        shapeType: 'POLYGON',
+        shapeConfig,
+      },
+      fullPiece.quote_rooms?.name || 'Unassigned'
+    ));
+  }, [fullPiece, onSavePiece, piece.id]);
+
   return (
     <div className="px-4 py-3 border-t border-gray-100">
+      {isEditMode && fullPiece && (
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-100 bg-blue-50 px-3 py-2">
+          <div>
+            <p className="text-sm font-semibold text-blue-950">Spatial geometry</p>
+            <p className="text-xs text-blue-700">Use for angled joins, radius ends, curves, notches, and true polygon editing.</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => setSpatialEditorOpen(true)}
+            className="rounded-md border border-blue-200 bg-white px-3 py-1.5 text-sm font-medium text-blue-700 hover:bg-blue-100"
+          >
+            Spatial edit
+          </button>
+        </div>
+      )}
       <PieceVisualEditor
         lengthMm={piece.lengthMm}
         widthMm={piece.widthMm}
@@ -939,6 +982,27 @@ function PieceVisualEditorSection({
         onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
         attachedPieceTypes={attachedPieceTypes}
       />
+      {spatialEditorOpen && isEditMode && fullPiece && (
+        <SpatialPieceEditModal
+          piece={{
+            id: piece.id,
+            name: piece.name,
+            lengthMm: piece.lengthMm,
+            widthMm: piece.widthMm,
+            thicknessMm: fullPiece.thicknessMm,
+            materialId: fullPiece.materialId ?? null,
+            materialName: fullPiece.materialName ?? piece.materialName ?? null,
+            shapeType: piece.shapeType ?? 'RECTANGLE',
+            shapeConfig: piece.shapeConfig ?? null,
+            edgeTop: fullPiece.edgeTop,
+            edgeBottom: fullPiece.edgeBottom,
+            edgeLeft: fullPiece.edgeLeft,
+            edgeRight: fullPiece.edgeRight,
+          }}
+          onClose={() => setSpatialEditorOpen(false)}
+          onSave={handleSpatialGeometrySave}
+        />
+      )}
     </div>
   );
 }
