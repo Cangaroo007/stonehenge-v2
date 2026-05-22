@@ -79,7 +79,40 @@ export interface CanonicalPolygonShapeConfig {
 }
 
 export function isCanonicalPolygonShapeConfig(value: unknown): value is CanonicalPolygonShapeConfig {
-  return !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'canonical-polygon';
+  if (!value || typeof value !== 'object') return false;
+  const config = value as Partial<CanonicalPolygonShapeConfig>;
+  if (config.type !== 'canonical-polygon') return false;
+  if (!config.vertices || typeof config.vertices !== 'object') return false;
+  if (!config.edges || typeof config.edges !== 'object') return false;
+  if (!config.outerRing || !Array.isArray(config.outerRing.edges)) return false;
+  if (!Array.isArray(config.innerRings)) return false;
+  if (!Array.isArray(config.features)) return false;
+  if (!Array.isArray(config.edgeLengths)) return false;
+  if (!config.boundingBox || typeof config.boundingBox !== 'object') return false;
+  const bbox = config.boundingBox as Partial<CanonicalPolygonShapeConfig['boundingBox']>;
+  if (
+    !Number.isFinite(bbox.minX) ||
+    !Number.isFinite(bbox.minY) ||
+    !Number.isFinite(bbox.maxX) ||
+    !Number.isFinite(bbox.maxY) ||
+    !Number.isFinite(bbox.lengthMm) ||
+    !Number.isFinite(bbox.widthMm)
+  ) {
+    return false;
+  }
+  const vertices = config.vertices as Record<string, unknown>;
+  const edges = config.edges as Record<string, unknown>;
+  for (const vertexId of config.outerRing.edges) {
+    const edge = edges[vertexId] as Partial<CanonicalPolygonShapeConfig['edges'][string]> | undefined;
+    if (!edge || typeof edge.start !== 'string' || typeof edge.end !== 'string') return false;
+    const start = vertices[edge.start] as Partial<CanonicalPolygonShapeConfig['vertices'][string]> | undefined;
+    const end = vertices[edge.end] as Partial<CanonicalPolygonShapeConfig['vertices'][string]> | undefined;
+    if (!start || !end) return false;
+    if (!Number.isFinite(start.x) || !Number.isFinite(start.y) || !Number.isFinite(end.x) || !Number.isFinite(end.y)) {
+      return false;
+    }
+  }
+  return config.outerRing.edges.length >= 3;
 }
 
 export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | RoundedRectConfig | CanonicalPolygonShapeConfig | null;

@@ -74,6 +74,13 @@ export function v2PieceToProtoPiece(piece: V2PieceAdapterInput): Piece {
   if (isCanonicalPolygonShapeConfig(piece.shape_config)) {
     return canonicalPolygonConfigToProtoPiece(piece);
   }
+  if (
+    piece.shape_config &&
+    typeof piece.shape_config === 'object' &&
+    (piece.shape_config as { type?: unknown }).type === 'canonical-polygon'
+  ) {
+    throw new Error('Invalid polygon shape_config: malformed canonical polygon snapshot');
+  }
 
   return rectangleV2PieceToProtoPiece(piece);
 }

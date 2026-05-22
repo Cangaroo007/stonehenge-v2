@@ -50,14 +50,29 @@ export function buildPolygonRenderModel(
 ): PolygonRenderModel | null {
   const config = getCanonicalPolygonConfig(value);
   if (!config) return null;
+  try {
+    return buildSafePolygonRenderModel(config, options);
+  } catch (error) {
+    console.warn('Unable to render canonical polygon preview', error);
+    return null;
+  }
+}
 
+function buildSafePolygonRenderModel(
+  config: CanonicalPolygonShapeConfig,
+  options: { width?: number; height?: number; padding?: number } = {},
+): PolygonRenderModel | null {
   const width = options.width ?? 260;
   const height = options.height ?? 170;
   const padding = options.padding ?? 14;
   const bbox = config.boundingBox;
+  if (!bbox || !Number.isFinite(bbox.lengthMm) || !Number.isFinite(bbox.widthMm)) {
+    return null;
+  }
   const rawW = Math.max(bbox.lengthMm, 1);
   const rawH = Math.max(bbox.widthMm, 1);
   const scale = Math.min((width - padding * 2) / rawW, (height - padding * 2) / rawH);
+  if (!Number.isFinite(scale) || scale <= 0) return null;
   const offsetX = padding - bbox.minX * scale + (width - padding * 2 - rawW * scale) / 2;
   const offsetY = padding + bbox.maxY * scale + (height - padding * 2 - rawH * scale) / 2;
 

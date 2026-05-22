@@ -81,7 +81,7 @@ describe('proto geometry adapter', () => {
         edge('l-e5', 'l-v5', 'l-v0', 'left'),
       ],
       outerRing: {
-        edges: ['l-e0', 'l-e1', 'l-e2', 'l-e3', 'l-e4', 'l-e5'] as typeof piece.outerRing.edges,
+        edges: ['l-e0', 'l-e1', 'l-e2', 'l-e3', 'l-e4', 'l-e5'] as unknown as typeof piece.outerRing.edges,
         orientation: 'ccw' as const,
       },
     };

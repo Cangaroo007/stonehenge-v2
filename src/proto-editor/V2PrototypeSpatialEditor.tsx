@@ -13,6 +13,10 @@ import type {
   Vertex,
   VertexId,
 } from '@stonehenge-proto/geometry';
+import {
+  computeEdgeLengthMm,
+  interiorAngleDeg,
+} from '@stonehenge-proto/geometry';
 import type { CanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 import { isCanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 import {
@@ -235,6 +239,7 @@ export default function V2PrototypeSpatialEditor({
   const [gridVisible, setGridVisible] = useState(true);
   const [measurementMode, setMeasurementMode] = useState(true);
   const [anglesVisible, setAnglesVisible] = useState(true);
+  const [fullScreen, setFullScreen] = useState(false);
 
   const featurePlacement = useFeaturePlacement({
     piece: editor.piece,
@@ -247,6 +252,22 @@ export default function V2PrototypeSpatialEditor({
     if (!editor.state.selectedEdgeId) return null;
     return editor.piece.edges.find(edge => edge.id === editor.state.selectedEdgeId) ?? null;
   }, [editor.piece.edges, editor.state.selectedEdgeId]);
+
+  const selectedEdgeLengthMm = useMemo(() => {
+    if (!selectedEdge) return null;
+    return Math.round(computeEdgeLengthMm(selectedEdge, editor.piece.vertices) * 10) / 10;
+  }, [editor.piece.vertices, selectedEdge]);
+
+  const selectedVertex = useMemo(() => {
+    if (!editor.state.selectedVertexId) return null;
+    return editor.piece.vertices.find(vertex => vertex.id === editor.state.selectedVertexId) ?? null;
+  }, [editor.piece.vertices, editor.state.selectedVertexId]);
+
+  const selectedVertexAngleDeg = useMemo(() => {
+    if (!selectedVertex) return null;
+    const angle = interiorAngleDeg(editor.piece, selectedVertex.id);
+    return angle === null ? null : Math.round(angle * 10) / 10;
+  }, [editor.piece, selectedVertex]);
 
   const save = useCallback(() => {
     const snapshot = protoPieceToCanonicalGeometrySnapshot(editor.piece);
@@ -267,6 +288,27 @@ export default function V2PrototypeSpatialEditor({
     if (!selectedEdge) return;
     editor.setEdgeExposure(selectedEdge.id, exposure);
   }, [editor, selectedEdge]);
+
+  const setSelectedEdgeLength = useCallback((value: string) => {
+    if (!selectedEdge) return;
+    const length = Number(value);
+    if (!Number.isFinite(length) || length <= 0) return;
+    editor.setEdgeLength(selectedEdge.id, Math.round(length));
+  }, [editor, selectedEdge]);
+
+  const setSelectedVertexAngle = useCallback((value: string) => {
+    if (!selectedVertex) return;
+    const angle = Number(value);
+    if (!Number.isFinite(angle) || angle <= 0 || angle >= 360) return;
+    editor.setVertexAngle(selectedVertex.id, Math.round(angle * 10) / 10);
+  }, [editor, selectedVertex]);
+
+  const setSelectedCornerRadius = useCallback((value: string) => {
+    if (!selectedVertex) return;
+    const radius = Number(value);
+    if (!Number.isFinite(radius) || radius < 0) return;
+    editor.setCornerRadius(selectedVertex.id, Math.round(radius));
+  }, [editor, selectedVertex]);
 
   const handlePlaceFeature = useCallback((xMm: number, yMm: number) => {
     if (editor.state.toolMode.kind === 'structural-place') {
@@ -297,7 +339,11 @@ export default function V2PrototypeSpatialEditor({
   const isPostToolActive = activeToolKind === 'structural-place' && editor.state.toolMode.shape === 'rectangle';
 
   return (
-    <div className="flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white">
+    <div className={
+      fullScreen
+        ? 'fixed inset-3 z-[120] flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl'
+        : 'flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white'
+    }>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
         <div>
           <h3 className="text-base font-semibold text-zinc-900">Spatial polygon editor</h3>
@@ -328,11 +374,18 @@ export default function V2PrototypeSpatialEditor({
           <button type="button" onClick={() => setGridVisible(value => !value)} className={gridVisible ? 'btn-primary' : 'btn-secondary'}>
             Grid
           </button>
+          <button type="button" onClick={() => setFullScreen(value => !value)} className={fullScreen ? 'btn-primary' : 'btn-secondary'}>
+            {fullScreen ? 'Exit full page' : 'Full page'}
+          </button>
         </div>
       </div>
 
-      <div className="grid min-h-[560px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_280px]">
-        <div className="min-h-[520px] bg-zinc-950">
+      <div className={
+        fullScreen
+          ? 'grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]'
+          : 'grid min-h-[560px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px]'
+      }>
+        <div className={fullScreen ? 'min-h-[calc(100vh-190px)] bg-zinc-950' : 'min-h-[520px] bg-zinc-950'}>
           <PolygonCanvas
             piece={editor.piece}
             toolMode={editor.state.toolMode}
@@ -367,6 +420,8 @@ export default function V2PrototypeSpatialEditor({
             onResizeFeatureAsymmetric={editor.resizeAndShiftFeature}
             onDeleteFeature={editor.removeFeature}
             joins={editor.state.job.joins}
+            fullScreen={fullScreen}
+            onToggleFullScreen={() => setFullScreen(value => !value)}
             gridVisible={gridVisible}
             onToggleGrid={() => setGridVisible(value => !value)}
             measurementMode={measurementMode}
@@ -376,7 +431,7 @@ export default function V2PrototypeSpatialEditor({
           />
         </div>
 
-        <aside className="border-l border-zinc-200 bg-zinc-50 p-4">
+        <aside className="overflow-auto border-l border-zinc-200 bg-zinc-50 p-4">
           <div className="space-y-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500">Piece</p>
@@ -390,6 +445,25 @@ export default function V2PrototypeSpatialEditor({
               <p className="text-sm font-semibold text-zinc-800">Selected edge</p>
               {selectedEdge ? (
                 <div className="mt-3 space-y-3">
+                  <label className="block text-xs font-medium text-zinc-500">
+                    Length
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        key={`${selectedEdge.id}-${selectedEdgeLengthMm ?? 0}`}
+                        type="number"
+                        inputMode="numeric"
+                        defaultValue={selectedEdgeLengthMm ?? ''}
+                        onBlur={event => setSelectedEdgeLength(event.currentTarget.value)}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono"
+                      />
+                      <span className="text-xs text-zinc-500">mm</span>
+                    </div>
+                  </label>
                   <label className="block text-xs font-medium text-zinc-500">
                     Profile
                     <select
@@ -417,6 +491,89 @@ export default function V2PrototypeSpatialEditor({
                 </div>
               ) : (
                 <p className="mt-2 text-xs text-zinc-500">Click an edge on the canvas to edit profile or wall/join exposure.</p>
+              )}
+            </div>
+
+            <div className="rounded-lg border border-zinc-200 bg-white p-3">
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-semibold text-zinc-800">Selected corner</p>
+                {selectedVertexAngleDeg !== null && (
+                  <button
+                    type="button"
+                    onClick={editor.correctAngles}
+                    className="text-xs font-medium text-blue-600 hover:text-blue-800"
+                  >
+                    Correct angles
+                  </button>
+                )}
+              </div>
+              {selectedVertex ? (
+                <div className="mt-3 space-y-3">
+                  <label className="block text-xs font-medium text-zinc-500">
+                    Interior angle
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        key={`${selectedVertex.id}-angle-${selectedVertexAngleDeg ?? 0}`}
+                        type="number"
+                        inputMode="decimal"
+                        defaultValue={selectedVertexAngleDeg ?? ''}
+                        onBlur={event => setSelectedVertexAngle(event.currentTarget.value)}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono"
+                      />
+                      <span className="text-xs text-zinc-500">deg</span>
+                    </div>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[45, 90, 135].map(angle => (
+                      <button
+                        key={angle}
+                        type="button"
+                        onClick={() => editor.setVertexAngle(selectedVertex.id, angle)}
+                        className="btn-secondary"
+                      >
+                        {angle}°
+                      </button>
+                    ))}
+                  </div>
+                  <label className="block text-xs font-medium text-zinc-500">
+                    Corner radius
+                    <div className="mt-1 flex items-center gap-2">
+                      <input
+                        key={`${selectedVertex.id}-radius-${selectedVertex.cornerRadiusMm ?? 0}`}
+                        type="number"
+                        inputMode="numeric"
+                        defaultValue={selectedVertex.cornerRadiusMm ?? 0}
+                        onBlur={event => setSelectedCornerRadius(event.currentTarget.value)}
+                        onKeyDown={event => {
+                          if (event.key === 'Enter') {
+                            event.currentTarget.blur();
+                          }
+                        }}
+                        className="w-full rounded border border-zinc-300 px-2 py-1.5 text-sm font-mono"
+                      />
+                      <span className="text-xs text-zinc-500">mm</span>
+                    </div>
+                  </label>
+                  <div className="flex flex-wrap gap-2">
+                    {[0, 25, 50, 100].map(radius => (
+                      <button
+                        key={radius}
+                        type="button"
+                        onClick={() => editor.setCornerRadius(selectedVertex.id, radius)}
+                        className="btn-secondary"
+                      >
+                        {radius === 0 ? 'Sharp' : `R${radius}`}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                <p className="mt-2 text-xs text-zinc-500">Click a corner handle to lock/check angles or add a radius.</p>
               )}
             </div>
 

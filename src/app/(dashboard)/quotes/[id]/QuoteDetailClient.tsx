@@ -38,6 +38,7 @@ import type { RelationshipType } from '@prisma/client';
 // import MiniPieceEditor from '@/components/quotes/MiniPieceEditor';
 import PieceRow from '@/components/quotes/PieceRow';
 import QuickViewPieceRow from '@/components/quotes/QuickViewPieceRow';
+import PieceEditorErrorBoundary from '@/components/quotes/PieceEditorErrorBoundary';
 import QuoteLevelCostSections from '@/components/quotes/QuoteLevelCostSections';
 import MaterialCostSection from '@/components/quotes/MaterialCostSection';
 import MarginSelector from '@/components/quotes/MarginSelector';
@@ -3462,37 +3463,39 @@ export default function QuoteDetailClient({
                 const pb = viewBreakdownMap.get(piece.id);
                 return (
                   <div key={piece.id} id={`piece-${piece.id}`}>
-                    <QuickViewPieceRow
-                      pieceNumber={pieceNumber}
-                      piece={{
-                        id: piece.id,
-                        name: piece.name || 'Unnamed piece',
-                        description: piece.description,
-                        lengthMm: piece.length_mm,
-                        widthMm: piece.width_mm,
-                        thicknessMm: piece.thickness_mm,
-                        materialName: piece.materials?.name || piece.material_name || null,
-                        edgeTop: piece.edge_top ?? null,
-                        edgeBottom: piece.edge_bottom ?? null,
-                        edgeLeft: piece.edge_left ?? null,
-                        edgeRight: piece.edge_right ?? null,
-                        edgeArcConfig: ((piece as unknown as { edge_arc_config?: Record<string, string | null> | null }).edge_arc_config) ?? null,
-                        roomName: piece.roomName,
-                        shapeType: piece.shape_type ?? 'RECTANGLE',
-                        shapeConfig: piece.shape_config ?? null,
-                        requiresGrainMatch: piece.requiresGrainMatch ?? false,
-                        noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
-                        overrideMaterialCost: (piece as any).override_material_cost ?? null,
-                        overrideSlabPrice: (piece as any).overrideSlabPrice ?? (piece as any).override_slab_price ?? null,
-                        overrideFabricationCost: (piece as any).overrideFabricationCost ?? (piece as any).override_fabrication_cost ?? null,
-                        edgeBuildups: (piece as any).edgeBuildups ?? (piece as any).edge_buildups ?? null,
-                      }}
-                      breakdown={pb}
-                      mode="view"
-                      onExpand={(pieceId) => {
-                        window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
-                      }}
-                    />
+                    <PieceEditorErrorBoundary pieceName={piece.name || 'Unnamed piece'}>
+                      <QuickViewPieceRow
+                        pieceNumber={pieceNumber}
+                        piece={{
+                          id: piece.id,
+                          name: piece.name || 'Unnamed piece',
+                          description: piece.description,
+                          lengthMm: piece.length_mm,
+                          widthMm: piece.width_mm,
+                          thicknessMm: piece.thickness_mm,
+                          materialName: piece.materials?.name || piece.material_name || null,
+                          edgeTop: piece.edge_top ?? null,
+                          edgeBottom: piece.edge_bottom ?? null,
+                          edgeLeft: piece.edge_left ?? null,
+                          edgeRight: piece.edge_right ?? null,
+                          edgeArcConfig: ((piece as unknown as { edge_arc_config?: Record<string, string | null> | null }).edge_arc_config) ?? null,
+                          roomName: piece.roomName,
+                          shapeType: piece.shape_type ?? 'RECTANGLE',
+                          shapeConfig: piece.shape_config ?? null,
+                          requiresGrainMatch: piece.requiresGrainMatch ?? false,
+                          noStripEdges: ((piece as Record<string, unknown>).noStripEdges as string[] ?? (piece as Record<string, unknown>).no_strip_edges as string[]) ?? [],
+                          overrideMaterialCost: (piece as any).override_material_cost ?? null,
+                          overrideSlabPrice: (piece as any).overrideSlabPrice ?? (piece as any).override_slab_price ?? null,
+                          overrideFabricationCost: (piece as any).overrideFabricationCost ?? (piece as any).override_fabrication_cost ?? null,
+                          edgeBuildups: (piece as any).edgeBuildups ?? (piece as any).edge_buildups ?? null,
+                        }}
+                        breakdown={pb}
+                        mode="view"
+                        onExpand={(pieceId) => {
+                          window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
+                        }}
+                      />
+                    </PieceEditorErrorBoundary>
                   </div>
                 );
               };
@@ -3925,36 +3928,37 @@ export default function QuoteDetailClient({
       const isNonBaseOption = quoteOptions.activeOption && !quoteOptions.activeOption.isBase;
       return (
         <div key={p.id} id={`piece-${p.id}`}>
-          <QuickViewPieceRow
-            pieceNumber={pieceNumber}
-            piece={{
-              id: p.id,
-              name: p.name,
-              description: p.description,
-              lengthMm: p.lengthMm,
-              widthMm: p.widthMm,
-              thicknessMm: p.thicknessMm,
-              materialName: p.materialName,
-              edgeTop: p.edgeTop,
-              edgeBottom: p.edgeBottom,
-              edgeLeft: p.edgeLeft,
-              edgeRight: p.edgeRight,
-              roomName: p.quote_rooms?.name,
-              shapeType: p.shapeType ?? 'RECTANGLE',
-              shapeConfig: p.shapeConfig ?? null,
-              requiresGrainMatch: p.requiresGrainMatch ?? false,
-              noStripEdges: (p.noStripEdges as string[]) ?? [],
-              edgeBuildups: (p as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> }).edge_buildups ?? (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
-              overrideMaterialCost: p.overrideMaterialCost ?? null,
-              overrideSlabPrice: p.overrideSlabPrice ?? null,
-              overrideFabricationCost: p.overrideFabricationCost ?? null,
-              materialCollectionOnly: p.materialCollectionOnly ?? false,
-              materialCollectionName: p.materialCollectionName ?? null,
-            }}
-            breakdown={pb}
-            machines={machines}
-            machineOperationDefaults={machineOperationDefaults}
-            mode="edit"
+          <PieceEditorErrorBoundary pieceName={p.name || 'Unnamed piece'}>
+            <QuickViewPieceRow
+              pieceNumber={pieceNumber}
+              piece={{
+                id: p.id,
+                name: p.name,
+                description: p.description,
+                lengthMm: p.lengthMm,
+                widthMm: p.widthMm,
+                thicknessMm: p.thicknessMm,
+                materialName: p.materialName,
+                edgeTop: p.edgeTop,
+                edgeBottom: p.edgeBottom,
+                edgeLeft: p.edgeLeft,
+                edgeRight: p.edgeRight,
+                roomName: p.quote_rooms?.name,
+                shapeType: p.shapeType ?? 'RECTANGLE',
+                shapeConfig: p.shapeConfig ?? null,
+                requiresGrainMatch: p.requiresGrainMatch ?? false,
+                noStripEdges: (p.noStripEdges as string[]) ?? [],
+                edgeBuildups: (p as unknown as { edge_buildups?: Record<string, EdgeBuildupConfig> }).edge_buildups ?? (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
+                overrideMaterialCost: p.overrideMaterialCost ?? null,
+                overrideSlabPrice: p.overrideSlabPrice ?? null,
+                overrideFabricationCost: p.overrideFabricationCost ?? null,
+                materialCollectionOnly: p.materialCollectionOnly ?? false,
+                materialCollectionName: p.materialCollectionName ?? null,
+              }}
+              breakdown={pb}
+              machines={machines}
+              machineOperationDefaults={machineOperationDefaults}
+              mode="edit"
             onMachineChange={(_pieceId, operationType, machineId) => {
               handleMachineOverride(operationType, machineId);
             }}
@@ -4004,6 +4008,7 @@ export default function QuoteDetailClient({
             onAddSplashback={p.pieceType !== 'WATERFALL' && p.pieceType !== 'SPLASHBACK' ? (initialEdge?: string) => setWaterfallModal({ isOpen: true, type: 'SPLASHBACK', parentPieceId: String(p.id), parentLengthMm: p.lengthMm, parentWidthMm: p.widthMm, parentThicknessMm: p.thicknessMm, initialEdge }) : undefined}
             onMaterialsRefresh={fetchMaterials}
           />
+          </PieceEditorErrorBoundary>
           {/* Override indicator + actions for non-base options */}
           {isNonBaseOption && (
             <div className="flex items-center gap-2 px-3 pb-1">
