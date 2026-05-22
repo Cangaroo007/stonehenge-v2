@@ -37,7 +37,14 @@ export interface LidarConversionResult {
   warnings: string[];
 }
 
-export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionResult {
+export interface LidarConversionOptions {
+  edgeTypeIdForExposedEdges?: string | null;
+}
+
+export function convertLidarScanToQuotePieces(
+  scan: LidarScan,
+  options: LidarConversionOptions = {},
+): LidarConversionResult {
   const warnings: string[] = [];
 
   const pieces = scan.countertops.map((countertop, index) => {
@@ -47,7 +54,13 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
 
     const bounds = getBounds(countertop.vertices);
     const noStripEdges = inferNoStripEdges(scan, countertop.vertices);
-    const canonicalShape = buildCanonicalPolygonFromScan(scan, countertop.vertices, index, noStripEdges);
+    const canonicalShape = buildCanonicalPolygonFromScan(
+      scan,
+      countertop.vertices,
+      index,
+      noStripEdges,
+      options.edgeTypeIdForExposedEdges ?? null,
+    );
 
     return {
       name: countertop.name || `${titleCase(scan.roomType)} benchtop ${index + 1}`,
@@ -126,7 +139,8 @@ function buildCanonicalPolygonFromScan(
   scan: LidarScan,
   points: LidarPoint[],
   countertopIndex: number,
-  noStripEdges: EdgeSide[]
+  noStripEdges: EdgeSide[],
+  edgeTypeIdForExposedEdges: string | null,
 ): CanonicalPolygonShapeConfig {
   const pieceKey = `${scan.scanId}-${countertopIndex}`;
   const vertices: Vertex[] = points.map((point, index) => ({
@@ -136,16 +150,17 @@ function buildCanonicalPolygonFromScan(
   }));
   const edges: Edge[] = vertices.map((vertex, index) => {
     const side = inferCardinalSide(points[index], points[(index + 1) % points.length]);
+    const isWallEdge = noStripEdges.includes(side);
     return {
       id: `lidar-${pieceKey}-edge-${index}` as Edge['id'],
       start: vertex.id,
       end: vertices[(index + 1) % vertices.length].id,
       profile: edgeProfileForScanSide(scan, side),
-      finish: noStripEdges.includes(side) ? 'unfinished' : 'polished',
-      exposure: noStripEdges.includes(side) ? 'wall' : 'exposed',
+      finish: isWallEdge ? 'unfinished' : 'polished',
+      exposure: isWallEdge ? 'wall' : 'exposed',
       v2EdgeSide: side,
-      v2EdgeTypeId: null,
-    } as Edge & { v2EdgeSide: EdgeSide; v2EdgeTypeId: null };
+      v2EdgeTypeId: isWallEdge ? null : edgeTypeIdForExposedEdges,
+    } as Edge & { v2EdgeSide: EdgeSide; v2EdgeTypeId: string | null };
   });
   const outerRing: Ring = {
     edges: edges.map(edge => edge.id),
@@ -244,7 +259,7 @@ function cutoutFromAppliance(appliance: LidarAppliance) {
     return { ...base, type: 'Undermount Sink', name: 'Undermount Sink' };
   }
   if (appliance.kind === 'cooktop') {
-    return { ...base, type: 'Cooktop', name: 'Cooktop' };
+    return { ...base, type: 'Cooktop Cutout', name: 'Cooktop Cutout' };
   }
   return { ...base, type: 'Tap Hole', name: 'Tap Hole' };
 }

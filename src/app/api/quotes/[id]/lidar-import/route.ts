@@ -132,7 +132,9 @@ export async function POST(
       select: { id: true },
     });
 
-    const conversion = convertLidarScanToQuotePieces(scan);
+    const conversion = convertLidarScanToQuotePieces(scan, {
+      edgeTypeIdForExposedEdges: defaultEdgeType?.id ?? null,
+    });
 
     const imported = await prisma.$transaction(async (tx) => {
       if (replaceExisting) {

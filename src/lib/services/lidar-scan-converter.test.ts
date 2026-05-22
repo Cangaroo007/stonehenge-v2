@@ -6,7 +6,9 @@ describe('convertLidarScanToQuotePieces', () => {
     const scan = MOCK_LIDAR_SCANS.find(item => item.scanId === 'mock-vanity-001');
     expect(scan).toBeDefined();
 
-    const result = convertLidarScanToQuotePieces(scan!);
+    const result = convertLidarScanToQuotePieces(scan!, {
+      edgeTypeIdForExposedEdges: 'edge-pencil-round',
+    });
 
     expect(result.warnings).toEqual([]);
     expect(result.pieces).toHaveLength(1);
@@ -22,6 +24,14 @@ describe('convertLidarScanToQuotePieces', () => {
       areaSqm: 0.6,
     });
     expect(result.pieces[0].cutouts.map(c => c.type)).toEqual(['Undermount Sink', 'Tap Hole']);
+    expect((result.pieces[0].shapeConfig as any).edgeLengths).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ v2EdgeSide: 'bottom', v2EdgeTypeId: 'edge-pencil-round' }),
+        expect.objectContaining({ v2EdgeSide: 'left', v2EdgeTypeId: 'edge-pencil-round' }),
+        expect.objectContaining({ v2EdgeSide: 'right', v2EdgeTypeId: 'edge-pencil-round' }),
+        expect.objectContaining({ v2EdgeSide: 'top', v2EdgeTypeId: null }),
+      ]),
+    );
   });
 
   it('keeps L-shape geometry as a canonical polygon', () => {
