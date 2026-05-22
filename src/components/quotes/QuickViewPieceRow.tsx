@@ -917,6 +917,7 @@ export default function QuickViewPieceRow({
   const pieceTotal = breakdown?.pieceTotal ?? (hasStoredPieceTotal ? storedPieceTotal : 0);
   const hasLiveBreakdown = Boolean(breakdown);
   const pieceTotalLabel = hasLiveBreakdown || pieceTotal > 0 ? formatCurrency(pieceTotal) : 'Awaiting calc';
+  const isAttachedChild = Boolean(relationshipLabel);
   const isOversize = breakdown?.oversize?.isOversize ?? false;
 
   // ── Edge resolution ─────────────────────────────────────────────────────
@@ -1597,7 +1598,13 @@ export default function QuickViewPieceRow({
 
   return (
     <>
-    <div className={`rounded-lg border ${isOversize ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-white'}`}>
+    <div className={`rounded-lg border ${
+      isAttachedChild
+        ? 'border-blue-200 bg-blue-50/30'
+        : isOversize
+          ? 'border-amber-200 bg-amber-50/50'
+          : 'border-gray-200 bg-white'
+    }`}>
       {/* ══════════════ QUICK VIEW ROW ══════════════ */}
       <div className="px-4 py-3">
         {/* ── Line 1: Badge · Name · Dims · Thickness · Material · Price ── */}
@@ -1611,7 +1618,9 @@ export default function QuickViewPieceRow({
 
           {/* WF-2c: Relationship label prefix for child pieces */}
           {relationshipLabel && (
-            <span className="text-xs text-gray-400 flex-shrink-0">{relationshipLabel}</span>
+            <span className="inline-flex flex-shrink-0 items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-700">
+              Attached · {relationshipLabel}
+            </span>
           )}
 
           {/* Piece name */}
