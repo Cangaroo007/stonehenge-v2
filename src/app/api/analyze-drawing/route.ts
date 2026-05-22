@@ -150,7 +150,7 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Shape config when non-rectangular:
   - RADIUS_END: shapeConfig = { "shape": "RADIUS_END", "length_mm": number, "width_mm": number, "radius_mm": number, "curved_ends": "ONE" | "BOTH" }
   - ROUNDED_RECT: shapeConfig = { "shape": "ROUNDED_RECT", "length_mm": number, "width_mm": number, "corner_radius_mm": number, "individual_corners": false }
-  - L_SHAPE/U_SHAPE: include leg dimensions only when clearly readable; otherwise split into physical rectangular runs or ask.
+  - L_SHAPE/U_SHAPE: use only for a true one-piece 90-degree L/U countertop with readable leg dimensions. Include leg dimensions. Never use L_SHAPE for two separate straight counters that meet at an angle.
   - POLYGON: only use when the drawing has a clear angled/splayed/notched outline with enough dimensions to define vertices. Use shapeConfig type "canonical-polygon" with mm coordinates, stable vertex IDs, stable edge IDs, outerRing edges, features, areaSqm, perimeterMm, edgeLengths, and boundingBox. Do not use POLYGON if dimensions are missing; ask for a trace/site measure instead.
 - Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
@@ -182,7 +182,10 @@ Never silently flatten special geometry into a rectangle.
 - Rounded or semicircular terminal ends are RADIUS_END pieces, not rectangles. If the end is clearly semicircular and no radius is labelled, infer radius as half the piece width, mark confidence below 0.85, and ask the user to confirm.
 - Rounded ends, curved bars, radius corners, posts, notches, angled returns, bow fronts, and irregular outlines affect cutting, edge finishing, slab yield, and visual review.
 - If the exact geometry is visible but not dimensioned, return the best supported shape plus clarification questions. Do not hide the issue in notes only.
-- If an angled return or splayed piece has enough labelled dimensions to model, return shape POLYGON with canonical-polygon shapeConfig so the quote can render and price the actual outline. Do not downgrade it to RECTANGLE.
+- Angled corners joining counters are splayed/chamfered polygon geometry, not L_SHAPE. A run with a 45-degree/angled/chamfered corner, a diagonal connector, a splayed sink/cooktop bay, or a counter that bends through a non-90-degree angle must be POLYGON when dimensions are sufficient.
+- If an angled return or splayed piece has enough labelled dimensions to model, return shape POLYGON with canonical-polygon shapeConfig so the quote can render and price the actual outline. Do not downgrade it to RECTANGLE or L_SHAPE.
+- If two separate straight counters meet at an angled join, return two separate rectangular quote pieces plus a join/relationship note. Do not merge them into one L_SHAPE.
+- Only return L_SHAPE when the physical stone piece itself has a 90-degree inside corner and the two leg dimensions are clearly readable. If the drawing shows angled/chamfered joins, splayed corners, or multiple separate runs, L_SHAPE is wrong.
 - If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
 - If a piece has angled or irregular runs and you cannot produce a supported shapeConfig, set shape to IRREGULAR, confidence below 0.85, and ask for LiDAR/site measure or polygon trace before final pricing.
 - For any RADIUS_END piece, put straight edge profiles in edgeTop/edgeBottom/edgeLeft/edgeRight and curved edge profile in edgeArcConfig.arc_end.
@@ -219,7 +222,7 @@ Architectural drawings are often to scale. Use this carefully:
 
 Before returning JSON, audit your own pieces:
 - Do not use the full bounding rectangle of an L/U/kitchen footprint as one piece dimension.
-- Do not use a rectangular placeholder for a visible curve, radius end, angled return, post notch, or irregular piece. Use supported shapeConfig or ask for polygon/LiDAR review.
+- Do not use a rectangular placeholder or L_SHAPE placeholder for a visible curve, radius end, angled return, splayed/chamfered corner, post notch, or irregular piece. Use supported shapeConfig or ask for polygon/spatial trace review.
 - A normal wall benchtop is commonly around 500-900mm deep. If width is much larger, explain why in notes or split the shape.
 - Large values such as 3000 x 2757 or 5914 x 3346 are usually footprint envelopes, not quoteable stone pieces. Split them into the visible runs if dimensions are shown.
 - If you can read multiple run dimensions along one outline, each run should normally become a separate piece.

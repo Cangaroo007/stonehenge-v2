@@ -121,6 +121,17 @@ const SHAPE_ALIASES: Record<string, ShapeType> = {
   POLYGON: 'POLYGON',
 };
 
+const IMPORT_SHAPES_REQUIRING_CONFIG = new Set([
+  'L_SHAPE',
+  'U_SHAPE',
+  'RADIUS_END',
+  'ROUNDED_RECT',
+  'FULL_CIRCLE',
+  'CONCAVE_ARC',
+  'POLYGON',
+  'IRREGULAR',
+]);
+
 function normaliseShapeType(
   value?: string | null,
   shapeConfig?: Record<string, unknown> | null
@@ -131,6 +142,24 @@ function normaliseShapeType(
   const compactKey = value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '');
   const underscoreKey = value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   return SHAPE_ALIASES[compactKey] ?? SHAPE_ALIASES[underscoreKey] ?? 'RECTANGLE';
+}
+
+function hasImportShapeConfig(piece: ImportPieceData): boolean {
+  return !!piece.shapeConfig && typeof piece.shapeConfig === 'object';
+}
+
+function getImportGeometryBlocker(piece: ImportPieceData): string | null {
+  const rawShape = (piece.shapeType || piece.shape || '').trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  if (rawShape === 'IRREGULAR') {
+    return 'is marked IRREGULAR and needs polygon/spatial trace before import';
+  }
+
+  const shapeType = normaliseShapeType(piece.shapeType || piece.shape, piece.shapeConfig);
+  if (IMPORT_SHAPES_REQUIRING_CONFIG.has(shapeType) && !hasImportShapeConfig(piece)) {
+    return `is marked ${shapeType} but has no geometry config`;
+  }
+
+  return null;
 }
 
 function inferRelationshipType(piece: CreatedImportPiece): RelationshipType | null {
@@ -382,6 +411,13 @@ export async function POST(
       if (!piece.name || !piece.length || !piece.width) {
         return NextResponse.json(
           { error: `Piece ${i + 1} is missing required fields (name, length, width)` },
+          { status: 400 }
+        );
+      }
+      const geometryBlocker = getImportGeometryBlocker(piece);
+      if (geometryBlocker) {
+        return NextResponse.json(
+          { error: `Piece ${i + 1} (${piece.name}) ${geometryBlocker}. Open the spatial/polygon review and trace the real outline before importing.` },
           { status: 400 }
         );
       }

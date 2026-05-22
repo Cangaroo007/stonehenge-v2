@@ -98,6 +98,27 @@ const SHAPE_LABELS: Record<string, string> = {
   CONCAVE_ARC: 'Concave Arc',
 };
 
+const SHAPES_REQUIRING_CONFIG = new Set([
+  'L_SHAPE',
+  'U_SHAPE',
+  'RADIUS_END',
+  'ROUNDED_RECT',
+  'FULL_CIRCLE',
+  'CONCAVE_ARC',
+  'POLYGON',
+  'IRREGULAR',
+]);
+
+function hasShapeConfig(piece: ExtractedPiece): boolean {
+  return !!piece.shapeConfig && typeof piece.shapeConfig === 'object';
+}
+
+function hasIncompleteGeometry(piece: ExtractedPiece): boolean {
+  if (!piece.shape || piece.shape === 'RECTANGLE') return false;
+  if (!SHAPES_REQUIRING_CONFIG.has(piece.shape)) return false;
+  return !hasShapeConfig(piece);
+}
+
 function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quoteId?: number }) {
   const [details, setDetails] = useState<DrawingDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -250,6 +271,7 @@ export function DrawingReviewStage({
     let amber = 0;
     for (const p of pieces) {
       const level = confidenceLevel(p.confidence);
+      if (hasIncompleteGeometry(p)) red++;
       // Each dimension cell (length, width, thickness) counts individually
       if (p.length === 0 || p.length === null) red++;
       else if (level === 'red') red++;
@@ -509,9 +531,20 @@ export function DrawingReviewStage({
                       {/* Shape — display only */}
                       <td className="px-3 py-2">
                         {piece.shape ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-zinc-100 text-zinc-700">
-                            {SHAPE_LABELS[piece.shape] || piece.shape}
-                          </span>
+                          <div className="space-y-1">
+                            <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                              hasIncompleteGeometry(piece)
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-zinc-100 text-zinc-700'
+                            }`}>
+                              {SHAPE_LABELS[piece.shape] || piece.shape}
+                            </span>
+                            {hasIncompleteGeometry(piece) && (
+                              <div className="max-w-[150px] text-[11px] leading-snug text-red-600">
+                                Needs polygon/spatial trace before import
+                              </div>
+                            )}
+                          </div>
                         ) : (
                           <span className="text-zinc-400">—</span>
                         )}
@@ -700,7 +733,7 @@ export function DrawingReviewStage({
       <div className="mt-4 flex items-center gap-4 text-xs text-zinc-500">
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded bg-red-50 border border-red-200" />
-          Low confidence / missing — blocks import
+          Low confidence / missing geometry — blocks import
         </span>
         <span className="flex items-center gap-1">
           <span className="inline-block w-3 h-3 rounded bg-amber-50 border border-amber-200" />
