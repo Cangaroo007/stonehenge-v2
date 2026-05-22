@@ -10,6 +10,7 @@ import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { VerbalTakeoffInput } from '@/components/drawing-analysis/VerbalTakeoffInput';
 import { logger } from '@/lib/logger';
 import { trackClarityEvent } from '@/lib/clarity';
+import { DRAWING_FILE_ACCEPT, DRAWING_FILE_LABEL, isAllowedDrawingFile } from '@/lib/drawing-file-types';
 
 interface EdgeType {
   id: string;
@@ -165,6 +166,7 @@ function getDefaultEdgeSelections(edgeTypes: EdgeType[]): EdgeSelections {
 export default function DrawingImport({ quoteId, customerId, edgeTypes, onImportComplete, onDrawingsSaved, onClose, projectId }: DrawingImportProps) {
   const [step, setStep] = useState<Step>('upload');
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [extractedPieces, setExtractedPieces] = useState<ExtractedPiece[]>([]);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -309,12 +311,36 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     }
   }, [quoteId]);
 
-  // Handle file selection
-  const handleFile = useCallback(async (selectedFile: File) => {
-    setFile(selectedFile);
+  // Handle one or more file selections
+  const handleFiles = useCallback(async (selectedFiles: File[]) => {
+    const validSelectedFiles = selectedFiles.filter(Boolean);
+    if (validSelectedFiles.length === 0) {
+      logger.error('[DrawingImport] No file selected');
+      setError('Please choose at least one drawing file.');
+      return;
+    }
+
+    const invalidFiles = validSelectedFiles.filter(selectedFile => !isAllowedDrawingFile(selectedFile.name, selectedFile.type));
+    if (invalidFiles.length > 0) {
+      logger.error('[DrawingImport] Invalid file types:', invalidFiles.map(f => `${f.name} (${f.type})`));
+      setError(`Please upload ${DRAWING_FILE_LABEL} files only.`);
+      return;
+    }
+
+    const isMultiFile = validSelectedFiles.length > 1;
+    setFiles(validSelectedFiles);
+    setFile(validSelectedFiles[0]);
     setError(null);
     setUploadProgress('uploading');
     setStep('analyzing');
+    setExtractedPieces([]);
+    setSelectedIds(new Set());
+    setWarnings([]);
+    setClarificationQuestions([]);
+    setClarificationDrawingId(undefined);
+    setClarificationAnalysisId(undefined);
+    setIsRoughDrawing(false);
+    setRoughDrawingMessage(null);
 
     // Initialize progress steps
     setAnalysisSteps([
@@ -326,152 +352,214 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     ]);
     setAnalysisProgress(5);
 
-    let storedUploadResult: UploadResult | null = null;
-    let analysisResult: AnalysisResult | null = null;
+    const allPieces: ExtractedPiece[] = [];
+    const allWarnings: string[] = [];
+    let pieceIndex = 0;
+    let lastClarificationQuestions: ClarificationQuestion[] = [];
+    let lastClarificationDrawingId: string | undefined;
+    let lastClarificationAnalysisId: number | undefined;
+    let shouldShowClarification = false;
 
     try {
-      // Step 0: Compress image if needed
-      const fileToUpload = await compressImageIfNeeded(selectedFile);
-      setAnalysisSteps(prev => prev.map((s, i) => i === 0 ? { ...s, done: true } : s));
-      setAnalysisProgress(10);
-      
-      // Step 1: Upload to R2 storage
-      if (!fileToUpload) {
-        throw new Error('No file selected');
-      }
-      
-      if (!quoteId || !customerId) {
-        throw new Error(`Missing required IDs - quoteId: ${quoteId}, customerId: ${customerId}`);
-      }
-      
-      storedUploadResult = await uploadToStorage(fileToUpload);
-      setUploadResult(storedUploadResult);
-      setAnalysisSteps(prev => prev.map((s, i) => i === 1 ? { ...s, done: true } : s));
-      setAnalysisProgress(30);
-      setUploadProgress('analyzing');
+      for (let fileIndex = 0; fileIndex < validSelectedFiles.length; fileIndex++) {
+        const selectedFile = validSelectedFiles[fileIndex];
+        const fileLabel = isMultiFile ? `File ${fileIndex + 1}/${validSelectedFiles.length}: ` : '';
+        let storedUploadResult: UploadResult | null = null;
+        let analysisResult: AnalysisResult | null = null;
+        let progressInterval: ReturnType<typeof setInterval> | null = null;
 
-      // Simulate progress updates for analysis
-      const progressInterval = setInterval(() => {
-        setAnalysisProgress(prev => Math.min(prev + 10, 75));
-      }, 500);
+        setFile(selectedFile);
+        setUploadProgress('uploading');
+        setAnalysisProgress(Math.max(5, Math.round((fileIndex / validSelectedFiles.length) * 100)));
+        setAnalysisSteps([
+          { label: `${fileLabel}Optimising image`, done: false },
+          { label: `${fileLabel}Uploading to storage`, done: false },
+          { label: `${fileLabel}Detecting pieces`, done: false },
+          { label: `${fileLabel}Extracting dimensions`, done: false },
+          { label: `${fileLabel}Saving drawing`, done: false },
+        ]);
 
-      setTimeout(() => {
-        setAnalysisSteps(prev => prev.map((s, i) => i === 2 ? { ...s, done: true } : s));
-      }, 800);
+        try {
+          // Step 0: Compress image if needed
+          const fileToUpload = await compressImageIfNeeded(selectedFile);
+          setAnalysisSteps(prev => prev.map((s, i) => i === 0 ? { ...s, done: true } : s));
+          setAnalysisProgress(Math.max(10, Math.round(((fileIndex + 0.1) / validSelectedFiles.length) * 100)));
 
-      setTimeout(() => {
-        setAnalysisSteps(prev => prev.map((s, i) => i === 3 ? { ...s, done: true } : s));
-      }, 1600);
+          // Step 1: Upload to R2 storage
+          if (!fileToUpload) {
+            throw new Error('No file selected');
+          }
 
-      // Step 2: Call the analyze-drawing API (use compressed file for analysis too)
-      const formData = new FormData();
-      formData.append('file', fileToUpload);
+          if (!quoteId || !customerId) {
+            throw new Error(`Missing required IDs - quoteId: ${quoteId}, customerId: ${customerId}`);
+          }
 
-      const response = await fetch('/api/analyze-drawing', {
-        method: 'POST',
-        body: formData,
-      });
+          storedUploadResult = await uploadToStorage(fileToUpload);
+          setUploadResult(storedUploadResult);
+          setAnalysisSteps(prev => prev.map((s, i) => i === 1 ? { ...s, done: true } : s));
+          setAnalysisProgress(Math.max(30, Math.round(((fileIndex + 0.3) / validSelectedFiles.length) * 100)));
+          setUploadProgress('analyzing');
 
-      clearInterval(progressInterval);
+          // Simulate progress updates for analysis
+          progressInterval = setInterval(() => {
+            const fileBaseProgress = (fileIndex / validSelectedFiles.length) * 100;
+            const fileMaxProgress = ((fileIndex + 0.75) / validSelectedFiles.length) * 100;
+            setAnalysisProgress(prev => Math.min(prev + 5, Math.round(fileMaxProgress || fileBaseProgress + 75)));
+          }, 500);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        logger.error('[DrawingImport] Analysis failed:', errorData);
-        throw new Error(errorData.details || errorData.error || 'Analysis failed');
-      }
+          setTimeout(() => {
+            setAnalysisSteps(prev => prev.map((s, i) => i === 2 ? { ...s, done: true } : s));
+          }, 800);
 
-      const data = await response.json();
-      analysisResult = data.analysis as AnalysisResult;
+          setTimeout(() => {
+            setAnalysisSteps(prev => prev.map((s, i) => i === 3 ? { ...s, done: true } : s));
+          }, 1600);
 
-      setAnalysisProgress(80);
-      setUploadProgress('saving');
+          // Step 2: Call the analyze-drawing API (use compressed file for analysis too)
+          const formData = new FormData();
+          formData.append('file', fileToUpload);
 
-      // Step 3: Save drawing record with analysis data
-      await saveDrawingRecord(storedUploadResult, analysisResult as unknown as Record<string, unknown>);
-      setAnalysisSteps(prev => prev.map((s, i) => i === 4 ? { ...s, done: true } : s));
-      setAnalysisProgress(100);
-      setUploadProgress('complete');
-
-      // Notify parent that drawings have been saved
-      onDrawingsSaved?.();
-
-      // Store rough drawing flag from DR-5 response
-      if (data.isRoughDrawing) {
-        setIsRoughDrawing(true);
-        setRoughDrawingMessage(data.roughDrawingMessage ?? null);
-      }
-
-      // Store clarification data from DR-1 response
-      const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
-      const requiresReview = data.requiresReview === true && cQuestions.length > 0;
-      setClarificationQuestions(cQuestions);
-      setClarificationDrawingId(data.analysis?.drawingId ?? data.analysis?.id ?? undefined);
-      setClarificationAnalysisId(
-        typeof data.analysis?.analysisId === 'number' ? data.analysis.analysisId
-        : typeof data.analysis?.id === 'number' ? data.analysis.id
-        : undefined
-      );
-
-      // Store catalogue from DR-1 route response
-      if (data.catalogue) {
-        setCatalogue(data.catalogue as DrawingCatalogue);
-      }
-
-      // Transform analysis results to ExtractedPiece format
-      const pieces: ExtractedPiece[] = [];
-      let pieceIndex = 0;
-
-      for (const room of analysisResult.rooms || []) {
-        for (const piece of room.pieces || []) {
-          const id = `extracted-${pieceIndex++}`;
-          const matchedMaterial = resolveCatalogueMaterial(piece.materialName ?? piece.material);
-          const importedEdges: EdgeSelections = {
-            edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
-            edgeBottom: piece.edgeBottom ?? piece.edges?.bottom ?? null,
-            edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
-            edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
-          };
-          pieces.push({
-            id,
-            pieceNumber: piece.pieceNumber || pieceIndex,
-            name: piece.name || `Piece ${pieceIndex}`,
-            pieceType: piece.pieceType || undefined,
-            materialId: piece.materialId ?? matchedMaterial?.id ?? null,
-            materialName: piece.materialName ?? piece.material ?? matchedMaterial?.name ?? null,
-            shape: piece.shape || undefined,
-            shapeConfig: piece.shapeConfig ?? null,
-            edgeArcConfig: piece.edgeArcConfig ?? null,
-            length: piece.length || 0,
-            width: piece.width || 0,
-            thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
-            room: room.name || 'Unassigned',
-            confidence: piece.confidence || 0.5,
-            notes: piece.notes || null,
-            cutouts: piece.cutouts || [],
-            relatedTo: piece.relatedTo ?? null,
-            edgeBuildups: piece.edgeBuildups,
-            noStripEdges: piece.noStripEdges,
-            isEditing: false,
-            edgeSelections: importedEdges,
+          const response = await fetch('/api/analyze-drawing', {
+            method: 'POST',
+            body: formData,
           });
+
+          if (progressInterval) {
+            clearInterval(progressInterval);
+            progressInterval = null;
+          }
+
+          if (!response.ok) {
+            const errorData = await response.json();
+            logger.error('[DrawingImport] Analysis failed:', errorData);
+            throw new Error(errorData.details || errorData.error || 'Analysis failed');
+          }
+
+          const data = await response.json();
+          analysisResult = data.analysis as AnalysisResult;
+
+          setAnalysisProgress(Math.max(80, Math.round(((fileIndex + 0.8) / validSelectedFiles.length) * 100)));
+          setUploadProgress('saving');
+
+          // Step 3: Save drawing record with analysis data
+          await saveDrawingRecord(storedUploadResult, analysisResult as unknown as Record<string, unknown>);
+          setAnalysisSteps(prev => prev.map((s, i) => i === 4 ? { ...s, done: true } : s));
+          setAnalysisProgress(Math.round(((fileIndex + 1) / validSelectedFiles.length) * 100));
+          setUploadProgress('complete');
+
+          // Notify parent that drawings have been saved
+          onDrawingsSaved?.();
+
+          // Store rough drawing flag from DR-5 response
+          if (data.isRoughDrawing) {
+            setIsRoughDrawing(true);
+            setRoughDrawingMessage(data.roughDrawingMessage ?? null);
+          }
+
+          // Store clarification data from DR-1 response. The guided clarification
+          // panel is intentionally single-document; multi-file imports go to review
+          // with warnings so users can correct everything in one place.
+          const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
+          const requiresReview = data.requiresReview === true && cQuestions.length > 0;
+          if (requiresReview) {
+            if (isMultiFile) {
+              allWarnings.push(`${selectedFile.name}: AI returned ${cQuestions.length} clarification question${cQuestions.length === 1 ? '' : 's'}; review the highlighted pieces before importing.`);
+            } else {
+              lastClarificationQuestions = cQuestions;
+              lastClarificationDrawingId = data.analysis?.drawingId ?? data.analysis?.id ?? undefined;
+              lastClarificationAnalysisId =
+                typeof data.analysis?.analysisId === 'number' ? data.analysis.analysisId
+                : typeof data.analysis?.id === 'number' ? data.analysis.id
+                : undefined;
+              shouldShowClarification = true;
+            }
+          }
+
+          // Store catalogue from DR-1 route response
+          if (data.catalogue) {
+            setCatalogue(data.catalogue as DrawingCatalogue);
+          }
+
+          // Transform analysis results to ExtractedPiece format
+          for (const room of analysisResult.rooms || []) {
+            for (const piece of room.pieces || []) {
+              const currentPieceIndex = pieceIndex++;
+              const id = `extracted-${fileIndex}-${currentPieceIndex}`;
+              const matchedMaterial = resolveCatalogueMaterial(piece.materialName ?? piece.material);
+              const importedEdges: EdgeSelections = {
+                edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
+                edgeBottom: piece.edgeBottom ?? piece.edges?.bottom ?? null,
+                edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
+                edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
+              };
+              allPieces.push({
+                id,
+                pieceNumber: piece.pieceNumber || currentPieceIndex + 1,
+                name: piece.name || `Piece ${currentPieceIndex + 1}`,
+                pieceType: piece.pieceType || undefined,
+                materialId: piece.materialId ?? matchedMaterial?.id ?? null,
+                materialName: piece.materialName ?? piece.material ?? matchedMaterial?.name ?? null,
+                shape: piece.shape || undefined,
+                shapeConfig: piece.shapeConfig ?? null,
+                edgeArcConfig: piece.edgeArcConfig ?? null,
+                length: piece.length || 0,
+                width: piece.width || 0,
+                thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
+                room: room.name || 'Unassigned',
+                confidence: piece.confidence || 0.5,
+                notes: piece.notes || null,
+                cutouts: piece.cutouts || [],
+                relatedTo: piece.relatedTo ?? null,
+                edgeBuildups: piece.edgeBuildups,
+                noStripEdges: piece.noStripEdges,
+                isEditing: false,
+                edgeSelections: importedEdges,
+              });
+            }
+          }
+
+          allWarnings.push(...(analysisResult.warnings || []).map(warning =>
+            isMultiFile ? `${selectedFile.name}: ${warning}` : warning
+          ));
+        } catch (fileError) {
+          if (progressInterval) {
+            clearInterval(progressInterval);
+          }
+          logger.error('[DrawingImport] File processing error:', fileError);
+
+          // If upload succeeded but analysis failed, still save the drawing.
+          if (storedUploadResult && !analysisResult) {
+            try {
+              await saveDrawingRecord(storedUploadResult);
+              onDrawingsSaved?.();
+            } catch (saveErr) {
+              logger.error('[DrawingImport] Failed to save drawing after analysis error:', saveErr);
+            }
+          }
+
+          const message = fileError instanceof Error ? fileError.message : 'Failed to analyze drawing';
+          throw new Error(`${selectedFile.name}: ${message}`);
         }
       }
 
-      if (pieces.length === 0) {
+      if (allPieces.length === 0) {
         throw new Error("Couldn't detect any pieces. Try a clearer image or add pieces manually.");
       }
 
-      setExtractedPieces(pieces);
-      setWarnings(analysisResult.warnings || []);
+      setExtractedPieces(allPieces);
+      setWarnings(allWarnings);
 
       // Auto-select high confidence pieces (>= 70%)
       const highConfidenceIds = new Set(
-        pieces.filter(p => p.confidence >= 0.7).map(p => p.id)
+        allPieces.filter(p => p.confidence >= 0.7).map(p => p.id)
       );
       setSelectedIds(highConfidenceIds);
 
       // Gate: show clarification step if requiresReview, otherwise straight to review
-      if (requiresReview) {
+      if (shouldShowClarification) {
+        setClarificationQuestions(lastClarificationQuestions);
+        setClarificationDrawingId(lastClarificationDrawingId);
+        setClarificationAnalysisId(lastClarificationAnalysisId);
         setStep('clarification');
       } else {
         setStep('review');
@@ -481,19 +569,9 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
       logger.error('[DrawingImport] handleFile error:', err);
       setError(err instanceof Error ? err.message : 'Failed to analyze drawing');
       setUploadProgress('error');
-
-      // If upload succeeded but analysis failed, still save the drawing
-      if (storedUploadResult && !analysisResult) {
-        try {
-          await saveDrawingRecord(storedUploadResult);
-          onDrawingsSaved?.();
-        } catch (saveErr) {
-          logger.error('[DrawingImport] Failed to save drawing after analysis error:', saveErr);
-        }
-      }
-
       setStep('upload');
       setFile(null);
+      setFiles([]);
     }
   }, [uploadToStorage, saveDrawingRecord, onDrawingsSaved, compressImageIfNeeded, quoteId, customerId, resolveCatalogueMaterial]);
 
@@ -514,35 +592,21 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
     e.stopPropagation();
     setDragActive(false);
 
-    if (e.dataTransfer.files && e.dataTransfer.files[0]) {
-      const droppedFile = e.dataTransfer.files[0];
-
-      if (isValidFileType(droppedFile)) {
-        handleFile(droppedFile);
-      } else {
-        logger.error('[DrawingImport] Invalid file type:', droppedFile.type);
-        setError('Please upload a PDF, PNG, or JPG file.');
-      }
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFiles(Array.from(e.dataTransfer.files));
     } else {
       logger.error('[DrawingImport] No file found in drop event');
     }
-  }, [handleFile]);
+  }, [handleFiles]);
 
   // Handle file input change
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files && e.target.files[0]) {
-      const selectedFile = e.target.files[0];
-      handleFile(selectedFile);
+    if (e.target.files && e.target.files.length > 0) {
+      handleFiles(Array.from(e.target.files));
     } else {
       logger.error('[DrawingImport] No file selected');
     }
-  }, [handleFile]);
-
-  // Validate file type
-  const isValidFileType = (file: File): boolean => {
-    const validTypes = ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'];
-    return validTypes.includes(file.type);
-  };
+  }, [handleFiles]);
 
   // Toggle piece selection
   const toggleSelection = useCallback((id: string) => {
@@ -802,7 +866,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             <input
               ref={fileInputRef}
               type="file"
-              accept=".pdf,.png,.jpg,.jpeg"
+              accept={DRAWING_FILE_ACCEPT}
+              multiple
               onChange={handleFileChange}
               className="hidden"
             />
@@ -822,13 +887,13 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             </svg>
 
             <p className="text-gray-600 mb-2">
-              Drop drawing here or <span className="text-primary-600 font-medium">click to upload</span>
+              Drop drawings here or <span className="text-primary-600 font-medium">click to upload</span>
             </p>
-            <p className="text-sm text-gray-500">PDF, PNG, JPG (max 10MB, images auto-compressed)</p>
+            <p className="text-sm text-gray-500">{DRAWING_FILE_LABEL} (max 10MB each, images auto-compressed)</p>
           </div>
 
           <p className="mt-4 text-sm text-gray-500">
-            Supported: CAD drawings, FileMaker job sheets, hand-drawn sketches with measurements
+            Supported: CAD drawings, FileMaker job sheets, hand-drawn sketches with measurements. Select multiple pages/files to review them together.
           </p>
         </>
       ) : (
@@ -906,7 +971,11 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           ))}
         </div>
 
-        {file && (
+        {files.length > 1 ? (
+          <p className="mt-4 text-sm text-gray-500">
+            Processing {files.indexOf(file as File) + 1} of {files.length}: {file?.name}
+          </p>
+        ) : file && (
           <p className="mt-4 text-sm text-gray-500">
             Processing: {file.name}
           </p>

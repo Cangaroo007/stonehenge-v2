@@ -3,6 +3,7 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import StreamlinedAnalysisView from './StreamlinedAnalysisView';
 import ContactPicker from './ContactPicker';
+import { DRAWING_FILE_ACCEPT, DRAWING_FILE_LABEL, isAllowedDrawingFile } from '@/lib/drawing-file-types';
 
 interface Customer {
   id: number;
@@ -24,6 +25,7 @@ export default function DrawingUploadStep({
 }: DrawingUploadStepProps) {
   // ── ALL hooks at the TOP (Rule 45) ──
   const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
   const [dragActive, setDragActive] = useState(false);
   const [analysisState, setAnalysisState] = useState<AnalysisState>('idle');
   const [progress, setProgress] = useState(0);
@@ -53,16 +55,18 @@ export default function DrawingUploadStep({
     fetchCustomers();
   }, []);
 
-  const isValidFileType = (f: File): boolean => {
-    return ['application/pdf', 'image/png', 'image/jpeg', 'image/jpg'].includes(f.type);
-  };
+  const handleFiles = useCallback((selectedFiles: File[]) => {
+    const validSelectedFiles = selectedFiles.filter(Boolean);
+    if (validSelectedFiles.length === 0) return;
 
-  const handleFile = useCallback((selectedFile: File) => {
-    if (!isValidFileType(selectedFile)) {
-      setError('Please upload a PDF, PNG, or JPG file.');
+    const invalidFile = validSelectedFiles.find(selectedFile => !isAllowedDrawingFile(selectedFile.name, selectedFile.type));
+    if (invalidFile) {
+      setError(`Please upload ${DRAWING_FILE_LABEL} files only.`);
       return;
     }
-    setFile(selectedFile);
+
+    setFiles(validSelectedFiles);
+    setFile(validSelectedFiles[0]);
     setError(null);
   }, []);
 
@@ -80,19 +84,19 @@ export default function DrawingUploadStep({
     e.preventDefault();
     e.stopPropagation();
     setDragActive(false);
-    if (e.dataTransfer.files?.[0]) {
-      handleFile(e.dataTransfer.files[0]);
+    if (e.dataTransfer.files?.length) {
+      handleFiles(Array.from(e.dataTransfer.files));
     }
-  }, [handleFile]);
+  }, [handleFiles]);
 
   const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.[0]) {
-      handleFile(e.target.files[0]);
+    if (e.target.files?.length) {
+      handleFiles(Array.from(e.target.files));
     }
-  }, [handleFile]);
+  }, [handleFiles]);
 
   const handleAnalyse = async () => {
-    if (!file) return;
+    if (files.length === 0) return;
 
     if (!selectedCustomerId) {
       setError('Please select a customer before analysing the drawing.');
@@ -117,79 +121,106 @@ export default function DrawingUploadStep({
       const { quoteId } = await draftRes.json();
 
       setProgress(20);
-      setProgressLabel('Uploading drawing...');
+      setProgressLabel(files.length > 1 ? `Uploading drawing 1 of ${files.length}...` : 'Uploading drawing...');
 
-      // Step 2: Upload drawing to R2 storage
-      const uploadFormData = new FormData();
-      uploadFormData.append('file', file);
-      uploadFormData.append('customerId', String(selectedCustomerId));
-      uploadFormData.append('quoteId', String(quoteId));
+      const combinedRooms: any[] = [];
+      const combinedWarnings: string[] = [];
+      let combinedAnalysis: any = null;
 
-      const uploadRes = await fetch('/api/upload/drawing', {
-        method: 'POST',
-        body: uploadFormData,
-      });
+      for (let fileIndex = 0; fileIndex < files.length; fileIndex++) {
+        const currentFile = files[fileIndex];
+        setFile(currentFile);
+        setProgress(20 + Math.round((fileIndex / files.length) * 55));
+        setProgressLabel(files.length > 1 ? `Uploading drawing ${fileIndex + 1} of ${files.length}...` : 'Uploading drawing...');
 
-      if (!uploadRes.ok) {
-        const errData = await uploadRes.json();
-        throw new Error(errData.error || 'Failed to upload drawing');
+        // Step 2: Upload drawing to R2 storage
+        const uploadFormData = new FormData();
+        uploadFormData.append('file', currentFile);
+        uploadFormData.append('customerId', String(selectedCustomerId));
+        uploadFormData.append('quoteId', String(quoteId));
+
+        const uploadRes = await fetch('/api/upload/drawing', {
+          method: 'POST',
+          body: uploadFormData,
+        });
+
+        if (!uploadRes.ok) {
+          const errData = await uploadRes.json();
+          throw new Error(`${currentFile.name}: ${errData.error || 'Failed to upload drawing'}`);
+        }
+
+        const uploadResult = await uploadRes.json();
+
+        setProgress(35 + Math.round((fileIndex / files.length) * 40));
+        setProgressLabel(files.length > 1 ? `Analysing drawing ${fileIndex + 1} of ${files.length} with AI...` : 'Analysing drawing with AI...');
+        setAnalysisState('analyzing');
+
+        // Step 3: Analyse drawing
+        const analyseFormData = new FormData();
+        analyseFormData.append('file', currentFile);
+
+        // Simulate progress during analysis
+        if (!progressInterval) {
+          progressInterval = setInterval(() => {
+            setProgress(prev => Math.min(prev + 5, 75));
+          }, 1000);
+        }
+
+        const analyseRes = await fetch('/api/analyze-drawing', {
+          method: 'POST',
+          body: analyseFormData,
+        });
+
+        if (!analyseRes.ok) {
+          const errData = await analyseRes.json();
+          throw new Error(`${currentFile.name}: ${errData.details || errData.error || 'Drawing analysis failed'}`);
+        }
+
+        const analyseData = await analyseRes.json();
+        const analysis = analyseData.analysis;
+
+        if (!analysis || typeof analysis !== 'object') {
+          throw new Error(`${currentFile.name}: Drawing analysis returned no data. Please try again.`);
+        }
+        if (!Array.isArray(analysis.rooms) || analysis.rooms.length === 0) {
+          throw new Error(
+            `${currentFile.name}: No pieces could be detected. Try a clearer image or use the manual builder.`
+          );
+        }
+
+        combinedAnalysis = combinedAnalysis ?? analysis;
+        combinedRooms.push(...analysis.rooms);
+        combinedWarnings.push(...((analysis.warnings || []) as string[]).map(warning =>
+          files.length > 1 ? `${currentFile.name}: ${warning}` : warning
+        ));
+
+        setProgress(80);
+        setProgressLabel(files.length > 1 ? `Saving drawing ${fileIndex + 1} of ${files.length}...` : 'Saving drawing record...');
+
+        // Step 4: Save drawing record
+        await fetch(`/api/quotes/${quoteId}/drawings`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...uploadResult,
+            analysisData: analysis,
+          }),
+        });
       }
-
-      const uploadResult = await uploadRes.json();
-
-      setProgress(35);
-      setProgressLabel('Analysing drawing with AI...');
-      setAnalysisState('analyzing');
-
-      // Step 3: Analyse drawing
-      const analyseFormData = new FormData();
-      analyseFormData.append('file', file);
-
-      // Simulate progress during analysis
-      progressInterval = setInterval(() => {
-        setProgress(prev => Math.min(prev + 5, 75));
-      }, 1000);
-
-      const analyseRes = await fetch('/api/analyze-drawing', {
-        method: 'POST',
-        body: analyseFormData,
-      });
-
-      if (!analyseRes.ok) {
-        const errData = await analyseRes.json();
-        throw new Error(errData.details || errData.error || 'Drawing analysis failed');
-      }
-
-      const analyseData = await analyseRes.json();
-      const analysis = analyseData.analysis;
-
-      if (!analysis || typeof analysis !== 'object') {
-        throw new Error('Drawing analysis returned no data. Please try again.');
-      }
-      if (!Array.isArray(analysis.rooms) || analysis.rooms.length === 0) {
-        throw new Error(
-          'No pieces could be detected in this drawing. Try a clearer image or use the manual builder.'
-        );
-      }
-
-      setProgress(80);
-      setProgressLabel('Saving drawing record...');
-
-      // Step 4: Save drawing record
-      await fetch(`/api/quotes/${quoteId}/drawings`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...uploadResult,
-          analysisData: analysis,
-        }),
-      });
 
       setProgress(100);
       setProgressLabel('Analysis complete!');
 
       // Show streamlined results view instead of immediately redirecting
-      setAnalysisData(analysis);
+      setAnalysisData({
+        ...combinedAnalysis,
+        rooms: combinedRooms,
+        warnings: combinedWarnings,
+        metadata: {
+          ...(combinedAnalysis?.metadata ?? {}),
+          sourceFiles: files.map(uploadedFile => uploadedFile.name),
+        },
+      });
       setDraftQuoteId(quoteId);
       setAnalysisState('results');
     } catch (err) {
@@ -238,7 +269,8 @@ export default function DrawingUploadStep({
           <input
             ref={fileInputRef}
             type="file"
-            accept=".pdf,.png,.jpg,.jpeg"
+            accept={DRAWING_FILE_ACCEPT}
+            multiple
             onChange={handleFileChange}
             className="hidden"
           />
@@ -248,9 +280,14 @@ export default function DrawingUploadStep({
               <svg className="mx-auto h-12 w-12 text-green-500 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
-              <p className="text-gray-900 font-medium mb-1">{file.name}</p>
+              <p className="text-gray-900 font-medium mb-1">
+                {files.length > 1 ? `${files.length} drawings selected` : file.name}
+              </p>
               <p className="text-sm text-gray-500">
-                {(file.size / (1024 * 1024)).toFixed(1)}MB &mdash; Click to change
+                {files.length > 1
+                  ? `${files.map(uploadedFile => uploadedFile.name).slice(0, 3).join(', ')}${files.length > 3 ? ` +${files.length - 3} more` : ''}`
+                  : `${(file.size / (1024 * 1024)).toFixed(1)}MB`}
+                {' '}&mdash; Click to change
               </p>
             </>
           ) : (
@@ -259,9 +296,9 @@ export default function DrawingUploadStep({
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
               </svg>
               <p className="text-gray-600 mb-2">
-                Drag &amp; drop a drawing here or <span className="text-amber-600 font-medium">click to browse</span>
+                Drag &amp; drop drawings here or <span className="text-amber-600 font-medium">click to browse</span>
               </p>
-              <p className="text-sm text-gray-500">Supported: PDF, PNG, JPG drawings up to 10MB</p>
+              <p className="text-sm text-gray-500">Supported: {DRAWING_FILE_LABEL} drawings up to 10MB each</p>
             </>
           )}
         </div>
@@ -316,10 +353,10 @@ export default function DrawingUploadStep({
           <button onClick={onBack} className="btn-secondary">Cancel</button>
           <button
             onClick={handleAnalyse}
-            disabled={!file}
+            disabled={files.length === 0}
             className="btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Analyse Drawing &rarr;
+            Analyse {files.length > 1 ? 'Drawings' : 'Drawing'} &rarr;
           </button>
         </div>
       </div>
@@ -395,6 +432,7 @@ export default function DrawingUploadStep({
               onClick={() => {
                 setAnalysisState('idle');
                 setFile(null);
+                setFiles([]);
                 setError(null);
                 setProgress(0);
               }}
@@ -517,7 +555,7 @@ export default function DrawingUploadStep({
     return (
       <StreamlinedAnalysisView
         analysisResult={analysisData}
-        drawingName={file?.name || 'Drawing'}
+        drawingName={files.length > 1 ? `${files.length} drawings` : file?.name || 'Drawing'}
         projectName={projectName || 'Untitled'}
         onCreateQuote={importAndRedirect}
         onEditQuickView={importAndRedirect}

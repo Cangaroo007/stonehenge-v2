@@ -3,14 +3,9 @@ import { getCurrentUser } from '@/lib/auth';
 import { uploadToR2, isR2Configured } from '@/lib/storage/r2';
 import { v4 as uuidv4 } from 'uuid';
 import { logger } from '@/lib/logger';
+import { DRAWING_FILE_LABEL, isAllowedDrawingFile, resolveDrawingMimeType } from '@/lib/drawing-file-types';
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
-const ALLOWED_TYPES = [
-  'application/pdf',
-  'image/png',
-  'image/jpeg',
-  'image/jpg',
-];
 
 /**
  * POST /api/upload/drawing
@@ -50,9 +45,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate file type
-    if (!ALLOWED_TYPES.includes(file.type)) {
+    const resolvedMimeType = resolveDrawingMimeType(file.name, file.type);
+    if (!isAllowedDrawingFile(file.name, file.type)) {
       return NextResponse.json(
-        { error: 'Invalid file type. Allowed: PDF, PNG, JPG' },
+        { error: `Invalid file type. Allowed: ${DRAWING_FILE_LABEL}` },
         { status: 400 }
       );
     }
@@ -74,13 +70,13 @@ export async function POST(request: NextRequest) {
     const buffer = Buffer.from(await file.arrayBuffer());
 
     // Upload to R2
-    await uploadToR2(storageKey, buffer, file.type);
+    await uploadToR2(storageKey, buffer, resolvedMimeType || file.type || 'application/octet-stream');
     logger.info('[Upload API] Uploaded:', storageKey);
 
     return NextResponse.json({
       storageKey,
       filename: file.name,
-      mimeType: file.type,
+      mimeType: resolvedMimeType || file.type,
       fileSize: file.size,
     });
   } catch (error) {

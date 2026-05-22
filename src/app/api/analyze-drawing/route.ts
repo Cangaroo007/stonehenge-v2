@@ -9,6 +9,7 @@ import prisma from '@/lib/db';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { buildRoughDrawingSystemPrompt } from '@/lib/prompts/extraction-rough-drawing';
 import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
+import { DRAWING_FILE_LABEL, isAllowedDrawingFile, resolveDrawingMimeType } from '@/lib/drawing-file-types';
 
 function getAnthropicClient(): Anthropic {
   const apiKey = process.env.ANTHROPIC_API_KEY;
@@ -54,6 +55,19 @@ async function compressImage(buffer: Buffer, mimeType: string): Promise<{ data: 
 
 function isPdfFile(mimeType: string): boolean {
   return mimeType === 'application/pdf';
+}
+
+function isClaudeImageMimeType(mimeType: string): mimeType is 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp' {
+  return mimeType === 'image/png' || mimeType === 'image/jpeg' || mimeType === 'image/gif' || mimeType === 'image/webp';
+}
+
+async function convertImageForClaude(buffer: Buffer): Promise<{ data: Buffer; mediaType: 'image/jpeg' }> {
+  const data = await sharp(buffer)
+    .rotate()
+    .jpeg({ quality: 85, mozjpeg: true })
+    .toBuffer();
+
+  return { data, mediaType: 'image/jpeg' };
 }
 
 interface LearningRule {
@@ -347,10 +361,22 @@ export async function POST(request: NextRequest) {
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
     let buffer: Buffer = Buffer.from(bytes);
-    let mimeType = file.type || 'image/png';
-    const isPdf = isPdfFile(mimeType);
+    const resolvedMimeType = resolveDrawingMimeType(file.name, file.type);
 
-    logger.info(`[Analyze] Received file: ${file.name}, size: ${buffer.length} bytes, type: ${mimeType}, isPdf: ${isPdf}`);
+    logger.info(`[Analyze] Received file: ${file.name}, size: ${buffer.length} bytes, type: ${resolvedMimeType || 'unknown'}`);
+
+    if (!isAllowedDrawingFile(file.name, resolvedMimeType)) {
+      return NextResponse.json(
+        {
+          error: 'Invalid file type',
+          details: `Please upload one of these drawing formats: ${DRAWING_FILE_LABEL}.`,
+        },
+        { status: 400 }
+      );
+    }
+
+    let mimeType = resolvedMimeType || 'image/png';
+    const isPdf = isPdfFile(mimeType);
 
     // Build the content block for Claude based on file type
     let fileContentBlock: Anthropic.Messages.ContentBlockParam;
@@ -378,6 +404,26 @@ export async function POST(request: NextRequest) {
         },
       } as unknown as Anthropic.Messages.ContentBlockParam;
     } else {
+      // Images: convert formats Claude cannot consume directly, then compress if needed.
+      if (!isClaudeImageMimeType(mimeType)) {
+        logger.info(`[Analyze] Converting ${mimeType} to JPEG for Claude image input`);
+        try {
+          const converted = await convertImageForClaude(buffer);
+          buffer = converted.data;
+          mimeType = converted.mediaType;
+          logger.info(`[Analyze] Converted image to ${mimeType}, ${buffer.length} bytes`);
+        } catch (conversionError) {
+          logger.error('[Analyze] Image conversion failed:', conversionError);
+          return NextResponse.json(
+            {
+              error: 'Image format could not be converted',
+              details: `This file type is accepted for upload, but could not be prepared for AI analysis. Try exporting it as JPG, PNG, GIF, or WebP.`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       // Images: compress if needed, then send as image type
       if (buffer.length > MAX_IMAGE_SIZE * 0.8) {
         logger.info(`[Analyze] Image size ${buffer.length} bytes exceeds threshold, compressing...`);
