@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback } from 'react';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
+import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
 
 interface EdgeSelections {
   edgeTop: string | null;
@@ -139,6 +140,12 @@ export function DrawingReviewStage({
   }, [pieces]);
 
   const canConfirm = redCount === 0;
+  const pickerMaterials = useMemo(() => catalogue.materials.map(material => ({
+    ...material,
+    pricePerSqm: 0,
+    pricePerSlab: null,
+    supplier: null,
+  })), [catalogue.materials]);
 
   // Unique rooms for room dropdown
   const roomOptions = useMemo(() => {
@@ -190,8 +197,8 @@ export function DrawingReviewStage({
 
   // Apply material to all pieces as an explicit bulk action. Individual rows
   // remain editable because mixed-material jobs are common.
-  const applyMaterialToAll = useCallback((materialIdRaw: string) => {
-    const materialId = Number(materialIdRaw);
+  const applyMaterialToAll = useCallback((materialId: number | null) => {
+    if (materialId == null) return;
     const material = catalogue.materials.find(m => m.id === materialId);
     if (!material) return;
     setPieces(prev => prev.map(p => {
@@ -294,21 +301,12 @@ export function DrawingReviewStage({
         <span className="text-sm font-medium text-zinc-700">Bulk defaults:</span>
         <div className="flex items-center gap-2">
           <label className="text-sm text-zinc-600">Material</label>
-          <select
-            className="px-2 py-1 border border-zinc-300 rounded text-sm focus:ring-primary-500 focus:border-primary-500"
-            defaultValue=""
-            onChange={(e) => {
-              if (e.target.value) applyMaterialToAll(e.target.value);
-              e.target.value = '';
-            }}
-          >
-            <option value="">Select...</option>
-            {catalogue.materials.map(m => (
-              <option key={m.id} value={m.id}>
-                {m.name}{m.collection ? ` (${m.collection})` : ''}
-              </option>
-            ))}
-          </select>
+          <MaterialPickerV2
+            materials={pickerMaterials}
+            value={null}
+            onChange={(materialId) => applyMaterialToAll(materialId)}
+            placeholder="Select material"
+          />
         </div>
         <div className="flex items-center gap-2">
           <label className="text-sm text-zinc-600">Thickness</label>
@@ -334,7 +332,7 @@ export function DrawingReviewStage({
         <div key={group.name} className="mb-6">
           <h3 className="text-sm font-semibold text-zinc-800 mb-2 px-1">{group.name}</h3>
           <div className="overflow-x-auto border border-zinc-200 rounded-lg">
-            <table className="w-full text-sm">
+            <table className="w-full min-w-[980px] text-sm">
               <thead>
                 <tr className="bg-zinc-50 text-zinc-600 text-xs uppercase tracking-wider">
                   <th className="px-3 py-2 text-left font-medium">#</th>
@@ -361,7 +359,7 @@ export function DrawingReviewStage({
                       <td className="px-3 py-2 text-zinc-500">{piece.pieceNumber}</td>
 
                       {/* Name — inline editable */}
-                      <td className="px-3 py-2">
+                      <td className="px-3 py-2 min-w-[190px]">
                         <input
                           type="text"
                           defaultValue={piece.name}
@@ -370,7 +368,7 @@ export function DrawingReviewStage({
                               updatePiece(piece.id, 'name', e.target.value, 'DIMENSION');
                             }
                           }}
-                          className="w-full px-1 py-0.5 border border-transparent hover:border-zinc-300 focus:border-primary-500 rounded text-sm bg-transparent focus:bg-white focus:outline-none"
+                          className="w-full min-w-[160px] px-1 py-0.5 border border-transparent hover:border-zinc-300 focus:border-primary-500 rounded text-sm bg-transparent focus:bg-white focus:outline-none"
                         />
                       </td>
 
@@ -386,27 +384,19 @@ export function DrawingReviewStage({
                       </td>
 
                       {/* Material — per-piece editable */}
-                      <td className="px-3 py-2 min-w-[180px]">
-                        <select
-                          value={piece.materialId ?? ''}
-                          onChange={(e) => {
-                            const nextId = e.target.value ? Number(e.target.value) : null;
-                            const nextMaterial = nextId ? catalogue.materials.find(m => m.id === nextId) : null;
+                      <td className="px-3 py-2 min-w-[220px]">
+                        <MaterialPickerV2
+                          materials={pickerMaterials}
+                          value={piece.materialId ?? null}
+                          onChange={(nextId, nextMaterial) => {
                             fireCorrection('MATERIAL', 'material', piece.materialName ?? null, nextMaterial?.name ?? null, piece.confidence);
                             setPieces(prev => prev.map(p => p.id === piece.id
                               ? { ...p, materialId: nextId, materialName: nextMaterial?.name ?? null }
                               : p
                             ));
                           }}
-                          className="w-full px-1 py-0.5 border border-zinc-300 rounded text-xs bg-white focus:outline-none focus:border-primary-500"
-                        >
-                          <option value="">{piece.materialName || 'Select...'}</option>
-                          {catalogue.materials.map(m => (
-                            <option key={m.id} value={m.id}>
-                              {m.name}{m.collection ? ` (${m.collection})` : ''}
-                            </option>
-                          ))}
-                        </select>
+                          placeholder={piece.materialName || 'Select material'}
+                        />
                       </td>
 
                       {/* Length — confidence-coloured */}

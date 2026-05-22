@@ -146,11 +146,12 @@ ${cutoutTypeList || '- No cutout types configured yet'}
 - Room/area label
 - Length in millimetres (null if unreadable)
 - Width in millimetres (null if unreadable)
-- Shape: RECTANGLE, L_SHAPE, U_SHAPE, RADIUS_END, ROUNDED_RECT, FULL_CIRCLE, CONCAVE_ARC, or IRREGULAR
+- Shape: RECTANGLE, L_SHAPE, U_SHAPE, RADIUS_END, ROUNDED_RECT, FULL_CIRCLE, CONCAVE_ARC, POLYGON, or IRREGULAR
 - Shape config when non-rectangular:
   - RADIUS_END: shapeConfig = { "shape": "RADIUS_END", "length_mm": number, "width_mm": number, "radius_mm": number, "curved_ends": "ONE" | "BOTH" }
   - ROUNDED_RECT: shapeConfig = { "shape": "ROUNDED_RECT", "length_mm": number, "width_mm": number, "corner_radius_mm": number, "individual_corners": false }
   - L_SHAPE/U_SHAPE: include leg dimensions only when clearly readable; otherwise split into physical rectangular runs or ask.
+  - POLYGON: only use when the drawing has a clear angled/splayed/notched outline with enough dimensions to define vertices. Use shapeConfig type "canonical-polygon" with mm coordinates, stable vertex IDs, stable edge IDs, outerRing edges, features, areaSqm, perimeterMm, edgeLengths, and boundingBox. Do not use POLYGON if dimensions are missing; ask for a trace/site measure instead.
 - Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 - Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
@@ -181,6 +182,7 @@ Never silently flatten special geometry into a rectangle.
 - Rounded or semicircular terminal ends are RADIUS_END pieces, not rectangles. If the end is clearly semicircular and no radius is labelled, infer radius as half the piece width, mark confidence below 0.85, and ask the user to confirm.
 - Rounded ends, curved bars, radius corners, posts, notches, angled returns, bow fronts, and irregular outlines affect cutting, edge finishing, slab yield, and visual review.
 - If the exact geometry is visible but not dimensioned, return the best supported shape plus clarification questions. Do not hide the issue in notes only.
+- If an angled return or splayed piece has enough labelled dimensions to model, return shape POLYGON with canonical-polygon shapeConfig so the quote can render and price the actual outline. Do not downgrade it to RECTANGLE.
 - If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
 - If a piece has angled or irregular runs and you cannot produce a supported shapeConfig, set shape to IRREGULAR, confidence below 0.85, and ask for LiDAR/site measure or polygon trace before final pricing.
 - For any RADIUS_END piece, put straight edge profiles in edgeTop/edgeBottom/edgeLeft/edgeRight and curved edge profile in edgeArcConfig.arc_end.
@@ -242,6 +244,7 @@ Rules for questions:
 - NICE_TO_KNOW priority: room assignment, material if not specified
 
 For each question, populate options from the TENANT CATALOGUE above — never hardcode generic options. For dimension questions, set allowFreeText: true and omit options (user types a number).
+For each question, include sourcePage and sourceHint whenever possible. sourceHint must point the user to the exact drawing area, e.g. "kitchen plan lower left return", "island sink note on page 2", or "right-hand rounded peninsula end". If you can identify a page region, include sourceRegion as normalised page coordinates 0-1: { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.15 }. These source fields are used by the UI to open and highlight the relevant drawing context.
 
 ## OUTPUT FORMAT — Return ONLY valid JSON:
 
@@ -303,7 +306,10 @@ For each question, populate options from the TENANT CATALOGUE above — never ha
       "aiSuggestionConfidence": null,
       "options": null,
       "allowFreeText": true,
-      "unit": "mm"
+      "unit": "mm",
+      "sourcePage": 1,
+      "sourceHint": "island bench dimension line near the lower centre of the sketch",
+      "sourceRegion": { "x": 0.25, "y": 0.55, "width": 0.45, "height": 0.25 }
     },
     {
       "id": "piece-1-material",

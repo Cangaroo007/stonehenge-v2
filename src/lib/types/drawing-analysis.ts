@@ -85,6 +85,14 @@ export interface ClarificationQuestion {
   allowFreeText?: boolean;         // true for dimension inputs
   unit?: string;                   // 'mm' for dimensions
   defaultValue?: string;
+  sourcePage?: number;             // 1-based page number if the model can identify it
+  sourceHint?: string;             // e.g. "lower-right island return dimension"
+  sourceRegion?: {
+    x?: number;                    // optional normalised page/document region, 0-1
+    y?: number;
+    width?: number;
+    height?: number;
+  };
 }
 
 // Complete analysis result

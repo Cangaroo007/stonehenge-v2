@@ -1363,9 +1363,60 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
   const handleClarificationSubmit = useCallback((answers: Record<string, string>) => {
     logger.info('[DrawingImport] Clarification answers received:', Object.keys(answers).length);
     // Answers are already logged to corrections by ClarificationPanel.
-    // Advance to review step — answers could be used to refine pieces in future.
+    setExtractedPieces(prev => {
+      let next = prev;
+      for (const question of clarificationQuestions) {
+        const answer = answers[question.id];
+        if (answer === undefined || answer === '' || answer === '__skipped__') continue;
+
+        const applyToPiece = (piece: ExtractedPiece): ExtractedPiece => {
+          const fieldPath = (question.fieldPath ?? '').toLowerCase();
+          if (question.category === 'DIMENSION') {
+            const numericAnswer = Number(answer);
+            if (!Number.isFinite(numericAnswer) || numericAnswer <= 0) return piece;
+            if (fieldPath.includes('width')) return { ...piece, width: numericAnswer, confidence: Math.max(piece.confidence, 0.85) };
+            if (fieldPath.includes('thickness')) return { ...piece, thickness: numericAnswer, confidence: Math.max(piece.confidence, 0.85) };
+            return { ...piece, length: numericAnswer, confidence: Math.max(piece.confidence, 0.85) };
+          }
+
+          if (question.category === 'MATERIAL') {
+            const materialId = /^\d+$/.test(answer) ? Number(answer) : null;
+            const material = materialId != null
+              ? catalogue.materials.find(candidate => candidate.id === materialId)
+              : catalogue.materials.find(candidate => {
+                const label = candidate.collection ? `${candidate.name} (${candidate.collection})` : candidate.name;
+                return label === answer || candidate.name === answer;
+              });
+            return {
+              ...piece,
+              materialId: material?.id ?? piece.materialId ?? null,
+              materialName: material?.name ?? answer,
+              confidence: Math.max(piece.confidence, 0.85),
+            };
+          }
+
+          return piece;
+        };
+
+        const questionPieceNumber = question.pieceId?.match(/\d+/)?.[0];
+        const targetPieceNumber = questionPieceNumber ? Number(questionPieceNumber) : null;
+        const questionText = question.question.toLowerCase();
+        const targetRoom = STANDARD_ROOMS.find(room => questionText.includes(room.toLowerCase()));
+        const appliesToAll = /\ball\b/.test(questionText);
+
+        next = next.map(piece => {
+          const pieceNumberMatch = targetPieceNumber != null && piece.pieceNumber === targetPieceNumber;
+          const roomMatch = targetRoom ? piece.room.toLowerCase().includes(targetRoom.toLowerCase()) : false;
+          if (pieceNumberMatch || (appliesToAll && (!targetRoom || roomMatch))) {
+            return applyToPiece(piece);
+          }
+          return piece;
+        });
+      }
+      return next;
+    });
     setStep('review');
-  }, []);
+  }, [catalogue.materials, clarificationQuestions]);
 
   const handleClarificationSkip = useCallback(() => {
     logger.info('[DrawingImport] Clarification skipped');
@@ -1374,7 +1425,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-lg shadow-xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+      <div className="bg-white rounded-lg shadow-xl max-w-6xl w-full max-h-[90vh] overflow-auto">
         {step === 'upload' && renderUploadStep()}
         {step === 'analyzing' && renderAnalyzingStep()}
         {step === 'clarification' && (
@@ -1404,6 +1455,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
               drawingId={clarificationDrawingId}
               analysisId={clarificationAnalysisId}
               quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
+              catalogue={catalogue}
             />
           </div>
         )}

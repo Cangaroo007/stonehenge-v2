@@ -2,7 +2,9 @@
 
 import { useState, useCallback } from 'react';
 import { ClarificationQuestion } from '@/lib/types/drawing-analysis';
+import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
+import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
 
 interface ClarificationPanelProps {
   questions: ClarificationQuestion[];
@@ -11,6 +13,7 @@ interface ClarificationPanelProps {
   drawingId?: string;
   analysisId?: number;
   quoteId?: number;
+  catalogue?: DrawingCatalogue;
 }
 
 const categoryToType: Record<string, CorrectionPayload['correctionType']> = {
@@ -36,6 +39,7 @@ export function ClarificationPanel({
   drawingId,
   analysisId,
   quoteId,
+  catalogue,
 }: ClarificationPanelProps) {
   const [answers, setAnswers] = useState<Record<string, string>>({});
 
@@ -125,6 +129,8 @@ export function ClarificationPanel({
             question={question}
             answer={answers[question.id]}
             onAnswer={(value) => handleAnswer(question, value)}
+            catalogue={catalogue}
+            quoteId={quoteId}
           />
         ))}
       </div>
@@ -160,6 +166,8 @@ interface QuestionCardProps {
   question: ClarificationQuestion;
   answer?: string;
   onAnswer: (value: string) => void;
+  catalogue?: DrawingCatalogue;
+  quoteId?: number;
 }
 
 const borderByPriority: Record<string, string> = {
@@ -168,7 +176,7 @@ const borderByPriority: Record<string, string> = {
   NICE_TO_KNOW: 'border-l-4 border-l-blue-300',
 };
 
-function QuestionCard({ question, answer, onAnswer }: QuestionCardProps) {
+function QuestionCard({ question, answer, onAnswer, catalogue, quoteId }: QuestionCardProps) {
   const isAnswered = answer !== undefined;
   const borderClass = borderByPriority[question.priority] || '';
 
@@ -185,12 +193,38 @@ function QuestionCard({ question, answer, onAnswer }: QuestionCardProps) {
           </p>
         )}
 
+        {(question.sourcePage || question.sourceHint || quoteId) && (
+          <div className="flex flex-wrap items-center gap-2 text-xs text-zinc-500">
+            {(question.sourcePage || question.sourceHint) && (
+              <span className="rounded bg-zinc-50 border border-zinc-200 px-2 py-1">
+                {question.sourcePage ? `Page ${question.sourcePage}` : 'Drawing context'}
+                {question.sourceHint ? `: ${question.sourceHint}` : ''}
+              </span>
+            )}
+            {quoteId && (
+              <button
+                type="button"
+                onClick={() => window.open(`/quotes/${quoteId}?mode=edit#drawings`, '_blank', 'noopener,noreferrer')}
+                className="text-primary-600 hover:text-primary-700 font-medium"
+              >
+                Open drawings
+              </button>
+            )}
+          </div>
+        )}
+
         {/* Answer input */}
         {question.allowFreeText ? (
           <DimensionInput
             question={question}
             value={answer || ''}
             onChange={onAnswer}
+          />
+        ) : question.category === 'MATERIAL' && catalogue?.materials.length ? (
+          <MaterialQuestionPicker
+            catalogue={catalogue}
+            selected={answer}
+            onSelect={onAnswer}
           />
         ) : question.options && question.options.length > 0 ? (
           <ChipSelector
@@ -217,6 +251,33 @@ function QuestionCard({ question, answer, onAnswer }: QuestionCardProps) {
           </button>
         )}
       </div>
+    </div>
+  );
+}
+
+function MaterialQuestionPicker({
+  catalogue,
+  selected,
+  onSelect,
+}: {
+  catalogue: DrawingCatalogue;
+  selected: string | undefined;
+  onSelect: (value: string) => void;
+}) {
+  const selectedId = selected && /^\d+$/.test(selected) ? Number(selected) : null;
+  return (
+    <div className="max-w-[360px]">
+      <MaterialPickerV2
+        materials={catalogue.materials.map(material => ({
+          ...material,
+          pricePerSqm: 0,
+          pricePerSlab: null,
+          supplier: null,
+        }))}
+        value={selectedId}
+        onChange={(materialId) => onSelect(materialId != null ? String(materialId) : '')}
+        placeholder="Select material"
+      />
     </div>
   );
 }
