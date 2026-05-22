@@ -1,4 +1,4 @@
-export type ShapeType = 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | 'RADIUS_END' | 'FULL_CIRCLE' | 'CONCAVE_ARC' | 'ROUNDED_RECT';
+export type ShapeType = 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | 'RADIUS_END' | 'FULL_CIRCLE' | 'CONCAVE_ARC' | 'ROUNDED_RECT' | 'POLYGON';
 
 export interface LShapeConfig {
   shape: 'L_SHAPE';
@@ -48,7 +48,41 @@ export interface RoundedRectConfig {
   corner_bl_mm: number;
 }
 
-export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | RoundedRectConfig | null;
+export interface CanonicalPolygonShapeConfig {
+  type: 'canonical-polygon';
+  vertices: Record<string, { id: string; x: number; y: number; mitre?: unknown; cornerRadiusMm?: number }>;
+  edges: Record<string, {
+    id: string;
+    start: string;
+    end: string;
+    profile: string;
+    finish: string;
+    exposure: string;
+    curve?: unknown;
+    buildUp?: unknown;
+    generatedBy?: string;
+    v2EdgeSide?: string;
+    v2EdgeTypeId?: string | null;
+  }>;
+  outerRing: { edges: string[]; orientation: 'ccw' | 'cw' };
+  innerRings: Array<{ edges: string[]; orientation: 'ccw' | 'cw' }>;
+  features: unknown[];
+  areaSqm: number;
+  perimeterMm: number;
+  edgeLengths: Array<{
+    edgeId: string;
+    lengthMm: number;
+    v2EdgeSide?: string;
+    v2EdgeTypeId?: string | null;
+  }>;
+  boundingBox: { minX: number; minY: number; maxX: number; maxY: number; lengthMm: number; widthMm: number };
+}
+
+export function isCanonicalPolygonShapeConfig(value: unknown): value is CanonicalPolygonShapeConfig {
+  return !!value && typeof value === 'object' && (value as { type?: unknown }).type === 'canonical-polygon';
+}
+
+export type ShapeConfig = LShapeConfig | UShapeConfig | RadiusEndConfig | FullCircleConfig | ConcaveArcConfig | RoundedRectConfig | CanonicalPolygonShapeConfig | null;
 
 /** Arc edge profile assignments for curved pieces (stored as JSONB in quote_pieces.edge_arc_config) */
 export interface ArcEdgeConfig {
@@ -315,7 +349,19 @@ export function getShapeEdgeLengths(
   length_mm: number,
   width_mm: number
 ): { top_mm: number; bottom_mm: number; left_mm: number; right_mm: number } {
-  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+    const lengthForSide = (side: string, fallback: number) =>
+      shapeConfig.edgeLengths
+        .filter(edge => edge.v2EdgeSide === side)
+        .reduce((sum, edge) => sum + edge.lengthMm, 0) || fallback;
+    return {
+      top_mm: lengthForSide('top', length_mm),
+      bottom_mm: lengthForSide('bottom', length_mm),
+      left_mm: lengthForSide('left', width_mm),
+      right_mm: lengthForSide('right', width_mm),
+    };
+  }
+  if (shapeType === 'L_SHAPE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'L_SHAPE') {
     const { leg1, leg2 } = shapeConfig;
     if (!leg1 || !leg2) {
       return { top_mm: length_mm, bottom_mm: length_mm, left_mm: width_mm, right_mm: width_mm };
@@ -327,7 +373,7 @@ export function getShapeEdgeLengths(
       left_mm: leg1.width_mm,
     };
   }
-  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+  if (shapeType === 'U_SHAPE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'U_SHAPE') {
     const { leftLeg, back, rightLeg } = shapeConfig;
     if (!leftLeg || !back || !rightLeg) {
       return { top_mm: length_mm, bottom_mm: length_mm, left_mm: width_mm, right_mm: width_mm };
@@ -340,7 +386,7 @@ export function getShapeEdgeLengths(
       left_mm: leftLeg.width_mm,
     };
   }
-  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+  if (shapeType === 'RADIUS_END' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'RADIUS_END') {
     const radiusMm = Math.max(Number(shapeConfig.radius_mm) || 0, 0);
     const curvedEnds = shapeConfig.curved_ends === 'BOTH' ? 2 : 1;
     const straightLengthMm = Math.max(length_mm - (curvedEnds * radiusMm), 0);
@@ -377,6 +423,10 @@ export function getCuttingPerimeterLm(
   fallbackLengthMm: number,
   fallbackWidthMm: number
 ): number {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+    return shapeConfig.perimeterMm / 1000;
+  }
+
   // FULL_CIRCLE: entire perimeter is the circumference (π × diameter)
   if (shapeType === 'FULL_CIRCLE') {
     return Math.PI * fallbackLengthMm / 1000;
@@ -458,6 +508,12 @@ export function getFinishableEdgeLengthsMm(
   fallbackLengthMm: number,
   fallbackWidthMm: number
 ): Record<string, number> {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+    return Object.fromEntries(
+      shapeConfig.edgeLengths.map(edge => [edge.edgeId, edge.lengthMm])
+    );
+  }
+
   if (shapeType === 'L_SHAPE' && shapeConfig && 'leg1' in shapeConfig) {
     const cfg = shapeConfig as LShapeConfig;
     if (!cfg.leg1 || !cfg.leg2) return {};
@@ -500,13 +556,23 @@ export function getShapeGeometry(
   length_mm: number,
   width_mm: number
 ): ShapeGeometry {
-  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+    return {
+      totalAreaSqm: shapeConfig.areaSqm,
+      cuttingPerimeterLm: shapeConfig.perimeterMm / 1000,
+      cornerJoins: 0,
+      boundingLength_mm: shapeConfig.boundingBox.lengthMm,
+      boundingWidth_mm: shapeConfig.boundingBox.widthMm,
+    };
+  }
+
+  if (shapeType === 'L_SHAPE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'L_SHAPE') {
     return calculateLShapeGeometry(shapeConfig);
   }
-  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
+  if (shapeType === 'U_SHAPE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'U_SHAPE') {
     return calculateUShapeGeometry(shapeConfig);
   }
-  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+  if (shapeType === 'RADIUS_END' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'RADIUS_END') {
     return {
       totalAreaSqm: computeRadiusEndArea(shapeConfig) / 1_000_000,
       cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
@@ -515,7 +581,7 @@ export function getShapeGeometry(
       boundingWidth_mm: width_mm,
     };
   }
-  if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') {
+  if (shapeType === 'FULL_CIRCLE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'FULL_CIRCLE') {
     return {
       totalAreaSqm: computeFullCircleArea(shapeConfig) / 1_000_000,
       cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
@@ -524,7 +590,7 @@ export function getShapeGeometry(
       boundingWidth_mm: width_mm,
     };
   }
-  if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') {
+  if (shapeType === 'CONCAVE_ARC' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'CONCAVE_ARC') {
     return {
       totalAreaSqm: computeConcaveArcArea(shapeConfig) / 1_000_000,
       cuttingPerimeterLm: getCuttingPerimeterLm(shapeType, shapeConfig, length_mm, width_mm),
@@ -603,7 +669,7 @@ export function getOptimizerRects(
   pieceId: string,
   label: string
 ): Array<{ width_mm: number; height_mm: number; trueArea_m2: number }> {
-  if (shapeType === 'RADIUS_END' && shapeConfig?.shape === 'RADIUS_END') {
+  if (shapeType === 'RADIUS_END' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'RADIUS_END') {
     return [{
       width_mm: shapeConfig.length_mm,
       height_mm: shapeConfig.width_mm,
@@ -611,7 +677,7 @@ export function getOptimizerRects(
     }];
   }
 
-  if (shapeType === 'FULL_CIRCLE' && shapeConfig?.shape === 'FULL_CIRCLE') {
+  if (shapeType === 'FULL_CIRCLE' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'FULL_CIRCLE') {
     return [{
       width_mm: shapeConfig.diameter_mm,
       height_mm: shapeConfig.diameter_mm,
@@ -619,7 +685,7 @@ export function getOptimizerRects(
     }];
   }
 
-  if (shapeType === 'CONCAVE_ARC' && shapeConfig?.shape === 'CONCAVE_ARC') {
+  if (shapeType === 'CONCAVE_ARC' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'CONCAVE_ARC') {
     const bb = computeArcBoundingBox(shapeConfig);
     return [{
       width_mm: bb.width_mm,
@@ -628,7 +694,7 @@ export function getOptimizerRects(
     }];
   }
 
-  if (shapeType === 'ROUNDED_RECT' && shapeConfig?.shape === 'ROUNDED_RECT') {
+  if (shapeType === 'ROUNDED_RECT' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'ROUNDED_RECT') {
     const cfg = shapeConfig;
     const tl = cfg.individual_corners ? cfg.corner_tl_mm : cfg.corner_radius_mm;
     const tr = cfg.individual_corners ? cfg.corner_tr_mm : cfg.corner_radius_mm;

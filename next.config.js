@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  transpilePackages: ['@stonehenge-proto/geometry'],
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',

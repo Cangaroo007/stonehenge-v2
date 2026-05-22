@@ -1,13 +1,8 @@
 import type { Prisma } from '@prisma/client';
 import type { LidarAppliance, LidarPoint, LidarScan } from '@/lib/lidar/mock-scans';
-import {
-  calculateLShapeGeometry,
-  calculateUShapeGeometry,
-  type LShapeConfig,
-  type ShapeConfig,
-  type ShapeType,
-  type UShapeConfig,
-} from '@/lib/types/shapes';
+import type { CanonicalPolygonShapeConfig, ShapeConfig, ShapeType } from '@/lib/types/shapes';
+import { protoPieceToCanonicalGeometrySnapshot } from '@/lib/services/proto-geometry-adapter';
+import type { Edge, EdgeExposure, EdgeProfile, Feature, Piece, Ring, Vertex } from '@stonehenge-proto/geometry';
 
 type EdgeSide = 'top' | 'bottom' | 'left' | 'right';
 
@@ -51,8 +46,8 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
     }
 
     const bounds = getBounds(countertop.vertices);
-    const shape = inferShape(countertop.vertices, warnings);
-    const areaSqm = getAreaSqm(shape.shapeType, shape.shapeConfig, bounds);
+    const noStripEdges = inferNoStripEdges(scan, countertop.vertices);
+    const canonicalShape = buildCanonicalPolygonFromScan(scan, countertop.vertices, index, noStripEdges);
 
     return {
       name: countertop.name || `${titleCase(scan.roomType)} benchtop ${index + 1}`,
@@ -61,10 +56,10 @@ export function convertLidarScanToQuotePieces(scan: LidarScan): LidarConversionR
       widthMm: bounds.height,
       thicknessMm: 20,
       pieceType: inferPieceType(scan.roomType),
-      areaSqm,
-      shapeType: shape.shapeType,
-      shapeConfig: shape.shapeConfig,
-      noStripEdges: inferNoStripEdges(scan, countertop.vertices),
+      areaSqm: canonicalShape.areaSqm,
+      shapeType: 'POLYGON' as ShapeType,
+      shapeConfig: canonicalShape as ShapeConfig,
+      noStripEdges,
       cutouts: scan.appliances
         .filter(appliance => appliance.confidence >= 0.7)
         .map(cutoutFromAppliance),
@@ -109,58 +104,6 @@ function getBounds(vertices: LidarPoint[]) {
   };
 }
 
-function inferShape(
-  vertices: LidarPoint[],
-  warnings: string[]
-): { shapeType: ShapeType; shapeConfig: ShapeConfig } {
-  const bounds = getBounds(vertices);
-  const uniqueX = sortedUnique(vertices.map(v => v.x));
-  const uniqueY = sortedUnique(vertices.map(v => v.y));
-
-  if (vertices.length === 4) {
-    return { shapeType: 'RECTANGLE', shapeConfig: null };
-  }
-
-  if (vertices.length === 6 && uniqueX.length >= 3 && uniqueY.length >= 3) {
-    const legWidthX = smallestPositiveGap(uniqueX);
-    const legWidthY = smallestPositiveGap(uniqueY);
-    const config: LShapeConfig = {
-      shape: 'L_SHAPE',
-      leg1: { length_mm: bounds.width, width_mm: legWidthY },
-      leg2: { length_mm: bounds.height, width_mm: legWidthX },
-    };
-    return { shapeType: 'L_SHAPE', shapeConfig: config };
-  }
-
-  if (vertices.length === 8 && uniqueX.length >= 4 && uniqueY.length >= 3) {
-    const leftWidth = uniqueX[1] - uniqueX[0];
-    const rightWidth = uniqueX[uniqueX.length - 1] - uniqueX[uniqueX.length - 2];
-    const backWidth = smallestPositiveGap(uniqueY);
-    const config: UShapeConfig = {
-      shape: 'U_SHAPE',
-      leftLeg: { length_mm: bounds.height, width_mm: leftWidth },
-      back: { length_mm: bounds.width, width_mm: backWidth },
-      rightLeg: { length_mm: bounds.height, width_mm: rightWidth },
-    };
-    return { shapeType: 'U_SHAPE', shapeConfig: config };
-  }
-
-  warnings.push(
-    `Unsupported LiDAR polygon with ${vertices.length} vertices was imported as a rectangular bounding box`
-  );
-  return { shapeType: 'RECTANGLE', shapeConfig: null };
-}
-
-function getAreaSqm(shapeType: ShapeType, shapeConfig: ShapeConfig, bounds: { width: number; height: number }) {
-  if (shapeType === 'L_SHAPE') {
-    return calculateLShapeGeometry(shapeConfig as LShapeConfig).totalAreaSqm;
-  }
-  if (shapeType === 'U_SHAPE') {
-    return calculateUShapeGeometry(shapeConfig as UShapeConfig).totalAreaSqm;
-  }
-  return (bounds.width * bounds.height) / 1_000_000;
-}
-
 function inferNoStripEdges(scan: LidarScan, vertices: LidarPoint[]): EdgeSide[] {
   const hinted = scan.exposureHints?.edgesAgainstWall?.flatMap(directionToSide) ?? [];
   if (hinted.length > 0 || scan.exposureHints?.edgesAgainstWall) {
@@ -177,6 +120,102 @@ function inferNoStripEdges(scan: LidarScan, vertices: LidarPoint[]): EdgeSide[] 
   if (Math.abs(scan.dimensions.depthMm - bounds.maxY) <= toleranceMm) sides.push('bottom');
 
   return uniqueSides(sides);
+}
+
+function buildCanonicalPolygonFromScan(
+  scan: LidarScan,
+  points: LidarPoint[],
+  countertopIndex: number,
+  noStripEdges: EdgeSide[]
+): CanonicalPolygonShapeConfig {
+  const pieceKey = `${scan.scanId}-${countertopIndex}`;
+  const vertices: Vertex[] = points.map((point, index) => ({
+    id: `lidar-${pieceKey}-vertex-${index}` as Vertex['id'],
+    x: point.x,
+    y: point.y,
+  }));
+  const edges: Edge[] = vertices.map((vertex, index) => {
+    const side = inferCardinalSide(points[index], points[(index + 1) % points.length]);
+    return {
+      id: `lidar-${pieceKey}-edge-${index}` as Edge['id'],
+      start: vertex.id,
+      end: vertices[(index + 1) % vertices.length].id,
+      profile: edgeProfileForScanSide(scan, side),
+      finish: noStripEdges.includes(side) ? 'unfinished' : 'polished',
+      exposure: noStripEdges.includes(side) ? 'wall' : 'exposed',
+      v2EdgeSide: side,
+      v2EdgeTypeId: null,
+    } as Edge & { v2EdgeSide: EdgeSide; v2EdgeTypeId: null };
+  });
+  const outerRing: Ring = {
+    edges: edges.map(edge => edge.id),
+    orientation: 'ccw',
+  };
+  const protoPiece: Piece = {
+    id: `lidar-${pieceKey}` as Piece['id'],
+    name: scan.countertops[countertopIndex]?.name || `${titleCase(scan.roomType)} benchtop ${countertopIndex + 1}`,
+    pieceRole: 'BENCHTOP',
+    materialId: scan.countertops[countertopIndex]?.estimatedMaterial || 'unassigned',
+    thicknessMm: 20,
+    vertices,
+    edges,
+    outerRing,
+    innerRings: [],
+    features: scan.appliances
+      .filter(appliance => appliance.confidence >= 0.7)
+      .map((appliance, index) => featureFromAppliance(scan.scanId, appliance, index)),
+  };
+  return protoPieceToCanonicalGeometrySnapshot(protoPiece);
+}
+
+function inferCardinalSide(start: LidarPoint, end: LidarPoint): EdgeSide {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  if (Math.abs(dx) >= Math.abs(dy)) {
+    return dx >= 0 ? 'top' : 'bottom';
+  }
+  return dy >= 0 ? 'right' : 'left';
+}
+
+function edgeProfileForScanSide(scan: LidarScan, side: EdgeSide): EdgeProfile {
+  const hint = scan.edgeFinishHints?.[side]?.profile?.toLowerCase();
+  if (hint?.includes('mitre') || hint?.includes('miter')) return 'mitre-45';
+  if (hint?.includes('bullnose')) return 'full-bullnose';
+  if (hint?.includes('bevel')) return 'bevel';
+  return 'pencil-round';
+}
+
+function featureFromAppliance(scanId: string, appliance: LidarAppliance, index: number): Feature {
+  const position = {
+    x: appliance.boundingBox.x + appliance.boundingBox.widthMm / 2,
+    y: appliance.boundingBox.y + appliance.boundingBox.depthMm / 2,
+  };
+  const id = `lidar-${scanId}-feature-${index}` as Feature['id'];
+  if (appliance.kind === 'sink') {
+    return {
+      id,
+      kind: 'undermount-sink',
+      position,
+      bowlWidthMm: appliance.boundingBox.widthMm,
+      bowlDepthMm: appliance.boundingBox.depthMm,
+    };
+  }
+  if (appliance.kind === 'cooktop') {
+    return {
+      id,
+      kind: 'cooktop-cutout',
+      position,
+      cutoutWidthMm: appliance.boundingBox.widthMm,
+      cutoutDepthMm: appliance.boundingBox.depthMm,
+      cornerRadiusMm: 6,
+    };
+  }
+  return {
+    id,
+    kind: 'tap-hole',
+    position,
+    diameterMm: Math.max(1, Math.round(Math.min(appliance.boundingBox.widthMm, appliance.boundingBox.depthMm) || 35)),
+  };
 }
 
 function directionToSide(direction: string): EdgeSide[] {
@@ -208,15 +247,6 @@ function cutoutFromAppliance(appliance: LidarAppliance) {
     return { ...base, type: 'Cooktop', name: 'Cooktop' };
   }
   return { ...base, type: 'Tap Hole', name: 'Tap Hole' };
-}
-
-function sortedUnique(values: number[]) {
-  return Array.from(new Set(values)).sort((a, b) => a - b);
-}
-
-function smallestPositiveGap(values: number[]) {
-  const gaps = values.slice(1).map((value, index) => value - values[index]).filter(gap => gap > 0);
-  return Math.min(...gaps);
 }
 
 function uniqueSides(sides: EdgeSide[]) {

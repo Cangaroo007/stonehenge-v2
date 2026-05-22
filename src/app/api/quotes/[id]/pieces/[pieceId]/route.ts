@@ -6,6 +6,7 @@ import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
+import { getShapeGeometry, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 import {
   createQuoteSnapshot,
   createQuoteVersion,
@@ -358,6 +359,7 @@ export async function PATCH(
       overrideFabricationCost,
       applyToAllMaterial,
       shapeConfig,
+      shapeType,
       noStripEdges,
       stripWidthOverrides,
       pieceType,
@@ -439,7 +441,11 @@ export async function PATCH(
     // Calculate area
     const length = lengthMm ?? currentPiece.length_mm;
     const width = widthMm ?? currentPiece.width_mm;
-    const areaSqm = (length * width) / 1_000_000;
+    const effectiveShapeType = (shapeType ?? currentPiece.shape_type ?? 'RECTANGLE') as ShapeType;
+    const effectiveShapeConfig = (
+      shapeConfig !== undefined ? shapeConfig : currentPiece.shape_config
+    ) as unknown as ShapeConfig;
+    const areaSqm = getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
 
     // Calculate material cost
     let materialCost = 0;
@@ -557,6 +563,7 @@ export async function PATCH(
           override_fabrication_cost: overrideFabricationCost,
         }),
         // shape_config: stores extra L/U shape data including extended edge profiles
+        ...(shapeType !== undefined && { shape_type: shapeType }),
         ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
         ...(scForCornersPatch?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPatch.corner_edge_tl as string) ?? null }),
@@ -653,6 +660,8 @@ export async function PATCH(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      shapeType: pu.shape_type || 'RECTANGLE',
+      shapeConfig: pu.shape_config || null,
       requiresGrainMatch: updatedPiece.requiresGrainMatch ?? false,
       // CURVE-2a: Corner edge camelCase aliases
       cornerEdgeTl: pu.corner_edge_tl ?? null,
@@ -729,6 +738,7 @@ export async function PUT(
       overrideSlabPrice: putOverrideSlabPrice,
       overrideFabricationCost: putOverrideFabricationCost,
       shapeConfig: putShapeConfig,
+      shapeType: putShapeType,
       noStripEdges: putNoStripEdges,
       stripWidthOverrides: putStripWidthOverrides,
       pieceType: putPieceType,
@@ -869,7 +879,11 @@ export async function PUT(
     // Calculate area
     const length = lengthMm ?? currentPiece.length_mm;
     const width = widthMm ?? currentPiece.width_mm;
-    const areaSqm = (length * width) / 1_000_000;
+    const effectiveShapeType = (putShapeType ?? currentPiece.shape_type ?? 'RECTANGLE') as ShapeType;
+    const effectiveShapeConfig = (
+      putShapeConfig !== undefined ? putShapeConfig : currentPiece.shape_config
+    ) as unknown as ShapeConfig;
+    const areaSqm = getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
 
     // Calculate material cost if material is provided
     let materialCost = 0;
@@ -965,6 +979,7 @@ export async function PUT(
           override_fabrication_cost: putOverrideFabricationCost,
         }),
         // shape_config: stores extra L/U shape data including extended edge profiles
+        ...(putShapeType !== undefined && { shape_type: putShapeType }),
         ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
         ...(scForCornersPut?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPut.corner_edge_tl as string) ?? null }),
@@ -1034,6 +1049,8 @@ export async function PUT(
       edgeRight: pu.edge_right,
       laminationMethod: pu.lamination_method,
       sortOrder: pu.sort_order,
+      shapeType: pu.shape_type || 'RECTANGLE',
+      shapeConfig: pu.shape_config || null,
       requiresGrainMatch: piece.requiresGrainMatch ?? false,
       // CURVE-2a: Corner edge camelCase aliases
       cornerEdgeTl: pu.corner_edge_tl ?? null,

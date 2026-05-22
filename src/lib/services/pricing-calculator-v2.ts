@@ -35,7 +35,7 @@ import {
   calculateTemplatingCost as calculateTemplatingCostFn,
 } from './distance-service';
 import type { MaterialPricingBasis } from '@prisma/client';
-import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, type ShapeConfig, type ShapeType, type RadiusEndConfig, type FullCircleConfig, type ConcaveArcConfig, type ArcEdgeConfig } from '@/lib/types/shapes';
+import { getShapeGeometry, getBoundingBox, getShapeEdgeLengths, decomposeShapeIntoRects, getCuttingPerimeterLm, getFinishableEdgeLengthsMm, computeRadiusEndArea, computeFullCircleArea, computeConcaveArcArea, isCanonicalPolygonShapeConfig, type ShapeConfig, type ShapeType, type RadiusEndConfig, type FullCircleConfig, type ConcaveArcConfig, type ArcEdgeConfig } from '@/lib/types/shapes';
 import type {
   PricingOptions,
   PricingContext,
@@ -1652,9 +1652,10 @@ export async function calculateQuotePrice(
     // segment lengths instead of bounding-box dimensions)
     const shapeType = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
     const shapeConfig = piece.shape_config as unknown as ShapeConfig;
+    const isCanonicalPolygonPiece = isCanonicalPolygonShapeConfig(shapeConfig);
     const isCurvedPiece = isCurvedShape(shapeType);
     // For non-rectangular pieces, pass shape geometry overrides to the engine.
-    const isShapedPiece = geometry.cornerJoins > 0 || isCurvedPiece;
+    const isShapedPiece = geometry.cornerJoins > 0 || isCurvedPiece || isCanonicalPolygonPiece;
     const edgeLengths = getShapeEdgeLengths(shapeType, shapeConfig, piece.length_mm, piece.width_mm);
 
     // Detect deactivated edge types — piece has edge assigned but type not in active list
@@ -1688,7 +1689,23 @@ export async function calculateQuotePrice(
 
     let edges: EnginePiece['edges'];
 
-    if (isLOrUShapeForEdges && piece.shape_config) {
+    if (isCanonicalPolygonPiece) {
+      edges = shapeConfig.edgeLengths.map((edgeLength) => {
+        const edge = shapeConfig.edges[edgeLength.edgeId];
+        const sideKey = edgeLength.v2EdgeSide ?? edgeLength.edgeId;
+        const edgeTypeStringId = edgeLength.v2EdgeTypeId ?? null;
+        const buildUp = edge?.buildUp as { targetThicknessMm?: number } | undefined;
+        return {
+          position: sideKey.toUpperCase() as EngineEdge['position'],
+          isFinished: edge?.exposure === 'exposed' && !!edgeTypeStringId,
+          edgeTypeId: edgeTypeStringId ? (edgeTypeIdMap.get(edgeTypeStringId) ?? null) : null,
+          effectiveThicknessMm: buildUp?.targetThicknessMm != null
+            ? Math.max(piece.thickness_mm, buildUp.targetThicknessMm)
+            : undefined,
+          length_mm: edgeLength.lengthMm,
+        };
+      });
+    } else if (isLOrUShapeForEdges && piece.shape_config) {
       // L/U shapes: use getFinishableEdgeLengthsMm for per-segment lengths
       // and shapeConfig.edges for edge type assignments
       const finishableLengths = getFinishableEdgeLengthsMm(
@@ -1745,30 +1762,45 @@ export async function calculateQuotePrice(
     let finishedEdgesLm: number | undefined;
     let stripLm: number | undefined;
     if (isShapedPiece) {
-      const savedEdges = (piece.shape_config as unknown as {
-        edges?: Record<string, string | null>
-      })?.edges ?? {};
+      if (isCanonicalPolygonPiece) {
+        finishedEdgesLm = shapeConfig.edgeLengths
+          .filter(edgeLength => {
+            const edge = shapeConfig.edges[edgeLength.edgeId];
+            return edge?.exposure === 'exposed' && !!edgeLength.v2EdgeTypeId;
+          })
+          .reduce((sum, edgeLength) => sum + edgeLength.lengthMm / 1000, 0);
+        stripLm = shapeConfig.edgeLengths
+          .filter(edgeLength => {
+            const edge = shapeConfig.edges[edgeLength.edgeId];
+            return edge?.exposure === 'exposed' && !!edge?.buildUp;
+          })
+          .reduce((sum, edgeLength) => sum + edgeLength.lengthMm / 1000, 0);
+      } else {
+        const savedEdges = (piece.shape_config as unknown as {
+          edges?: Record<string, string | null>
+        })?.edges ?? {};
 
-      const finishableLengths = getFinishableEdgeLengthsMm(
-        shapeType,
-        piece.shape_config as unknown as ShapeConfig,
-        piece.length_mm ?? 0,
-        piece.width_mm ?? 0
-      );
+        const finishableLengths = getFinishableEdgeLengthsMm(
+          shapeType,
+          piece.shape_config as unknown as ShapeConfig,
+          piece.length_mm ?? 0,
+          piece.width_mm ?? 0
+        );
 
-      // Sum lengths of edges that have a profile assigned (non-null) — for polishing
-      // ONLY keys present in finishableLengths are valid — join faces are not in this map
-      finishedEdgesLm = 0;
-      for (const [key, lengthMm] of Object.entries(finishableLengths)) {
-        if (savedEdges[key]) {
-          finishedEdgesLm += lengthMm / 1000;
+        // Sum lengths of edges that have a profile assigned (non-null) — for polishing
+        // ONLY keys present in finishableLengths are valid — join faces are not in this map
+        finishedEdgesLm = 0;
+        for (const [key, lengthMm] of Object.entries(finishableLengths)) {
+          if (savedEdges[key]) {
+            finishedEdgesLm += lengthMm / 1000;
+          }
         }
-      }
 
-      // Strip all edges MINUS wall edges — for lamination
-      stripLm = Object.entries(finishableLengths)
-        .filter(([key]) => !noStripEdges.includes(key))
-        .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+        // Strip all edges MINUS wall edges — for lamination
+        stripLm = Object.entries(finishableLengths)
+          .filter(([key]) => !noStripEdges.includes(key))
+          .reduce((sum, [, mm]) => sum + (mm / 1000), 0);
+      }
     } else {
       // Rectangle: edges with build-up OR all edges minus wall edges for lamination
       const edgeBuildups = (piece.edge_buildups as unknown as Record<string, EdgeBuildupConfig>) ?? {};
@@ -2360,13 +2392,13 @@ export async function calculateQuotePrice(
 
     // Calculate total corner join length in metres
     let totalJoinLengthLm = 0;
-    if (shapeType === 'L_SHAPE' && shapeConfig.shape === 'L_SHAPE') {
+    if (shapeType === 'L_SHAPE' && 'shape' in shapeConfig && shapeConfig.shape === 'L_SHAPE') {
       totalJoinLengthLm = Math.min(
         shapeConfig.leg1.width_mm,
         shapeConfig.leg2.width_mm
       ) / 1000;
     }
-    if (shapeType === 'U_SHAPE' && shapeConfig.shape === 'U_SHAPE') {
+    if (shapeType === 'U_SHAPE' && 'shape' in shapeConfig && shapeConfig.shape === 'U_SHAPE') {
       totalJoinLengthLm = (shapeConfig.back.width_mm * 2) / 1000;
     }
 
@@ -2611,10 +2643,10 @@ export async function calculateQuotePrice(
 
       if (shapeConfig) {
         let cornerJoinLengthLm = 0;
-        if (shapeType === 'L_SHAPE' && shapeConfig.shape === 'L_SHAPE') {
+        if (shapeType === 'L_SHAPE' && 'shape' in shapeConfig && shapeConfig.shape === 'L_SHAPE') {
           cornerJoinLengthLm = Math.min(shapeConfig.leg1.width_mm, shapeConfig.leg2.width_mm) / 1000;
         }
-        if (shapeType === 'U_SHAPE' && shapeConfig.shape === 'U_SHAPE') {
+        if (shapeType === 'U_SHAPE' && 'shape' in shapeConfig && shapeConfig.shape === 'U_SHAPE') {
           cornerJoinLengthLm = (shapeConfig.back.width_mm * 2) / 1000;
         }
 

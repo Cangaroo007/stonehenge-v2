@@ -7,6 +7,7 @@ import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistenc
 import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { getShapeGeometry, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
 
 
 interface ImportPieceData {
@@ -419,8 +420,13 @@ export async function POST(
               .filter((cutout) => cutout.name)
           : [];
 
-        // Calculate area
-        const areaSqm = (lengthMm * widthMm) / 1_000_000;
+        const importedShapeType = (pieceData.shapeType || pieceData.shape || 'RECTANGLE') as ShapeType;
+        const areaSqm = getShapeGeometry(
+          importedShapeType,
+          pieceData.shapeConfig as unknown as ShapeConfig,
+          lengthMm,
+          widthMm
+        ).totalAreaSqm;
 
         const edgeBuildups = normaliseImportedEdgeBuildups(pieceData);
         const importedNoStripEdges = normaliseNoStripEdges(pieceData.noStripEdges);
@@ -448,7 +454,7 @@ export async function POST(
             edge_bottom: resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
             edge_left: resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
             edge_right: resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
-            shape_type: pieceData.shapeType || pieceData.shape || 'RECTANGLE',
+            shape_type: importedShapeType,
             ...(pieceData.shapeConfig && { shape_config: pieceData.shapeConfig as unknown as Prisma.InputJsonValue }),
             ...(pieceData.edgeArcConfig && { edge_arc_config: resolveArcEdgeConfig(pieceData.edgeArcConfig, edgeLookup) as unknown as Prisma.InputJsonValue }),
             ...(edgeBuildups && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),

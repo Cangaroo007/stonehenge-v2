@@ -2,12 +2,17 @@
   "name": "stonehenge",
   "version": "0.1.0",
   "private": true,
+  "workspaces": [
+    "packages/*"
+  ],
   "scripts": {
     "prepare": "sh scripts/install-hooks.sh",
     "dev": "next dev",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "next lint",
+    "test": "jest",
+    "test:geometry": "vitest run packages/geometry/__tests__",
     "db:migrate": "prisma migrate deploy",
     "db:seed": "prisma db seed",
     "seed:pricing": "npx ts-node --compiler-options {\"module\":\"CommonJS\"} prisma/seed-pricing.ts",
@@ -29,10 +34,12 @@
     "@napi-rs/canvas": "^0.1.89",
     "@prisma/client": "^5.22.0",
     "@react-pdf/renderer": "^3.4.4",
+    "@stonehenge-proto/geometry": "file:packages/geometry",
     "bcryptjs": "^2.4.3",
     "browser-image-compression": "^2.0.2",
     "clsx": "^2.1.0",
     "date-fns": "^3.3.1",
+    "decimal.js": "^10.4.3",
     "jose": "^5.2.2",
     "lucide-react": "^0.563.0",
     "next": "14.2.35",
@@ -66,6 +73,7 @@
     "tailwindcss": "^3.4.1",
     "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
-    "typescript": "^5.3.3"
+    "typescript": "^5.3.3",
+    "vitest": "^4.1.7"
   }
 }
