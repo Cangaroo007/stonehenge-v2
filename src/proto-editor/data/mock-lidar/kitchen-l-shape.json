@@ -1,0 +1,29 @@
+{
+  "scanId": "mock-lshape-001",
+  "capturedAt": "2026-05-05T10:00:00+10:00",
+  "roomType": "kitchen",
+  "dimensions": { "widthMm": 4200, "depthMm": 3600, "ceilingHeightMm": 2700 },
+  "walls": [
+    { "startX": 0, "startY": 0, "endX": 4200, "endY": 0, "hasWindow": true,
+      "windowRecess": { "widthMm": 1200, "depthMm": 100, "offsetMm": 1500 } },
+    { "startX": 4200, "startY": 0, "endX": 4200, "endY": 3600, "hasWindow": false },
+    { "startX": 4200, "startY": 3600, "endX": 0, "endY": 3600, "hasWindow": false },
+    { "startX": 0, "startY": 3600, "endX": 0, "endY": 0, "hasWindow": false }
+  ],
+  "countertops": [
+    {
+      "vertices": [
+        { "x": 0, "y": 0 }, { "x": 3200, "y": 0 },
+        { "x": 3200, "y": 600 }, { "x": 600, "y": 600 },
+        { "x": 600, "y": 2400 }, { "x": 0, "y": 2400 }
+      ],
+      "heightFromFloorMm": 900,
+      "estimatedMaterial": "engineered-stone"
+    }
+  ],
+  "appliances": [
+    { "kind": "sink", "boundingBox": { "x": 1200, "y": 50, "widthMm": 760, "depthMm": 450 }, "confidence": 0.92 },
+    { "kind": "cooktop", "boundingBox": { "x": 100, "y": 1000, "widthMm": 600, "depthMm": 520 }, "confidence": 0.87 },
+    { "kind": "tap", "boundingBox": { "x": 2000, "y": 50, "widthMm": 50, "depthMm": 50 }, "confidence": 0.78 }
+  ]
+}

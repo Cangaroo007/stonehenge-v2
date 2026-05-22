@@ -55,7 +55,10 @@
     "sharp": "^0.33.2",
     "tailwind-merge": "^2.2.1",
     "uuid": "^13.0.0",
-    "zod": "^3.22.4"
+    "zod": "^3.22.4",
+    "@stonehenge-proto/pricing": "file:packages/pricing",
+    "konva": "^9.3.18",
+    "react-konva": "^18.2.16"
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",

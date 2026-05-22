@@ -1,0 +1,9 @@
+[
+  { "materialId": "mat-caesarstone-5143", "name": "Caesarstone White Attica 5143", "ratePerM2": "450.00", "category": "Engineered" },
+  { "materialId": "mat-caesarstone-4004", "name": "Caesarstone Raw Concrete 4004", "ratePerM2": "480.00", "category": "Engineered" },
+  { "materialId": "mat-smartstone-everest", "name": "Smartstone Everest White", "ratePerM2": "420.00", "category": "Engineered" },
+  { "materialId": "mat-essa-imperial-white", "name": "Essa Imperial White Granite", "ratePerM2": "550.00", "category": "Natural" },
+  { "materialId": "mat-carrara-marble", "name": "Carrara Marble (Italian)", "ratePerM2": "750.00", "category": "Natural" },
+  { "materialId": "mat-dekton-trilium", "name": "Dekton Trilium", "ratePerM2": "620.00", "category": "Ultra-compact" },
+  { "materialId": "mat-neolith-estatuario", "name": "Neolith Estatuario", "ratePerM2": "680.00", "category": "Ultra-compact" }
+]

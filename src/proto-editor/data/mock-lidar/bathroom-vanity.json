@@ -1,0 +1,31 @@
+{
+  "scanId": "mock-vanity-001",
+  "capturedAt": "2026-05-05T11:00:00+10:00",
+  "roomType": "bathroom",
+  "dimensions": { "widthMm": 2400, "depthMm": 1800, "ceilingHeightMm": 2400 },
+  "walls": [
+    { "startX": 0, "startY": 0, "endX": 2400, "endY": 0, "hasWindow": false },
+    { "startX": 2400, "startY": 0, "endX": 2400, "endY": 1800, "hasWindow": false },
+    { "startX": 2400, "startY": 1800, "endX": 0, "endY": 1800, "hasWindow": false },
+    { "startX": 0, "startY": 1800, "endX": 0, "endY": 0, "hasWindow": false }
+  ],
+  "countertops": [
+    {
+      "name": "vanity-top",
+      "vertices": [
+        { "x": 600, "y": 0 }, { "x": 1800, "y": 0 },
+        { "x": 1800, "y": 500 }, { "x": 600, "y": 500 }
+      ],
+      "heightFromFloorMm": 900,
+      "estimatedMaterial": "engineered-stone"
+    }
+  ],
+  "appliances": [
+    { "kind": "sink", "boundingBox": { "x": 1050, "y": 100, "widthMm": 380, "depthMm": 300 }, "confidence": 0.94 },
+    { "kind": "tap", "boundingBox": { "x": 1200, "y": 30, "widthMm": 50, "depthMm": 50 }, "confidence": 0.85 }
+  ],
+  "exposureHints": {
+    "edgesAgainstWall": ["north"],
+    "edgesExposed": ["south", "east", "west"]
+  }
+}

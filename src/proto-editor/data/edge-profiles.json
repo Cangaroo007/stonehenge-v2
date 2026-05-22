@@ -1,0 +1,10 @@
+[
+  { "profile": "raw", "ratePerLinealMetre": "0.00", "description": "Raw cut — no profiling" },
+  { "profile": "pencil-round", "ratePerLinealMetre": "35.00", "description": "Pencil round (3mm radius)" },
+  { "profile": "half-bullnose", "ratePerLinealMetre": "45.00", "description": "Half bullnose (10mm radius)" },
+  { "profile": "full-bullnose", "ratePerLinealMetre": "65.00", "description": "Full bullnose (20mm radius)" },
+  { "profile": "bevel", "ratePerLinealMetre": "40.00", "description": "Bevel (45° chamfer, 3mm)" },
+  { "profile": "ogee", "ratePerLinealMetre": "85.00", "description": "Ogee (decorative S-curve)" },
+  { "profile": "dupont", "ratePerLinealMetre": "90.00", "description": "DuPont (stepped ogee)" },
+  { "profile": "mitre-45", "ratePerLinealMetre": "55.00", "description": "45° mitre for apron/waterfall" }
+]

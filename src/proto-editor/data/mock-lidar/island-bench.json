@@ -1,0 +1,36 @@
+{
+  "scanId": "mock-island-001",
+  "capturedAt": "2026-05-05T11:30:00+10:00",
+  "roomType": "kitchen",
+  "dimensions": { "widthMm": 4800, "depthMm": 4800, "ceilingHeightMm": 2700 },
+  "walls": [
+    { "startX": 0, "startY": 0, "endX": 4800, "endY": 0, "hasWindow": false },
+    { "startX": 4800, "startY": 0, "endX": 4800, "endY": 4800, "hasWindow": false },
+    { "startX": 4800, "startY": 4800, "endX": 0, "endY": 4800, "hasWindow": false },
+    { "startX": 0, "startY": 4800, "endX": 0, "endY": 0, "hasWindow": false }
+  ],
+  "countertops": [
+    {
+      "name": "island",
+      "vertices": [
+        { "x": 1200, "y": 1950 }, { "x": 3600, "y": 1950 },
+        { "x": 3600, "y": 2850 }, { "x": 1200, "y": 2850 }
+      ],
+      "heightFromFloorMm": 900,
+      "estimatedMaterial": "natural-stone"
+    }
+  ],
+  "appliances": [
+    { "kind": "cooktop", "boundingBox": { "x": 1600, "y": 2200, "widthMm": 800, "depthMm": 520 }, "confidence": 0.9 }
+  ],
+  "exposureHints": {
+    "edgesAgainstWall": [],
+    "edgesExposed": ["south", "east", "north", "west"]
+  },
+  "edgeFinishHints": {
+    "south": { "profile": "full-bullnose" },
+    "north": { "profile": "full-bullnose" },
+    "east": { "profile": "mitre-45", "kind": "waterfall" },
+    "west": { "profile": "mitre-45", "kind": "waterfall" }
+  }
+}

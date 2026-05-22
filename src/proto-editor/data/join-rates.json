@@ -1,0 +1,6 @@
+[
+  { "joinKind": "BUTT", "ratePerLinealMetre": "85.00" },
+  { "joinKind": "MITRE", "ratePerLinealMetre": "165.00" },
+  { "joinKind": "MASON_MITRE", "ratePerLinealMetre": "220.00" },
+  { "joinKind": "FIELD_JOIN", "ratePerLinealMetre": "65.00" }
+]

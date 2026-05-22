@@ -1,0 +1,8 @@
+[
+  { "featureKind": "undermount-sink", "flatRate": "180.00", "description": "Undermount sink cutout + polish" },
+  { "featureKind": "overmount-sink", "flatRate": "120.00", "description": "Overmount sink cutout" },
+  { "featureKind": "cooktop-cutout", "flatRate": "160.00", "description": "Cooktop cutout + radius corners" },
+  { "featureKind": "tap-hole", "flatRate": "45.00", "description": "Tap hole (35mm standard)" },
+  { "featureKind": "window-recess", "flatRate": "220.00", "description": "Window recess — sill return" },
+  { "featureKind": "custom-cutout", "flatRate": "200.00", "description": "Custom cutout — price on application" }
+]

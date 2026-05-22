@@ -4,8 +4,7 @@ import { useState, useMemo, useCallback, useEffect } from 'react';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
 import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
-import { protoPieceToCanonicalGeometrySnapshot } from '@/lib/services/proto-geometry-adapter';
-import type { Edge, EdgeId, Piece, Vertex, VertexId } from '@stonehenge-proto/geometry';
+import V2PrototypeSpatialEditor from '@/proto-editor/V2PrototypeSpatialEditor';
 
 interface EdgeSelections {
   edgeTop: string | null;
@@ -121,125 +120,6 @@ function hasIncompleteGeometry(piece: ExtractedPiece): boolean {
   return !hasShapeConfig(piece);
 }
 
-type TracePoint = { id: string; x: number; y: number };
-
-function defaultTracePoints(piece: ExtractedPiece): TracePoint[] {
-  const length = Math.max(Number(piece.length) || 2400, 300);
-  const width = Math.max(Number(piece.width) || 600, 200);
-  const key = piece.id.replace(/[^a-z0-9_-]/gi, '-');
-
-  if (piece.shape === 'L_SHAPE') {
-    const returnDepth = Math.max(Math.round(width * 0.55), 250);
-    const returnLength = Math.max(Math.round(length * 0.45), 450);
-    return [
-      { id: `${key}-v0`, x: 0, y: 0 },
-      { id: `${key}-v1`, x: length, y: 0 },
-      { id: `${key}-v2`, x: length, y: width },
-      { id: `${key}-v3`, x: returnLength, y: width },
-      { id: `${key}-v4`, x: returnLength, y: width + returnDepth },
-      { id: `${key}-v5`, x: 0, y: width + returnDepth },
-    ];
-  }
-
-  if (piece.shape === 'U_SHAPE') {
-    const leg = Math.max(Math.round(length * 0.25), 350);
-    const returnDepth = Math.max(Math.round(width * 0.65), 300);
-    return [
-      { id: `${key}-v0`, x: 0, y: 0 },
-      { id: `${key}-v1`, x: length, y: 0 },
-      { id: `${key}-v2`, x: length, y: width + returnDepth },
-      { id: `${key}-v3`, x: length - leg, y: width + returnDepth },
-      { id: `${key}-v4`, x: length - leg, y: width },
-      { id: `${key}-v5`, x: leg, y: width },
-      { id: `${key}-v6`, x: leg, y: width + returnDepth },
-      { id: `${key}-v7`, x: 0, y: width + returnDepth },
-    ];
-  }
-
-  if (piece.shape === 'RADIUS_END' || piece.shape === 'ROUNDED_RECT' || piece.shape === 'CONCAVE_ARC') {
-    const radius = Math.round(width / 2);
-    return [
-      { id: `${key}-v0`, x: 0, y: 0 },
-      { id: `${key}-v1`, x: length - radius, y: 0 },
-      { id: `${key}-v2`, x: length, y: Math.round(width / 2) },
-      { id: `${key}-v3`, x: length - radius, y: width },
-      { id: `${key}-v4`, x: 0, y: width },
-    ];
-  }
-
-  const chamfer = Math.min(Math.round(width * 0.45), Math.round(length * 0.25));
-  return [
-    { id: `${key}-v0`, x: 0, y: 0 },
-    { id: `${key}-v1`, x: length, y: 0 },
-    { id: `${key}-v2`, x: length, y: Math.max(width - chamfer, 1) },
-    { id: `${key}-v3`, x: Math.max(length - chamfer, 1), y: width },
-    { id: `${key}-v4`, x: 0, y: width },
-  ];
-}
-
-function inferTraceEdgeSide(a: TracePoint, b: TracePoint): string {
-  const dx = b.x - a.x;
-  const dy = b.y - a.y;
-  if (Math.abs(dx) >= Math.abs(dy)) {
-    return dx >= 0 ? 'top' : 'bottom';
-  }
-  return dy >= 0 ? 'right' : 'left';
-}
-
-function firstFinishedEdge(piece: ExtractedPiece): string | null {
-  return piece.edgeSelections.edgeBottom ||
-    piece.edgeSelections.edgeTop ||
-    piece.edgeSelections.edgeLeft ||
-    piece.edgeSelections.edgeRight ||
-    null;
-}
-
-function buildPolygonConfigFromTrace(piece: ExtractedPiece, points: TracePoint[]) {
-  const vertices: Vertex[] = points.map(point => ({
-    id: point.id as VertexId,
-    x: Math.round(point.x),
-    y: Math.round(point.y),
-  }));
-  const defaultEdgeTypeId = firstFinishedEdge(piece);
-  const edges: Array<Edge & { v2EdgeSide: string; v2EdgeTypeId: string | null }> = vertices.map((vertex, index) => {
-    const nextVertex = vertices[(index + 1) % vertices.length];
-    const side = inferTraceEdgeSide(points[index], points[(index + 1) % points.length]);
-    const edgeTypeId =
-      piece.edgeSelections[side === 'top' ? 'edgeTop' : side === 'bottom' ? 'edgeBottom' : side === 'left' ? 'edgeLeft' : 'edgeRight'] ||
-      defaultEdgeTypeId;
-
-    return {
-      id: `${piece.id.replace(/[^a-z0-9_-]/gi, '-')}-e${index}` as EdgeId,
-      start: vertex.id,
-      end: nextVertex.id,
-      profile: edgeTypeId ? 'pencil-round' : 'raw',
-      finish: edgeTypeId ? 'polished' : 'unfinished',
-      exposure: 'exposed',
-      generatedBy: 'import',
-      v2EdgeSide: `edge-${index + 1}`,
-      v2EdgeTypeId: edgeTypeId ?? null,
-    };
-  });
-
-  const protoPiece: Piece = {
-    id: `drawing-review-${piece.id}` as Piece['id'],
-    name: piece.name || 'Traced piece',
-    pieceRole: 'BENCHTOP',
-    materialId: String(piece.materialId ?? piece.materialName ?? 'unassigned'),
-    thicknessMm: piece.thickness || 20,
-    vertices,
-    edges,
-    outerRing: {
-      edges: edges.map(edge => edge.id),
-      orientation: 'ccw',
-    },
-    innerRings: [],
-    features: [],
-  };
-
-  return protoPieceToCanonicalGeometrySnapshot(protoPiece);
-}
-
 function PolygonTraceModal({
   piece,
   quoteId,
@@ -253,86 +133,6 @@ function PolygonTraceModal({
   onSave: (pieceId: string, shapeConfig: Record<string, unknown>, length: number, width: number) => void;
   onClose: () => void;
 }) {
-  const [points, setPoints] = useState<TracePoint[]>(() => defaultTracePoints(piece));
-  const [draggingId, setDraggingId] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const svgWidth = 620;
-  const svgHeight = 360;
-  const padding = 34;
-
-  const bounds = useMemo(() => {
-    const xs = points.map(p => p.x);
-    const ys = points.map(p => p.y);
-    return {
-      minX: Math.min(...xs),
-      maxX: Math.max(...xs),
-      minY: Math.min(...ys),
-      maxY: Math.max(...ys),
-    };
-  }, [points]);
-
-  const scale = useMemo(() => {
-    const width = Math.max(bounds.maxX - bounds.minX, 1);
-    const height = Math.max(bounds.maxY - bounds.minY, 1);
-    return Math.min((svgWidth - padding * 2) / width, (svgHeight - padding * 2) / height);
-  }, [bounds, padding]);
-
-  const toScreen = useCallback((point: TracePoint) => ({
-    x: padding + (point.x - bounds.minX) * scale,
-    y: svgHeight - padding - (point.y - bounds.minY) * scale,
-  }), [bounds, scale, padding]);
-
-  const fromScreen = useCallback((clientX: number, clientY: number, svg: SVGSVGElement) => {
-    const rect = svg.getBoundingClientRect();
-    const x = (clientX - rect.left - padding) / scale + bounds.minX;
-    const y = (svgHeight - padding - (clientY - rect.top)) / scale + bounds.minY;
-    return {
-      x: Math.max(0, Math.round(x)),
-      y: Math.max(0, Math.round(y)),
-    };
-  }, [bounds, scale, padding]);
-
-  const path = useMemo(() => {
-    const screenPoints = points.map(toScreen);
-    if (screenPoints.length === 0) return '';
-    return [
-      `M ${screenPoints[0].x} ${screenPoints[0].y}`,
-      ...screenPoints.slice(1).map(point => `L ${point.x} ${point.y}`),
-      'Z',
-    ].join(' ');
-  }, [points, toScreen]);
-
-  const updatePoint = useCallback((id: string, next: Partial<TracePoint>) => {
-    setPoints(prev => prev.map(point => point.id === id ? { ...point, ...next } : point));
-  }, []);
-
-  const insertVertexAfter = useCallback((index: number) => {
-    setPoints(prev => {
-      const current = prev[index];
-      const next = prev[(index + 1) % prev.length];
-      const inserted = {
-        id: `${piece.id.replace(/[^a-z0-9_-]/gi, '-')}-v${Date.now()}`,
-        x: Math.round((current.x + next.x) / 2),
-        y: Math.round((current.y + next.y) / 2),
-      };
-      return [...prev.slice(0, index + 1), inserted, ...prev.slice(index + 1)];
-    });
-  }, [piece.id]);
-
-  const removeVertex = useCallback((id: string) => {
-    setPoints(prev => prev.length <= 3 ? prev : prev.filter(point => point.id !== id));
-  }, []);
-
-  const saveTrace = useCallback(() => {
-    setError(null);
-    try {
-      const config = buildPolygonConfigFromTrace(piece, points);
-      onSave(piece.id, config as unknown as Record<string, unknown>, Math.round(config.boundingBox.lengthMm), Math.round(config.boundingBox.widthMm));
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'The traced shape is not valid yet.');
-    }
-  }, [onSave, piece, points]);
-
   return (
     <div className="fixed inset-0 z-[70] bg-black/40 flex items-center justify-center p-4">
       <div className="w-[min(1180px,96vw)] max-h-[92vh] overflow-hidden rounded-xl bg-white shadow-2xl border border-zinc-200 flex flex-col">
@@ -353,118 +153,19 @@ function PolygonTraceModal({
           </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,36%)_minmax(0,1fr)_330px] gap-0 overflow-auto">
+        <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,30%)_minmax(0,1fr)] gap-0 overflow-auto">
           <div className="p-5 bg-zinc-50 border-r border-zinc-200">
             <DrawingSourcePreview drawingId={drawingId} quoteId={quoteId} />
           </div>
 
           <div className="p-5 bg-zinc-50">
-            <div className="mb-3 flex flex-wrap items-center gap-3 text-sm text-zinc-700">
-              <span className="font-medium">{piece.name}</span>
-              <span>{Math.round(bounds.maxX - bounds.minX)} x {Math.round(bounds.maxY - bounds.minY)}mm bounding box</span>
-              <span>{points.length} vertices</span>
-            </div>
-            <svg
-              width={svgWidth}
-              height={svgHeight}
-              viewBox={`0 0 ${svgWidth} ${svgHeight}`}
-              className="max-w-full rounded-lg border border-zinc-200 bg-white touch-none"
-              onMouseMove={(event) => {
-                if (!draggingId) return;
-                const svg = event.currentTarget;
-                updatePoint(draggingId, fromScreen(event.clientX, event.clientY, svg));
+            <V2PrototypeSpatialEditor
+              piece={piece}
+              onCancel={onClose}
+              onSave={(pieceId, shapeConfig, length, width) => {
+                onSave(pieceId, shapeConfig as unknown as Record<string, unknown>, length, width);
               }}
-              onMouseUp={() => setDraggingId(null)}
-              onMouseLeave={() => setDraggingId(null)}
-            >
-              <defs>
-                <pattern id="trace-grid" width="24" height="24" patternUnits="userSpaceOnUse">
-                  <path d="M 24 0 L 0 0 0 24" fill="none" stroke="#e4e4e7" strokeWidth="1" />
-                </pattern>
-              </defs>
-              <rect width="100%" height="100%" fill="url(#trace-grid)" />
-              <path d={path} fill="#eff6ff" stroke="#2563eb" strokeWidth="3" />
-              {points.map((point, index) => {
-                const screen = toScreen(point);
-                const next = toScreen(points[(index + 1) % points.length]);
-                return (
-                  <g key={point.id}>
-                    <text
-                      x={(screen.x + next.x) / 2}
-                      y={(screen.y + next.y) / 2 - 8}
-                      textAnchor="middle"
-                      className="fill-blue-700 text-[11px] font-semibold"
-                    >
-                      {Math.round(Math.hypot(points[(index + 1) % points.length].x - point.x, points[(index + 1) % points.length].y - point.y))}mm
-                    </text>
-                    <circle
-                      cx={screen.x}
-                      cy={screen.y}
-                      r="7"
-                      className="fill-white stroke-blue-600 cursor-move"
-                      strokeWidth="3"
-                      onMouseDown={(event) => {
-                        event.preventDefault();
-                        setDraggingId(point.id);
-                      }}
-                    />
-                    <text x={screen.x} y={screen.y - 12} textAnchor="middle" className="fill-zinc-600 text-[10px]">
-                      {index + 1}
-                    </text>
-                  </g>
-                );
-              })}
-            </svg>
-            {error && (
-              <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-                {error}
-              </div>
-            )}
-          </div>
-
-          <div className="p-5 border-l border-zinc-200 bg-white">
-            <h4 className="text-sm font-semibold text-zinc-800 mb-2">Vertices</h4>
-            <div className="space-y-2 max-h-[430px] overflow-auto pr-1">
-              {points.map((point, index) => (
-                <div key={point.id} className="rounded-lg border border-zinc-200 p-2">
-                  <div className="flex items-center justify-between gap-2 mb-2">
-                    <span className="text-xs font-medium text-zinc-600">Point {index + 1}</span>
-                    <div className="flex items-center gap-2">
-                      <button type="button" onClick={() => insertVertexAfter(index)} className="text-xs text-primary-600 hover:text-primary-700">
-                        + point
-                      </button>
-                      <button type="button" onClick={() => removeVertex(point.id)} className="text-xs text-red-500 hover:text-red-700 disabled:text-zinc-300" disabled={points.length <= 3}>
-                        remove
-                      </button>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="text-xs text-zinc-500">
-                      X mm
-                      <input
-                        type="number"
-                        value={Math.round(point.x)}
-                        onChange={(event) => updatePoint(point.id, { x: Number(event.target.value) || 0 })}
-                        className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
-                      />
-                    </label>
-                    <label className="text-xs text-zinc-500">
-                      Y mm
-                      <input
-                        type="number"
-                        value={Math.round(point.y)}
-                        onChange={(event) => updatePoint(point.id, { y: Number(event.target.value) || 0 })}
-                        className="mt-1 w-full rounded border border-zinc-300 px-2 py-1 text-sm"
-                      />
-                    </label>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="mt-4 flex justify-end gap-2">
-              <button type="button" onClick={onClose} className="btn-secondary">Cancel</button>
-              <button type="button" onClick={saveTrace} className="btn-primary">Use traced geometry</button>
-            </div>
+            />
           </div>
         </div>
       </div>

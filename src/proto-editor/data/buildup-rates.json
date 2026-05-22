@@ -1,0 +1,11 @@
+[
+  { "partRole": "FASCIA", "thicknessMm": 40, "ratePerLinealMetre": "45.00" },
+  { "partRole": "RETURN", "thicknessMm": 40, "ratePerLinealMetre": "35.00" },
+  { "partRole": "FASCIA", "thicknessMm": 60, "ratePerLinealMetre": "55.00" },
+  { "partRole": "RETURN", "thicknessMm": 60, "ratePerLinealMetre": "45.00" },
+  { "partRole": "FASCIA", "thicknessMm": 80, "ratePerLinealMetre": "65.00" },
+  { "partRole": "RETURN", "thicknessMm": 80, "ratePerLinealMetre": "55.00" },
+  { "partRole": "INFILL", "thicknessMm": 40, "ratePerLinealMetre": "20.00" },
+  { "partRole": "INFILL", "thicknessMm": 60, "ratePerLinealMetre": "25.00" },
+  { "partRole": "INFILL", "thicknessMm": 80, "ratePerLinealMetre": "30.00" }
+]

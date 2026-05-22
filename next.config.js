@@ -1,6 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  transpilePackages: ['@stonehenge-proto/geometry'],
+  transpilePackages: ['@stonehenge-proto/geometry', '@stonehenge-proto/pricing'],
+  webpack: (config) => {
+    config.resolve = config.resolve || {}
+    config.resolve.fallback = {
+      ...(config.resolve.fallback || {}),
+      canvas: false,
+    }
+    return config
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
