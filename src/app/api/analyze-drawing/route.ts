@@ -115,6 +115,21 @@ function buildSystemPrompt(
 ## CORE PRINCIPLE — GEOMETRY-FIRST, REVIEW-GATED
 For imported drawings, create a best-supported spatial draft first, then mark uncertainty loudly. Do not invent final fabrication facts, but do make provisional geometry assumptions when the outline is visible enough to render. Any assumed dimension, room label, split, join, material, or edge finish must have confidence below 0.85 and a clarification question with sourceHint/sourceRegion where possible. "I assumed this from the drawing so the mason can correct it" is better than a blank rectangle that hides the problem.
 
+## MANDATORY MEASUREMENT-LED GEOMETRY PASS
+Before producing quote pieces, perform this reasoning pass internally and reflect the results in notes/sourceHint/pageReview:
+1. Transcribe every readable dimension label in the relevant drawing region. Keep the labels attached to the edge/run they describe. Do not ignore small dimensions around angled corners.
+2. Build a connected outline from those dimensions in millimetres. Prefer a coherent polygon over disconnected rectangles when the drawing shows counters joined by angled/splayed/chamfered corners.
+3. Use dimension arithmetic before asking the user. If a total run and sub-runs are labelled, solve the missing segment. If a diagonal/angled connector is bounded by horizontal/vertical offsets, use the visible dimensions to create the best polygon and mark inferred vertices below 0.85.
+4. Use standard benchtop depths only as anchors when the drawing supports them: kitchen wall runs are commonly 600-700mm deep, islands commonly 900mm deep, vanities 460-520mm deep. Mark these as inferred if not printed.
+5. Only after the measured outline is coherent should you split it into fabrication pieces. If a split is not shown, keep the visible connected angled run as one POLYGON draft and ask where the mason wants joins.
+6. Never turn an angled corner into a generic "return section" rectangle unless the drawing clearly shows a separate rectangular return piece.
+
+For Law-style kitchens and similar hand-marked angled runs:
+- Treat labels such as 2350, 2197, 1920, 725, 620, 600 around an angled bay as source dimensions for one connected polygon, not as separate unrelated rectangles.
+- A splayed sink/cooktop bay with two angled sides must be represented as a POLYGON with the angled vertices visible in shapeConfig.
+- If the exact diagonal length is not labelled but surrounding offsets are readable, infer the diagonal using the surrounding geometry, set confidence below 0.85, and ask the user to confirm in the spatial geometry editor.
+- If the model cannot reconcile dimensions into a closed polygon, return the closest closed polygon and a CRITICAL clarification question saying which edge or angle failed to reconcile.
+
 ## TENANT CATALOGUE
 Use ONLY these values when generating clarification question options. Do not invent options not in this list.
 
@@ -152,6 +167,7 @@ ${cutoutTypeList || '- No cutout types configured yet'}
   - ROUNDED_RECT: shapeConfig = { "shape": "ROUNDED_RECT", "length_mm": number, "width_mm": number, "corner_radius_mm": number, "individual_corners": false }
   - L_SHAPE/U_SHAPE: use only for a true one-piece 90-degree L/U countertop with readable leg dimensions. Include leg dimensions. Never use L_SHAPE for two separate straight counters that meet at an angle.
   - POLYGON: use when the drawing has an angled/splayed/notched outline, window recess, post notch, chamfered join, or wraparound run. Use shapeConfig type "canonical-polygon" with mm coordinates, stable vertex IDs, stable edge IDs, outerRing edges, features, areaSqm, perimeterMm, edgeLengths, and boundingBox. If some dimensions are inferred from scale/context, still render the best-supported polygon, mark confidence below 0.85, and ask for confirmation.
+  - For POLYGON pieces, set length and width to the polygon bounding box only as summary fields; the priced geometry must come from shapeConfig area, perimeter and edgeLengths.
 - Material/materialName if shown by specification, legend, colour coding, finish schedule, or room-specific notes
 - Cutouts if marked: use abbreviations HP, U/M, BA, DI, GPO, TAP
 - Edge finish by side when visible: use top, bottom, left, right. Return null when not marked or against a wall.
@@ -184,6 +200,7 @@ Never silently flatten special geometry into a rectangle.
 - If the exact geometry is visible but not dimensioned, return the best supported shape plus clarification questions. Do not hide the issue in notes only.
 - Angled corners joining counters are splayed/chamfered polygon geometry, not L_SHAPE. A run with a 45-degree/angled/chamfered corner, a diagonal connector, a splayed sink/cooktop bay, or a counter that bends through a non-90-degree angle must be POLYGON when dimensions are sufficient.
 - If an angled return or splayed piece has enough labelled dimensions to model, return shape POLYGON with canonical-polygon shapeConfig so the quote can render and price the actual outline. Do not downgrade it to RECTANGLE or L_SHAPE.
+- "Enough labelled dimensions" does not require every single edge to be printed. If the surrounding labelled dimensions allow a plausible closed outline, create the polygon and mark inferred edge lengths/vertices with lower confidence in notes and clarificationQuestions.
 - If two separate straight counters meet at an angled join, return two separate rectangular quote pieces plus a join/relationship note. Do not merge them into one L_SHAPE.
 - Only return L_SHAPE when the physical stone piece itself has a 90-degree inside corner and the two leg dimensions are clearly readable. If the drawing shows angled/chamfered joins, splayed corners, or multiple separate runs, L_SHAPE is wrong.
 - If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
@@ -219,6 +236,8 @@ Architectural drawings are often to scale. Use this carefully:
 - If printed dimensions are not available but scale is visible and the piece outline is clear, estimate dimensions from the scaled drawing only when you can anchor against a known nearby dimension or standard cabinet depth. Mark confidence below 0.85 and include the source in notes.
 - When a dimension is inferred from scale, say so in notes. Do not present it as a directly read dimension.
 - If the plan only shows room dimensions, do not use the full room size as benchtop size. Use room dimensions only as context for scale and placement.
+- If there are enough local dimensions to infer an angled corner, use local dimensions before page-scale measurement. Page-scale measurement is the fallback, not the first choice.
+- Do not ask the user for a dimension that is already printed next to the relevant edge unless the label is ambiguous or conflicts with another label. Instead, use the printed value and ask a confirmation question only if needed.
 
 ## DIMENSION SANITY CHECKS
 
@@ -229,6 +248,8 @@ Before returning JSON, audit your own pieces:
 - Large values such as 3000 x 2757 or 5914 x 3346 are usually footprint envelopes, not quoteable stone pieces. Split them into the visible runs if dimensions are shown.
 - If you can read multiple run dimensions along one outline, each run should normally become a separate piece.
 - If you cannot determine the split, return the uncertain dimensions as null and ask clarification questions rather than guessing.
+- If a piece name says L-Shape but the visible corner is angled/splayed, rename or model it as a polygon. The shape label should describe the geometry, not force it into an L_SHAPE.
+- A polygon with only four right-angle vertices is probably a missed angled/chamfered detail. Re-check the source before returning it for any piece whose drawing shows angled joins, diagonal connectors, or handwritten angle arcs.
 
 ### Confidence Scoring:
 - 0.9–1.0: Clear dimension line, no ambiguity
@@ -261,7 +282,8 @@ For every piece with missing dimensions, uncertain room/name, uncertain material
     "jobNumber": "string or null",
     "defaultThickness": 20,
     "drawingScale": "1:100 or null",
-    "pageReview": ["Page 1: floor plan and colour-coded stone/laminate legend", "Page 2: joinery scope with material/thickness/apron notes"]
+    "pageReview": ["Page 1: floor plan and colour-coded stone/laminate legend", "Page 2: joinery scope with material/thickness/apron notes"],
+    "measurementLedger": ["Kitchen angled bay: read 2350 top run, 1920 inner run, 600 depth, 620/725 angled bay offsets; modelled as polygon with inferred diagonal edge"]
   },
   "rooms": [
     {
@@ -569,7 +591,7 @@ export async function POST(request: NextRequest) {
             fileContentBlock,
             {
               type: 'text',
-              text: 'Analyze this complete multi-page stone/joinery document. First inspect every page, including floor plans, marked-up colour legends, specifications and scope notes. Then extract quote-ready stone pieces only, with per-piece material/thickness/build-up/cutout/edge details. Use scale and visible dimensions where defensible, mark inferred dimensions clearly, and return only valid JSON.',
+              text: 'Analyze this complete multi-page stone/joinery document. First inspect every page, including floor plans, marked-up colour legends, specifications and scope notes. Then do a measurement-led geometry pass: transcribe local dimension labels, build connected polygon outlines for angled/splayed/curved/notched pieces, and only then split into quote-ready fabrication pieces. Use scale and visible dimensions where defensible, mark inferred dimensions clearly, include sourceHint/sourceRegion for uncertainty, and return only valid JSON.',
             },
           ],
         },
