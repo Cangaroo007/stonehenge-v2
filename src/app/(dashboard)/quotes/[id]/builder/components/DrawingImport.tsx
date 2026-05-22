@@ -1475,6 +1475,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             quoteId={quoteId ? parseInt(quoteId, 10) || undefined : undefined}
             drawingId={clarificationDrawingId}
             analysisId={clarificationAnalysisId}
+            isImporting={isImporting}
+            importError={error}
           />
         )}
       </div>

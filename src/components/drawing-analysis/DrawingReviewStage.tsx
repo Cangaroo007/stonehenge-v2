@@ -41,6 +41,8 @@ interface DrawingReviewStageProps {
   quoteId?: number;
   drawingId?: string;
   analysisId?: number;
+  isImporting?: boolean;
+  importError?: string | null;
 }
 
 function confidenceLevel(c: number): 'high' | 'amber' | 'red' {
@@ -98,6 +100,8 @@ export function DrawingReviewStage({
   quoteId,
   drawingId,
   analysisId,
+  isImporting = false,
+  importError = null,
 }: DrawingReviewStageProps) {
   const [pieces, setPieces] = useState<ExtractedPiece[]>(initialPieces);
   const [editingCutouts, setEditingCutouts] = useState<string | null>(null);
@@ -244,16 +248,18 @@ export function DrawingReviewStage({
 
   // Button label
   const buttonLabel = useMemo(() => {
+    if (isImporting) return 'Importing...';
     if (redCount > 0) return `${redCount} issue${redCount !== 1 ? 's' : ''} to fix`;
     if (amberCount > 0) return 'Import reviewed pieces';
     return 'Confirm & Import →';
-  }, [redCount, amberCount]);
+  }, [isImporting, redCount, amberCount]);
 
   const buttonClass = useMemo(() => {
+    if (isImporting) return 'bg-amber-500 text-white opacity-70 cursor-wait';
     if (redCount > 0) return 'bg-red-100 text-red-700 cursor-not-allowed';
     if (amberCount > 0) return 'bg-amber-500 hover:bg-amber-600 text-white';
     return 'bg-green-600 hover:bg-green-700 text-white';
-  }, [redCount, amberCount]);
+  }, [isImporting, redCount, amberCount]);
 
   return (
     <div className="p-6">
@@ -268,7 +274,7 @@ export function DrawingReviewStage({
         <div className="flex items-center gap-2">
           <button
             onClick={() => onConfirm(pieces)}
-            disabled={!canConfirm}
+            disabled={!canConfirm || isImporting}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${buttonClass}`}
           >
             {buttonLabel}
@@ -290,6 +296,12 @@ export function DrawingReviewStage({
       <p className="text-xs text-zinc-500 mb-4">
         {pieces.length} piece{pieces.length !== 1 ? 's' : ''} across {roomGroups.length} room{roomGroups.length !== 1 ? 's' : ''}
       </p>
+
+      {importError && (
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          {importError}
+        </div>
+      )}
 
       {/* Bulk defaults. These are convenience actions only; row-level material can differ. */}
       <div className="flex items-center gap-4 mb-4 p-3 bg-zinc-50 rounded-lg border border-zinc-200">
@@ -588,7 +600,7 @@ export function DrawingReviewStage({
         <div className="ml-auto">
           <button
             onClick={() => onConfirm(pieces)}
-            disabled={!canConfirm}
+            disabled={!canConfirm || isImporting}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${buttonClass}`}
           >
             {buttonLabel}

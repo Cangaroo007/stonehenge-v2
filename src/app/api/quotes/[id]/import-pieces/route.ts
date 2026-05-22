@@ -604,11 +604,26 @@ export async function POST(
       }
     }
 
-    // Invalidate stale optimizer results — piece data has changed
-    await prisma.slab_optimizations.deleteMany({
-      where: { quoteId },
-    });
-    await recalculateQuote(quoteId);
+    const warnings: string[] = [];
+
+    // These follow-up refreshes should not make a successful import look failed.
+    // If pricing/optimizer refresh has a transient issue, the pieces are still saved
+    // and the quote can be recalculated by the normal quote view refresh path.
+    try {
+      await prisma.slab_optimizations.deleteMany({
+        where: { quoteId },
+      });
+    } catch (error) {
+      console.error('Imported pieces but failed to clear stale slab optimizations:', error);
+      warnings.push('Imported pieces, but stale slab optimizer results could not be cleared automatically.');
+    }
+
+    try {
+      await recalculateQuote(quoteId);
+    } catch (error) {
+      console.error('Imported pieces but failed to recalculate quote:', error);
+      warnings.push('Imported pieces, but quote totals need a refresh/recalculate.');
+    }
 
     // If sourceAnalysisId is provided, update the analysis record with imported piece IDs
     if (sourceAnalysisId) {
@@ -640,6 +655,7 @@ export async function POST(
         room: piece.room,
       })),
       count: createdPieces.length,
+      warnings,
     });
 
   } catch (error) {
