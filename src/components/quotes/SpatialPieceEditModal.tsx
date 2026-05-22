@@ -2,14 +2,8 @@
 
 import V2PrototypeSpatialEditor from '@/proto-editor/V2PrototypeSpatialEditor';
 import type { CanonicalPolygonShapeConfig } from '@/lib/types/shapes';
-
-export interface SpatialCutoutPatch {
-  type: string;
-  name: string;
-  quantity: number;
-  positionXMm?: number;
-  positionYMm?: number;
-}
+import { spatialCutoutsFromShapeConfig, type SpatialCutoutPatch } from '@/lib/services/spatial-cutout-mapper';
+export type { SpatialCutoutPatch } from '@/lib/services/spatial-cutout-mapper';
 
 interface SpatialEditablePiece {
   id: number | string;
@@ -36,50 +30,6 @@ interface SpatialPieceEditModalProps {
     widthMm: number,
     cutouts: SpatialCutoutPatch[],
   ) => void | Promise<void>;
-}
-
-function featureToCutout(feature: unknown): SpatialCutoutPatch | null {
-  if (!feature || typeof feature !== 'object') return null;
-  const candidate = feature as {
-    kind?: string;
-    position?: { x?: number; y?: number };
-    outline?: Array<{ x?: number; y?: number }>;
-  };
-
-  const labelByKind: Record<string, string> = {
-    'undermount-sink': 'Undermount Sink',
-    'overmount-sink': 'Drop-in Sink',
-    'cooktop-cutout': 'Cooktop / Hotplate',
-    'tap-hole': 'Tap Hole',
-  };
-  const customCutoutSize = Array.isArray(candidate.outline)
-    ? candidate.outline.reduce((bounds, point) => ({
-      minX: Math.min(bounds.minX, Number(point.x) || 0),
-      maxX: Math.max(bounds.maxX, Number(point.x) || 0),
-      minY: Math.min(bounds.minY, Number(point.y) || 0),
-      maxY: Math.max(bounds.maxY, Number(point.y) || 0),
-    }), { minX: 0, maxX: 0, minY: 0, maxY: 0 })
-    : null;
-  const customWidth = customCutoutSize ? customCutoutSize.maxX - customCutoutSize.minX : 0;
-  const customDepth = customCutoutSize ? customCutoutSize.maxY - customCutoutSize.minY : 0;
-  const label = candidate.kind === 'custom-cutout'
-    ? (customWidth <= 250 && customDepth <= 250 ? 'Post' : 'Custom Cutout')
-    : candidate.kind ? labelByKind[candidate.kind] : null;
-  if (!label) return null;
-
-  return {
-    type: label,
-    name: label,
-    quantity: 1,
-    ...(Number.isFinite(candidate.position?.x) ? { positionXMm: Number(candidate.position?.x) } : {}),
-    ...(Number.isFinite(candidate.position?.y) ? { positionYMm: Number(candidate.position?.y) } : {}),
-  };
-}
-
-function cutoutsFromShapeConfig(shapeConfig: CanonicalPolygonShapeConfig): SpatialCutoutPatch[] {
-  return shapeConfig.features
-    .map(featureToCutout)
-    .filter((cutout): cutout is SpatialCutoutPatch => Boolean(cutout));
 }
 
 export default function SpatialPieceEditModal({
@@ -127,7 +77,7 @@ export default function SpatialPieceEditModal({
             }}
             onCancel={onClose}
             onSave={async (_pieceId, shapeConfig, lengthMm, widthMm) => {
-              await onSave(shapeConfig, lengthMm, widthMm, cutoutsFromShapeConfig(shapeConfig));
+              await onSave(shapeConfig, lengthMm, widthMm, spatialCutoutsFromShapeConfig(shapeConfig));
               onClose();
             }}
           />
