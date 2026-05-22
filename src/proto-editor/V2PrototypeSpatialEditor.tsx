@@ -170,6 +170,25 @@ function firstEdgeType(piece: V2PrototypeSpatialPieceInput) {
     null;
 }
 
+function formatMm(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return 'Select edge';
+  return `${Math.round(value).toLocaleString()} mm`;
+}
+
+function formatAngle(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value)) return 'Select corner';
+  return `${value.toFixed(1).replace(/\.0$/, '')}°`;
+}
+
+function GeometryStat({ label, value, tone = 'default' }: { label: string; value: string; tone?: 'default' | 'active' }) {
+  return (
+    <div className={tone === 'active' ? 'rounded-lg border border-blue-200 bg-blue-50 px-3 py-2' : 'rounded-lg border border-zinc-200 bg-white px-3 py-2'}>
+      <p className="text-[10px] font-semibold uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="mt-0.5 text-sm font-semibold tabular-nums text-zinc-900">{value}</p>
+    </div>
+  );
+}
+
 function buildSeedPiece(piece: V2PrototypeSpatialPieceInput): Piece {
   if (isCanonicalPolygonShapeConfig(piece.shapeConfig)) {
     return v2PieceToProtoPiece({
@@ -269,6 +288,13 @@ export default function V2PrototypeSpatialEditor({
     return angle === null ? null : Math.round(angle * 10) / 10;
   }, [editor.piece, selectedVertex]);
 
+  const geometrySnapshot = useMemo(() => protoPieceToCanonicalGeometrySnapshot(editor.piece), [editor.piece]);
+  const sizeLabel = `${Math.round(geometrySnapshot.boundingBox.lengthMm).toLocaleString()} × ${Math.round(geometrySnapshot.boundingBox.widthMm).toLocaleString()} mm`;
+  const perimeterLabel = `${(geometrySnapshot.perimeterMm / 1000).toFixed(2)} Lm`;
+  const selectedDetailLabel = selectedEdge
+    ? `Edge ${formatMm(selectedEdgeLengthMm)}`
+    : `Corner ${formatAngle(selectedVertexAngleDeg)}`;
+
   const save = useCallback(() => {
     const snapshot = protoPieceToCanonicalGeometrySnapshot(editor.piece);
     onSave(
@@ -342,13 +368,13 @@ export default function V2PrototypeSpatialEditor({
     <div className={
       fullScreen
         ? 'fixed inset-3 z-[120] flex min-h-0 flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-2xl'
-        : 'flex min-h-[620px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white'
+        : 'flex min-h-[520px] flex-col overflow-hidden rounded-xl border border-zinc-200 bg-white'
     }>
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-zinc-200 px-4 py-3">
         <div>
           <h3 className="text-base font-semibold text-zinc-900">Spatial polygon editor</h3>
           <p className="text-xs text-zinc-500">
-            Prototype canvas embedded in V2. Drag vertices, double-click edges, edit dimensions, then save back into the quote.
+            Edit measured geometry, edge exposure, cutouts, and angles. Saving updates the actual quote piece.
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -380,12 +406,19 @@ export default function V2PrototypeSpatialEditor({
         </div>
       </div>
 
+      <div className="grid grid-cols-2 gap-2 border-b border-zinc-200 bg-zinc-50 px-4 py-3 md:grid-cols-4">
+        <GeometryStat label="Bounding size" value={sizeLabel} />
+        <GeometryStat label="Area" value={`${geometrySnapshot.areaSqm.toFixed(2)} m²`} />
+        <GeometryStat label="Cut perimeter" value={perimeterLabel} />
+        <GeometryStat label={selectedEdge ? 'Selected edge' : selectedVertex ? 'Selected corner' : 'Selection'} value={selectedDetailLabel} tone={selectedEdge || selectedVertex ? 'active' : 'default'} />
+      </div>
+
       <div className={
         fullScreen
           ? 'grid min-h-0 flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_340px]'
-          : 'grid min-h-[560px] flex-1 grid-cols-1 xl:grid-cols-[minmax(0,1fr)_300px]'
+          : 'grid min-h-[460px] flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px]'
       }>
-        <div className={fullScreen ? 'min-h-[calc(100vh-190px)] bg-zinc-950' : 'min-h-[520px] bg-zinc-950'}>
+        <div className={fullScreen ? 'min-h-[calc(100vh-240px)] bg-zinc-950' : 'h-[430px] min-h-[430px] bg-zinc-950 lg:h-[520px]'}>
           <PolygonCanvas
             piece={editor.piece}
             toolMode={editor.state.toolMode}

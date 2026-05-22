@@ -3488,6 +3488,7 @@ export default function QuoteDetailClient({
                           overrideSlabPrice: (piece as any).overrideSlabPrice ?? (piece as any).override_slab_price ?? null,
                           overrideFabricationCost: (piece as any).overrideFabricationCost ?? (piece as any).override_fabrication_cost ?? null,
                           edgeBuildups: (piece as any).edgeBuildups ?? (piece as any).edge_buildups ?? null,
+                          total_cost: piece.total_cost ?? null,
                         }}
                         breakdown={pb}
                         mode="view"
@@ -3954,6 +3955,7 @@ export default function QuoteDetailClient({
                 overrideFabricationCost: p.overrideFabricationCost ?? null,
                 materialCollectionOnly: p.materialCollectionOnly ?? false,
                 materialCollectionName: p.materialCollectionName ?? null,
+                totalCost: p.totalCost ?? null,
               }}
               breakdown={pb}
               machines={machines}

@@ -119,6 +119,10 @@ interface PieceData {
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   materialCollectionOnly?: boolean;
   materialCollectionName?: string | null;
+  /** Stored quote-piece total fallback while the live calculation response refreshes. */
+  totalCost?: number | null;
+  /** Legacy API name for stored quote-piece total. */
+  total_cost?: number | null;
 }
 
 function normaliseArcEdgeConfig(
@@ -907,7 +911,12 @@ export default function QuickViewPieceRow({
     setLocalShapeConfig(piece.shapeConfig ?? null);
   }, [editingName, piece.lengthMm, piece.widthMm, piece.name, piece.overrideMaterialCost, piece.overrideSlabPrice, piece.overrideFabricationCost, piece.edgeBuildups, piece.noStripEdges, piece.edgeTop, piece.edgeBottom, piece.edgeLeft, piece.edgeRight, piece.shapeConfig]);
 
-  const pieceTotal = breakdown?.pieceTotal ?? 0;
+  const storedPieceTotalRaw = piece.totalCost ?? piece.total_cost ?? null;
+  const storedPieceTotal = storedPieceTotalRaw == null ? null : Number(storedPieceTotalRaw);
+  const hasStoredPieceTotal = storedPieceTotal != null && Number.isFinite(storedPieceTotal);
+  const pieceTotal = breakdown?.pieceTotal ?? (hasStoredPieceTotal ? storedPieceTotal : 0);
+  const hasLiveBreakdown = Boolean(breakdown);
+  const pieceTotalLabel = hasLiveBreakdown || pieceTotal > 0 ? formatCurrency(pieceTotal) : 'Awaiting calc';
   const isOversize = breakdown?.oversize?.isOversize ?? false;
 
   // ── Edge resolution ─────────────────────────────────────────────────────
@@ -2089,7 +2098,7 @@ export default function QuickViewPieceRow({
               <span className="text-[10px] text-blue-500 animate-pulse">Saving...</span>
             )}
             <span className="font-semibold text-gray-900 tabular-nums text-sm">
-              {formatCurrency(pieceTotal)}
+              {pieceTotalLabel}
             </span>
           </div>
 
@@ -2685,6 +2694,55 @@ export default function QuickViewPieceRow({
       {/* ══════════════ ACCORDION (Full View) ══════════════ */}
       {accordionOpen && (
         <div className="border-t border-gray-100">
+          <div className="sticky top-0 z-10 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">
+                  {relationshipLabel ? `${relationshipLabel} · ` : ''}Expanded piece view
+                </p>
+                <p className="mt-0.5 text-sm font-semibold text-gray-900">
+                  {piece.name}
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <span className={`rounded-full px-2.5 py-1 font-medium ${hasLiveBreakdown ? 'bg-green-50 text-green-700 ring-1 ring-green-200' : 'bg-amber-50 text-amber-700 ring-1 ring-amber-200'}`}>
+                  {hasLiveBreakdown ? 'Live calculation' : 'Calculation refresh needed'}
+                </span>
+                <span className="rounded-full bg-gray-900 px-3 py-1 font-semibold text-white tabular-nums">
+                  {pieceTotalLabel}
+                </span>
+              </div>
+            </div>
+            {breakdown ? (
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs md:grid-cols-4">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Cutting</p>
+                  <p className="mt-0.5 font-semibold tabular-nums text-gray-900">{formatCurrency(breakdown.fabrication.cutting.total + (breakdown.fabrication.curvedCutting?.cost ?? 0))}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Edges / cutouts</p>
+                  <p className="mt-0.5 font-semibold tabular-nums text-gray-900">
+                    {formatCurrency(
+                      breakdown.fabrication.edges.reduce((sum, edge) => sum + edge.total, 0) +
+                      (breakdown.fabrication.cutouts?.reduce((sum, cutout) => sum + cutout.total, 0) ?? 0)
+                    )}
+                  </p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Material</p>
+                  <p className="mt-0.5 font-semibold tabular-nums text-gray-900">{formatCurrency(breakdown.materials?.total ?? 0)}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2">
+                  <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-400">Install</p>
+                  <p className="mt-0.5 font-semibold tabular-nums text-gray-900">{formatCurrency(breakdown.fabrication.installation?.total ?? 0)}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                No live cost breakdown is attached to this row yet. Save/recalculate the quote to refresh the detailed lines; the stored piece total is shown where available.
+              </p>
+            )}
+          </div>
           <PieceEditorErrorBoundary pieceName={piece.name}>
             {useSpatialGeometryEditor && isEditMode && fullPiece ? (
               <div className="border-b border-gray-100 bg-blue-50/30 px-4 py-3">
@@ -3159,6 +3217,13 @@ export default function QuickViewPieceRow({
               <div className="flex items-center justify-between text-xs font-semibold text-gray-900 pt-1 border-t border-gray-100">
                 <span>Piece Total</span>
                 <span className="tabular-nums">{formatCurrency(pieceTotal)}</span>
+              </div>
+            </div>
+          )}
+          {!breakdown && (
+            <div className="px-4 pb-4 pt-3">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Detailed calculation lines are not available on this row yet. Recalculate or save the quote after geometry edits to refresh cutting, edge, material, install, and child-piece totals.
               </div>
             </div>
           )}
