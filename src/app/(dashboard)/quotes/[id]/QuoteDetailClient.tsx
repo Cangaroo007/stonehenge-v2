@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { useAutoSlabOptimiser } from '@/hooks/useAutoSlabOptimiser';
@@ -403,6 +403,7 @@ export default function QuoteDetailClient({
   serverData,
 }: QuoteDetailClientProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { unitSystem } = useUnits();
   const quoteIdStr = String(quoteId);
 
@@ -477,6 +478,13 @@ export default function QuoteDetailClient({
     initialEdge?: string;
   }>({ isOpen: false, type: 'WATERFALL', parentPieceId: null, parentLengthMm: 0, parentWidthMm: 0, parentThicknessMm: 20 });
   const [drawingsRefreshKey, setDrawingsRefreshKey] = useState(0);
+
+  useEffect(() => {
+    if (searchParams.get('importDrawing') === '1') {
+      setShowDrawingImport(true);
+      setActiveTab('pieces');
+    }
+  }, [searchParams]);
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
     return !!(del && (del.address || del.distanceKm || del.finalCost > 0));
@@ -4083,7 +4091,7 @@ export default function QuoteDetailClient({
                     <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v3m0 12v3m9-9h-3M6 12H3m15.364-6.364-2.121 2.121M7.757 16.243l-2.121 2.121m12.728 0-2.121-2.121M7.757 7.757 5.636 5.636" />
                     </svg>
-                    LiDAR Proto
+                    Geometry Import
                   </Link>
                   <button
                     onClick={() => setShowFromTemplate(true)}

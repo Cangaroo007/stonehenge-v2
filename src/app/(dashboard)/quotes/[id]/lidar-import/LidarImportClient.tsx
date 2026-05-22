@@ -38,14 +38,14 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
           cache: 'no-store',
         });
         if (!response.ok) {
-          throw new Error('Failed to load LiDAR fixtures');
+          throw new Error('Failed to load geometry fixtures');
         }
         const data = await response.json();
         if (!cancelled) {
           setScans(data.scans ?? []);
         }
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : 'Failed to load LiDAR fixtures');
+        toast.error(error instanceof Error ? error.message : 'Failed to load geometry fixtures');
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -72,7 +72,7 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to import LiDAR scan');
+        throw new Error(data.error || 'Failed to import geometry scan');
       }
 
       const warningText = Array.isArray(data.warnings) && data.warnings.length > 0
@@ -91,9 +91,9 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
       trackClarityEvent('quote_error', {
         quoteId,
         area: 'lidar_import',
-        message: error instanceof Error ? error.message : 'Failed to import LiDAR scan',
+        message: error instanceof Error ? error.message : 'Failed to import geometry scan',
       });
-      toast.error(error instanceof Error ? error.message : 'Failed to import LiDAR scan');
+      toast.error(error instanceof Error ? error.message : 'Failed to import geometry scan');
     } finally {
       setImportingScanId(null);
     }
@@ -101,7 +101,7 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
 
   async function importCustomScan() {
     if (!customScanJson.trim()) {
-      toast.error('Paste LiDAR JSON first');
+      toast.error('Paste geometry JSON first');
       return;
     }
 
@@ -109,7 +109,7 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
     try {
       parsedScan = JSON.parse(customScanJson);
     } catch {
-      toast.error('LiDAR JSON is not valid JSON');
+      toast.error('Geometry JSON is not valid JSON');
       return;
     }
 
@@ -127,7 +127,7 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
       });
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.error || 'Failed to import LiDAR scan');
+        throw new Error(data.error || 'Failed to import geometry scan');
       }
 
       const warningText = Array.isArray(data.warnings) && data.warnings.length > 0
@@ -146,9 +146,9 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
       trackClarityEvent('quote_error', {
         quoteId,
         area: 'lidar_import_custom',
-        message: error instanceof Error ? error.message : 'Failed to import LiDAR scan',
+        message: error instanceof Error ? error.message : 'Failed to import geometry scan',
       });
-      toast.error(error instanceof Error ? error.message : 'Failed to import LiDAR scan');
+      toast.error(error instanceof Error ? error.message : 'Failed to import geometry scan');
     } finally {
       setImportingCustom(false);
     }
@@ -158,21 +158,27 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
     <div className="max-w-5xl mx-auto px-6 py-8 space-y-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-primary-600">Prototype bridge</p>
-          <h1 className="text-2xl font-semibold text-gray-900">LiDAR scan import</h1>
+          <p className="text-sm font-medium text-primary-600">Geometry bridge</p>
+          <h1 className="text-2xl font-semibold text-gray-900">Spatial geometry import</h1>
           <p className="mt-2 text-sm text-gray-600 max-w-2xl">
-            Import safe mock LiDAR scans from the prototype into this v2 quote as normal quote pieces.
-            This is intentionally isolated from the production drawing reader.
+            Import structured countertop geometry into this quote as normal pieces. This page is for
+            scan/manual-trace JSON and prototype fixtures, not direct PDF drawing analysis.
           </p>
         </div>
-        <Link href={`/quotes/${quoteId}?mode=edit`} className="btn-secondary">
-          Back to quote
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link href={`/quotes/${quoteId}?mode=edit&importDrawing=1`} className="btn-primary">
+            Import Drawing PDF
+          </Link>
+          <Link href={`/quotes/${quoteId}?mode=edit`} className="btn-secondary">
+            Back to quote
+          </Link>
+        </div>
       </div>
 
       <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-        This is a launch-safe bridge for testing geometry, cutout hints, wall-edge hints, and recalculated totals.
-        It is not the full iOS LiDAR scanner or the full v3 Konva editor.
+        For files like the Law upstairs/downstairs PDFs, use Import Drawing PDF. This geometry bridge is
+        for already-extracted polygon data: room dimensions, countertop vertices, cutout hints, wall-edge hints,
+        and edge finish hints. It is not the AI drawing reader and it is not the full iOS LiDAR scanner.
       </div>
 
       <label className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3 text-sm text-gray-700">
@@ -188,9 +194,10 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
       <div className="rounded-lg border border-gray-200 bg-white p-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-semibold text-gray-900">Import LiDAR JSON</h2>
+            <h2 className="font-semibold text-gray-900">Import Geometry JSON</h2>
             <p className="mt-1 text-sm text-gray-500">
-              Paste an exported scan with room dimensions, countertop vertices, walls, appliances, and exposure hints.
+              Paste an exported scan or manual trace with room dimensions, countertop vertices, walls, appliances,
+              and exposure hints.
             </p>
           </div>
           <button
@@ -214,7 +221,7 @@ export default function LidarImportClient({ quoteId }: LidarImportClientProps) {
 
       {loading ? (
         <div className="rounded-lg border border-gray-200 bg-white p-6 text-sm text-gray-500">
-          Loading LiDAR fixtures...
+          Loading geometry fixtures...
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
