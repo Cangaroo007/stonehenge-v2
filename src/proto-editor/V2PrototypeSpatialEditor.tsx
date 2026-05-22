@@ -85,8 +85,14 @@ const FEATURE_TOOLS: Array<{ kind: Feature['kind']; label: string }> = [
   { kind: 'overmount-sink', label: 'Drop-in sink' },
   { kind: 'cooktop-cutout', label: 'Cooktop' },
   { kind: 'tap-hole', label: 'Tap hole' },
-  { kind: 'custom-cutout', label: 'Custom cutout' },
 ];
+
+function featureId(): FeatureId {
+  const id = typeof crypto !== 'undefined' && 'randomUUID' in crypto
+    ? crypto.randomUUID()
+    : `${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  return `v2-spatial-feature-${id}` as FeatureId;
+}
 
 function safeKey(value: string): string {
   return value.replace(/[^a-z0-9_-]/gi, '-');
@@ -262,6 +268,27 @@ export default function V2PrototypeSpatialEditor({
     editor.setEdgeExposure(selectedEdge.id, exposure);
   }, [editor, selectedEdge]);
 
+  const handlePlaceFeature = useCallback((xMm: number, yMm: number) => {
+    if (editor.state.toolMode.kind === 'structural-place') {
+      const widthMm = editor.state.toolMode.widthMm;
+      const depthMm = editor.state.toolMode.depthMm;
+      editor.addFeature({
+        id: featureId(),
+        kind: 'custom-cutout',
+        position: { x: xMm, y: yMm },
+        outline: [
+          { x: -widthMm / 2, y: -depthMm / 2 },
+          { x: widthMm / 2, y: -depthMm / 2 },
+          { x: widthMm / 2, y: depthMm / 2 },
+          { x: -widthMm / 2, y: depthMm / 2 },
+        ],
+      });
+      editor.setToolMode({ kind: 'select' });
+      return;
+    }
+    featurePlacement.tryPlace(xMm, yMm);
+  }, [editor, featurePlacement]);
+
   const selectedFeatureId = editor.state.selectedFeatureId;
   const activeToolKind = editor.state.toolMode.kind;
   const activeFeatureKind = activeToolKind === 'feature-place'
@@ -320,7 +347,7 @@ export default function V2PrototypeSpatialEditor({
             onSelectEdge={editor.selectEdge}
             onSelectFeature={editor.selectFeature}
             onSelectVertex={(vertexId, additive) => additive ? editor.toggleVertexSelection(vertexId) : editor.selectVertex(vertexId)}
-            onPlaceFeature={(xMm, yMm) => featurePlacement.tryPlace(xMm, yMm)}
+            onPlaceFeature={handlePlaceFeature}
             onClearSelection={editor.clearSelection}
             onSetEdgeLength={editor.setEdgeLength}
             onSetDiameter={(newDiameterMm) => {

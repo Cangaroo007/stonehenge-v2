@@ -43,6 +43,7 @@ function featureToCutout(feature: unknown): SpatialCutoutPatch | null {
   const candidate = feature as {
     kind?: string;
     position?: { x?: number; y?: number };
+    outline?: Array<{ x?: number; y?: number }>;
   };
 
   const labelByKind: Record<string, string> = {
@@ -50,9 +51,20 @@ function featureToCutout(feature: unknown): SpatialCutoutPatch | null {
     'overmount-sink': 'Drop-in Sink',
     'cooktop-cutout': 'Cooktop / Hotplate',
     'tap-hole': 'Tap Hole',
-    'custom-cutout': 'Custom Cutout',
   };
-  const label = candidate.kind ? labelByKind[candidate.kind] : null;
+  const customCutoutSize = Array.isArray(candidate.outline)
+    ? candidate.outline.reduce((bounds, point) => ({
+      minX: Math.min(bounds.minX, Number(point.x) || 0),
+      maxX: Math.max(bounds.maxX, Number(point.x) || 0),
+      minY: Math.min(bounds.minY, Number(point.y) || 0),
+      maxY: Math.max(bounds.maxY, Number(point.y) || 0),
+    }), { minX: 0, maxX: 0, minY: 0, maxY: 0 })
+    : null;
+  const customWidth = customCutoutSize ? customCutoutSize.maxX - customCutoutSize.minX : 0;
+  const customDepth = customCutoutSize ? customCutoutSize.maxY - customCutoutSize.minY : 0;
+  const label = candidate.kind === 'custom-cutout'
+    ? (customWidth <= 250 && customDepth <= 250 ? 'Post' : 'Custom Cutout')
+    : candidate.kind ? labelByKind[candidate.kind] : null;
   if (!label) return null;
 
   return {
