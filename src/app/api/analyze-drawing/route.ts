@@ -189,6 +189,8 @@ Never silently flatten special geometry into a rectangle.
 - If a post cutout/notch is shown, include it as a cutout/feature and ask for post size, set-out, and whether notch edges are polished.
 - If a piece has angled or irregular runs and you cannot produce a supported shapeConfig, set shape to IRREGULAR, confidence below 0.85, and ask for LiDAR/site measure or polygon trace before final pricing.
 - For any RADIUS_END piece, put straight edge profiles in edgeTop/edgeBottom/edgeLeft/edgeRight and curved edge profile in edgeArcConfig.arc_end.
+- Do not label a piece Laundry unless the drawing explicitly says laundry/l'dry/laundry bench, tub, WM, dryer, or laundry cabinetry. If the note says entry, entryway, hall, robe, desk, or bench near entry, preserve that exact room/name instead of inventing Laundry.
+- If you are unsure whether a drawn run is a simple rectangle, mark confidence below 0.85 and add a clarification question with sourceHint/sourceRegion so the UI can spotlight it for the mason.
 
 ## SCOPE FLAGS THAT CHANGE PRICING
 
@@ -248,6 +250,7 @@ Rules for questions:
 
 For each question, populate options from the TENANT CATALOGUE above — never hardcode generic options. For dimension questions, set allowFreeText: true and omit options (user types a number).
 For each question, include sourcePage and sourceHint whenever possible. sourceHint must point the user to the exact drawing area, e.g. "kitchen plan lower left return", "island sink note on page 2", or "right-hand rounded peninsula end". If you can identify a page region, include sourceRegion as normalised page coordinates 0-1: { "x": 0.1, "y": 0.2, "width": 0.3, "height": 0.15 }. These source fields are used by the UI to open and highlight the relevant drawing context.
+For every piece with missing dimensions, uncertain room/name, uncertain material, visible angled geometry, a radius/curved end, post/notch, or inferred shape, include a clarification question with pieceId, fieldPath, sourceHint, and sourceRegion where defensible. The UI uses these to put a spotlight on the exact drawing area.
 
 ## OUTPUT FORMAT — Return ONLY valid JSON:
 

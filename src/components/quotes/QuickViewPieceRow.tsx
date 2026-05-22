@@ -147,8 +147,10 @@ function edgeListIncludes(edges: string[] | undefined, edgeId: string): boolean 
   return (edges ?? []).some((edge) => String(edge).toLowerCase() === target);
 }
 
-function shouldUseSpatialGeometryEditor(piece: { shapeType?: string | null; shapeConfig?: Record<string, unknown> | null }): boolean {
-  return !!getCanonicalPolygonConfig(piece.shapeConfig) || (!!piece.shapeType && piece.shapeType !== 'RECTANGLE');
+function shouldUseSpatialGeometryEditor(_piece?: unknown): boolean {
+  // The spatial editor is now the single geometry edit surface. Rectangles seed
+  // as four-point polygons and save back as canonical geometry once edited.
+  return true;
 }
 
 function getReturnStripEdges({

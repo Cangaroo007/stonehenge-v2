@@ -3,6 +3,7 @@
 import { useState, useMemo, useCallback, useEffect } from 'react';
 import Image from 'next/image';
 import { DrawingCatalogue } from '@/lib/types/drawing-catalogue';
+import type { ClarificationQuestion } from '@/lib/types/drawing-analysis';
 import { logCorrection, CorrectionPayload } from '@/lib/services/correction-logger';
 import MaterialPickerV2 from '@/components/quotes/MaterialPickerV2';
 import V2PrototypeSpatialEditor from '@/proto-editor/V2PrototypeSpatialEditor';
@@ -43,6 +44,7 @@ interface DrawingReviewStageProps {
   quoteId?: number;
   drawingId?: string;
   analysisId?: number;
+  clarificationQuestions?: ClarificationQuestion[];
   isImporting?: boolean;
   importError?: string | null;
 }
@@ -121,6 +123,26 @@ function hasIncompleteGeometry(piece: ExtractedPiece): boolean {
   return !hasShapeConfig(piece);
 }
 
+function pieceNeedsReview(piece: ExtractedPiece, questions: ClarificationQuestion[]): boolean {
+  return piece.confidence < 0.85 ||
+    piece.length === 0 ||
+    piece.width === 0 ||
+    hasIncompleteGeometry(piece) ||
+    questions.some(question => question.pieceId === piece.id);
+}
+
+function reviewReasonLabels(piece: ExtractedPiece, questions: ClarificationQuestion[]): string[] {
+  const labels: string[] = [];
+  if (piece.length === 0 || piece.width === 0) labels.push('Missing dimension');
+  if (hasIncompleteGeometry(piece)) labels.push('Needs spatial trace');
+  if (piece.confidence < 0.85) labels.push('Low confidence');
+  for (const question of questions.filter(q => q.pieceId === piece.id)) {
+    if (question.sourceHint) labels.push(question.sourceHint);
+    else labels.push(question.question);
+  }
+  return Array.from(new Set(labels)).slice(0, 4);
+}
+
 function PolygonTraceModal({
   piece,
   quoteId,
@@ -156,7 +178,12 @@ function PolygonTraceModal({
 
         <div className="grid grid-cols-1 xl:grid-cols-[minmax(300px,30%)_minmax(0,1fr)] gap-0 overflow-auto">
           <div className="p-5 bg-zinc-50 border-r border-zinc-200">
-            <DrawingSourcePreview drawingId={drawingId} quoteId={quoteId} />
+            <DrawingSourcePreview
+              drawingId={drawingId}
+              quoteId={quoteId}
+              activePiece={piece}
+              questions={[]}
+            />
           </div>
 
           <div className="p-5 bg-zinc-50">
@@ -174,10 +201,21 @@ function PolygonTraceModal({
   );
 }
 
-function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quoteId?: number }) {
+function DrawingSourcePreview({
+  drawingId,
+  quoteId,
+  activePiece,
+  questions = [],
+}: {
+  drawingId?: string;
+  quoteId?: number;
+  activePiece?: ExtractedPiece | null;
+  questions?: ClarificationQuestion[];
+}) {
   const [details, setDetails] = useState<DrawingDetails | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [zoom, setZoom] = useState(1);
 
   useEffect(() => {
     if (!drawingId) {
@@ -221,6 +259,12 @@ function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quot
 
   const isPdf = details?.mimeType?.includes('pdf') || details?.filename?.toLowerCase().endsWith('.pdf');
   const isImage = details?.mimeType?.startsWith('image/');
+  const activeQuestions = activePiece
+    ? questions.filter(question => question.pieceId === activePiece.id)
+    : questions.filter(question => question.priority === 'CRITICAL').slice(0, 3);
+  const activeRegions = activeQuestions
+    .map(question => question.sourceRegion)
+    .filter((region): region is NonNullable<ClarificationQuestion['sourceRegion']> => Boolean(region));
 
   return (
     <aside className="lg:sticky lg:top-0 h-[520px] lg:h-[calc(90vh-190px)] min-h-[420px] rounded-lg border border-zinc-200 bg-zinc-50 overflow-hidden flex flex-col">
@@ -240,6 +284,46 @@ function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quot
           >
             Open
           </a>
+        )}
+      </div>
+
+      <div className="border-b border-zinc-200 bg-white px-3 py-2">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              {activePiece ? 'Spotlight piece' : 'Clarification spotlight'}
+            </p>
+            <p className="truncate text-sm font-medium text-zinc-900">
+              {activePiece?.name ?? 'Select a row to focus the drawing context'}
+            </p>
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={() => setZoom(value => Math.max(0.75, Number((value - 0.25).toFixed(2))))}
+              className="rounded border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              -
+            </button>
+            <span className="w-12 text-center text-xs tabular-nums text-zinc-600">{Math.round(zoom * 100)}%</span>
+            <button
+              type="button"
+              onClick={() => setZoom(value => Math.min(3, Number((value + 0.25).toFixed(2))))}
+              className="rounded border border-zinc-200 px-2 py-1 text-xs font-medium text-zinc-700 hover:bg-zinc-50"
+            >
+              +
+            </button>
+          </div>
+        </div>
+        {activeQuestions.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {activeQuestions.slice(0, 3).map(question => (
+              <div key={question.id} className="rounded border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-900">
+                <span className="font-semibold">{question.priority.replace(/_/g, ' ')}:</span>{' '}
+                {question.sourceHint || question.question}
+              </div>
+            ))}
+          </div>
         )}
       </div>
 
@@ -265,20 +349,38 @@ function DrawingSourcePreview({ drawingId, quoteId }: { drawingId?: string; quot
         {!isLoading && !error && details && isPdf && (
           <iframe
             title={details.filename}
-            src={`${details.url}#view=FitH`}
-            className="w-full h-full border-0 bg-white"
+            src={`${details.url}#view=FitH&zoom=${Math.round(zoom * 100)}`}
+            className="h-full border-0 bg-white"
+            style={{ width: `${Math.max(100, zoom * 100)}%` }}
           />
         )}
 
         {!isLoading && !error && details && isImage && (
           <div className="relative h-full w-full overflow-auto bg-white">
-            <Image
-              src={details.url}
-              alt={details.filename}
-              fill
-              unoptimized
-              className="object-contain"
-            />
+            <div
+              className="relative min-h-full min-w-full origin-top-left"
+              style={{ width: `${zoom * 100}%`, height: `${zoom * 100}%` }}
+            >
+              <Image
+                src={details.url}
+                alt={details.filename}
+                fill
+                unoptimized
+                className="object-contain"
+              />
+              {activeRegions.map((region, index) => (
+                <div
+                  key={index}
+                  className="absolute rounded-lg border-2 border-amber-500 bg-amber-300/20 shadow-[0_0_0_9999px_rgba(0,0,0,0.18)]"
+                  style={{
+                    left: `${(region.x ?? 0) * 100}%`,
+                    top: `${(region.y ?? 0) * 100}%`,
+                    width: `${Math.max(region.width ?? 0.08, 0.04) * 100}%`,
+                    height: `${Math.max(region.height ?? 0.08, 0.04) * 100}%`,
+                  }}
+                />
+              ))}
+            </div>
           </div>
         )}
 
@@ -301,12 +403,16 @@ export function DrawingReviewStage({
   quoteId,
   drawingId,
   analysisId,
+  clarificationQuestions = [],
   isImporting = false,
   importError = null,
 }: DrawingReviewStageProps) {
   const [pieces, setPieces] = useState<ExtractedPiece[]>(initialPieces);
   const [editingCutouts, setEditingCutouts] = useState<string | null>(null);
   const [tracePieceId, setTracePieceId] = useState<string | null>(null);
+  const [spotlightPieceId, setSpotlightPieceId] = useState<string | null>(
+    initialPieces.find(piece => pieceNeedsReview(piece, clarificationQuestions))?.id ?? initialPieces[0]?.id ?? null
+  );
 
   // Group pieces by room for visual sections
   const roomGroups = useMemo(() => {
@@ -349,6 +455,11 @@ export function DrawingReviewStage({
   const canConfirm = redCount === 0;
   const pickerMaterials = useMemo(() => catalogue.materials, [catalogue.materials]);
   const tracePiece = useMemo(() => pieces.find(piece => piece.id === tracePieceId) ?? null, [pieces, tracePieceId]);
+  const spotlightPiece = useMemo(() => pieces.find(piece => piece.id === spotlightPieceId) ?? null, [pieces, spotlightPieceId]);
+  const issuePieces = useMemo(
+    () => pieces.filter(piece => pieceNeedsReview(piece, clarificationQuestions)),
+    [pieces, clarificationQuestions]
+  );
 
   // Unique rooms for room dropdown
   const roomOptions = useMemo(() => {
@@ -529,7 +640,41 @@ export function DrawingReviewStage({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(360px,42%)_minmax(0,1fr)] gap-4">
-        <DrawingSourcePreview drawingId={drawingId} quoteId={quoteId} />
+        <div className="space-y-3">
+          <DrawingSourcePreview
+            drawingId={drawingId}
+            quoteId={quoteId}
+            activePiece={spotlightPiece}
+            questions={clarificationQuestions}
+          />
+          {issuePieces.length > 0 && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">Pieces needing attention</p>
+              <div className="mt-2 space-y-2">
+                {issuePieces.map(piece => (
+                  <button
+                    key={piece.id}
+                    type="button"
+                    onClick={() => setSpotlightPieceId(piece.id)}
+                    className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                      spotlightPieceId === piece.id
+                        ? 'border-amber-500 bg-white shadow-sm'
+                        : 'border-amber-200 bg-white/70 hover:bg-white'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm font-medium text-zinc-900">{piece.name}</span>
+                      <span className="text-xs text-amber-700">{Math.round(piece.confidence * 100)}%</span>
+                    </div>
+                    <p className="mt-1 line-clamp-2 text-xs text-zinc-600">
+                      {reviewReasonLabels(piece, clarificationQuestions).join(' | ') || 'Verify extracted details'}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="min-w-0">
           {/* Bulk defaults. These are convenience actions only; row-level material can differ. */}
@@ -588,14 +733,26 @@ export function DrawingReviewStage({
                   const lengthNull = piece.length === 0 || piece.length === null;
                   const widthNull = piece.width === 0 || piece.width === null;
                   const edgeCount = countFinishedEdges(piece.edgeSelections);
+                  const needsReview = pieceNeedsReview(piece, clarificationQuestions);
 
                   return (
-                    <tr key={piece.id} className="hover:bg-zinc-50">
+                    <tr
+                      key={piece.id}
+                      onClick={() => setSpotlightPieceId(piece.id)}
+                      className={`cursor-pointer hover:bg-zinc-50 ${
+                        spotlightPieceId === piece.id ? 'bg-blue-50/60 ring-1 ring-inset ring-blue-200' : ''
+                      }`}
+                    >
                       {/* # */}
                       <td className="px-3 py-2 text-zinc-500">{piece.pieceNumber}</td>
 
                       {/* Name — inline editable */}
                       <td className="px-3 py-2 min-w-[190px]">
+                        {needsReview && (
+                          <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-800">
+                            Check
+                          </span>
+                        )}
                         <input
                           type="text"
                           defaultValue={piece.name}
@@ -637,6 +794,16 @@ export function DrawingReviewStage({
                         ) : (
                           <span className="text-zinc-400">—</span>
                         )}
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setTracePieceId(piece.id);
+                          }}
+                          className="mt-2 inline-flex items-center rounded border border-blue-200 bg-blue-50 px-2 py-1 text-[11px] font-medium text-blue-700 hover:bg-blue-100"
+                        >
+                          Edit geometry
+                        </button>
                       </td>
 
                       {/* Material — per-piece editable */}
