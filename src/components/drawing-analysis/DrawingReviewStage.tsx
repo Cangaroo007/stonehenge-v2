@@ -140,12 +140,7 @@ export function DrawingReviewStage({
   }, [pieces]);
 
   const canConfirm = redCount === 0;
-  const pickerMaterials = useMemo(() => catalogue.materials.map(material => ({
-    ...material,
-    pricePerSqm: 0,
-    pricePerSlab: null,
-    supplier: null,
-  })), [catalogue.materials]);
+  const pickerMaterials = useMemo(() => catalogue.materials, [catalogue.materials]);
 
   // Unique rooms for room dropdown
   const roomOptions = useMemo(() => {
@@ -250,7 +245,7 @@ export function DrawingReviewStage({
   // Button label
   const buttonLabel = useMemo(() => {
     if (redCount > 0) return `${redCount} issue${redCount !== 1 ? 's' : ''} to fix`;
-    if (amberCount > 0) return `Import (${amberCount} warning${amberCount !== 1 ? 's' : ''})`;
+    if (amberCount > 0) return 'Import reviewed pieces';
     return 'Confirm & Import →';
   }, [redCount, amberCount]);
 

@@ -33,7 +33,14 @@ export async function POST(request: NextRequest) {
     const [rawMaterials, rawEdgeTypes, rawCutoutTypes] = await Promise.all([
       prisma.materials.findMany({
         where: { is_active: true, company_id: companyId },
-        select: { id: true, name: true, collection: true },
+        select: {
+          id: true,
+          name: true,
+          collection: true,
+          price_per_sqm: true,
+          price_per_slab: true,
+          supplier: { select: { id: true, name: true } },
+        },
         orderBy: { name: 'asc' },
         take: 50,
       }),
@@ -49,8 +56,17 @@ export async function POST(request: NextRequest) {
       }),
     ]);
 
+    const catalogueMaterials = rawMaterials.map(material => ({
+      id: material.id,
+      name: material.name,
+      collection: material.collection,
+      pricePerSqm: Number(material.price_per_sqm || 0),
+      pricePerSlab: material.price_per_slab == null ? null : Number(material.price_per_slab),
+      supplier: material.supplier,
+    }));
+
     const catalogue: DrawingCatalogue = {
-      materials: rawMaterials,
+      materials: catalogueMaterials,
       edgeTypes: rawEdgeTypes,
       cutoutTypes: rawCutoutTypes,
     };

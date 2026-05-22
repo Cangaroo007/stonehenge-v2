@@ -268,12 +268,7 @@ function MaterialQuestionPicker({
   return (
     <div className="max-w-[360px]">
       <MaterialPickerV2
-        materials={catalogue.materials.map(material => ({
-          ...material,
-          pricePerSqm: 0,
-          pricePerSlab: null,
-          supplier: null,
-        }))}
+        materials={catalogue.materials}
         value={selectedId}
         onChange={(materialId) => onSelect(materialId != null ? String(materialId) : '')}
         placeholder="Select material"

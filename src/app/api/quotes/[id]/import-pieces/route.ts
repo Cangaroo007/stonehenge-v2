@@ -98,6 +98,41 @@ function normalisePieceType(value?: string | null): string | null {
   return value.trim().replace(/[\s-]+/g, '_').toUpperCase();
 }
 
+const SHAPE_ALIASES: Record<string, ShapeType> = {
+  RECT: 'RECTANGLE',
+  RECTANGLE: 'RECTANGLE',
+  SQUARE: 'RECTANGLE',
+  L: 'L_SHAPE',
+  LSHAPE: 'L_SHAPE',
+  L_SHAPE: 'L_SHAPE',
+  U: 'U_SHAPE',
+  USHAPE: 'U_SHAPE',
+  U_SHAPE: 'U_SHAPE',
+  RADIUS_END: 'RADIUS_END',
+  ROUNDED_END: 'RADIUS_END',
+  ROUND_END: 'RADIUS_END',
+  ROUNDED_PENINSULA: 'RADIUS_END',
+  RADIUS_PENINSULA: 'RADIUS_END',
+  FULL_CIRCLE: 'FULL_CIRCLE',
+  CIRCLE: 'FULL_CIRCLE',
+  CONCAVE_ARC: 'CONCAVE_ARC',
+  ROUNDED_RECT: 'ROUNDED_RECT',
+  ROUNDED_RECTANGLE: 'ROUNDED_RECT',
+  POLYGON: 'POLYGON',
+};
+
+function normaliseShapeType(
+  value?: string | null,
+  shapeConfig?: Record<string, unknown> | null
+): ShapeType {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) return 'POLYGON';
+  if (!value) return 'RECTANGLE';
+
+  const compactKey = value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '');
+  const underscoreKey = value.trim().toUpperCase().replace(/[^A-Z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+  return SHAPE_ALIASES[compactKey] ?? SHAPE_ALIASES[underscoreKey] ?? 'RECTANGLE';
+}
+
 function inferRelationshipType(piece: CreatedImportPiece): RelationshipType | null {
   const explicit = piece.source.relatedTo?.relationshipType ?? piece.source.relatedTo?.relationType;
   const explicitType = normalisePieceType(explicit);
@@ -457,7 +492,7 @@ export async function POST(
               .filter((cutout) => cutout.name)
           : [];
 
-        const importedShapeType = (pieceData.shapeType || pieceData.shape || 'RECTANGLE') as ShapeType;
+        const importedShapeType = normaliseShapeType(pieceData.shapeType || pieceData.shape, pieceData.shapeConfig);
         const edgeBuildups = normaliseImportedEdgeBuildups(pieceData);
         const importedNoStripEdges = normaliseNoStripEdges(pieceData.noStripEdges);
         const normalisedPolygonPatch = normaliseImportedPolygonPatch(

@@ -12,6 +12,12 @@ export interface CatalogueMaterial {
   id: number;
   name: string;
   collection: string | null;
+  pricePerSqm: number;
+  pricePerSlab?: number | null;
+  supplier?: {
+    id: string;
+    name: string;
+  } | null;
 }
 
 export interface CatalogueEdgeType {
