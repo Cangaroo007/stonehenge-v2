@@ -179,6 +179,8 @@ export default async function QuotePrintPage({
                 length_mm: p.length_mm,
                 width_mm: p.width_mm,
                 thickness_mm: p.thickness_mm,
+                shape_type: p.shape_type,
+                shape_config: p.shape_config,
                 area_sqm: Number(p.area_sqm),
                 total_cost: pieceTotalMap.get(p.id) ?? Number(p.total_cost),
                 edge_top: p.edge_top,

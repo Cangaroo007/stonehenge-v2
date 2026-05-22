@@ -391,8 +391,30 @@ export default function ExpandedPieceViewClient({
     return Object.keys(map).length > 0 ? map : undefined;
   }, [pieceData?.relatedPieces]);
 
-  // Handle shape_config edge changes (corner arcs + straight edges for ROUNDED_RECT, L/U shapes)
+  // Handle shape_config edge changes (polygon edges, corner arcs + straight edges for ROUNDED_RECT, L/U shapes)
   const handleShapeEdgeChange = useCallback((edgeId: string, profileId: string | null) => {
+    if (editFields?.shapeType === 'POLYGON') {
+      const currentConfig = (editFields.shapeConfig as unknown as Record<string, unknown>) ?? {};
+      const currentEdges = (currentConfig.edges as Record<string, Record<string, unknown>>) ?? {};
+      const edge = currentEdges[edgeId] ?? { id: edgeId };
+      const updatedConfig = {
+        ...currentConfig,
+        edges: {
+          ...currentEdges,
+          [edgeId]: {
+            ...edge,
+            v2EdgeTypeId: profileId,
+            finish: profileId ? 'polished' : 'unfinished',
+          },
+        },
+      };
+      setEditFields((prev: EditableFields | null) => {
+        if (!prev) return prev;
+        return { ...prev, shapeConfig: updatedConfig as unknown as ShapeConfig };
+      });
+      return;
+    }
+
     // L/U shape edges → write to shapeConfig.edges
     if (editFields?.shapeType === 'L_SHAPE' || editFields?.shapeType === 'U_SHAPE') {
       const currentConfig = (editFields.shapeConfig as unknown as Record<string, unknown>) ?? {};
@@ -512,10 +534,18 @@ export default function ExpandedPieceViewClient({
     [edgeTypes, pieceData?.edgeDetails]
   );
 
-  // Build shapeConfigEdges for PieceVisualEditor (corner edge profiles for ROUNDED_RECT, L/U shapes)
+  // Build shapeConfigEdges for PieceVisualEditor (polygon, corner edge profiles for ROUNDED_RECT, L/U shapes)
   const effectiveShapeType = (editFields?.shapeType ?? 'RECTANGLE') as ShapeType;
   const shapeConfigEdges: Record<string, string | null> = useMemo(() => {
     if (!editFields) return {} as Record<string, string | null>;
+
+    if (effectiveShapeType === 'POLYGON') {
+      const cfg = editFields.shapeConfig as unknown as Record<string, unknown>;
+      const edges = (cfg?.edges as Record<string, { v2EdgeTypeId?: string | null }>) ?? {};
+      return Object.fromEntries(
+        Object.entries(edges).map(([edgeId, edge]) => [edgeId, edge.v2EdgeTypeId ?? null])
+      );
+    }
 
     if (effectiveShapeType === 'L_SHAPE' || effectiveShapeType === 'U_SHAPE') {
       const cfg = editFields.shapeConfig as unknown as Record<string, unknown>;

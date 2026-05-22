@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { edgeColour } from '@/lib/utils/edge-utils';
+import { buildPolygonRenderModel, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 import type { PieceGroup, GroupedPiece } from '@/lib/types/piece-groups';
 
 // ─── Props ──────────────────────────────────────────────────────────────────
@@ -216,6 +217,7 @@ function PieceRect({
 }) {
   const { piece, x, y, w, h } = rect;
   const fill = FILL_COLOURS[piece.relationship] || '#f0f4f8';
+  const polygon = buildPolygonRenderModel(piece.shapeConfig, { width: w, height: h, padding: 2 });
   const isLaminated =
     piece.dimensions.thicknessMm >= 40 ||
     Object.keys((piece as unknown as { edgeBuildups?: Record<string, unknown> }).edgeBuildups ?? {}).length > 0 ||
@@ -228,22 +230,72 @@ function PieceRect({
       onMouseLeave={onMouseLeave}
       onClick={onClick}
     >
-      {/* Piece rectangle */}
-      <rect
-        x={x}
-        y={y}
-        width={Math.max(w, 2)}
-        height={Math.max(h, 2)}
-        fill={isHovered ? '#e3f2fd' : fill}
-        stroke={isSelected ? '#1976d2' : isHovered ? '#90caf9' : '#94a3b8'}
-        strokeWidth={isSelected ? 2.5 : isLaminated ? 2.5 : 1}
-        strokeDasharray={isLaminated && !isSelected ? '4 2' : undefined}
-        rx={3}
-        ry={3}
-      />
+      {polygon ? (
+        <g transform={`translate(${x} ${y})`}>
+          <path
+            d={polygon.outerPath}
+            fill={isHovered ? '#e3f2fd' : fill}
+            stroke={isSelected ? '#1976d2' : isHovered ? '#90caf9' : '#94a3b8'}
+            strokeWidth={isSelected ? 2.5 : isLaminated ? 2.5 : 1}
+            strokeDasharray={isLaminated && !isSelected ? '4 2' : undefined}
+          />
+          {polygon.innerPaths.map((path, idx) => (
+            <path key={idx} d={path} fill="white" stroke="#94a3b8" strokeWidth={1} />
+          ))}
+          {polygon.edges.map(edge => (
+            <line
+              key={edge.id}
+              x1={edge.x1}
+              y1={edge.y1}
+              x2={edge.x2}
+              y2={edge.y2}
+              stroke={edge.exposure === 'exposed' ? edgeColour(edge.profile) : '#9ca3af'}
+              strokeWidth={2}
+              strokeDasharray={edge.exposure === 'exposed' ? undefined : '3 2'}
+            >
+              <title>{`${edge.label}: ${edge.profile}, ${edge.finish}, ${Math.round(edge.lengthMm)}mm`}</title>
+            </line>
+          ))}
+          {polygon.edges
+            .filter(edge => edge.exposure === 'exposed' && edge.lengthMm * polygon.scale > 18)
+            .slice(0, 8)
+            .map(edge => (
+              <text
+                key={`${edge.id}-label`}
+                x={edge.midX}
+                y={edge.midY - 3}
+                textAnchor="middle"
+                fontSize={7}
+                fill="#475569"
+              >
+                {edge.label}
+              </text>
+            ))}
+          {polygon.features.map(feature => (
+            feature.kind === 'tap-hole'
+              ? <circle key={feature.id} cx={feature.x} cy={feature.y} r={feature.radius} fill="none" stroke="#6b7280" strokeWidth={1} />
+              : feature.outline
+                ? <polygon key={feature.id} points={feature.outline} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 2" />
+                : <rect key={feature.id} x={feature.x - feature.width / 2} y={feature.y - feature.height / 2} width={feature.width} height={feature.height} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 2" />
+          ))}
+        </g>
+      ) : (
+        <rect
+          x={x}
+          y={y}
+          width={Math.max(w, 2)}
+          height={Math.max(h, 2)}
+          fill={isHovered ? '#e3f2fd' : fill}
+          stroke={isSelected ? '#1976d2' : isHovered ? '#90caf9' : '#94a3b8'}
+          strokeWidth={isSelected ? 2.5 : isLaminated ? 2.5 : 1}
+          strokeDasharray={isLaminated && !isSelected ? '4 2' : undefined}
+          rx={3}
+          ry={3}
+        />
+      )}
 
       {/* Edge profile lines */}
-      {w > 20 && h > 20 && (
+      {!polygon && w > 20 && h > 20 && (
         <>
           {/* Top edge */}
           <line
@@ -332,7 +384,7 @@ function PieceRect({
         fill="#52525b"
         fontSize={FONT_SIZE_DIM}
       >
-        {piece.dimensions.lengthMm}&times;{piece.dimensions.widthMm}
+        {polygon ? polygonMetricLabel(polygon.config) : `${piece.dimensions.lengthMm}×${piece.dimensions.widthMm}`}
       </text>
     </g>
   );

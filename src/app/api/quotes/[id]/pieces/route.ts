@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { requireAuth, verifyQuoteOwnership } from '@/lib/auth';
 import type { ShapeType, ShapeConfig } from '@/lib/types/shapes';
-import { getShapeGeometry } from '@/lib/types/shapes';
+import { getShapeGeometry, isCanonicalPolygonShapeConfig } from '@/lib/types/shapes';
+import { normaliseCanonicalPolygonV2Patch } from '@/lib/services/proto-geometry-adapter';
 import type { Prisma } from '@prisma/client';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
@@ -385,14 +386,45 @@ export async function POST(
       }
     }
 
-    // Calculate area — use shape geometry for L/U shapes (K2)
-    const shapeGeo = getShapeGeometry(
-      (shapeType || 'RECTANGLE') as ShapeType,
-      shapeConfig as unknown as ShapeConfig,
-      lengthMm,
-      widthMm
-    );
-    const areaSqm = shapeGeo.totalAreaSqm;
+    const initialShapeType = (shapeType || 'RECTANGLE') as ShapeType;
+    const initialShapeConfig = shapeConfig as unknown as ShapeConfig;
+    let normalisedPolygonPatch: ReturnType<typeof normaliseCanonicalPolygonV2Patch> | null = null;
+    let persistedLengthMm = lengthMm;
+    let persistedWidthMm = widthMm;
+
+    if (isCanonicalPolygonShapeConfig(initialShapeConfig)) {
+      try {
+        normalisedPolygonPatch = normaliseCanonicalPolygonV2Patch({
+          id: `new-${quoteId}-${room.id}-${(maxPiece?.sort_order ?? -1) + 1}`,
+          name,
+          length_mm: lengthMm,
+          width_mm: widthMm,
+          thickness_mm: thicknessMm,
+          material_id: materialId,
+          material_name: materialName,
+          piece_type: pieceType,
+          shape_config: initialShapeConfig,
+          edge_top: resolvedEdgeTop,
+          edge_right: resolvedEdgeRight,
+          edge_bottom: resolvedEdgeBottom,
+          edge_left: resolvedEdgeLeft,
+          no_strip_edges: noStripEdges,
+          edge_buildups: edgeBuildups,
+          cutouts: [],
+        });
+        persistedLengthMm = normalisedPolygonPatch.length_mm;
+        persistedWidthMm = normalisedPolygonPatch.width_mm;
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid polygon geometry' },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Calculate area — use shape geometry for L/U shapes and canonical polygons.
+    const areaSqm = normalisedPolygonPatch?.area_sqm ??
+      getShapeGeometry(initialShapeType, initialShapeConfig, persistedLengthMm, persistedWidthMm).totalAreaSqm;
 
     // Calculate material cost if material is provided
     let materialCost = 0;
@@ -425,8 +457,8 @@ export async function POST(
         room_id: room.id,
         name,
         description: description || null,
-        length_mm: lengthMm,
-        width_mm: widthMm,
+        length_mm: persistedLengthMm,
+        width_mm: persistedWidthMm,
         thickness_mm: thicknessMm,
         area_sqm: areaSqm,
         material_id: materialId || null,
@@ -439,23 +471,27 @@ export async function POST(
         total_cost: materialCost,
         sort_order: (maxPiece?.sort_order ?? -1) + 1,
         cutouts: [],
-        edge_top:    resolvedEdgeTop    || null,
-        edge_bottom: resolvedEdgeBottom || null,
-        edge_left:   resolvedEdgeLeft   || null,
-        edge_right:  resolvedEdgeRight  || null,
+        edge_top:    normalisedPolygonPatch ? normalisedPolygonPatch.edge_top    : resolvedEdgeTop    ?? null,
+        edge_bottom: normalisedPolygonPatch ? normalisedPolygonPatch.edge_bottom : resolvedEdgeBottom ?? null,
+        edge_left:   normalisedPolygonPatch ? normalisedPolygonPatch.edge_left   : resolvedEdgeLeft   ?? null,
+        edge_right:  normalisedPolygonPatch ? normalisedPolygonPatch.edge_right  : resolvedEdgeRight  ?? null,
         piece_type: pieceType,
         join_method: joinMethod,
         lamination_method: laminationMethod,
         // K2: Shape support — save shape_type and shape_config
-        shape_type: shapeType || 'RECTANGLE',
-        shape_config: shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
+        shape_type: normalisedPolygonPatch?.shape_type ?? shapeType ?? 'RECTANGLE',
+        shape_config: normalisedPolygonPatch?.shape_config
+          ? normalisedPolygonPatch.shape_config as unknown as Prisma.InputJsonValue
+          : shapeConfig ? (shapeConfig as unknown as Prisma.InputJsonValue) : undefined,
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
         corner_edge_tl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tl as string ?? null,
         corner_edge_tr: (shapeConfig as Record<string, unknown> | null)?.corner_edge_tr as string ?? null,
         corner_edge_bl: (shapeConfig as Record<string, unknown> | null)?.corner_edge_bl as string ?? null,
         corner_edge_br: (shapeConfig as Record<string, unknown> | null)?.corner_edge_br as string ?? null,
-        no_strip_edges: noStripEdges as unknown as Prisma.InputJsonValue,
-        ...(edgeBuildups != null && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
+        no_strip_edges: (normalisedPolygonPatch?.no_strip_edges ?? noStripEdges) as unknown as Prisma.InputJsonValue,
+        ...((normalisedPolygonPatch?.edge_buildups ?? edgeBuildups) != null && {
+          edge_buildups: (normalisedPolygonPatch?.edge_buildups ?? edgeBuildups) as unknown as Prisma.InputJsonValue,
+        }),
         material_collection_only: Boolean(materialCollectionOnly),
         material_collection_name: materialCollectionOnly ? materialCollectionName : null,
         requiresGrainMatch: requiresGrainMatch ?? false,

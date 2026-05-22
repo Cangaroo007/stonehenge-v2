@@ -851,15 +851,25 @@ function PieceVisualEditorSection({
     [fullPiece, onSavePiece, piece.id]
   );
 
-  // Handler for shape_config edges (INNER, R-BTM, etc.) — merges into shape_config.edges
+  // Handler for shape_config edges (polygon edge ids, INNER, R-BTM, etc.) — merges into shape_config.edges
   const handleShapeEdgeChange = useCallback(
     (edgeId: string, profileId: string | null) => {
       if (!fullPiece || !onSavePiece) return;
       const currentConfig = (fullPiece as unknown as Record<string, unknown>).shapeConfig as Record<string, unknown> ?? {};
-      const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
+      const currentEdges = (currentConfig.edges as Record<string, unknown>) ?? {};
+      const updatedEdges = piece.shapeType === 'POLYGON'
+        ? {
+            ...currentEdges,
+            [edgeId]: {
+              ...((currentEdges[edgeId] as Record<string, unknown> | undefined) ?? { id: edgeId }),
+              v2EdgeTypeId: profileId,
+              finish: profileId ? 'polished' : 'unfinished',
+            },
+          }
+        : { ...currentEdges, [edgeId]: profileId };
       const updatedConfig = {
         ...currentConfig,
-        edges: { ...currentEdges, [edgeId]: profileId },
+        edges: updatedEdges,
       };
       onSavePiece(
         piece.id,
@@ -879,7 +889,7 @@ function PieceVisualEditorSection({
         fullPiece.quote_rooms?.name || 'Unassigned'
       );
     },
-    [fullPiece, onSavePiece, piece.id]
+    [fullPiece, onSavePiece, piece.id, piece.shapeType]
   );
 
   return (
@@ -906,10 +916,19 @@ function PieceVisualEditorSection({
         roomName={piece.roomName}
         roomId={fullPiece?.quote_rooms?.id ? String(fullPiece.quote_rooms.id) : undefined}
         onApplyWithScope={isEditMode && onBatchEdgeUpdate ? handleApplyWithScope : undefined}
-        shapeType={(piece.shapeType as 'RECTANGLE' | 'L_SHAPE' | 'U_SHAPE' | undefined) ?? undefined}
+        shapeType={(piece.shapeType as import('@/lib/types/shapes').ShapeType | undefined) ?? undefined}
         shapeConfig={piece.shapeConfig as import('@/lib/types/shapes').ShapeConfig ?? undefined}
         onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
-        shapeConfigEdges={((piece.shapeConfig as unknown as Record<string, unknown>)?.edges as Record<string, string | null>) ?? undefined}
+        shapeConfigEdges={(() => {
+          const cfg = piece.shapeConfig as unknown as Record<string, unknown> | null | undefined;
+          if (piece.shapeType === 'POLYGON') {
+            const edges = (cfg?.edges as Record<string, { v2EdgeTypeId?: string | null }> | undefined) ?? {};
+            return Object.fromEntries(
+              Object.entries(edges).map(([edgeId, edge]) => [edgeId, edge.v2EdgeTypeId ?? null])
+            );
+          }
+          return (cfg?.edges as Record<string, string | null> | undefined) ?? undefined;
+        })()}
         noStripEdges={(piece.noStripEdges as string[]) ?? []}
         onNoStripEdgesChange={isEditMode ? handleNoStripEdgesChange : undefined}
         attachedPieceTypes={attachedPieceTypes}

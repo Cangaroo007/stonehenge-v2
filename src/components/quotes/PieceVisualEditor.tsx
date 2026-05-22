@@ -7,7 +7,9 @@ import type { EdgeScope } from './EdgeProfilePopover';
 import type {
   ShapeType, ShapeConfig, LShapeConfig, UShapeConfig,
   RadiusEndConfig, FullCircleConfig, ConcaveArcConfig, RoundedRectConfig,
+  CanonicalPolygonShapeConfig,
 } from '@/lib/types/shapes';
+import { isCanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ── Interfaces ──────────────────────────────────────────────────────────────
@@ -81,7 +83,7 @@ export function PresetThumbnail({ sides }: { sides: Array<'top' | 'bottom' | 'le
 
 /** Edge segment definition for shape rendering */
 interface ShapeEdgeDef {
-  side: ShapeEdgeSide;
+  side: ShapeEdgeSide | string;
   x1: number; y1: number;
   x2: number; y2: number;
   labelX: number; labelY: number;
@@ -786,6 +788,11 @@ export default function PieceVisualEditor({
       case 'ROUNDED_RECT':
         arc.push('corner_tl', 'corner_tr', 'corner_bl', 'corner_br');
         break;
+      case 'POLYGON':
+        if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+          arc.push(...shapeConfig.outerRing.edges);
+        }
+        break;
       // RECTANGLE, L_SHAPE, U_SHAPE — no arc edges
     }
 
@@ -936,6 +943,67 @@ export default function PieceVisualEditor({
     if (effectiveShapeType === 'RECTANGLE') return null;
 
     const { x, y } = layout;
+
+    if (effectiveShapeType === 'POLYGON' && isCanonicalPolygonShapeConfig(shapeConfig)) {
+      const cfg: CanonicalPolygonShapeConfig = shapeConfig;
+      const vertices = Object.values(cfg.vertices);
+      if (vertices.length < 3 || cfg.outerRing.edges.length < 3) return null;
+
+      const bbox = cfg.boundingBox;
+      const maxInnerWidth = 500;
+      const maxInnerHeight = MAX_HEIGHT - SVG_PADDING * 2;
+      const scaleX = bbox.lengthMm > 0 ? maxInnerWidth / bbox.lengthMm : 1;
+      const scaleY = bbox.widthMm > 0 ? maxInnerHeight / bbox.widthMm : 1;
+      const scale = Math.min(scaleX, scaleY, 1);
+      const sw = Math.max(bbox.lengthMm * scale, 100);
+      const sh = Math.max(bbox.widthMm * scale, 40);
+
+      const pointForVertex = (vertexId: string) => {
+        const vertex = cfg.vertices[vertexId];
+        return {
+          x: x + (vertex.x - bbox.minX) * scale,
+          y: y + (vertex.y - bbox.minY) * scale,
+        };
+      };
+
+      const ringPoints = cfg.outerRing.edges.flatMap((edgeId, index) => {
+        const edge = cfg.edges[edgeId];
+        if (!edge) return [];
+        const point = pointForVertex(edge.start);
+        return index === 0 ? [`M ${point.x},${point.y}`] : [`L ${point.x},${point.y}`];
+      });
+      const path = [...ringPoints, 'Z'].join(' ');
+      const svgW = sw + SVG_PADDING * 2;
+      const svgH = sh + SVG_PADDING * 2;
+
+      const edgeLengthById = new Map(cfg.edgeLengths.map(edge => [edge.edgeId, edge.lengthMm]));
+      const edges: ShapeEdgeDef[] = cfg.outerRing.edges.flatMap(edgeId => {
+        const edge = cfg.edges[edgeId];
+        if (!edge) return [];
+        const start = pointForVertex(edge.start);
+        const end = pointForVertex(edge.end);
+        const dx = end.x - start.x;
+        const dy = end.y - start.y;
+        const len = Math.max(Math.hypot(dx, dy), 1);
+        const nx = -dy / len;
+        const ny = dx / len;
+        const labelX = (start.x + end.x) / 2 + nx * 18;
+        const labelY = (start.y + end.y) / 2 + ny * 18;
+        return [{
+          side: edgeId,
+          x1: start.x,
+          y1: start.y,
+          x2: end.x,
+          y2: end.y,
+          labelX,
+          labelY,
+          lengthMm: edgeLengthById.get(edgeId) ?? Math.round(len / scale),
+          label: edge.v2EdgeSide ? edge.v2EdgeSide.toUpperCase() : 'EDGE',
+        }];
+      });
+
+      return { path, edges, svgW, svgH };
+    }
 
     if (effectiveShapeType === 'L_SHAPE') {
       const cfg = shapeConfig as unknown as LShapeConfig;

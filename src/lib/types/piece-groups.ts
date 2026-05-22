@@ -48,6 +48,8 @@ export interface GroupedPiece {
     widthMm: number;
     thicknessMm: number;
   };
+  shapeType?: string | null;
+  shapeConfig?: unknown;
   edges: {
     top: string | null;
     bottom: string | null;
@@ -84,6 +86,8 @@ export interface QuotePieceInput {
   length_mm: number;
   width_mm: number;
   thickness_mm: number;
+  shape_type?: string | null;
+  shape_config?: unknown;
   area_sqm: number | { toNumber(): number };
   /** @deprecated Unreliable — use quotes.calculation_breakdown for piece pricing */
   material_cost: number | { toNumber(): number };

@@ -17,6 +17,8 @@ interface PieceData {
   lengthMm: number;
   widthMm: number;
   thicknessMm: number;
+  shapeType?: string | null;
+  shapeConfig?: unknown;
   areaSqm: number;
   materialCost: number;
   featuresCost: number;
@@ -180,8 +182,11 @@ function GroupCard({
                   {piece.pieceName}
                 </td>
                 <td className="py-1.5 pr-2 text-zinc-600">
-                  {piece.dimensions.lengthMm}&times;{piece.dimensions.widthMm}&times;
-                  {piece.dimensions.thicknessMm}mm
+                  {piece.shapeType === 'POLYGON'
+                    ? `${piece.dimensions.lengthMm}×${piece.dimensions.widthMm} bbox`
+                    : `${piece.dimensions.lengthMm}×${piece.dimensions.widthMm}`}
+                  &times;{piece.dimensions.thicknessMm}mm
+                  {piece.shapeType === 'POLYGON' && ` (${piece.areaSqm.toFixed(2)}m²)`}
                 </td>
                 <td className="py-1.5 pr-2 text-zinc-600">
                   {piece.material.name || '—'}
@@ -237,6 +242,8 @@ export default function FullJobViewClient({ data }: { data: FullJobViewData }) {
         length_mm: p.lengthMm,
         width_mm: p.widthMm,
         thickness_mm: p.thicknessMm,
+        shape_type: p.shapeType,
+        shape_config: p.shapeConfig,
         area_sqm: p.areaSqm,
         material_cost: p.materialCost,
         features_cost: p.featuresCost,

@@ -6,7 +6,8 @@ import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
 import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistence';
 import { deleteRelationshipsForPiece } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide, type RectEdgeSide } from '@/lib/utils/edge-side';
-import { getShapeGeometry, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, isCanonicalPolygonShapeConfig, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { normaliseCanonicalPolygonV2Patch } from '@/lib/services/proto-geometry-adapter';
 import {
   createQuoteSnapshot,
   createQuoteVersion,
@@ -439,13 +440,44 @@ export async function PATCH(
     }
 
     // Calculate area
-    const length = lengthMm ?? currentPiece.length_mm;
-    const width = widthMm ?? currentPiece.width_mm;
+    let length = lengthMm ?? currentPiece.length_mm;
+    let width = widthMm ?? currentPiece.width_mm;
     const effectiveShapeType = (shapeType ?? currentPiece.shape_type ?? 'RECTANGLE') as ShapeType;
     const effectiveShapeConfig = (
       shapeConfig !== undefined ? shapeConfig : currentPiece.shape_config
     ) as unknown as ShapeConfig;
-    const areaSqm = getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
+    let normalisedPolygonPatch: ReturnType<typeof normaliseCanonicalPolygonV2Patch> | null = null;
+    if (isCanonicalPolygonShapeConfig(effectiveShapeConfig)) {
+      try {
+        normalisedPolygonPatch = normaliseCanonicalPolygonV2Patch({
+          id: currentPiece.id,
+          name: name ?? currentPiece.name,
+          length_mm: length,
+          width_mm: width,
+          thickness_mm: thicknessMm ?? currentPiece.thickness_mm,
+          material_id: materialId !== undefined ? materialId : currentPiece.material_id,
+          material_name: materialName !== undefined ? materialName : currentPiece.material_name,
+          piece_type: pieceType ?? currentPiece.piece_type,
+          shape_config: effectiveShapeConfig,
+          edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
+          edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+          edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
+          edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
+          no_strip_edges: noStripEdges !== undefined ? noStripEdges : currentPiece.no_strip_edges,
+          edge_buildups: edgeBuildups !== undefined ? edgeBuildups : currentPiece.edge_buildups,
+          cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
+        });
+        length = normalisedPolygonPatch.length_mm;
+        width = normalisedPolygonPatch.width_mm;
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid polygon geometry' },
+          { status: 400 }
+        );
+      }
+    }
+    const areaSqm = normalisedPolygonPatch?.area_sqm ??
+      getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
 
     // Calculate material cost
     let materialCost = 0;
@@ -497,15 +529,25 @@ export async function PATCH(
 
     // CURVE-2a: If shapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
     const scEdgesPatch = (shapeConfig as Record<string, unknown> | undefined)?.edges as Record<string, string | null> | undefined;
-    const patchEdgeTop = scEdgesPatch?.top !== undefined ? (scEdgesPatch.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top);
-    const patchEdgeBottom = scEdgesPatch?.bottom !== undefined ? (scEdgesPatch.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom);
-    const patchEdgeLeft = scEdgesPatch?.left !== undefined ? (scEdgesPatch.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left);
-    const patchEdgeRight = scEdgesPatch?.right !== undefined ? (scEdgesPatch.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
+    const patchEdgeTop = normalisedPolygonPatch
+      ? normalisedPolygonPatch.edge_top
+      : (scEdgesPatch?.top !== undefined ? (scEdgesPatch.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top));
+    const patchEdgeBottom = normalisedPolygonPatch
+      ? normalisedPolygonPatch.edge_bottom
+      : (scEdgesPatch?.bottom !== undefined ? (scEdgesPatch.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom));
+    const patchEdgeLeft = normalisedPolygonPatch
+      ? normalisedPolygonPatch.edge_left
+      : (scEdgesPatch?.left !== undefined ? (scEdgesPatch.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left));
+    const patchEdgeRight = normalisedPolygonPatch
+      ? normalisedPolygonPatch.edge_right
+      : (scEdgesPatch?.right !== undefined ? (scEdgesPatch.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right));
     // CURVE-2a: Corner edge sync from shapeConfig
     const scForCornersPatch = shapeConfig as Record<string, unknown> | undefined;
     const relationshipJoinEdges = await getRelationshipJoinEdgesForPiece(pieceIdNum);
     const cleanNoStripEdges = noStripEdges !== undefined
-      ? Array.from(new Set([...uniqueNoStripEdges(noStripEdges), ...relationshipJoinEdges]))
+      ? Array.from(new Set([...uniqueNoStripEdges(normalisedPolygonPatch?.no_strip_edges ?? noStripEdges), ...relationshipJoinEdges]))
+      : normalisedPolygonPatch
+        ? Array.from(new Set([...uniqueNoStripEdges(normalisedPolygonPatch.no_strip_edges), ...relationshipJoinEdges]))
       : relationshipJoinEdges.length > 0
         ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
         : undefined;
@@ -513,7 +555,9 @@ export async function PATCH(
       ...uniqueNoStripEdges(currentPiece.no_strip_edges),
       ...relationshipJoinEdges,
     ]));
-    const cleanEdgeBuildups = edgeBuildups !== undefined
+    const cleanEdgeBuildups = normalisedPolygonPatch
+      ? removeEdgesFromRecord(normalisedPolygonPatch.edge_buildups as Record<string, unknown> | null, suppressedEdges)
+      : edgeBuildups !== undefined
       ? removeEdgesFromRecord(edgeBuildups as Record<string, unknown> | null, suppressedEdges)
       : cleanNoStripEdges !== undefined
         ? removeEdgesFromRecord(currentPiece.edge_buildups as Record<string, unknown> | null, suppressedEdges)
@@ -563,8 +607,10 @@ export async function PATCH(
           override_fabrication_cost: overrideFabricationCost,
         }),
         // shape_config: stores extra L/U shape data including extended edge profiles
-        ...(shapeType !== undefined && { shape_type: shapeType }),
-        ...(shapeConfig !== undefined && { shape_config: shapeConfig as unknown as Prisma.InputJsonValue }),
+        ...((shapeType !== undefined || normalisedPolygonPatch) && { shape_type: normalisedPolygonPatch?.shape_type ?? shapeType }),
+        ...((shapeConfig !== undefined || normalisedPolygonPatch) && {
+          shape_config: (normalisedPolygonPatch?.shape_config ?? shapeConfig) as unknown as Prisma.InputJsonValue,
+        }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
         ...(scForCornersPatch?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPatch.corner_edge_tl as string) ?? null }),
         ...(scForCornersPatch?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPatch.corner_edge_tr as string) ?? null }),
@@ -877,13 +923,44 @@ export async function PUT(
     }
 
     // Calculate area
-    const length = lengthMm ?? currentPiece.length_mm;
-    const width = widthMm ?? currentPiece.width_mm;
+    let length = lengthMm ?? currentPiece.length_mm;
+    let width = widthMm ?? currentPiece.width_mm;
     const effectiveShapeType = (putShapeType ?? currentPiece.shape_type ?? 'RECTANGLE') as ShapeType;
     const effectiveShapeConfig = (
       putShapeConfig !== undefined ? putShapeConfig : currentPiece.shape_config
     ) as unknown as ShapeConfig;
-    const areaSqm = getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
+    let normalisedPolygonPut: ReturnType<typeof normaliseCanonicalPolygonV2Patch> | null = null;
+    if (isCanonicalPolygonShapeConfig(effectiveShapeConfig)) {
+      try {
+        normalisedPolygonPut = normaliseCanonicalPolygonV2Patch({
+          id: currentPiece.id,
+          name: name ?? currentPiece.name,
+          length_mm: length,
+          width_mm: width,
+          thickness_mm: thicknessMm ?? currentPiece.thickness_mm,
+          material_id: materialId !== undefined ? materialId : currentPiece.material_id,
+          material_name: materialName !== undefined ? materialName : currentPiece.material_name,
+          piece_type: putPieceType ?? currentPiece.piece_type,
+          shape_config: effectiveShapeConfig,
+          edge_top: edgeTop !== undefined ? edgeTop : currentPiece.edge_top,
+          edge_right: edgeRight !== undefined ? edgeRight : currentPiece.edge_right,
+          edge_bottom: edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom,
+          edge_left: edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left,
+          no_strip_edges: putNoStripEdges !== undefined ? putNoStripEdges : currentPiece.no_strip_edges,
+          edge_buildups: putEdgeBuildups !== undefined ? putEdgeBuildups : currentPiece.edge_buildups,
+          cutouts: cutouts !== undefined ? cutouts : currentPiece.cutouts,
+        });
+        length = normalisedPolygonPut.length_mm;
+        width = normalisedPolygonPut.width_mm;
+      } catch (error) {
+        return NextResponse.json(
+          { error: error instanceof Error ? error.message : 'Invalid polygon geometry' },
+          { status: 400 }
+        );
+      }
+    }
+    const areaSqm = normalisedPolygonPut?.area_sqm ??
+      getShapeGeometry(effectiveShapeType, effectiveShapeConfig, length, width).totalAreaSqm;
 
     // Calculate material cost if material is provided
     let materialCost = 0;
@@ -913,15 +990,25 @@ export async function PUT(
 
     // CURVE-2a: If putShapeConfig.edges exists (ROUNDED_RECT pieces), sync to top-level edge columns
     const scEdgesPut = (putShapeConfig as Record<string, unknown> | undefined)?.edges as Record<string, string | null> | undefined;
-    const putEdgeTop = scEdgesPut?.top !== undefined ? (scEdgesPut.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top);
-    const putEdgeBottom = scEdgesPut?.bottom !== undefined ? (scEdgesPut.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom);
-    const putEdgeLeft = scEdgesPut?.left !== undefined ? (scEdgesPut.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left);
-    const putEdgeRight = scEdgesPut?.right !== undefined ? (scEdgesPut.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right);
+    const putEdgeTop = normalisedPolygonPut
+      ? normalisedPolygonPut.edge_top
+      : (scEdgesPut?.top !== undefined ? (scEdgesPut.top ?? null) : (edgeTop !== undefined ? edgeTop : currentPiece.edge_top));
+    const putEdgeBottom = normalisedPolygonPut
+      ? normalisedPolygonPut.edge_bottom
+      : (scEdgesPut?.bottom !== undefined ? (scEdgesPut.bottom ?? null) : (edgeBottom !== undefined ? edgeBottom : currentPiece.edge_bottom));
+    const putEdgeLeft = normalisedPolygonPut
+      ? normalisedPolygonPut.edge_left
+      : (scEdgesPut?.left !== undefined ? (scEdgesPut.left ?? null) : (edgeLeft !== undefined ? edgeLeft : currentPiece.edge_left));
+    const putEdgeRight = normalisedPolygonPut
+      ? normalisedPolygonPut.edge_right
+      : (scEdgesPut?.right !== undefined ? (scEdgesPut.right ?? null) : (edgeRight !== undefined ? edgeRight : currentPiece.edge_right));
     // CURVE-2a: Corner edge sync from putShapeConfig
     const scForCornersPut = putShapeConfig as Record<string, unknown> | undefined;
     const relationshipJoinEdges = await getRelationshipJoinEdgesForPiece(pieceIdNum);
     const cleanNoStripEdges = putNoStripEdges !== undefined
-      ? Array.from(new Set([...uniqueNoStripEdges(putNoStripEdges), ...relationshipJoinEdges]))
+      ? Array.from(new Set([...uniqueNoStripEdges(normalisedPolygonPut?.no_strip_edges ?? putNoStripEdges), ...relationshipJoinEdges]))
+      : normalisedPolygonPut
+        ? Array.from(new Set([...uniqueNoStripEdges(normalisedPolygonPut.no_strip_edges), ...relationshipJoinEdges]))
       : relationshipJoinEdges.length > 0
         ? Array.from(new Set([...uniqueNoStripEdges(currentPiece.no_strip_edges), ...relationshipJoinEdges]))
         : undefined;
@@ -929,7 +1016,9 @@ export async function PUT(
       ...uniqueNoStripEdges(currentPiece.no_strip_edges),
       ...relationshipJoinEdges,
     ]));
-    const cleanEdgeBuildups = putEdgeBuildups !== undefined
+    const cleanEdgeBuildups = normalisedPolygonPut
+      ? removeEdgesFromRecord(normalisedPolygonPut.edge_buildups as Record<string, unknown> | null, suppressedEdges)
+      : putEdgeBuildups !== undefined
       ? removeEdgesFromRecord(putEdgeBuildups as Record<string, unknown> | null, suppressedEdges)
       : cleanNoStripEdges !== undefined
         ? removeEdgesFromRecord(currentPiece.edge_buildups as Record<string, unknown> | null, suppressedEdges)
@@ -979,8 +1068,10 @@ export async function PUT(
           override_fabrication_cost: putOverrideFabricationCost,
         }),
         // shape_config: stores extra L/U shape data including extended edge profiles
-        ...(putShapeType !== undefined && { shape_type: putShapeType }),
-        ...(putShapeConfig !== undefined && { shape_config: putShapeConfig as unknown as Prisma.InputJsonValue }),
+        ...((putShapeType !== undefined || normalisedPolygonPut) && { shape_type: normalisedPolygonPut?.shape_type ?? putShapeType }),
+        ...((putShapeConfig !== undefined || normalisedPolygonPut) && {
+          shape_config: (normalisedPolygonPut?.shape_config ?? putShapeConfig) as unknown as Prisma.InputJsonValue,
+        }),
         // CURVE-2a: Corner edge columns for ROUNDED_RECT pieces
         ...(scForCornersPut?.corner_edge_tl !== undefined && { corner_edge_tl: (scForCornersPut.corner_edge_tl as string) ?? null }),
         ...(scForCornersPut?.corner_edge_tr !== undefined && { corner_edge_tr: (scForCornersPut.corner_edge_tr as string) ?? null }),

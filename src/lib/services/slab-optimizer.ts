@@ -8,7 +8,7 @@ import {
 import { STRIP_CONFIGURATIONS } from '@/lib/constants/slab-sizes';
 import { logger } from '@/lib/logger';
 import prisma from '@/lib/db';
-import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, getOptimizerRects, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, getShapeEdgeLengths, getFinishableEdgeLengthsMm, getOptimizerRects, isCanonicalPolygonShapeConfig, type OptimizerRect, type ShapeType, type ShapeConfig, type LShapeConfig, type UShapeConfig, type CanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 interface Rect {
@@ -100,8 +100,14 @@ type OptimizationPiece = OptimizationInput['pieces'][0] & {
   customJoinMm?: number;
   /** True area in m² for curved shapes — less than bounding box. Used by C6 for pricing. */
   trueArea_m2?: number;
+  /** Persisted canonical polygon bounding box used as optimizer footprint. */
+  boundingBoxMm?: CanonicalPolygonShapeConfig['boundingBox'];
+  /** Persisted canonical polygon edge lengths used for strip generation/audit output. */
+  edgeLengths?: CanonicalPolygonShapeConfig['edgeLengths'];
   /** Strip sub-type: FACE (front strip) or RETURN (return strip) or SUPPORT (support block) */
   stripSubType?: 'FACE' | 'RETURN' | 'SUPPORT';
+  /** Orientation of the source edge before packing; used for canonical polygon edge IDs. */
+  stripIsHorizontal?: boolean;
   /** Per-edge build-up config */
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
 };
@@ -142,6 +148,57 @@ function getStripWidthForEdge(
   if (lower.includes('mitre')) return cfg.mitre;
   if (lower.includes('waterfall') || lower.includes('wide')) return cfg.wide;
   return cfg.standard;
+}
+
+function canonicalEdge(config: ShapeConfig, edgeKey: string) {
+  if (!isCanonicalPolygonShapeConfig(config)) return null;
+  return config.edges[edgeKey] ?? null;
+}
+
+function shouldSkipShapeEdge(noStripEdges: string[], config: ShapeConfig, edgeKey: string): boolean {
+  if (noStripEdges.includes(edgeKey)) return true;
+
+  const edge = canonicalEdge(config, edgeKey);
+  return Boolean(edge?.v2EdgeSide && noStripEdges.includes(edge.v2EdgeSide));
+}
+
+function getShapeEdgeBuildup(
+  edgeBuildups: Record<string, EdgeBuildupConfig>,
+  config: ShapeConfig,
+  edgeKey: string
+): EdgeBuildupConfig | undefined {
+  const direct = edgeBuildups[edgeKey];
+  if (direct) return direct;
+
+  const edge = canonicalEdge(config, edgeKey);
+  return edge?.v2EdgeSide ? edgeBuildups[edge.v2EdgeSide] : undefined;
+}
+
+function isHorizontalShapeEdge(config: ShapeConfig, edgeKey: string): boolean {
+  if (!isCanonicalPolygonShapeConfig(config)) {
+    return ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(edgeKey);
+  }
+
+  const edge = canonicalEdge(config, edgeKey);
+  if (!edge) return true;
+  if (edge.v2EdgeSide === 'top' || edge.v2EdgeSide === 'bottom') return true;
+  if (edge.v2EdgeSide === 'left' || edge.v2EdgeSide === 'right') return false;
+
+  const start = config.vertices[edge.start];
+  const end = config.vertices[edge.end];
+  if (!start || !end) return true;
+  return Math.abs(end.x - start.x) >= Math.abs(end.y - start.y);
+}
+
+function getCanonicalPolygonMetadata(piece: OptimizationPiece): Pick<OptimizationPiece, 'width' | 'height' | 'trueArea_m2' | 'boundingBoxMm' | 'edgeLengths'> | null {
+  if (!isCanonicalPolygonShapeConfig(piece.shapeConfig)) return null;
+  return {
+    width: piece.shapeConfig.boundingBox.lengthMm,
+    height: piece.shapeConfig.boundingBox.widthMm,
+    trueArea_m2: piece.shapeConfig.areaSqm,
+    boundingBoxMm: piece.shapeConfig.boundingBox,
+    edgeLengths: piece.shapeConfig.edgeLengths,
+  };
 }
 
 /**
@@ -204,6 +261,7 @@ function generateLaminationStrips(
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edgeKey,
+        stripIsHorizontal: isWidth,
         pieceKerfWidth: isMitreEdge ? (mitreKerfWidth ?? kerfWidth) : undefined,
         stripSubType: isMitrePiece && isMitreEdge ? 'RETURN' : undefined,
       });
@@ -219,6 +277,7 @@ function generateLaminationStrips(
           isLaminationStrip: true,
           parentPieceId: piece.id,
           stripPosition: edgeKey,
+          stripIsHorizontal: isWidth,
           stripSubType: 'FACE',
           pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
         });
@@ -241,6 +300,7 @@ function generateLaminationStrips(
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
+      stripIsHorizontal: isWidth,
       stripSubType: 'FACE',
       pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
     });
@@ -255,6 +315,7 @@ function generateLaminationStrips(
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
+      stripIsHorizontal: isWidth,
       stripSubType: 'RETURN',
       pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
     });
@@ -271,6 +332,7 @@ function generateLaminationStrips(
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edgeKey,
+        stripIsHorizontal: isWidth,
         stripSubType: 'SUPPORT',
         pieceKerfWidth: kerfWidth,
       });
@@ -317,16 +379,16 @@ function generateShapeStrips(
 
   // Generate one strip per edge NOT marked as wall
   for (const [edgeKey, lengthMm] of Object.entries(allEdgeLengths)) {
-    if (noStripEdges.includes(edgeKey)) continue;
+    if (shouldSkipShapeEdge(noStripEdges, sCfg, edgeKey)) continue;
     if (lengthMm <= 0) continue;
 
     // Determine strip orientation: horizontal edges have width=length, height=stripWidth
     // Vertical edges have width=stripWidth, height=length
-    const isHorizontal = ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(edgeKey);
+    const isHorizontal = isHorizontalShapeEdge(sCfg, edgeKey);
     const edgeName = piece.shapeConfigEdges?.[edgeKey] ??
       (piece.edgeTypeNames as Record<string, string | undefined> | undefined)?.[edgeKey];
     const isMitreEdge = edgeName?.toLowerCase().includes('mitre') ?? false;
-    const buildup = edgeBuildups[edgeKey];
+    const buildup = getShapeEdgeBuildup(edgeBuildups, sCfg, edgeKey);
 
     if (buildup) {
       const depth = buildup.depth;
@@ -342,6 +404,7 @@ function generateShapeStrips(
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edgeKey,
+        stripIsHorizontal: isHorizontal,
         stripSubType: 'FACE',
         pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
       });
@@ -355,6 +418,7 @@ function generateShapeStrips(
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edgeKey,
+        stripIsHorizontal: isHorizontal,
         stripSubType: 'RETURN',
         pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
       });
@@ -369,6 +433,7 @@ function generateShapeStrips(
           isLaminationStrip: true,
           parentPieceId: piece.id,
           stripPosition: edgeKey,
+          stripIsHorizontal: isHorizontal,
           stripSubType: 'SUPPORT',
           pieceKerfWidth: kerfWidth,
         });
@@ -391,6 +456,7 @@ function generateShapeStrips(
       isLaminationStrip: true,
       parentPieceId: piece.id,
       stripPosition: edgeKey,
+      stripIsHorizontal: isHorizontal,
       pieceKerfWidth: isMitreEdge ? (mitreKerfWidth ?? kerfWidth) : undefined,
     });
   }
@@ -494,6 +560,8 @@ function generateLaminationSummary(
   
   const isHorizontalEdge = (position: string) =>
     ['top', 'bottom', 'inner', 'back_inner', 'top_left', 'top_right'].includes(position);
+  const isHorizontalStrip = (strip: OptimizationPiece) =>
+    strip.stripIsHorizontal ?? isHorizontalEdge(strip.stripPosition || '');
 
   for (const parentId of parentIds) {
     let parent = originalPieces.find(p => p.id === parentId);
@@ -538,8 +606,8 @@ function generateLaminationSummary(
       parentLabel: parent?.label || 'Unknown',
       strips: parentStrips.map(s => ({
         position: s.stripPosition || 'unknown',
-        lengthMm: isHorizontalEdge(s.stripPosition || '') ? s.width : s.height,
-        widthMm: isHorizontalEdge(s.stripPosition || '') ? s.height : s.width,
+        lengthMm: isHorizontalStrip(s) ? s.width : s.height,
+        widthMm: isHorizontalStrip(s) ? s.height : s.width,
         thicknessMm: s.thickness,
         stripSubType: s.stripSubType,
       }))
@@ -722,6 +790,7 @@ function preprocessOversizePieces(
           isLaminationStrip: true,
           parentPieceId: piece.id,
           stripPosition: edge,
+          stripIsHorizontal: isHorizontal,
           stripSubType: 'FACE',
           pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
         });
@@ -735,6 +804,7 @@ function preprocessOversizePieces(
           isLaminationStrip: true,
           parentPieceId: piece.id,
           stripPosition: edge,
+          stripIsHorizontal: isHorizontal,
           stripSubType: 'RETURN',
           pieceKerfWidth: mitreKerfWidth ?? kerfWidth,
         });
@@ -749,6 +819,7 @@ function preprocessOversizePieces(
             isLaminationStrip: true,
             parentPieceId: piece.id,
             stripPosition: edge,
+            stripIsHorizontal: isHorizontal,
             stripSubType: 'SUPPORT',
             pieceKerfWidth: kerfWidth,
           });
@@ -773,6 +844,7 @@ function preprocessOversizePieces(
         isLaminationStrip: true,
         parentPieceId: piece.id,
         stripPosition: edge,
+        stripIsHorizontal: isHorizontal,
         pieceKerfWidth: isMitre ? (mitreKerfWidth ?? kerfWidth) : undefined,
       });
     };
@@ -893,8 +965,13 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   // (not bounding box dimensions) via getShapeEdgeLengths().
   // Rectangle pieces pass through unchanged.
   const decomposedPieces: OptimizationPiece[] = [];
-  const shapeStrips: OptimizationPiece[] = []; // strips generated for L/U shapes pre-decomposition
-  for (const piece of (validPieces as OptimizationPiece[])) {
+  const shapeStrips: OptimizationPiece[] = []; // strips generated for shaped pieces pre-decomposition
+  for (const rawPiece of (validPieces as OptimizationPiece[])) {
+    const canonicalMetadata = getCanonicalPolygonMetadata(rawPiece);
+    const piece: OptimizationPiece = canonicalMetadata
+      ? { ...rawPiece, ...canonicalMetadata }
+      : rawPiece;
+
     // Only decompose non-strip pieces that have shape data
     if (piece.isLaminationStrip || !piece.shapeType ||
         piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
@@ -916,7 +993,7 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
       shapeStrips.push(...strips);
       if (strips.length > 0) {
         logger.info(
-          `[Optimizer] Generated ${strips.length} build-up strip(s) for L/U shape "${piece.label}"`
+          `[Optimizer] Generated ${strips.length} build-up strip(s) for ${piece.shapeType} shape "${piece.label}"`
         );
       }
     }
@@ -1009,8 +1086,10 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
     if (piece.isSegment || decomposedPieceIds.has(piece.id)) continue;
 
     // Generate and add build-up strips for rectangle pieces.
-    // L/U shape strips were already generated in Step 1 (before decomposition)
+    // Shaped-piece strips were already generated in Step 1 (before decomposition)
     // using actual edge lengths from getShapeEdgeLengths().
+    if (piece.shapeType && piece.shapeType !== 'RECTANGLE' && piece.shapeConfig) continue;
+
     const strips = generateLaminationStrips(piece, kerfWidth, mitreKerfWidth, stripConfigs);
     // Split any strips that exceed usable slab width into placeable segments
     const processedStrips = preprocessOversizeStrips(strips, usableWidth, segmentWidthMap);
@@ -1030,6 +1109,14 @@ export async function optimizeSlabs(input: OptimizationInput): Promise<Optimizat
   const CURVED_SHAPE_TYPES = new Set(['RADIUS_END', 'FULL_CIRCLE', 'CONCAVE_ARC']);
 
   const processedPieces = allPieces.map((piece) => {
+    const canonicalMetadata = getCanonicalPolygonMetadata(piece);
+    if (canonicalMetadata) {
+      return {
+        ...piece,
+        ...canonicalMetadata,
+      };
+    }
+
     if (!piece.shapeType || !CURVED_SHAPE_TYPES.has(piece.shapeType) || !piece.shapeConfig) {
       return piece;
     }
@@ -1361,8 +1448,11 @@ function placePiece(
     partIndex: piece.partIndex,
     partLabel: piece.partLabel,
     totalParts: piece.totalParts,
-    // Curved shape true area for pricing (C6)
+    // Non-rectangular persisted geometry metadata for pricing/audit output
     trueArea_m2: piece.trueArea_m2 ?? undefined,
+    shapeType: piece.shapeType,
+    boundingBoxMm: piece.boundingBoxMm,
+    edgeLengths: piece.edgeLengths,
     // Strip sub-type (face vs return for MITRED pieces)
     stripSubType: piece.stripSubType,
     kerfWidthMm: piece.pieceKerfWidth,

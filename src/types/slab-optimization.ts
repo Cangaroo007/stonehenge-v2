@@ -52,8 +52,26 @@ export interface Placement {
   // Machine/cutting info
   machineName?: string;
   kerfWidthMm?: number;
-  // Curved shape pricing — actual stone area (less than bounding box)
-  trueArea_m2?: number; // set for curved shapes, undefined for rectangles
+  // Non-rectangular pricing/audit — actual stone area (less than bounding box)
+  trueArea_m2?: number; // set for curved/canonical polygon shapes, undefined for rectangles
+  /** Source geometry shape type, when placement came from persisted shape metadata. */
+  shapeType?: string;
+  /** Persisted canonical polygon bounding box used as the optimizer footprint. */
+  boundingBoxMm?: {
+    minX: number;
+    minY: number;
+    maxX: number;
+    maxY: number;
+    lengthMm: number;
+    widthMm: number;
+  };
+  /** Persisted canonical polygon edge lengths/side metadata used for strips and audit output. */
+  edgeLengths?: Array<{
+    edgeId: string;
+    lengthMm: number;
+    v2EdgeSide?: string;
+    v2EdgeTypeId?: string | null;
+  }>;
   // Strip sub-type: FACE (front strip) or RETURN (return strip) or SUPPORT (support block for depth > 40mm)
   stripSubType?: 'FACE' | 'RETURN' | 'SUPPORT';
 }

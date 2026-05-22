@@ -314,6 +314,8 @@ function toGroupedPiece(
       widthMm: piece.width_mm,
       thicknessMm: piece.thickness_mm,
     },
+    shapeType: piece.shape_type ?? null,
+    shapeConfig: piece.shape_config ?? null,
     edges: {
       top: piece.edge_top,
       bottom: piece.edge_bottom,

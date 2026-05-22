@@ -7,7 +7,8 @@ import { buildQuotePricingUpdate } from '@/lib/services/quote-pricing-persistenc
 import { syncEdgeSemanticsForRelationship } from '@/lib/services/piece-relationship-service';
 import { normaliseRectEdgeSide } from '@/lib/utils/edge-side';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
-import { getShapeGeometry, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { getShapeGeometry, isCanonicalPolygonShapeConfig, type ShapeConfig, type ShapeType } from '@/lib/types/shapes';
+import { normaliseCanonicalPolygonV2Patch } from '@/lib/services/proto-geometry-adapter';
 
 
 interface ImportPieceData {
@@ -267,6 +268,34 @@ function normaliseNoStripEdges(edges?: string[]): string[] | undefined {
   return normalised.length > 0 ? Array.from(new Set(normalised)) : undefined;
 }
 
+function normaliseImportedPolygonPatch(
+  pieceData: ImportPieceData,
+  pieceId: string,
+  edgeLookup: Map<string, ImportEdgeType>,
+  defaultBuildUpProfileId: string | null
+): ReturnType<typeof normaliseCanonicalPolygonV2Patch> | null {
+  if (!isCanonicalPolygonShapeConfig(pieceData.shapeConfig)) return null;
+
+  return normaliseCanonicalPolygonV2Patch({
+    id: pieceId,
+    name: pieceData.name,
+    length_mm: Math.round(pieceData.length),
+    width_mm: Math.round(pieceData.width),
+    thickness_mm: pieceData.thickness || 20,
+    material_id: pieceData.materialId ?? null,
+    material_name: pieceData.material ?? null,
+    piece_type: pieceData.pieceType || null,
+    shape_config: pieceData.shapeConfig,
+    edge_top: resolveVisibleEdgeId(pieceData.edgeTop, edgeLookup, defaultBuildUpProfileId),
+    edge_right: resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
+    edge_bottom: resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
+    edge_left: resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
+    no_strip_edges: normaliseNoStripEdges(pieceData.noStripEdges) ?? [],
+    edge_buildups: normaliseImportedEdgeBuildups(pieceData),
+    cutouts: pieceData.cutouts ?? [],
+  });
+}
+
 // POST - Import multiple pieces from drawing analysis
 export async function POST(
   request: NextRequest,
@@ -318,6 +347,14 @@ export async function POST(
       if (!piece.name || !piece.length || !piece.width) {
         return NextResponse.json(
           { error: `Piece ${i + 1} is missing required fields (name, length, width)` },
+          { status: 400 }
+        );
+      }
+      try {
+        normaliseImportedPolygonPatch(piece, `import-${quoteId}-${i}`, edgeLookup, defaultBuildUpProfileId);
+      } catch (error) {
+        return NextResponse.json(
+          { error: `Piece ${i + 1} has invalid polygon geometry: ${error instanceof Error ? error.message : 'Invalid polygon geometry'}` },
           { status: 400 }
         );
       }
@@ -421,22 +458,31 @@ export async function POST(
           : [];
 
         const importedShapeType = (pieceData.shapeType || pieceData.shape || 'RECTANGLE') as ShapeType;
-        const areaSqm = getShapeGeometry(
-          importedShapeType,
-          pieceData.shapeConfig as unknown as ShapeConfig,
-          lengthMm,
-          widthMm
-        ).totalAreaSqm;
-
         const edgeBuildups = normaliseImportedEdgeBuildups(pieceData);
         const importedNoStripEdges = normaliseNoStripEdges(pieceData.noStripEdges);
+        const normalisedPolygonPatch = normaliseImportedPolygonPatch(
+          pieceData,
+          `import-${quoteId}-${room.id}-${sortOrder}`,
+          edgeLookup,
+          defaultBuildUpProfileId
+        );
+        const persistedLengthMm = normalisedPolygonPatch?.length_mm ?? lengthMm;
+        const persistedWidthMm = normalisedPolygonPatch?.width_mm ?? widthMm;
+        const areaSqm = normalisedPolygonPatch?.area_sqm ?? getShapeGeometry(
+          importedShapeType,
+          pieceData.shapeConfig as unknown as ShapeConfig,
+          persistedLengthMm,
+          persistedWidthMm
+        ).totalAreaSqm;
+        const persistedEdgeBuildups = normalisedPolygonPatch?.edge_buildups ?? edgeBuildups;
+        const persistedNoStripEdges = normalisedPolygonPatch?.no_strip_edges ?? importedNoStripEdges;
         const piece = await prisma.quote_pieces.create({
           data: {
             room_id: room.id,
             name: pieceData.name,
             description: pieceData.notes || null,
-            length_mm: lengthMm,
-            width_mm: widthMm,
+            length_mm: persistedLengthMm,
+            width_mm: persistedWidthMm,
             thickness_mm: thicknessMm,
             area_sqm: areaSqm,
             material_id: pieceData.materialId ?? null,
@@ -450,15 +496,17 @@ export async function POST(
             sort_order: sortOrder++,
             cutouts,
             piece_type: pieceData.pieceType || null,
-            edge_top: resolveVisibleEdgeId(pieceData.edgeTop, edgeLookup, defaultBuildUpProfileId),
-            edge_bottom: resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
-            edge_left: resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
-            edge_right: resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
-            shape_type: importedShapeType,
-            ...(pieceData.shapeConfig && { shape_config: pieceData.shapeConfig as unknown as Prisma.InputJsonValue }),
+            edge_top: normalisedPolygonPatch ? normalisedPolygonPatch.edge_top : resolveVisibleEdgeId(pieceData.edgeTop, edgeLookup, defaultBuildUpProfileId),
+            edge_bottom: normalisedPolygonPatch ? normalisedPolygonPatch.edge_bottom : resolveVisibleEdgeId(pieceData.edgeBottom, edgeLookup, defaultBuildUpProfileId),
+            edge_left: normalisedPolygonPatch ? normalisedPolygonPatch.edge_left : resolveVisibleEdgeId(pieceData.edgeLeft, edgeLookup, defaultBuildUpProfileId),
+            edge_right: normalisedPolygonPatch ? normalisedPolygonPatch.edge_right : resolveVisibleEdgeId(pieceData.edgeRight, edgeLookup, defaultBuildUpProfileId),
+            shape_type: normalisedPolygonPatch?.shape_type ?? importedShapeType,
+            ...((normalisedPolygonPatch?.shape_config ?? pieceData.shapeConfig) && {
+              shape_config: (normalisedPolygonPatch?.shape_config ?? pieceData.shapeConfig) as unknown as Prisma.InputJsonValue,
+            }),
             ...(pieceData.edgeArcConfig && { edge_arc_config: resolveArcEdgeConfig(pieceData.edgeArcConfig, edgeLookup) as unknown as Prisma.InputJsonValue }),
-            ...(edgeBuildups && { edge_buildups: edgeBuildups as unknown as Prisma.InputJsonValue }),
-            ...(importedNoStripEdges && { no_strip_edges: importedNoStripEdges as unknown as Prisma.InputJsonValue }),
+            ...(persistedEdgeBuildups && { edge_buildups: persistedEdgeBuildups as unknown as Prisma.InputJsonValue }),
+            ...(persistedNoStripEdges && { no_strip_edges: persistedNoStripEdges as unknown as Prisma.InputJsonValue }),
           },
         });
 

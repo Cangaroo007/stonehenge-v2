@@ -214,6 +214,18 @@ export function decomposeShapeIntoRects(piece: {
     }];
   }
 
+  if (isCanonicalPolygonShapeConfig(piece.shapeConfig)) {
+    return [{
+      width: piece.shapeConfig.boundingBox.lengthMm,
+      height: piece.shapeConfig.boundingBox.widthMm,
+      pieceId: piece.id,
+      partIndex: 0,
+      groupId: piece.id,
+      mustBeAdjacent,
+      label: 'Polygon footprint',
+    }];
+  }
+
   if (piece.shapeType === 'L_SHAPE') {
     const cfg = piece.shapeConfig as LShapeConfig;
     if (!cfg || !cfg.leg1 || !cfg.leg2) {
@@ -298,6 +310,13 @@ export function getBoundingBox(piece: {
 }): { length: number; width: number } {
   if (!piece.shapeType || piece.shapeType === 'RECTANGLE' || !piece.shapeConfig) {
     return { length: piece.lengthMm, width: piece.widthMm };
+  }
+
+  if (isCanonicalPolygonShapeConfig(piece.shapeConfig)) {
+    return {
+      length: piece.shapeConfig.boundingBox.lengthMm,
+      width: piece.shapeConfig.boundingBox.widthMm,
+    };
   }
 
   if (piece.shapeType === 'L_SHAPE') {
@@ -669,6 +688,14 @@ export function getOptimizerRects(
   pieceId: string,
   label: string
 ): Array<{ width_mm: number; height_mm: number; trueArea_m2: number }> {
+  if (isCanonicalPolygonShapeConfig(shapeConfig)) {
+    return [{
+      width_mm: shapeConfig.boundingBox.lengthMm,
+      height_mm: shapeConfig.boundingBox.widthMm,
+      trueArea_m2: shapeConfig.areaSqm,
+    }];
+  }
+
   if (shapeType === 'RADIUS_END' && shapeConfig && 'shape' in shapeConfig && shapeConfig.shape === 'RADIUS_END') {
     return [{
       width_mm: shapeConfig.length_mm,

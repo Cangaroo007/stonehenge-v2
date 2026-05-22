@@ -80,4 +80,39 @@ describe('groupPiecesForJobView', () => {
     expect(groups).toHaveLength(1);
     expect(groups[0].relatedPieces[0].relationship).toBe('RETURN');
   });
+
+  it('preserves polygon shape snapshots for downstream job rendering', () => {
+    const shapeConfig = {
+      type: 'canonical-polygon',
+      vertices: {},
+      edges: {},
+      outerRing: { edges: [], orientation: 'ccw' },
+      innerRings: [],
+      features: [],
+      areaSqm: 0.42,
+      perimeterMm: 3200,
+      edgeLengths: [],
+      boundingBox: { minX: 0, minY: 0, maxX: 1000, maxY: 420, lengthMm: 1000, widthMm: 420 },
+    };
+
+    const groups = groupPiecesForJobView(
+      [
+        piece({
+          id: 1,
+          name: 'Angled Island',
+          shape_type: 'POLYGON',
+          shape_config: shapeConfig,
+          length_mm: 1000,
+          width_mm: 420,
+          area_sqm: 0.42,
+        }),
+      ],
+      rooms
+    );
+
+    expect(groups).toHaveLength(1);
+    expect(groups[0].primaryPiece.shapeType).toBe('POLYGON');
+    expect(groups[0].primaryPiece.shapeConfig).toBe(shapeConfig);
+    expect(groups[0].totalArea).toBe(0.42);
+  });
 });

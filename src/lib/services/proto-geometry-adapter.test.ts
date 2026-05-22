@@ -4,8 +4,9 @@ import {
   validateEdgeIdStability,
 } from '@stonehenge-proto/geometry';
 import type { Vertex } from '@stonehenge-proto/geometry';
-import { getCuttingPerimeterLm, getShapeGeometry } from '@/lib/types/shapes';
+import { getCuttingPerimeterLm, getOptimizerRects, getShapeGeometry } from '@/lib/types/shapes';
 import {
+  normaliseCanonicalPolygonV2Patch,
   protoPieceToV2Patch,
   v2PieceToProtoPiece,
 } from './proto-geometry-adapter';
@@ -104,6 +105,38 @@ describe('proto geometry adapter', () => {
 
     expect(getShapeGeometry('POLYGON', patch.shape_config, 9999, 9999).totalAreaSqm).toBe(0.6);
     expect(getCuttingPerimeterLm('POLYGON', patch.shape_config, 9999, 9999)).toBe(3.4);
+  });
+
+  it('normalises a persisted polygon and rejects broken geometry before save', () => {
+    const piece = v2PieceToProtoPiece(rectPiece());
+    const patch = protoPieceToV2Patch(piece);
+    const normalised = normaliseCanonicalPolygonV2Patch({
+      ...rectPiece(),
+      shape_config: patch.shape_config,
+    });
+
+    expect(normalised.shape_config.edgeLengths).toEqual(patch.shape_config.edgeLengths);
+
+    const broken = {
+      ...patch.shape_config,
+      outerRing: { ...patch.shape_config.outerRing, edges: patch.shape_config.outerRing.edges.slice(0, 2) },
+    };
+    expect(() => normaliseCanonicalPolygonV2Patch({
+      ...rectPiece(),
+      shape_config: broken,
+    })).toThrow(/at least three edges|Invalid polygon/);
+  });
+
+  it('passes canonical polygon true area and bounding box to the slab optimizer', () => {
+    const piece = v2PieceToProtoPiece(rectPiece());
+    const patch = protoPieceToV2Patch(piece);
+    const rects = getOptimizerRects('POLYGON', patch.shape_config, '12', 'Vanity');
+
+    expect(rects).toEqual([{
+      width_mm: 1200,
+      height_mm: 500,
+      trueArea_m2: 0.6,
+    }]);
   });
 });
 

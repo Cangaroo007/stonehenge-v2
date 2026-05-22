@@ -5,6 +5,7 @@ import type { PiecePricingBreakdown } from '@/lib/types/pricing';
 import type { Placement, LaminationSummary } from '@/types/slab-optimization';
 import { formatCurrency } from '@/lib/utils';
 import { decomposeShapeIntoRects, getFinishableEdgeLengthsMm, type ShapeType, type ShapeConfig } from '@/lib/types/shapes';
+import { getCanonicalPolygonConfig, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 
 // ─── Types ──────────────────────────────────────────────────────────────────
@@ -244,6 +245,7 @@ function derivePartsForPiece(
 
   // For L/U shapes, show decomposed legs instead of bounding-box oversize splits
   const pieceShapeType = piece.shape_type ?? 'RECTANGLE';
+  const canonicalPolygon = getCanonicalPolygonConfig(piece.shape_config);
   const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
   if (isLOrUShape) {
     const rects = decomposeShapeIntoRects({
@@ -333,11 +335,12 @@ function derivePartsForPiece(
     // Main piece (not oversize — shown as single piece)
     parts.push({
       type: 'MAIN',
-      name: `${pieceName} — Main Piece`,
-      lengthMm: piece.length_mm,
-      widthMm: piece.width_mm,
+      name: canonicalPolygon ? `${pieceName} — Polygon footprint` : `${pieceName} — Main Piece`,
+      lengthMm: canonicalPolygon?.boundingBox.lengthMm ?? piece.length_mm,
+      widthMm: canonicalPolygon?.boundingBox.widthMm ?? piece.width_mm,
       thicknessMm,
       slab: findSlabForPiece(piece.id, placements),
+      note: canonicalPolygon ? polygonMetricLabel(canonicalPolygon) : undefined,
     });
   }
 
@@ -404,7 +407,7 @@ function derivePartsForPiece(
       const pieceShapeTypeStr = (piece.shape_type ?? 'RECTANGLE') as ShapeType;
       const isShape = pieceShapeTypeStr === 'L_SHAPE' || pieceShapeTypeStr === 'U_SHAPE';
 
-      if (isShape && piece.shape_config) {
+      if ((isShape || canonicalPolygon) && piece.shape_config) {
         // L/U shapes: use all finishable edge lengths (6 for L, 8 for U)
         const allEdgeLengths = getFinishableEdgeLengthsMm(
           pieceShapeTypeStr,
@@ -415,7 +418,10 @@ function derivePartsForPiece(
         for (const [edgeKey, lengthMm] of Object.entries(allEdgeLengths)) {
           if (noStripEdges.includes(edgeKey)) continue;
           if (lengthMm <= 0) continue;
-          const sideLabel = edgeKey.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+          const edge = canonicalPolygon?.edges[edgeKey];
+          const sideLabel = (edge?.v2EdgeSide ?? edgeKey)
+            .replace(/_/g, ' ')
+            .replace(/\b\w/g, c => c.toUpperCase());
           parts.push({
             type: 'LAMINATION_STRIP',
             name: `${sideLabel} strip`,
@@ -425,6 +431,7 @@ function derivePartsForPiece(
             slab: findSlabForStrip(piece.id, edgeKey, placements),
             stripPosition: edgeKey,
             parentPieceId: piece.id,
+            note: edge ? `${edge.profile}, ${edge.finish}, ${edge.exposure}` : undefined,
           });
         }
       } else {

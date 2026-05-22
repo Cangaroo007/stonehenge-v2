@@ -12,6 +12,12 @@ import {
   Text,
   View,
   Image,
+  Svg,
+  Path,
+  Line,
+  Rect,
+  Circle,
+  Polygon,
   StyleSheet,
   Font,
   renderToBuffer,
@@ -19,6 +25,7 @@ import {
 import type { QuotePdfData, QuotePdfRoom, QuotePdfPiece } from './quote-pdf-service';
 import type { QuoteTemplateSections } from '@/lib/types/quote-template';
 import { getDefaultSectionsConfig } from '@/lib/types/quote-template';
+import { buildPolygonRenderModel, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 
 // ── Template Settings Interface ──────────────────────────────────────────────
 
@@ -291,6 +298,10 @@ const styles = StyleSheet.create({
     color: GRAY,
     marginTop: 2,
     paddingLeft: 2,
+  },
+  polygonDiagram: {
+    marginTop: 4,
+    marginBottom: 3,
   },
   // ── Charges Section ──
   chargesSection: {
@@ -819,7 +830,11 @@ function attachmentLabel(p: QuotePdfPiece): string {
  */
 function pieceDescriptionLines(p: QuotePdfPiece): string[] {
   const lines: string[] = [];
-  if (p.parts && p.parts.length > 0) {
+  if (p.canonicalPolygon) {
+    lines.push(`${p.thicknessMm}mm Polygon Benchtop`);
+    lines.push(`${Math.round(p.canonicalPolygon.boundingBox.lengthMm)} × ${Math.round(p.canonicalPolygon.boundingBox.widthMm)} bbox`);
+    lines.push(polygonMetricLabel(p.canonicalPolygon));
+  } else if (p.parts && p.parts.length > 0) {
     const shape = p.parts.length === 3 ? 'U-Shaped Benchtops'
                 : p.parts.length === 2 ? 'L-Shaped Benchtop'
                 : 'Shaped Benchtop';
@@ -831,6 +846,64 @@ function pieceDescriptionLines(p: QuotePdfPiece): string[] {
     lines.push(`${p.lengthMm} × ${p.widthMm} × ${p.thicknessMm}mm Benchtop`);
   }
   return lines;
+}
+
+function renderPolygonDiagram(p: QuotePdfPiece): React.ReactElement | null {
+  const polygon = buildPolygonRenderModel(p.canonicalPolygon, { width: 210, height: 120, padding: 8 });
+  if (!polygon) return null;
+
+  return h(View, { style: styles.polygonDiagram, key: `poly-${p.id}` },
+    h(Svg, { width: polygon.width, height: polygon.height, viewBox: polygon.viewBox },
+      h(Path, { d: polygon.outerPath, fill: '#ffffff', stroke: '#111827', strokeWidth: 1 }),
+      ...polygon.innerPaths.map((path, idx) =>
+        h(Path, { key: `inner-${idx}`, d: path, fill: '#ffffff', stroke: '#6b7280', strokeWidth: 0.8 }),
+      ),
+      ...polygon.edges.map(edge =>
+        h(Line, {
+          key: edge.id,
+          x1: edge.x1,
+          y1: edge.y1,
+          x2: edge.x2,
+          y2: edge.y2,
+          stroke: edge.exposure === 'exposed' ? '#1B3A6B' : '#9ca3af',
+          strokeWidth: 1.6,
+          strokeDasharray: edge.exposure === 'exposed' ? undefined : '3 2',
+        }),
+      ),
+      ...polygon.edges
+        .filter(edge => edge.exposure === 'exposed' && edge.lengthMm * polygon.scale > 26)
+        .slice(0, 8)
+        .map(edge =>
+          h(Text as unknown as React.ComponentType<Record<string, unknown>>, {
+            key: `${edge.id}-label`,
+            x: edge.midX,
+            y: edge.midY - 2,
+            textAnchor: 'middle',
+            fontSize: 6,
+            fill: GRAY,
+          }, edge.label),
+        ),
+      ...polygon.features.map(feature => {
+        if (feature.kind === 'tap-hole') {
+          return h(Circle, { key: feature.id, cx: feature.x, cy: feature.y, r: feature.radius, fill: 'none', stroke: '#6b7280', strokeWidth: 0.8 });
+        }
+        if (feature.outline) {
+          return h(Polygon, { key: feature.id, points: feature.outline, fill: 'none', stroke: '#6b7280', strokeWidth: 0.8, strokeDasharray: '3 2' });
+        }
+        return h(Rect, {
+          key: feature.id,
+          x: feature.x - feature.width / 2,
+          y: feature.y - feature.height / 2,
+          width: feature.width,
+          height: feature.height,
+          fill: 'none',
+          stroke: '#6b7280',
+          strokeWidth: 0.8,
+          strokeDasharray: '3 2',
+        });
+      }),
+    ),
+  );
 }
 
 function cuttingDetailLabel(item: NonNullable<QuotePdfPiece['pricing']['cuttingItems']>[number]): string {
@@ -966,6 +1039,10 @@ function buildRoomSection(
           ...descLines.map((line, i) =>
             h(Text, { style: styles.roomDescLine, key: `desc-${room.id}-${i}` }, line),
           ),
+          ...mainPieces.map(p => renderPolygonDiagram(p)).filter(Boolean),
+          ...mainPieces
+            .filter(p => p.canonicalPolygon && p.edgeSummary)
+            .map(p => h(Text, { style: styles.roomDescLine, key: `poly-edges-${p.id}` }, `Edges: ${p.edgeSummary}`)),
         )
       : null,
     // Additionals bullets.

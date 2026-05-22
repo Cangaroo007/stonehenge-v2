@@ -1,6 +1,122 @@
 import { optimizeSlabs } from './slab-optimizer';
+import type { CanonicalPolygonShapeConfig } from '@/lib/types/shapes';
+
+function canonicalPolygonFixture(): CanonicalPolygonShapeConfig {
+  return {
+    type: 'canonical-polygon',
+    vertices: {
+      v1: { id: 'v1', x: 0, y: 0 },
+      v2: { id: 'v2', x: 1200, y: 0 },
+      v3: { id: 'v3', x: 1200, y: 500 },
+      v4: { id: 'v4', x: 0, y: 500 },
+    },
+    edges: {
+      'edge-top': {
+        id: 'edge-top',
+        start: 'v1',
+        end: 'v2',
+        profile: 'pencil-round',
+        finish: 'polished',
+        exposure: 'exposed',
+        v2EdgeSide: 'top',
+        v2EdgeTypeId: 'mitre-edge',
+      },
+      'edge-right': {
+        id: 'edge-right',
+        start: 'v2',
+        end: 'v3',
+        profile: 'raw',
+        finish: 'unfinished',
+        exposure: 'wall',
+        v2EdgeSide: 'right',
+        v2EdgeTypeId: null,
+      },
+      'edge-bottom': {
+        id: 'edge-bottom',
+        start: 'v3',
+        end: 'v4',
+        profile: 'pencil-round',
+        finish: 'polished',
+        exposure: 'exposed',
+        v2EdgeSide: 'bottom',
+        v2EdgeTypeId: 'arrised-edge',
+      },
+      'edge-left': {
+        id: 'edge-left',
+        start: 'v4',
+        end: 'v1',
+        profile: 'pencil-round',
+        finish: 'polished',
+        exposure: 'exposed',
+        v2EdgeSide: 'left',
+        v2EdgeTypeId: 'arrised-edge',
+      },
+    },
+    outerRing: { edges: ['edge-top', 'edge-right', 'edge-bottom', 'edge-left'], orientation: 'ccw' },
+    innerRings: [],
+    features: [],
+    areaSqm: 0.42,
+    perimeterMm: 3400,
+    edgeLengths: [
+      { edgeId: 'edge-top', lengthMm: 1200, v2EdgeSide: 'top', v2EdgeTypeId: 'mitre-edge' },
+      { edgeId: 'edge-right', lengthMm: 500, v2EdgeSide: 'right', v2EdgeTypeId: null },
+      { edgeId: 'edge-bottom', lengthMm: 1200, v2EdgeSide: 'bottom', v2EdgeTypeId: 'arrised-edge' },
+      { edgeId: 'edge-left', lengthMm: 500, v2EdgeSide: 'left', v2EdgeTypeId: 'arrised-edge' },
+    ],
+    boundingBox: { minX: 0, minY: 0, maxX: 1200, maxY: 500, lengthMm: 1200, widthMm: 500 },
+  };
+}
 
 describe('optimizeSlabs', () => {
+  it('uses persisted canonical polygon area, bounding box, and edge metadata in placements and strips', async () => {
+    const result = await optimizeSlabs({
+      slabWidth: 3200,
+      slabHeight: 1600,
+      kerfWidth: 5,
+      allowRotation: true,
+      pieces: [
+        {
+          id: 'poly-bench',
+          label: 'Polygon Bench',
+          width: 9999,
+          height: 9999,
+          thickness: 40,
+          shapeType: 'POLYGON',
+          shapeConfig: canonicalPolygonFixture(),
+          shapeConfigEdges: {
+            'edge-top': '40mm Mitre',
+            'edge-bottom': 'Arris',
+            'edge-left': 'Arris',
+          },
+          noStripEdges: ['right'],
+        },
+      ],
+    });
+
+    const placement = result.placements.find(p => p.pieceId === 'poly-bench');
+
+    expect(placement).toEqual(expect.objectContaining({
+      width: 1200,
+      height: 500,
+      trueArea_m2: 0.42,
+      shapeType: 'POLYGON',
+      boundingBoxMm: expect.objectContaining({ lengthMm: 1200, widthMm: 500 }),
+    }));
+    expect(placement?.edgeLengths).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ edgeId: 'edge-top', lengthMm: 1200, v2EdgeSide: 'top' }),
+        expect.objectContaining({ edgeId: 'edge-right', lengthMm: 500, v2EdgeSide: 'right' }),
+      ])
+    );
+
+    const strips = result.laminationSummary?.stripsByParent[0]?.strips ?? [];
+    expect(strips.map(strip => strip.position)).toEqual(['edge-top', 'edge-bottom', 'edge-left']);
+    expect(strips.find(strip => strip.position === 'edge-top')).toEqual(expect.objectContaining({
+      lengthMm: 1200,
+      widthMm: 40,
+    }));
+  });
+
   it('uses per-edge strip width overrides when generating lamination strips', async () => {
     const result = await optimizeSlabs({
       slabWidth: 3200,

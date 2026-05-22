@@ -1263,7 +1263,24 @@ export default function QuickViewPieceRow({
 
     const shapeType = piece.shapeType;
 
-    if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
+    if (shapeType === 'POLYGON') {
+      const currentConfig = (fullPiece.shapeConfig as unknown as Record<string, unknown>) ?? {};
+      const currentEdges = (currentConfig.edges as Record<string, Record<string, unknown>>) ?? {};
+      const edge = currentEdges[edgeId] ?? { id: edgeId };
+      savePieceImmediate({
+        shapeConfig: {
+          ...currentConfig,
+          edges: {
+            ...currentEdges,
+            [edgeId]: {
+              ...edge,
+              v2EdgeTypeId: profileId,
+              finish: profileId ? 'polished' : 'unfinished',
+            },
+          },
+        },
+      });
+    } else if (shapeType === 'L_SHAPE' || shapeType === 'U_SHAPE') {
       // L/U shapes: store edges in shapeConfig.edges sub-object
       const currentConfig = (fullPiece.shapeConfig as unknown as Record<string, unknown>) ?? {};
       const currentEdges = (currentConfig.edges as Record<string, string | null>) ?? {};
@@ -2463,6 +2480,12 @@ export default function QuickViewPieceRow({
                 onShapeEdgeChange={isEditMode ? handleShapeEdgeChange : undefined}
                 shapeConfigEdges={(() => {
                   const st = piece.shapeType;
+                  if (st === 'POLYGON') {
+                    const sc = (fullPiece?.shapeConfig as { edges?: Record<string, { v2EdgeTypeId?: string | null }> } | null | undefined);
+                    return Object.fromEntries(
+                      Object.entries(sc?.edges ?? {}).map(([edgeId, edge]) => [edgeId, edge.v2EdgeTypeId ?? null])
+                    );
+                  }
                   if (st === 'L_SHAPE' || st === 'U_SHAPE') {
                     const sc = (fullPiece?.shapeConfig as { edges?: Record<string, string | null> } | null | undefined);
                     return sc?.edges ?? undefined;

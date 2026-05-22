@@ -10,7 +10,8 @@ import prisma from '@/lib/db';
 import { edgeCode, cutoutLabel } from '@/lib/utils/edge-utils';
 import type { CalculationResult, PiecePricingBreakdown } from '@/lib/types/pricing';
 import { calculateQuotePrice } from '@/lib/services/pricing-calculator-v2';
-import type { ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import type { CanonicalPolygonShapeConfig, ShapeConfig, LShapeConfig, UShapeConfig } from '@/lib/types/shapes';
+import { getCanonicalPolygonConfig, polygonEdgeSummary } from '@/lib/utils/canonical-polygon-display';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -22,6 +23,9 @@ export interface QuotePdfPiece {
   widthMm: number;
   thicknessMm: number;
   areaSqm: number;
+  shapeType: string | null;
+  shapeConfig: unknown;
+  canonicalPolygon: CanonicalPolygonShapeConfig | null;
   materialName: string | null;
   /** Edge labels for display (e.g., "Pencil Polish") */
   edges: {
@@ -385,6 +389,7 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         left: piece.edge_left,
         right: piece.edge_right,
       };
+      const canonicalPolygon = getCanonicalPolygonConfig(piece.shape_config);
 
       // Get per-piece pricing from calculation breakdown
       const pb = pieceBreakdownMap.get(piece.id);
@@ -413,10 +418,15 @@ export async function assembleQuotePdfData(quoteId: number): Promise<QuotePdfDat
         lengthMm: piece.length_mm,
         widthMm: piece.width_mm,
         thicknessMm: piece.thickness_mm,
-        areaSqm: toNumber(piece.area_sqm),
+        areaSqm: canonicalPolygon?.areaSqm ?? toNumber(piece.area_sqm),
+        shapeType: piece.shape_type,
+        shapeConfig: piece.shape_config,
+        canonicalPolygon,
         materialName: piece.material_name,
         edges,
-        edgeSummary: buildEdgeSummary(edges, edgeNameMap),
+        edgeSummary: canonicalPolygon
+          ? polygonEdgeSummary(canonicalPolygon, edgeNameMap)
+          : buildEdgeSummary(edges, edgeNameMap),
         cutouts: resolvedCutouts,
         cutoutSummary: cutoutSummaryParts.join(', '),
         pricing,

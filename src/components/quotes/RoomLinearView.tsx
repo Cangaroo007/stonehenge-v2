@@ -8,6 +8,7 @@
 
 import { cutoutLabel, edgeColour } from '@/lib/utils/edge-utils';
 import { calculateLinearLayout } from '@/lib/services/linear-layout-engine';
+import { buildPolygonRenderModel, polygonMetricLabel } from '@/lib/utils/canonical-polygon-display';
 import type { LinearPiecePosition } from '@/lib/services/linear-layout-engine';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
@@ -19,6 +20,8 @@ interface QuotePiece {
   length_mm: number;
   width_mm: number;
   thickness_mm: number;
+  shape_type?: string | null;
+  shape_config?: unknown;
   piece_type?: string | null;
   area_sqm: number;
   /** @deprecated Unreliable — use roomTotal prop from calculation_breakdown */
@@ -253,6 +256,11 @@ export default function RoomLinearView({
 
           const pieceName = piece.name ?? piece.description ?? 'Piece';
           const yOffset = labelSpaceAbove;
+          const polygon = buildPolygonRenderModel(piece.shape_config, {
+            width: pos.width,
+            height: pos.height,
+            padding: 2,
+          });
 
           // Edge profile labels
           const edges = [
@@ -287,43 +295,63 @@ export default function RoomLinearView({
                 {pieceName.length > 20 ? pieceName.slice(0, 18) + '…' : pieceName}
               </text>
 
-              {/* Piece rectangle (fill only) */}
-              <rect
-                x={pos.x}
-                y={pos.y + yOffset}
-                width={pos.width}
-                height={pos.height}
-                fill="white"
-                stroke="none"
-              />
-              {/* Individual edge lines with profile colours */}
-              <line
-                x1={pos.x} y1={pos.y + yOffset}
-                x2={pos.x + pos.width} y2={pos.y + yOffset}
-                stroke={edgeColour(piece.edge_top)}
-                strokeWidth={2}
-              />
-              <line
-                x1={pos.x} y1={pos.y + yOffset + pos.height}
-                x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height}
-                stroke={edgeColour(piece.edge_bottom)}
-                strokeWidth={2}
-              />
-              <line
-                x1={pos.x} y1={pos.y + yOffset}
-                x2={pos.x} y2={pos.y + yOffset + pos.height}
-                stroke={edgeColour(piece.edge_left)}
-                strokeWidth={2}
-              />
-              <line
-                x1={pos.x + pos.width} y1={pos.y + yOffset}
-                x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height}
-                stroke={edgeColour(piece.edge_right)}
-                strokeWidth={2}
-              />
+              {polygon ? (
+                <g transform={`translate(${pos.x} ${pos.y + yOffset})`}>
+                  <path d={polygon.outerPath} fill="white" stroke="#111827" strokeWidth={1.2} />
+                  {polygon.innerPaths.map((path, idx) => (
+                    <path key={idx} d={path} fill="white" stroke="#6B7280" strokeWidth={1} />
+                  ))}
+                  {polygon.edges.map(edge => (
+                    <line
+                      key={edge.id}
+                      x1={edge.x1}
+                      y1={edge.y1}
+                      x2={edge.x2}
+                      y2={edge.y2}
+                      stroke={edge.exposure === 'exposed' ? edgeColour(edge.profile) : '#9CA3AF'}
+                      strokeWidth={2}
+                      strokeDasharray={edge.exposure === 'exposed' ? undefined : '4,2'}
+                    >
+                      <title>{`${edge.label}: ${edge.profile}, ${edge.finish}, ${Math.round(edge.lengthMm)}mm`}</title>
+                    </line>
+                  ))}
+                  {polygon.edges
+                    .filter(edge => edge.exposure === 'exposed' && edge.lengthMm * polygon.scale > 18)
+                    .slice(0, 8)
+                    .map(edge => (
+                      <text key={`${edge.id}-label`} x={edge.midX} y={edge.midY - 3} textAnchor="middle" fontSize={7} fill="#4B5563">
+                        {edge.label}
+                      </text>
+                    ))}
+                  {polygon.features.map(feature => (
+                    feature.kind === 'tap-hole'
+                      ? <circle key={feature.id} cx={feature.x} cy={feature.y} r={feature.radius} fill="none" stroke="#6B7280" strokeWidth={1} />
+                      : feature.outline
+                        ? <polygon key={feature.id} points={feature.outline} fill="none" stroke="#6B7280" strokeWidth={1} strokeDasharray="4,2" />
+                        : <rect key={feature.id} x={feature.x - feature.width / 2} y={feature.y - feature.height / 2} width={feature.width} height={feature.height} fill="none" stroke="#6B7280" strokeWidth={1} strokeDasharray="4,2" />
+                  ))}
+                </g>
+              ) : (
+                <>
+                  {/* Piece rectangle (fill only) */}
+                  <rect
+                    x={pos.x}
+                    y={pos.y + yOffset}
+                    width={pos.width}
+                    height={pos.height}
+                    fill="white"
+                    stroke="none"
+                  />
+                  {/* Individual edge lines with profile colours */}
+                  <line x1={pos.x} y1={pos.y + yOffset} x2={pos.x + pos.width} y2={pos.y + yOffset} stroke={edgeColour(piece.edge_top)} strokeWidth={2} />
+                  <line x1={pos.x} y1={pos.y + yOffset + pos.height} x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height} stroke={edgeColour(piece.edge_bottom)} strokeWidth={2} />
+                  <line x1={pos.x} y1={pos.y + yOffset} x2={pos.x} y2={pos.y + yOffset + pos.height} stroke={edgeColour(piece.edge_left)} strokeWidth={2} />
+                  <line x1={pos.x + pos.width} y1={pos.y + yOffset} x2={pos.x + pos.width} y2={pos.y + yOffset + pos.height} stroke={edgeColour(piece.edge_right)} strokeWidth={2} />
+                </>
+              )}
 
               {/* Edge profile labels inside piece (if any) */}
-              {edgeSummary && (
+              {!polygon && edgeSummary && (
                 <text
                   x={pos.x + pos.width / 2}
                   y={pos.y + yOffset + pos.height / 2}
@@ -351,7 +379,7 @@ export default function RoomLinearView({
                 fill="#374151"
                 fontWeight="500"
               >
-                {piece.length_mm} × {piece.width_mm} mm
+                {polygon ? polygonMetricLabel(polygon.config) : `${piece.length_mm} × ${piece.width_mm} mm`}
               </text>
 
               {/* Cutout summary below dimensions */}

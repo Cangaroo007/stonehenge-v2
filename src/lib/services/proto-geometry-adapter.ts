@@ -64,6 +64,10 @@ export interface V2PiecePatch {
   edge_buildups: Record<string, EdgeBuildupConfig> | null;
 }
 
+export interface CanonicalPolygonNormalizationInput extends V2PieceAdapterInput {
+  shape_config: CanonicalPolygonShapeConfig;
+}
+
 const SIDES: RectEdgeSide[] = ['top', 'right', 'bottom', 'left'];
 
 export function v2PieceToProtoPiece(piece: V2PieceAdapterInput): Piece {
@@ -95,6 +99,10 @@ export function protoPieceToV2Patch(piece: Piece): V2PiecePatch {
       .map(edge => edge.v2EdgeSide as string),
     edge_buildups: buildUpsByRectSide(snapshot),
   };
+}
+
+export function normaliseCanonicalPolygonV2Patch(piece: CanonicalPolygonNormalizationInput): V2PiecePatch {
+  return protoPieceToV2Patch(v2PieceToProtoPiece(piece));
 }
 
 export function protoPieceToCanonicalGeometrySnapshot(piece: Piece): CanonicalPolygonShapeConfig {

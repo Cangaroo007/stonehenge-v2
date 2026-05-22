@@ -57,6 +57,8 @@ export default async function FullJobViewPage({
       lengthMm: piece.length_mm,
       widthMm: piece.width_mm,
       thicknessMm: piece.thickness_mm,
+      shapeType: piece.shape_type,
+      shapeConfig: piece.shape_config,
       areaSqm: Number(piece.area_sqm),
       materialCost: Number(piece.material_cost),
       featuresCost: Number(piece.features_cost),

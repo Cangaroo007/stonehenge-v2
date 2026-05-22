@@ -5,7 +5,7 @@ import { optimizeSlabs } from '@/lib/services/slab-optimizer';
 import { optimizeMultiMaterial } from '@/lib/services/multi-material-optimizer';
 import type { MultiMaterialPiece, MaterialInfo } from '@/lib/services/multi-material-optimizer';
 import { calculateCutPlan } from '@/lib/services/multi-slab-calculator';
-import { decomposeShapeIntoRects } from '@/lib/types/shapes';
+import { decomposeShapeIntoRects, isCanonicalPolygonShapeConfig } from '@/lib/types/shapes';
 import { logger } from '@/lib/logger';
 import { getDefaultSlabLength, getDefaultSlabWidth } from '@/lib/constants/slab-sizes';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
@@ -73,12 +73,15 @@ async function persistOversizeToQuotePieces(
     const slabWidthMm = materialOverride?.slabWidthMm ?? piece.materials?.slab_width_mm ?? fallbackSlabWidthMm;
     const materialName = piece.materials?.name ?? 'caesarstone';
 
-    // For L/U shapes, decompose into legs and calculate per-leg cut plans
+    // For shaped pieces, decompose into optimizer footprints and calculate per-footprint cut plans.
     const pieceShapeType = piece.shape_type ?? 'RECTANGLE';
-    const isLOrUShape = pieceShapeType === 'L_SHAPE' || pieceShapeType === 'U_SHAPE';
+    const isDecomposableShape =
+      pieceShapeType === 'L_SHAPE' ||
+      pieceShapeType === 'U_SHAPE' ||
+      isCanonicalPolygonShapeConfig(piece.shape_config);
 
     let cutPlan: ReturnType<typeof calculateCutPlan>;
-    if (isLOrUShape) {
+    if (isDecomposableShape) {
       const rects = decomposeShapeIntoRects({
         id: String(piece.id),
         lengthMm: piece.length_mm,
@@ -336,11 +339,16 @@ export async function POST(
     // Collect all unique edge type IDs from pieces for name resolution
     const allEdgeTypeIds = new Set<string>();
     for (const room of quote.quote_rooms) {
-      for (const piece of room.quote_pieces as Array<{ edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null }>) {
+      for (const piece of room.quote_pieces as Array<{ edge_top: string | null; edge_bottom: string | null; edge_left: string | null; edge_right: string | null; shape_config?: unknown }>) {
         if (piece.edge_top) allEdgeTypeIds.add(piece.edge_top);
         if (piece.edge_bottom) allEdgeTypeIds.add(piece.edge_bottom);
         if (piece.edge_left) allEdgeTypeIds.add(piece.edge_left);
         if (piece.edge_right) allEdgeTypeIds.add(piece.edge_right);
+        if (isCanonicalPolygonShapeConfig(piece.shape_config)) {
+          for (const edge of Object.values(piece.shape_config.edges)) {
+            if (edge.v2EdgeTypeId) allEdgeTypeIds.add(edge.v2EdgeTypeId);
+          }
+        }
       }
     }
 
@@ -431,13 +439,22 @@ export async function POST(
       quote_pieces: QuotePieceRow[];
     }) =>
       room.quote_pieces.map((piece, pieceIndex) => {
-        const isShapedPiece = piece.shape_type === 'L_SHAPE' || piece.shape_type === 'U_SHAPE';
+        const canonicalShapeConfig = isCanonicalPolygonShapeConfig(piece.shape_config) ? piece.shape_config : null;
+        const isCanonicalPolygonPiece = canonicalShapeConfig !== null;
+        const isShapedPiece = piece.shape_type === 'L_SHAPE' || piece.shape_type === 'U_SHAPE' || isCanonicalPolygonPiece;
 
-        // For shaped pieces, pass shape_config.edges directly
+        // For shaped pieces, pass shape_config.edges directly.
         // For rectangles, use the 4 DB columns as before
-        const shapeConfigEdges = isShapedPiece
-          ? ((piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {})
-          : {};
+        const shapeConfigEdges = isCanonicalPolygonPiece
+          ? Object.fromEntries(
+              Object.values(canonicalShapeConfig.edges).map(edge => [
+                edge.id,
+                edge.v2EdgeTypeId ? (edgeTypeMap.get(edge.v2EdgeTypeId) ?? edge.v2EdgeTypeId) : null,
+              ])
+            )
+          : isShapedPiece
+            ? ((piece.shape_config as unknown as { edges?: Record<string, string | null> })?.edges ?? {})
+            : {};
 
         const finishedEdges = isShapedPiece
           ? { top: false, bottom: false, left: false, right: false }
