@@ -108,6 +108,15 @@ interface AnalysisResult {
     jobNumber: string | null;
     defaultThickness: number;
     defaultOverhang: number;
+    spatialAssemblies?: Array<{
+      id?: string;
+      room?: string;
+      name?: string;
+      childPieceNames?: string[];
+      cutLines?: unknown[];
+      confidence?: number;
+      notes?: string;
+    }>;
   };
   rooms: {
     name: string;
@@ -655,6 +664,18 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
 
           // Transform analysis results to ExtractedPiece format
           const piecesBeforeThisFile = allPieces.length;
+          const spatialAssemblies = Array.isArray(analysisResult.metadata?.spatialAssemblies)
+            ? analysisResult.metadata.spatialAssemblies
+            : [];
+          for (const assembly of spatialAssemblies) {
+            const childCount = Array.isArray(assembly.childPieceNames) ? assembly.childPieceNames.length : 0;
+            const cutLineCount = Array.isArray(assembly.cutLines) ? assembly.cutLines.length : 0;
+            allWarnings.push(
+              `${selectedFile.name}: spatial assembly "${assembly.name || assembly.room || assembly.id || 'connected benchtop'}" detected` +
+              `${childCount ? ` with ${childCount} child piece${childCount === 1 ? '' : 's'}` : ''}` +
+              `${cutLineCount ? ` and ${cutLineCount} suggested join/cut line${cutLineCount === 1 ? '' : 's'}` : ''}. Review this as a connected geometry before trusting the split pieces.`
+            );
+          }
           for (const room of analysisResult.rooms || []) {
             for (const piece of room.pieces || []) {
               const currentPieceIndex = pieceIndex++;
@@ -673,6 +694,8 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                 edgeLeft: piece.edgeLeft ?? piece.edges?.left ?? null,
                 edgeRight: piece.edgeRight ?? piece.edges?.right ?? null,
               };
+              const usedSystemSeededShape = !piece.shapeConfig && ['RECTANGLE', 'L_SHAPE', 'U_SHAPE', 'IRREGULAR', 'POLYGON'].includes((piece.shape ?? '').toUpperCase());
+              const usedSystemSeededComplexShape = usedSystemSeededShape && (piece.shape ?? '').toUpperCase() !== 'RECTANGLE';
               const seededShapeConfig = piece.shapeConfig ?? (
                 ['RECTANGLE', 'L_SHAPE', 'U_SHAPE', 'IRREGULAR', 'POLYGON'].includes((piece.shape ?? '').toUpperCase())
                   ? seedDrawingPolygonConfig(id, {
@@ -686,6 +709,12 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
               const seededShape = isCanonicalPolygonConfig(seededShapeConfig)
                 ? 'POLYGON'
                 : piece.shape || undefined;
+              const seededNotes = [
+                piece.notes || null,
+                usedSystemSeededComplexShape
+                  ? 'System seeded provisional polygon geometry because the AI did not return real vertices. Review and correct in spatial trace before relying on fabrication pricing.'
+                  : null,
+              ].filter(Boolean).join(' ');
               allPieces.push({
                 id,
                 pieceNumber: piece.pieceNumber || currentPieceIndex + 1,
@@ -701,8 +730,10 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                 width: piece.width || 0,
                 thickness: piece.thickness || analysisResult.metadata?.defaultThickness || 20,
                 room: room.name || 'Unassigned',
-                confidence: piece.confidence || 0.5,
-                notes: piece.notes || null,
+                confidence: usedSystemSeededComplexShape
+                  ? Math.min(piece.confidence || 0.5, 0.74)
+                  : piece.confidence || 0.5,
+                notes: seededNotes || null,
                 cutouts: piece.cutouts || [],
                 relatedTo: piece.relatedTo ?? null,
                 edgeBuildups: piece.edgeBuildups,
