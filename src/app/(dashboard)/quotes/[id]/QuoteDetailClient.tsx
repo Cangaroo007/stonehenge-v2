@@ -19,6 +19,7 @@ import QuoteActions from './builder/components/QuoteActions';
 import DrawingImport from './builder/components/DrawingImport';
 import { DrawingReferencePanel } from './builder/components/DrawingReferencePanel';
 import DrawingsAccordion from '@/components/quotes/DrawingsAccordion';
+import RoomLinearView from '@/components/quotes/RoomLinearView';
 import RoomSpatialView from '@/components/quotes/RoomSpatialView';
 import MachineOperationsAccordion from '@/components/quotes/MachineOperationsAccordion';
 import DeliveryTemplatingCard from './builder/components/DeliveryTemplatingCard';
@@ -82,6 +83,7 @@ import { generatePieceDescription } from '@/lib/utils/description-generator';
 import { trackClarityEvent } from '@/lib/clarity';
 
 type PdfViewMode = 'default' | 'summary' | 'piece-totals' | 'detailed';
+type PieceWorkspaceMode = 'partner' | 'spatial';
 
 function relationshipDisplayLabel(type: RelationshipType, joinPosition?: string | null): string {
   const readableType = type
@@ -441,6 +443,7 @@ export default function QuoteDetailClient({
   const [error, setError] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<'list' | 'rooms' | 'material'>('rooms');
   const [builderView, setBuilderView] = useState<'detailed' | 'quick'>('detailed');
+  const [pieceWorkspaceMode, setPieceWorkspaceMode] = useState<PieceWorkspaceMode>('spatial');
   const [expandedRooms, setExpandedRooms] = useState<Set<number>>(new Set());
   const [customerSectionExpanded, setCustomerSectionExpanded] = useState(false);
   const [spatialExpandedRooms, setSpatialExpandedRooms] = useState<Set<number>>(new Set());
@@ -486,6 +489,33 @@ export default function QuoteDetailClient({
       setActiveTab('pieces');
     }
   }, [searchParams]);
+
+  useEffect(() => {
+    const fromUrl = searchParams.get('pieceWorkspace');
+    if (fromUrl === 'partner' || fromUrl === 'spatial') {
+      setPieceWorkspaceMode(fromUrl);
+      try { localStorage.setItem('stonehenge-piece-workspace-mode', fromUrl); } catch { /* noop */ }
+      return;
+    }
+
+    try {
+      const saved = localStorage.getItem('stonehenge-piece-workspace-mode');
+      if (saved === 'partner' || saved === 'spatial') {
+        setPieceWorkspaceMode(saved);
+      }
+    } catch {
+      // Keep spatial as the default when storage is unavailable.
+    }
+  }, [searchParams]);
+
+  const handlePieceWorkspaceModeChange = useCallback((nextMode: PieceWorkspaceMode) => {
+    setPieceWorkspaceMode(nextMode);
+    try { localStorage.setItem('stonehenge-piece-workspace-mode', nextMode); } catch { /* noop */ }
+    const params = new URLSearchParams(searchParams.toString());
+    params.set('pieceWorkspace', nextMode);
+    router.replace(`?${params.toString()}`, { scroll: false });
+  }, [router, searchParams]);
+
   const [deliveryEnabled, setDeliveryEnabled] = useState<boolean>(() => {
     const del = (serverData.calculation_breakdown as CalculationResult | null)?.breakdown?.delivery;
     return !!(del && (del.address || del.distanceKm || del.finalCost > 0));
@@ -3492,6 +3522,7 @@ export default function QuoteDetailClient({
                         }}
                         breakdown={pb}
                         mode="view"
+                        geometryEditorMode={pieceWorkspaceMode === 'partner' ? 'legacy' : 'spatial'}
                         onExpand={(pieceId) => {
                           window.open(`/quotes/${quoteId}/pieces/${pieceId}`, '_blank');
                         }}
@@ -3563,14 +3594,48 @@ export default function QuoteDetailClient({
                                 : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
                             }`}
                           >
-                            Spatial
+                            {pieceWorkspaceMode === 'partner' ? 'Layout' : 'Spatial'}
                           </button>
                         </div>
                         {/* Per-room spatial view (toggled, default collapsed — 12.J1 §2.7) */}
                         {isSpatialOpen && (
-                          <RoomSpatialView
-                            roomName={room.name || 'Unassigned'}
-                            pieces={room.quote_pieces.map(p => {
+                          pieceWorkspaceMode === 'partner' ? (
+                            <RoomLinearView
+                              roomName={room.name || 'Unassigned'}
+                              pieces={room.quote_pieces.map(p => ({
+                                id: p.id,
+                                description: p.description,
+                                name: p.name,
+                                length_mm: p.length_mm,
+                                width_mm: p.width_mm,
+                                thickness_mm: p.thickness_mm,
+                                piece_type: p.piece_type ?? 'BENCHTOP',
+                                area_sqm: p.area_sqm,
+                                total_cost: p.total_cost ?? 0,
+                                edge_top: p.edge_top,
+                                edge_bottom: p.edge_bottom,
+                                edge_left: p.edge_left,
+                                edge_right: p.edge_right,
+                                shape_type: p.shape_type,
+                                shape_config: p.shape_config,
+                                piece_features: p.piece_features,
+                              }))}
+                              relationships={viewRelationships
+                                .filter(r => roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId))
+                                .map(r => ({
+                                  id: String(r.id),
+                                  parentPieceId: r.parentPieceId,
+                                  childPieceId: r.childPieceId,
+                                  relationshipType: r.relationshipType,
+                                  joinPosition: r.joinPosition ?? null,
+                                }))}
+                              roomTotal={viewRoomTotal}
+                              roomNotes={room.notes}
+                            />
+                          ) : (
+                            <RoomSpatialView
+                              roomName={room.name || 'Unassigned'}
+                              pieces={room.quote_pieces.map(p => {
                               const pb = viewBreakdownMap.get(p.id);
                               return {
                                 id: p.id,
@@ -3609,8 +3674,9 @@ export default function QuoteDetailClient({
                               return sum + (pb?.pieceTotal ?? 0);
                             }, 0)}
                             roomNotes={room.notes}
-                            optimizerPlacements={viewOptimizerPlacements ?? undefined}
-                          />
+                              optimizerPlacements={viewOptimizerPlacements ?? undefined}
+                            />
+                          )
                         )}
                         {!isCollapsed && (
                           <div className="space-y-2">
@@ -3963,6 +4029,7 @@ export default function QuoteDetailClient({
               machines={machines}
               machineOperationDefaults={machineOperationDefaults}
               mode="edit"
+              geometryEditorMode={pieceWorkspaceMode === 'partner' ? 'legacy' : 'spatial'}
             onMachineChange={(_pieceId, operationType, machineId) => {
               handleMachineOverride(operationType, machineId);
             }}
@@ -4085,7 +4152,40 @@ export default function QuoteDetailClient({
         {/* ── 4. Pieces Card — unified PieceRow cards (12.J1: rooms + detailed as default, no toggles) ── */}
         <div className="card">
           <div ref={actionBarRef} className="p-4 border-b border-gray-200 flex items-center justify-between">
-            <h2 className="text-lg font-semibold">Pieces</h2>
+            <div className="flex min-w-0 flex-wrap items-center gap-3">
+              <h2 className="text-lg font-semibold">Pieces</h2>
+              <div className="inline-flex rounded-lg border border-gray-200 bg-gray-50 p-1" aria-label="Piece workspace mode">
+                <button
+                  type="button"
+                  onClick={() => handlePieceWorkspaceModeChange('partner')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    pieceWorkspaceMode === 'partner'
+                      ? 'bg-white text-gray-900 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                  title="Use the partner-safe piece editor and older room layout while the spatial workflow is still being hardened."
+                >
+                  Partner view
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePieceWorkspaceModeChange('spatial')}
+                  className={`rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                    pieceWorkspaceMode === 'spatial'
+                      ? 'bg-blue-600 text-white shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800'
+                  }`}
+                  title="Use the new spatial/canonical polygon workflow."
+                >
+                  Spatial beta
+                </button>
+              </div>
+              <span className="text-xs text-gray-500">
+                {pieceWorkspaceMode === 'partner'
+                  ? 'Classic editing is active for design partner demos.'
+                  : 'Spatial polygon editing is active.'}
+              </span>
+            </div>
             <div className="flex items-center gap-2">
               {addingInlinePiece ? (
                 <button
@@ -4408,7 +4508,7 @@ export default function QuoteDetailClient({
                                   : 'text-gray-500 hover:text-blue-600 hover:bg-blue-50'
                               }`}
                             >
-                              Spatial
+                              {pieceWorkspaceMode === 'partner' ? 'Layout' : 'Spatial'}
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); handleAddPiece(room.name); }}
@@ -4434,44 +4534,62 @@ export default function QuoteDetailClient({
                         </div>
                         {/* Per-room spatial view (toggled, default collapsed — 12.J1 §2.7) */}
                         {isSpatialOpen && (
-                          <RoomSpatialView
-                            roomName={room.name || 'Unassigned'}
-                            pieces={spatialRoomPieces}
-                            relationships={relationships.filter(r =>
-                              roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId)
-                            )}
-                            mode="edit"
-                            selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
-                            onPieceSelect={(pieceId) => {
-                              setSelectedPieceId(Number(pieceId));
-                              setSelectedPieceIds(new Set());
-                              const el = document.getElementById(`piece-${pieceId}`);
-                              if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                            }}
-                            roomTotal={editRoomTotal}
-                            quoteId={quoteIdStr}
-                            onRelationshipChange={handleRelationshipsChanged}
-                            roomId={room.id}
-                            allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
-                            onRoomRename={handleRoomRename}
-                            onRoomMoveUp={handleRoomMoveUp}
-                            onRoomMoveDown={handleRoomMoveDown}
-                            onRoomMerge={handleRoomMerge}
-                            onRoomDelete={handleRoomDelete}
-                            onAddRoomBelow={handleAddRoomBelow}
-                            onAddPiece={handleAddPieceToRoom}
-                            roomNotes={room.notes}
-                            onRoomNotesChange={handleRoomNotesChange}
-                            selectedPieceIds={selectedPieceIds}
-                            onPieceMultiSelect={handlePieceMultiSelect}
-                            onContextMenu={handleContextMenu}
-                            edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories, isMitred: e.isMitred }))}
-                            onPieceEdgeChange={handlePieceEdgeChange}
-                            cutoutTypes={cutoutTypes}
-                            onPieceCutoutAdd={handlePieceCutoutAdd}
-                            onBatchEdgeUpdate={handleBatchEdgeUpdate}
-                            optimizerPlacements={viewOptimizerPlacements ?? undefined}
-                          />
+                          pieceWorkspaceMode === 'partner' ? (
+                            <RoomLinearView
+                              roomName={room.name || 'Unassigned'}
+                              pieces={spatialRoomPieces}
+                              relationships={relationships
+                                .filter(r => roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId))
+                                .map(r => ({
+                                  id: String(r.id),
+                                  parentPieceId: r.parentPieceId,
+                                  childPieceId: r.childPieceId,
+                                  relationshipType: r.relationshipType,
+                                  joinPosition: r.joinPosition ?? null,
+                                }))}
+                              roomTotal={editRoomTotal}
+                              roomNotes={room.notes}
+                            />
+                          ) : (
+                            <RoomSpatialView
+                              roomName={room.name || 'Unassigned'}
+                              pieces={spatialRoomPieces}
+                              relationships={relationships.filter(r =>
+                                roomPieceIds.has(r.parentPieceId) && roomPieceIds.has(r.childPieceId)
+                              )}
+                              mode="edit"
+                              selectedPieceId={selectedPieceId != null ? String(selectedPieceId) : null}
+                              onPieceSelect={(pieceId) => {
+                                setSelectedPieceId(Number(pieceId));
+                                setSelectedPieceIds(new Set());
+                                const el = document.getElementById(`piece-${pieceId}`);
+                                if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                              }}
+                              roomTotal={editRoomTotal}
+                              quoteId={quoteIdStr}
+                              onRelationshipChange={handleRelationshipsChanged}
+                              roomId={room.id}
+                              allRooms={rooms.map(r => ({ id: r.id, name: r.name, sortOrder: r.sortOrder }))}
+                              onRoomRename={handleRoomRename}
+                              onRoomMoveUp={handleRoomMoveUp}
+                              onRoomMoveDown={handleRoomMoveDown}
+                              onRoomMerge={handleRoomMerge}
+                              onRoomDelete={handleRoomDelete}
+                              onAddRoomBelow={handleAddRoomBelow}
+                              onAddPiece={handleAddPieceToRoom}
+                              roomNotes={room.notes}
+                              onRoomNotesChange={handleRoomNotesChange}
+                              selectedPieceIds={selectedPieceIds}
+                              onPieceMultiSelect={handlePieceMultiSelect}
+                              onContextMenu={handleContextMenu}
+                              edgeProfiles={edgeTypes.map(e => ({ id: e.id, name: e.name, configuredCategories: e.configuredCategories, isMitred: e.isMitred }))}
+                              onPieceEdgeChange={handlePieceEdgeChange}
+                              cutoutTypes={cutoutTypes}
+                              onPieceCutoutAdd={handlePieceCutoutAdd}
+                              onBatchEdgeUpdate={handleBatchEdgeUpdate}
+                              optimizerPlacements={viewOptimizerPlacements ?? undefined}
+                            />
+                          )
                         )}
                         {/* Room pieces (hidden when collapsed) — WF-2c: children nested under parents */}
                         {!isCollapsed && (

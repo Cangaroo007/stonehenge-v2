@@ -249,6 +249,8 @@ export interface QuickViewPieceRowProps {
   onAddSplashback?: (initialEdge?: string) => void;
   /** QF-4: callback to refetch materials list after creating a new material */
   onMaterialsRefresh?: () => void;
+  /** Allows the quote page to switch between the partner-safe legacy editor and spatial beta editor. */
+  geometryEditorMode?: 'legacy' | 'spatial';
 }
 
 // ── Strip Width Constants ───────────────────────────────────────────────────
@@ -843,9 +845,10 @@ export default function QuickViewPieceRow({
   onAddWaterfall,
   onAddSplashback,
   onMaterialsRefresh,
+  geometryEditorMode = 'spatial',
 }: QuickViewPieceRowProps) {
   const isEditMode = mode === 'edit' && !!fullPiece && !!editData && !!onSavePiece;
-  const useSpatialGeometryEditor = shouldUseSpatialGeometryEditor({
+  const useSpatialGeometryEditor = geometryEditorMode === 'spatial' && shouldUseSpatialGeometryEditor({
     shapeType: piece.shapeType,
     shapeConfig: (piece.shapeConfig ?? null) as Record<string, unknown> | null,
   });
