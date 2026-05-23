@@ -4,6 +4,7 @@ import { useState, useCallback } from 'react';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
+import { buildPolygonRenderModel } from '@/lib/utils/canonical-polygon-display';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -13,6 +14,8 @@ interface PieceData {
   length_mm: number;
   width_mm: number;
   piece_type: string | null;
+  shape_type?: string | null;
+  shape_config?: unknown;
   thickness_mm: number;
   edges?: Array<{ position: string; profile: string }>;
   cutouts?: Array<{ type: string; quantity: number }>;
@@ -101,6 +104,56 @@ function getEdgeProfile(edges: PieceData['edges'], position: string): string | n
   if (!edges) return null;
   const edge = edges.find(e => e.position.toLowerCase() === position.toLowerCase());
   return edge?.profile ?? null;
+}
+
+function isRadiusEndConfig(value: unknown): value is {
+  shape: 'RADIUS_END';
+  length_mm: number;
+  width_mm: number;
+  radius_mm?: number;
+  curved_ends?: 'ONE' | 'BOTH';
+} {
+  if (!value || typeof value !== 'object') return false;
+  const config = value as Record<string, unknown>;
+  return config.shape === 'RADIUS_END'
+    && Number.isFinite(config.length_mm)
+    && Number.isFinite(config.width_mm);
+}
+
+function isRoundedRectConfig(value: unknown): value is {
+  shape: 'ROUNDED_RECT';
+  corner_radius_mm?: number;
+  corner_tl_mm?: number;
+  corner_tr_mm?: number;
+  corner_br_mm?: number;
+  corner_bl_mm?: number;
+  individual_corners?: boolean;
+} {
+  return !!value
+    && typeof value === 'object'
+    && (value as Record<string, unknown>).shape === 'ROUNDED_RECT';
+}
+
+function radiusEndPath(x: number, y: number, w: number, h: number, curvedEnds: 'ONE' | 'BOTH' | undefined): string {
+  const r = h / 2;
+  if (curvedEnds === 'BOTH') {
+    return [
+      `M ${x + r} ${y}`,
+      `L ${x + w - r} ${y}`,
+      `A ${r} ${r} 0 0 1 ${x + w - r} ${y + h}`,
+      `L ${x + r} ${y + h}`,
+      `A ${r} ${r} 0 0 1 ${x + r} ${y}`,
+      'Z',
+    ].join(' ');
+  }
+
+  return [
+    `M ${x} ${y}`,
+    `L ${x + w - r} ${y}`,
+    `A ${r} ${r} 0 0 1 ${x + w - r} ${y + h}`,
+    `L ${x} ${y + h}`,
+    'Z',
+  ].join(' ');
 }
 
 /** Return a human-readable display name for an edge profile string */
@@ -201,6 +254,14 @@ export default function RoomPieceSVG({
   // Stroke styling based on selection state
   const strokeColour = isSelected ? '#2563eb' : '#94a3b8';
   const strokeWidth = isSelected ? 3 : 2;
+  const polygon = buildPolygonRenderModel(piece.shape_config, {
+    width: w,
+    height: h,
+    padding: 0,
+  });
+  const radiusEndConfig = isRadiusEndConfig(piece.shape_config) ? piece.shape_config : null;
+  const roundedRectConfig = isRoundedRectConfig(piece.shape_config) ? piece.shape_config : null;
+  const renderedAsSpecialShape = !!polygon || !!radiusEndConfig || !!roundedRectConfig;
 
   // Edge hit area width — at least 20px for reliable click targets
   const edgeHitWidth = 20;
@@ -230,18 +291,64 @@ export default function RoomPieceSVG({
         />
       )}
 
-      {/* Main piece rectangle */}
-      <rect
-        x={x}
-        y={y}
-        width={w}
-        height={h}
-        rx={2}
-        ry={2}
-        fill="rgba(255, 255, 255, 0.95)"
-        stroke={strokeColour}
-        strokeWidth={strokeWidth}
-      />
+      {/* Main piece geometry */}
+      {polygon ? (
+        <g transform={`translate(${x} ${y})`}>
+          <path
+            d={polygon.outerPath}
+            fill="rgba(255, 255, 255, 0.95)"
+            stroke={strokeColour}
+            strokeWidth={strokeWidth}
+          />
+          {polygon.innerPaths.map((path, idx) => (
+            <path key={idx} d={path} fill="rgba(248, 250, 252, 0.95)" stroke="#94a3b8" strokeWidth={1} />
+          ))}
+          {polygon.edges.map(edge => (
+            <line
+              key={edge.id}
+              x1={edge.x1}
+              y1={edge.y1}
+              x2={edge.x2}
+              y2={edge.y2}
+              stroke={edge.exposure === 'exposed' ? edgeColour(edge.profile) : '#9ca3af'}
+              strokeWidth={edge.exposure === 'exposed' ? 2.5 : 1.5}
+              strokeDasharray={edge.exposure === 'exposed' ? undefined : '4 3'}
+            >
+              <title>{`${edge.label}: ${edge.profile}, ${edge.finish}, ${Math.round(edge.lengthMm)}mm`}</title>
+            </line>
+          ))}
+          {polygon.features.map(feature => (
+            feature.kind === 'tap-hole'
+              ? <circle key={feature.id} cx={feature.x} cy={feature.y} r={feature.radius} fill="none" stroke="#6b7280" strokeWidth={1} />
+              : feature.outline
+                ? <polygon key={feature.id} points={feature.outline} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 2" />
+                : <rect key={feature.id} x={feature.x - feature.width / 2} y={feature.y - feature.height / 2} width={feature.width} height={feature.height} fill="none" stroke="#6b7280" strokeWidth={1} strokeDasharray="3 2" />
+          ))}
+        </g>
+      ) : radiusEndConfig ? (
+        <path
+          d={radiusEndPath(x, y, w, h, radiusEndConfig.curved_ends)}
+          fill="rgba(255, 255, 255, 0.95)"
+          stroke={strokeColour}
+          strokeWidth={strokeWidth}
+        />
+      ) : (
+        <rect
+          x={x}
+          y={y}
+          width={w}
+          height={h}
+          rx={roundedRectConfig
+            ? Math.max(2, Math.min(w, h) * ((Number(roundedRectConfig.corner_radius_mm) || 50) / Math.max(piece.length_mm, piece.width_mm, 1)))
+            : 2}
+          ry={roundedRectConfig
+            ? Math.max(2, Math.min(w, h) * ((Number(roundedRectConfig.corner_radius_mm) || 50) / Math.max(piece.length_mm, piece.width_mm, 1)))
+            : 2}
+          fill="rgba(255, 255, 255, 0.95)"
+          stroke={strokeColour}
+          strokeWidth={strokeWidth}
+        />
+      )}
 
       {/* Join cut lines — shown when piece requires joins */}
       {joinPositionsMm && joinPositionsMm.length > 0 && joinPositionsMm.map((joinMm, idx) => {
@@ -276,7 +383,7 @@ export default function RoomPieceSVG({
       })}
 
       {/* Edge profile lines (only if piece is large enough) */}
-      {w > 30 && h > 24 && (
+      {w > 30 && h > 24 && !renderedAsSpecialShape && (
         <>
           {/* Hover highlight glow (edit mode only) */}
           {hoveredEdge === 'top' && isEditMode && (
@@ -564,7 +671,8 @@ export default function RoomPieceSVG({
       {/* Hover effect styles (edit mode only) */}
       {isEditMode && (
         <style>{`
-          .room-piece-svg-interactive:hover rect:first-of-type {
+          .room-piece-svg-interactive:hover rect:first-of-type,
+          .room-piece-svg-interactive:hover path:first-of-type {
             filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.1));
           }
         `}</style>

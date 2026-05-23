@@ -112,6 +112,8 @@ interface AnalysisResult {
   rooms: {
     name: string;
     pieces: {
+      id?: string;
+      pieceId?: string;
       pieceNumber: number;
       name: string;
       pieceType: string;
@@ -630,10 +632,7 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
           // panel is intentionally single-document; multi-file imports go to review
           // with warnings so users can correct everything in one place.
           const cQuestions = (data.clarificationQuestions ?? []) as ClarificationQuestion[];
-          allClarificationQuestions.push(...cQuestions.map(question => ({
-            ...question,
-            id: `${fileIndex}-${question.id}`,
-          })));
+          const unmatchedQuestionIds = new Set(cQuestions.map(question => question.id));
           const requiresReview = data.requiresReview === true && cQuestions.length > 0;
           if (requiresReview) {
             if (isMultiFile) {
@@ -660,6 +659,13 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
             for (const piece of room.pieces || []) {
               const currentPieceIndex = pieceIndex++;
               const id = `extracted-${fileIndex}-${currentPieceIndex}`;
+              const sourcePieceIds = new Set([
+                piece.id,
+                piece.pieceId,
+                piece.pieceNumber ? `piece-${piece.pieceNumber}` : null,
+                `piece-${currentPieceIndex + 1}`,
+                String(currentPieceIndex + 1),
+              ].filter((value): value is string => typeof value === 'string' && value.length > 0));
               const matchedMaterial = resolveCatalogueMaterial(piece.materialName ?? piece.material);
               const importedEdges: EdgeSelections = {
                 edgeTop: piece.edgeTop ?? piece.edges?.top ?? null,
@@ -704,7 +710,26 @@ export default function DrawingImport({ quoteId, customerId, edgeTypes, onImport
                 isEditing: false,
                 edgeSelections: importedEdges,
               });
+              for (const question of cQuestions) {
+                if (!question.pieceId || !sourcePieceIds.has(String(question.pieceId))) {
+                  continue;
+                }
+                unmatchedQuestionIds.delete(question.id);
+                allClarificationQuestions.push({
+                  ...question,
+                  id: `${fileIndex}-${question.id}`,
+                  pieceId: id,
+                });
+              }
             }
+          }
+
+          for (const question of cQuestions) {
+            if (!unmatchedQuestionIds.has(question.id)) continue;
+            allClarificationQuestions.push({
+              ...question,
+              id: `${fileIndex}-${question.id}`,
+            });
           }
 
           const filePieceCount = allPieces.length - piecesBeforeThisFile;

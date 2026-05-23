@@ -3588,6 +3588,8 @@ export default function QuoteDetailClient({
                                 edge_bottom: p.edge_bottom,
                                 edge_left: p.edge_left,
                                 edge_right: p.edge_right,
+                                shape_type: p.shape_type,
+                                shape_config: p.shape_config,
                                 noStripEdges: ((p as Record<string, unknown>).noStripEdges as string[] ?? (p as Record<string, unknown>).no_strip_edges as string[]) ?? [],
                                 edgeBuildups: ((p as Record<string, unknown>).edgeBuildups as Record<string, EdgeBuildupConfig> ?? (p as Record<string, unknown>).edge_buildups as Record<string, EdgeBuildupConfig>) ?? null,
                                 piece_features: p.piece_features,
@@ -4352,6 +4354,8 @@ export default function QuoteDetailClient({
                         edge_bottom: p.edgeBottom,
                         edge_left: p.edgeLeft,
                         edge_right: p.edgeRight,
+                        shape_type: p.shapeType,
+                        shape_config: p.shapeConfig,
                         noStripEdges: (p.noStripEdges as string[]) ?? [],
                         edgeBuildups: (p.edgeBuildups as Record<string, EdgeBuildupConfig>) ?? null,
                         piece_features: p.cutouts?.map(c => ({

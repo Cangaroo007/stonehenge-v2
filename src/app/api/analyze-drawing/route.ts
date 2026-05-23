@@ -123,10 +123,13 @@ Before producing quote pieces, perform this reasoning pass internally and reflec
 4. Use standard benchtop depths only as anchors when the drawing supports them: kitchen wall runs are commonly 600-700mm deep, islands commonly 900mm deep, vanities 460-520mm deep. Mark these as inferred if not printed.
 5. Only after the measured outline is coherent should you split it into fabrication pieces. If a split is not shown, keep the visible connected angled run as one POLYGON draft and ask where the mason wants joins.
 6. Never turn an angled corner into a generic "return section" rectangle unless the drawing clearly shows a separate rectangular return piece.
+7. For complex kitchens, create the whole connected benchtop assembly first in metadata.spatialAssemblies, then derive the physical fabrication pieces from it. The assembly is the finished counter footprint a mason can visually inspect; the pieces are the manufacturable parts/cut list.
+8. If a wraparound counter will require several physical pieces, preserve suggested cut/join lines in metadata.spatialAssemblies.cutLines. Do this even when the quote rows below are split into separate pieces.
 
 For Law-style kitchens and similar hand-marked angled runs:
 - Treat labels such as 2350, 2197, 1920, 725, 620, 600 around an angled bay as source dimensions for one connected polygon, not as separate unrelated rectangles.
 - A splayed sink/cooktop bay with two angled sides must be represented as a POLYGON with the angled vertices visible in shapeConfig.
+- The upstairs/downstairs Law pattern is not an L-shape: it is a connected assembly with angled/chamfered bays and separate straight/irregular fabrication pieces. Build the connected footprint first, then split at visible or best-practice joins.
 - If the exact diagonal length is not labelled but surrounding offsets are readable, infer the diagonal using the surrounding geometry, set confidence below 0.85, and ask the user to confirm in the spatial geometry editor.
 - If the model cannot reconcile dimensions into a closed polygon, return the closest closed polygon and a CRITICAL clarification question saying which edge or angle failed to reconcile.
 
@@ -290,7 +293,23 @@ For every piece with missing dimensions, uncertain room/name, uncertain material
     "defaultThickness": 20,
     "drawingScale": "1:100 or null",
     "pageReview": ["Page 1: floor plan and colour-coded stone/laminate legend", "Page 2: joinery scope with material/thickness/apron notes"],
-    "measurementLedger": ["Kitchen angled bay: read 2350 top run, 1920 inner run, 600 depth, 620/725 angled bay offsets; modelled as polygon with inferred diagonal edge"]
+    "measurementLedger": ["Kitchen angled bay: read 2350 top run, 1920 inner run, 600 depth, 620/725 angled bay offsets; modelled as polygon with inferred diagonal edge"],
+    "spatialAssemblies": [
+      {
+        "id": "assembly-kitchen-1",
+        "room": "Kitchen",
+        "name": "Kitchen connected benchtop footprint",
+        "sourcePage": 1,
+        "sourceHint": "main kitchen plan",
+        "shapeConfig": { "type": "canonical-polygon" },
+        "childPieceNames": ["Main kitchen run", "Angled sink bay", "Return run"],
+        "cutLines": [
+          { "label": "Suggested join", "from": { "x": 1200, "y": 0 }, "to": { "x": 1200, "y": 600 }, "reason": "visible break or best-practice slab join" }
+        ],
+        "confidence": 0.78,
+        "notes": "Use for spatial review; quote rows below remain physical fabrication pieces."
+      }
+    ]
   },
   "rooms": [
     {

@@ -36,6 +36,8 @@ interface QuotePiece {
   edge_bottom: string | null;
   edge_left: string | null;
   edge_right: string | null;
+  shape_type?: string | null;
+  shape_config?: unknown;
   noStripEdges?: string[] | null;
   edgeBuildups?: Record<string, EdgeBuildupConfig> | null;
   piece_features?: Array<{ id: number; name: string; quantity: number }>;
@@ -281,6 +283,7 @@ export default function RoomSpatialView({
       length_mm: p.length_mm,
       width_mm: p.width_mm,
       piece_type: inferPieceType(p),
+      shape_config: p.shape_config,
     }));
 
     const layoutRelationships = relationships.map(r => ({
@@ -1078,6 +1081,8 @@ export default function RoomSpatialView({
                 length_mm: piece.length_mm,
                 width_mm: piece.width_mm,
                 piece_type: inferPieceType(piece),
+                shape_type: piece.shape_type,
+                shape_config: piece.shape_config,
                 thickness_mm: piece.thickness_mm,
                 edges: [
                   { position: 'top', profile: piece.edge_top ?? '' },
