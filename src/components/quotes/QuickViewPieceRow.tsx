@@ -445,14 +445,42 @@ const EDGE_HIT = 14;
 
 type MiniEdgeSide = 'top' | 'right' | 'bottom' | 'left';
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function isLegacyLShapeConfig(config: Record<string, unknown> | null | undefined): config is Record<string, unknown> & LShapeConfig {
+  const cfg = config as unknown as Partial<LShapeConfig> | null | undefined;
+  return !!(
+    cfg?.shape === 'L_SHAPE' &&
+    isFiniteNumber(cfg.leg1?.length_mm) &&
+    isFiniteNumber(cfg.leg1?.width_mm) &&
+    isFiniteNumber(cfg.leg2?.length_mm) &&
+    isFiniteNumber(cfg.leg2?.width_mm)
+  );
+}
+
+function isLegacyUShapeConfig(config: Record<string, unknown> | null | undefined): config is Record<string, unknown> & UShapeConfig {
+  const cfg = config as unknown as Partial<UShapeConfig> | null | undefined;
+  return !!(
+    cfg?.shape === 'U_SHAPE' &&
+    isFiniteNumber(cfg.leftLeg?.length_mm) &&
+    isFiniteNumber(cfg.leftLeg?.width_mm) &&
+    isFiniteNumber(cfg.back?.length_mm) &&
+    isFiniteNumber(cfg.back?.width_mm) &&
+    isFiniteNumber(cfg.rightLeg?.length_mm) &&
+    isFiniteNumber(cfg.rightLeg?.width_mm)
+  );
+}
+
 // ── Mini SVG shape path (reuses L/U shape geometry from PieceVisualEditor K4) ─
 function getMiniShapePath(
   shapeType: string | null | undefined,
   shapeConfig: Record<string, unknown> | null | undefined,
   x: number, y: number, w: number, h: number,
 ): string | null {
-  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
-    const cfg = shapeConfig as unknown as LShapeConfig;
+  if (shapeType === 'L_SHAPE' && isLegacyLShapeConfig(shapeConfig)) {
+    const cfg = shapeConfig;
     const boundW = cfg.leg1.length_mm;
     const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
     const sL1L = (cfg.leg1.length_mm / boundW) * w;
@@ -462,8 +490,8 @@ function getMiniShapePath(
     // L-shape: P0→P1→P2→P3→P4→P5 (same point order as PieceVisualEditor)
     return `M ${x},${y} L ${x + sL1L},${y} L ${x + sL1L},${y + sL1W} L ${x + sL2W},${y + sL1W} L ${x + sL2W},${y + sL1W + sL2L} L ${x},${y + sL1W + sL2L} Z`;
   }
-  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
-    const cfg = shapeConfig as unknown as UShapeConfig;
+  if (shapeType === 'U_SHAPE' && isLegacyUShapeConfig(shapeConfig)) {
+    const cfg = shapeConfig;
     const boundW = cfg.back.length_mm;
     const boundH = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
     const sLW = (cfg.leftLeg.width_mm / boundW) * w;
@@ -528,8 +556,8 @@ function getMiniShapeEdges(
   lx: number; ly: number;
   anchor: 'middle' | 'start' | 'end';
 }> | null {
-  if (shapeType === 'L_SHAPE' && shapeConfig?.shape === 'L_SHAPE') {
-    const cfg = shapeConfig as unknown as LShapeConfig;
+  if (shapeType === 'L_SHAPE' && isLegacyLShapeConfig(shapeConfig)) {
+    const cfg = shapeConfig;
     const boundW = cfg.leg1.length_mm;
     const boundH = cfg.leg1.width_mm + cfg.leg2.length_mm;
     const sL1L = (cfg.leg1.length_mm / boundW) * w;
@@ -554,8 +582,8 @@ function getMiniShapeEdges(
     ];
   }
 
-  if (shapeType === 'U_SHAPE' && shapeConfig?.shape === 'U_SHAPE') {
-    const cfg = shapeConfig as unknown as UShapeConfig;
+  if (shapeType === 'U_SHAPE' && isLegacyUShapeConfig(shapeConfig)) {
+    const cfg = shapeConfig;
     const boundW = cfg.back.length_mm;
     const boundH = Math.max(cfg.leftLeg.length_mm, cfg.rightLeg.length_mm);
     const sLW = (cfg.leftLeg.width_mm / boundW) * w;
@@ -597,17 +625,17 @@ function getPieceDimensionLabel(piece: { lengthMm: number; widthMm: number; shap
     return `${polygonDimensionLabel(canonicalPolygon)} · ${polygonMetricLabel(canonicalPolygon)}`;
   }
 
-  if (piece.shapeType === 'L_SHAPE' && cfg?.leg1 && cfg?.leg2) {
-    const leg1 = cfg.leg1 as { length_mm: number; width_mm: number };
-    const leg2 = cfg.leg2 as { length_mm: number; width_mm: number };
+  if (piece.shapeType === 'L_SHAPE' && isLegacyLShapeConfig(piece.shapeConfig)) {
+    const leg1 = piece.shapeConfig.leg1;
+    const leg2 = piece.shapeConfig.leg2;
     const leg2Net = leg2.length_mm - leg1.width_mm;
     return `${leg1.length_mm}\u00D7${leg1.width_mm}  +  ${leg2Net}\u00D7${leg2.width_mm} mm`;
   }
 
-  if (piece.shapeType === 'U_SHAPE' && cfg?.leftLeg && cfg?.back && cfg?.rightLeg) {
-    const l = cfg.leftLeg as { length_mm: number; width_mm: number };
-    const b = cfg.back as { length_mm: number; width_mm: number };
-    const r = cfg.rightLeg as { length_mm: number; width_mm: number };
+  if (piece.shapeType === 'U_SHAPE' && isLegacyUShapeConfig(piece.shapeConfig)) {
+    const l = piece.shapeConfig.leftLeg;
+    const b = piece.shapeConfig.back;
+    const r = piece.shapeConfig.rightLeg;
     return `${l.length_mm}\u00D7${l.width_mm}  /  ${b.length_mm}\u00D7${b.width_mm}  /  ${r.length_mm}\u00D7${r.width_mm} mm`;
   }
 
