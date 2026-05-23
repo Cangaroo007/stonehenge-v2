@@ -37,6 +37,7 @@ export interface PolygonRenderModel {
   width: number;
   height: number;
   scale: number;
+  projectMm: (point: { x: number; y: number }) => { x: number; y: number };
   formatMm: (mm: number) => string;
 }
 
@@ -76,12 +77,17 @@ function buildSafePolygonRenderModel(
   const offsetX = padding - bbox.minX * scale + (width - padding * 2 - rawW * scale) / 2;
   const offsetY = padding + bbox.maxY * scale + (height - padding * 2 - rawH * scale) / 2;
 
+  const projectMm = (point: { x: number; y: number }) => ({
+    x: offsetX + point.x * scale,
+    y: offsetY - point.y * scale,
+  });
+
   const point = (vertexId: string) => {
     const vertex = config.vertices[vertexId];
     if (!vertex) return { x: offsetX, y: offsetY };
     return {
-      x: offsetX + vertex.x * scale,
-      y: offsetY - vertex.y * scale,
+      x: projectMm(vertex).x,
+      y: projectMm(vertex).y,
     };
   };
 
@@ -158,6 +164,7 @@ function buildSafePolygonRenderModel(
     width,
     height,
     scale,
+    projectMm,
     formatMm: (mm: number) => `${Math.round(mm)}mm`,
   };
 }

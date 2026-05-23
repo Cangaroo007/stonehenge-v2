@@ -1,10 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useMemo, useState, useCallback } from 'react';
 import { edgeColour, edgeCode } from '@/lib/utils/edge-utils';
 import type { PiecePosition } from '@/lib/services/room-layout-engine';
 import type { EdgeBuildupConfig } from '@/types/edge-buildup';
 import { buildPolygonRenderModel } from '@/lib/utils/canonical-polygon-display';
+import { v2PieceToProtoPiece } from '@/lib/services/proto-geometry-adapter';
+import { computeJoinLineAnnotations } from '@/proto-editor/lib/join-line-annotations';
 
 // ─── Interfaces ──────────────────────────────────────────────────────────────
 
@@ -183,6 +185,10 @@ function buildUpSummary(edgeBuildups: Record<string, EdgeBuildupConfig> | null |
   return parts.join(' / ');
 }
 
+function formatJoinLength(mm: number): string {
+  return `${Math.round(mm).toLocaleString()}mm`;
+}
+
 // ─── Component ───────────────────────────────────────────────────────────────
 
 export default function RoomPieceSVG({
@@ -259,6 +265,38 @@ export default function RoomPieceSVG({
     height: h,
     padding: 0,
   });
+  const polygonJoinLines = useMemo(() => {
+    if (!polygon) return [];
+    try {
+      const protoPiece = v2PieceToProtoPiece({
+        id: piece.id,
+        name: piece.description,
+        length_mm: piece.length_mm,
+        width_mm: piece.width_mm,
+        thickness_mm: piece.thickness_mm,
+        shape_config: piece.shape_config,
+        edge_top: topEdge,
+        edge_right: rightEdge,
+        edge_bottom: bottomEdge,
+        edge_left: leftEdge,
+      });
+      return computeJoinLineAnnotations(protoPiece).map(join => {
+        const start = polygon.projectMm(join.startMm);
+        const end = polygon.projectMm(join.endMm);
+        const mid = polygon.projectMm(join.midMm);
+        return {
+          id: `${join.atVertexId}-${join.label}`,
+          start,
+          end,
+          mid,
+          label: join.label,
+          lengthMm: Math.hypot(join.endMm.x - join.startMm.x, join.endMm.y - join.startMm.y),
+        };
+      });
+    } catch {
+      return [];
+    }
+  }, [bottomEdge, leftEdge, piece.description, piece.id, piece.length_mm, piece.shape_config, piece.thickness_mm, piece.width_mm, polygon, rightEdge, topEdge]);
   const radiusEndConfig = isRadiusEndConfig(piece.shape_config) ? piece.shape_config : null;
   const roundedRectConfig = isRoundedRectConfig(piece.shape_config) ? piece.shape_config : null;
   const renderedAsSpecialShape = !!polygon || !!radiusEndConfig || !!roundedRectConfig;
@@ -316,6 +354,39 @@ export default function RoomPieceSVG({
             >
               <title>{`${edge.label}: ${edge.profile}, ${edge.finish}, ${Math.round(edge.lengthMm)}mm`}</title>
             </line>
+          ))}
+          {polygonJoinLines.map(join => (
+            <g key={join.id} pointerEvents="none">
+              <line
+                x1={join.start.x}
+                y1={join.start.y}
+                x2={join.end.x}
+                y2={join.end.y}
+                stroke="#f59e0b"
+                strokeWidth={1.8}
+                strokeDasharray="6 4"
+                opacity={0.95}
+              />
+              <rect
+                x={join.mid.x - 34}
+                y={join.mid.y - 10}
+                width={68}
+                height={20}
+                rx={4}
+                fill="rgba(15, 23, 42, 0.88)"
+                stroke="rgba(245, 158, 11, 0.75)"
+                strokeWidth={0.8}
+              />
+              <text
+                x={join.mid.x}
+                y={join.mid.y + 3}
+                textAnchor="middle"
+                className="fill-amber-100 text-[9px] font-semibold"
+              >
+                {join.label.replace(' join', '')}
+              </text>
+              <title>{`${join.label}: suggested cut/join line ${formatJoinLength(join.lengthMm)}`}</title>
+            </g>
           ))}
           {polygon.features.map(feature => (
             feature.kind === 'tap-hole'

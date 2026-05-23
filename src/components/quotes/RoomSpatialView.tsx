@@ -275,6 +275,12 @@ export default function RoomSpatialView({
   // Optimizer overlay
   optimizerPlacements,
 }: RoomSpatialViewProps) {
+  const roomGridKey = useMemo(
+    () => `room-grid-${String(roomId ?? roomName).replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+    [roomId, roomName]
+  );
+  const roomGridMajorKey = `${roomGridKey}-major`;
+
   // Calculate layout using the engine (memoised — expensive calculation)
   const layout = useMemo(() => {
     const layoutPieces = pieces.map(p => ({
@@ -1014,7 +1020,7 @@ export default function RoomSpatialView({
           <span className="text-[10px] text-gray-500 italic">
             {arrangeMode
               ? 'Drag pieces to visually check room layout. Pricing is unchanged.'
-              : 'Use Arrange to drag pieces for visual checking.'}
+              : 'Assembly view uses saved polygon geometry where available. Use Arrange to correct rough room layout.'}
           </span>
         </div>
       )}
@@ -1023,15 +1029,31 @@ export default function RoomSpatialView({
       <svg
         ref={svgRef}
         viewBox={`0 0 ${layout.viewBox.width} ${layout.viewBox.height}`}
-        className={`w-full h-auto ${
+        className={`w-full h-auto rounded-lg border border-slate-800 bg-slate-950 ${
           arrangeMode
             ? 'cursor-move'
             : mode === 'edit' && onPieceEdgeChange
               ? 'cursor-crosshair'
               : ''
         }`}
-        style={{ maxHeight: 500 }}
+        style={{ maxHeight: 560 }}
       >
+        <defs>
+          <pattern id={roomGridKey} width="40" height="40" patternUnits="userSpaceOnUse">
+            <path d="M 40 0 L 0 0 0 40" fill="none" stroke="rgba(148,163,184,0.12)" strokeWidth="1" />
+          </pattern>
+          <pattern id={roomGridMajorKey} width="200" height="200" patternUnits="userSpaceOnUse">
+            <rect width="200" height="200" fill={`url(#${roomGridKey})`} />
+            <path d="M 200 0 L 0 0 0 200" fill="none" stroke="rgba(148,163,184,0.18)" strokeWidth="1.2" />
+          </pattern>
+        </defs>
+        <rect width={layout.viewBox.width} height={layout.viewBox.height} fill={`url(#${roomGridMajorKey})`} />
+        <text x={18} y={26} className="fill-slate-400 text-[11px] font-semibold uppercase tracking-wide">
+          Spatial assembly
+        </text>
+        <text x={18} y={44} className="fill-slate-500 text-[10px]">
+          {pieces.length} fabrication piece{pieces.length !== 1 ? 's' : ''}{relationships.length > 0 ? ` · ${relationships.length} join/relationship${relationships.length !== 1 ? 's' : ''}` : ' · interpreted layout'}
+        </text>
         {/* Relationship connectors (rendered BELOW pieces for z-order) */}
         <g className="relationship-connectors">
           {relationships.map(rel => {
